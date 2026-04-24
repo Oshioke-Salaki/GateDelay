@@ -19,6 +19,11 @@ contract ERC1155Holder {
 }
 
 contract ResolutionTest is Test {
+    event MarketResolved(address indexed market, Resolution.Outcome outcome, address indexed resolver);
+    event DisputeRaised(address indexed market, address indexed disputer, string evidenceURI);
+    event PayoutClaimed(address indexed market, address indexed claimant, uint256 amount);
+    event RefundClaimed(address indexed market, address indexed claimant, uint256 amount);
+
     // -------------------------------------------------------------------------
     // Contracts
     // -------------------------------------------------------------------------
@@ -412,7 +417,7 @@ contract ResolutionTest is Test {
         vm.warp(block.timestamp + 3 hours);
         vm.prank(resolverAddr);
         vm.expectEmit(true, false, true, true);
-        emit Resolution.MarketResolved(marketAddr, Resolution.Outcome.YES, resolverAddr);
+        emit MarketResolved(marketAddr, Resolution.Outcome.YES, resolverAddr);
         resolution.resolve(marketAddr, Resolution.Outcome.YES, bytes("data"));
     }
 
@@ -421,7 +426,7 @@ contract ResolutionTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.DisputeRaised(marketAddr, alice, "ipfs://evidence");
+        emit DisputeRaised(marketAddr, alice, "ipfs://evidence");
         resolution.dispute(marketAddr, "ipfs://evidence");
     }
 
@@ -436,7 +441,7 @@ contract ResolutionTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.PayoutClaimed(marketAddr, alice, expectedPayout);
+        emit PayoutClaimed(marketAddr, alice, expectedPayout);
         resolution.claimPayout(marketAddr);
     }
 
@@ -453,7 +458,7 @@ contract ResolutionTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.RefundClaimed(marketAddr, alice, expectedRefund);
+        emit RefundClaimed(marketAddr, alice, expectedRefund);
         resolution.claimRefund(marketAddr);
     }
 

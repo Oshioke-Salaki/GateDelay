@@ -39,6 +39,9 @@ contract MockMarket {
 }
 
 contract PositionTokenTest is Test {
+    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
+    event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values);
+
     MockFactory factory;
     PositionToken token;
     MockMarket market;
@@ -107,7 +110,7 @@ contract PositionTokenTest is Test {
     function test_mint_emitsTransferSingle() public {
         uint256 id = token.yesId(address(market));
         vm.expectEmit(true, true, true, true);
-        emit PositionToken.TransferSingle(address(market), address(0), alice, id, 77);
+        emit TransferSingle(address(market), address(0), alice, id, 77);
         market.mint(alice, id, 77);
     }
 
@@ -141,7 +144,7 @@ contract PositionTokenTest is Test {
         ids[0] = yId; ids[1] = nId;
         amounts[0] = 10; amounts[1] = 20;
         vm.expectEmit(true, true, true, true);
-        emit PositionToken.TransferBatch(address(market), address(0), alice, ids, amounts);
+        emit TransferBatch(address(market), address(0), alice, ids, amounts);
         market.mintBatch(alice, ids, amounts);
     }
 

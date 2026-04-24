@@ -7,6 +7,8 @@ import "../src/MarketMaker.sol";
 import "../src/Trading.sol";
 
 contract TradingTest is Test {
+    event TradeExecuted(address indexed trader, uint256 indexed marketId, uint256 outcome, bool isBuy, uint256 shares, uint256 collateralAmount, uint256 fee);
+
     ERC20Token  token;
     MarketMaker mm;
     Trading     trading;
@@ -117,7 +119,7 @@ contract TradingTest is Test {
         vm.startPrank(alice);
         token.approve(address(trading), total);
         vm.expectEmit(true, true, false, false);
-        emit Trading.TradeExecuted(alice, marketId, 0, true, shares, total, fee);
+        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee);
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
     }

@@ -7,6 +7,8 @@ import "../src/ERC20Token.sol";
 import "../src/MarketFactory.sol";
 
 contract LiquidityPoolTest is Test {
+    event LiquidityChanged(address indexed provider, bool isDeposit, uint256 collateralAmount, uint256 lpAmount);
+
     ERC20Token internal collateral;
     LiquidityPool internal pool;
 
@@ -184,7 +186,7 @@ contract LiquidityPoolTest is Test {
         collateral.approve(address(pool), amount);
 
         vm.expectEmit(true, false, false, true);
-        emit LiquidityPool.LiquidityChanged(alice, true, amount, amount); // first deposit: lpMinted == amount
+        emit LiquidityChanged(alice, true, amount, amount); // first deposit: lpMinted == amount
         pool.deposit(amount);
         vm.stopPrank();
     }
@@ -198,7 +200,7 @@ contract LiquidityPoolTest is Test {
 
         vm.startPrank(alice);
         vm.expectEmit(true, false, false, true);
-        emit LiquidityPool.LiquidityChanged(alice, false, amount, lpBalance);
+        emit LiquidityChanged(alice, false, amount, lpBalance);
         pool.withdraw(lpBalance);
         vm.stopPrank();
     }

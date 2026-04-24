@@ -6,6 +6,8 @@ import "../src/MarketFactory.sol";
 import "../src/PositionToken.sol";
 
 contract MarketFactoryTest is Test {
+    event MarketCreated(address indexed market, address indexed creator, address indexed collateralToken, uint256 resolutionDeadline);
+
     PositionToken internal positionToken;
     MarketFactory internal factory;
 
@@ -118,7 +120,7 @@ contract MarketFactoryTest is Test {
         );
 
         vm.expectEmit(true, true, true, true);
-        emit MarketFactory.MarketCreated(expectedMarket, address(this), validToken, deadline);
+        emit MarketCreated(expectedMarket, address(this), validToken, deadline);
         factory.createMarket(validToken, deadline, 1 ether, "ipfs://meta");
     }
 
