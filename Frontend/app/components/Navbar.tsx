@@ -16,6 +16,9 @@ export default function Navbar() {
         <Link href="/transactions" className="text-sm" style={{ color: "var(--muted)" }}>
           History
         </Link>
+        <Link href="/profile" className="text-sm" style={{ color: "var(--muted)" }}>
+          Profile
+        </Link>
         <Link href="/settings" className="text-sm" style={{ color: "var(--muted)" }}>
           Settings
         </Link>
