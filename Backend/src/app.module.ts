@@ -12,6 +12,7 @@ import { BlockchainModule } from './blockchain/blockchain.module';
 import { PositionsModule } from './positions/positions.module';
 import { SearchModule } from './search/search.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
+import { AiModule } from './ai/ai.module';
 import { createKeyv } from '@keyv/redis';
 
 @Module({
@@ -38,6 +39,7 @@ import { createKeyv } from '@keyv/redis';
     PositionsModule,
     SearchModule,
     PortfolioModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
