@@ -2,6 +2,7 @@
 import { useState, Suspense } from "react";
 import { StatsSkeleton, ChartSkeleton } from "../../components/ui/Skeleton";
 import StatusIndicator from "../../../components/market/StatusIndicator";
+import GasEstimator, { type GasSpeed, type GasEstimate } from "../../../components/gas/GasEstimator";
 
 // Mock data — replace with real contract/API calls
 const MOCK_MARKET = {
@@ -29,6 +30,8 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   const market = { ...MOCK_MARKET, id: params.id };
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
+  const [gasSpeed, setGasSpeed] = useState<GasSpeed>("standard");
+  const [gasEstimate, setGasEstimate] = useState<GasEstimate | null>(null);
 
   const price = side === "YES" ? market.yesPrice : market.noPrice;
   const shares = amount ? (parseFloat(amount) / price).toFixed(2) : "—";
@@ -119,6 +122,25 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
           <div className="flex justify-between text-xs" style={{ color: "var(--muted)" }}>
             <span>Estimated shares</span><span>{shares}</span>
           </div>
+          {/* Gas fee estimate */}
+          <GasEstimator
+            compact
+            defaultSpeed={gasSpeed}
+            onSelect={(speed, estimate) => {
+              setGasSpeed(speed);
+              setGasEstimate(estimate);
+            }}
+          />
+          {gasEstimate && (
+            <div className="flex justify-between text-xs" style={{ color: "var(--muted)" }}>
+              <span>Est. gas fee</span>
+              <span>
+                {gasEstimate.feeUsd > 0
+                  ? `≈ $${gasEstimate.feeUsd < 0.01 ? "<0.01" : gasEstimate.feeUsd.toFixed(3)}`
+                  : `${parseFloat(gasEstimate.feeEth).toFixed(6)} MNT`}
+              </span>
+            </div>
+          )}
           <button
             disabled={!amount || market.status !== "open"}
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-40"
