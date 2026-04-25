@@ -1,7 +1,12 @@
 "use client";
 import { useState, Suspense } from "react";
 import { StatsSkeleton, ChartSkeleton } from "../../components/ui/Skeleton";
-import StatusIndicator from "../../../components/market/StatusIndicator";
+import StatusIndicator from "../../components/market/StatusIndicator";
+import OrderBook from "../../components/market/OrderBook";
+import TradeConfirmation from "../../../components/trade/TradeConfirmation";
+import LiquidityDisplay from "../../../components/market/LiquidityDisplay";
+import { useAccount } from "wagmi";
+import PriceChart from "../../components/chart/PriceChart";
 
 // Mock data — replace with real contract/API calls
 const MOCK_MARKET = {
@@ -26,12 +31,28 @@ const MOCK_MARKET = {
 };
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
+  const { address } = useAccount();
   const market = { ...MOCK_MARKET, id: params.id };
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
+  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState("");
 
+  const amountValue = parseFloat(amount) || 0;
   const price = side === "YES" ? market.yesPrice : market.noPrice;
-  const shares = amount ? (parseFloat(amount) / price).toFixed(2) : "—";
+  const shares = amountValue > 0 ? (amountValue / price).toFixed(2) : "—";
+  const isTradeValid = amountValue > 0 && market.status === "open";
+
+  const openConfirmation = () => {
+    if (isTradeValid) {
+      setIsConfirmationOpen(true);
+    }
+  };
+
+  const handleConfirmTrade = () => {
+    setIsConfirmationOpen(false);
+    setConfirmationMessage(`Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`);
+  };
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
@@ -54,29 +75,35 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
 
       {/* Stats */}
       <Suspense fallback={<StatsSkeleton count={4} />}>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "YES Price", value: `${(market.yesPrice * 100).toFixed(0)}¢` },
-          { label: "Volume", value: `$${market.volume.toLocaleString()}` },
-          { label: "Liquidity", value: `$${market.liquidity.toLocaleString()}` },
-          { label: "Participants", value: market.participants },
-        ].map((s) => (
-          <div
-            key={s.label}
-            className="rounded-xl p-4"
-            style={{ background: "var(--card)", border: "1px solid var(--border)" }}
-          >
-            <p className="text-xs mb-1" style={{ color: "var(--muted)" }}>{s.label}</p>
-            <p className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>{s.value}</p>
-          </div>
-        ))}
-      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "YES Price", value: `${(market.yesPrice * 100).toFixed(0)}¢` },
+            { label: "Volume", value: `$${market.volume.toLocaleString()}` },
+            { label: "Liquidity", value: `$${market.liquidity.toLocaleString()}` },
+            { label: "Participants", value: market.participants },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-xl p-4"
+              style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+            >
+              <p className="text-xs mb-1" style={{ color: "var(--muted)" }}>{s.label}</p>
+              <p className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>{s.value}</p>
+            </div>
+          ))}
+        </div>
       </Suspense>
 
       {/* Price chart */}
       <Suspense fallback={<ChartSkeleton height={300} />}>
         <PriceChart />
       </Suspense>
+
+      {/* Liquidity display */}
+      <LiquidityDisplay marketId={params.id} />
+
+      {/* Order Book */}
+      <OrderBook marketId={params.id} userAddress={address} />
 
       {/* Trading interface + Recent trades */}
       <div className="grid sm:grid-cols-2 gap-4">
@@ -119,8 +146,14 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
           <div className="flex justify-between text-xs" style={{ color: "var(--muted)" }}>
             <span>Estimated shares</span><span>{shares}</span>
           </div>
+          {confirmationMessage ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+              {confirmationMessage}
+            </div>
+          ) : null}
           <button
-            disabled={!amount || market.status !== "open"}
+            disabled={!isTradeValid}
+            onClick={openConfirmation}
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-40"
             style={{ background: side === "YES" ? "#22c55e" : "#ef4444" }}
           >
@@ -163,6 +196,15 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
           </table>
         </div>
       </div>
+
+      <TradeConfirmation
+        isOpen={isConfirmationOpen}
+        side={side}
+        amount={amountValue}
+        price={price}
+        onClose={() => setIsConfirmationOpen(false)}
+        onConfirm={handleConfirmTrade}
+      />
     </main>
   );
 }
