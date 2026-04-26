@@ -17,6 +17,7 @@ import { MarketsModule } from './markets/markets.module';
 import { WalletModule } from './wallet/wallet.module';
 import { GasModule } from './gas/gas.module';
 import { TradingHistoryModule } from './trading-history/trading-history.module';
+import { OrderMatcherModule } from './order-matcher/order-matcher.module';
 import { LiquidityModule } from './liquidity/liquidity.module';
 import { createKeyv } from '@keyv/redis';
 
@@ -49,6 +50,7 @@ import { createKeyv } from '@keyv/redis';
     WalletModule,
     GasModule,
     TradingHistoryModule,
+    OrderMatcherModule,
     LiquidityModule,
   ],
   controllers: [AppController],
