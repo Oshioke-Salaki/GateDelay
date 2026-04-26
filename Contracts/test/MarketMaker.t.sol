@@ -33,9 +33,17 @@ contract MarketMakerTest is Test {
 
     // ── Market creation ───────────────────────────────────────────────────────
     function testCreateMarket() public view {
-        (string memory desc, uint256 b, uint256 numOutcomes, bool resolved,, address creator) = mm.markets(marketId);
-        assertEq(desc, "Will flight be delayed?");
-        assertEq(b, B);
+(
+    string memory desc,
+    uint256 b,
+    uint256 numOutcomes,
+    bool resolved,
+    ,
+    address creator
+) = mm.markets(marketId);
+
+assertEq(desc, "Will flight be delayed?");
+assertEq(b, B);
         assertEq(numOutcomes, 2);
         assertFalse(resolved);
         assertEq(creator, address(this));

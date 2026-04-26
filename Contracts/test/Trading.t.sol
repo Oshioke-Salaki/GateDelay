@@ -7,17 +7,17 @@ import "../src/MarketMaker.sol";
 import "../src/Trading.sol";
 
 contract TradingTest is Test {
-    event TradeExecuted(
-        address indexed trader,
-        uint256 indexed marketId,
-        uint256 outcome,
-        bool isBuy,
-        uint256 shares,
-        uint256 collateralAmount,
-        uint256 fee
-    );
+event TradeExecuted(
+    address indexed trader,
+    uint256 indexed marketId,
+    uint256 outcome,
+    bool isBuy,
+    uint256 shares,
+    uint256 collateralAmount,
+    uint256 fee
+);
 
-    ERC20Token token;
+ERC20Token token;
     MarketMaker mm;
     Trading trading;
 
