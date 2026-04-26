@@ -1,4 +1,16 @@
 {
+  "lib/forge-std": {
+    "rev": "8987040ede9553cea20c95ad40d0455930f9c8e0"
+  },
+  "lib/openzeppelin-contracts": {
+    "rev": "5fd1781b1454fd1ef8e722282f86f9293cacf256"
+  },
+  "lib/prb-math": {
+    "tag": {
+      "name": "v4.1.1",
+      "rev": "b51e8631ed28d3cc917c491dd47cd6c3ff652edc"
+    }
+  },
   "lib\\forge-std": {
     "tag": {
       "name": "v1.16.0",

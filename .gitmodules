@@ -6,4 +6,4 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 [submodule "Contracts/lib/prb-math"]
 	path = Contracts/lib/prb-math
-	url = https://github.com/paulrberg/prb-math
+	url = https://github.com/PaulRBerg/prb-math
