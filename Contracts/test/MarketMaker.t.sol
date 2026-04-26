@@ -37,7 +37,6 @@ contract MarketMakerTest is Test {
             string memory desc,
             uint256 b,
             uint256 numOutcomes,
-            ,
             bool resolved,
             ,
             address creator

@@ -79,7 +79,7 @@ contract LMSRTest is Test {
         int256 c3 = lmsr.cost(q0, q2, B);
 
         // c1 + c2 should equal c3 (path independence)
-        assertApproxEqAbs(c1 + c2, c3, int256(WAD / 1000));
+        assertApproxEqAbs(c1 + c2, c3, uint256(WAD / 1000));
     }
 
     // ── Higher b → lower price impact ────────────────────────────────────────
