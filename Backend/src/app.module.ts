@@ -24,6 +24,7 @@ import { WebhooksModule } from './webhooks/webhook.module';
 import { ReceiptsModule } from './receipts/receipt.module';
 import { NetworkModule } from './network/network.module';
 import { ResolutionModule } from './resolution/resolution.module';
+import { ApprovalModule } from './approval/approval.module';
 import { createKeyv } from '@keyv/redis';
 
 @Module({
@@ -62,6 +63,7 @@ import { createKeyv } from '@keyv/redis';
     ReceiptsModule,
     NetworkModule,
     ResolutionModule,
+    ApprovalModule,
   ],
   controllers: [AppController],
   providers: [AppService],
