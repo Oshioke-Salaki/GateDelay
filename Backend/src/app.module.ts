@@ -19,6 +19,10 @@ import { GasModule } from './gas/gas.module';
 import { TradingHistoryModule } from './trading-history/trading-history.module';
 import { OrderMatcherModule } from './order-matcher/order-matcher.module';
 import { LiquidityModule } from './liquidity/liquidity.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { WebhooksModule } from './webhooks/webhook.module';
+import { ReceiptsModule } from './receipts/receipt.module';
+import { NetworkModule } from './network/network.module';
 import { createKeyv } from '@keyv/redis';
 
 @Module({
@@ -52,6 +56,10 @@ import { createKeyv } from '@keyv/redis';
     TradingHistoryModule,
     OrderMatcherModule,
     LiquidityModule,
+    AnalyticsModule,
+    WebhooksModule,
+    ReceiptsModule,
+    NetworkModule,
   ],
   controllers: [AppController],
   providers: [AppService],
