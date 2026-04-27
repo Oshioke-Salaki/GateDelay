@@ -23,6 +23,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { WebhooksModule } from './webhooks/webhook.module';
 import { ReceiptsModule } from './receipts/receipt.module';
 import { NetworkModule } from './network/network.module';
+import { ResolutionModule } from './resolution/resolution.module';
 import { createKeyv } from '@keyv/redis';
 
 @Module({
@@ -60,6 +61,7 @@ import { createKeyv } from '@keyv/redis';
     WebhooksModule,
     ReceiptsModule,
     NetworkModule,
+    ResolutionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
