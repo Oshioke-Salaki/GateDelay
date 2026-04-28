@@ -100,6 +100,32 @@ export class WalletService {
     this.logger.log(`Wallet ${checksummed} disconnected from user ${userId}`);
   }
 
+  async registerRecoveredWallet(userId: string, address: string): Promise<WalletEntry> {
+    const checksummed = this.validateAddress(address);
+
+    if (this.walletRegistry.has(checksummed)) {
+      const existing = this.walletRegistry.get(checksummed)!;
+      if (existing.userId !== userId) {
+        throw new ConflictException('Wallet already connected to another account');
+      }
+      return existing;
+    }
+
+    const entry: WalletEntry = {
+      address: checksummed,
+      userId,
+      connectedAt: new Date(),
+      network: this.config.get<string>('BLOCKCHAIN_RPC_URL', 'mantle'),
+    };
+
+    this.walletRegistry.set(checksummed, entry);
+    if (!this.userWallets.has(userId)) this.userWallets.set(userId, new Set());
+    this.userWallets.get(userId)!.add(checksummed);
+
+    this.logger.log(`Wallet ${checksummed} recovered for user ${userId}`);
+    return entry;
+  }
+
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   private validateAddress(raw: string): string {
