@@ -32,6 +32,7 @@ import { ApprovalModule } from './approval/approval.module';
 import { createKeyv } from '@keyv/redis';
 import { CategoriesModule } from './categories/categories.module';
 import { TradingPairModule } from './trading-pairs/trading-pair.module';
+import { WithdrawalModule } from './withdrawal/withdrawal.module';
 
 @Module({
   imports: [
@@ -85,6 +86,7 @@ import { TradingPairModule } from './trading-pairs/trading-pair.module';
     ApprovalModule,
     CategoriesModule,
     TradingPairModule,
+    WithdrawalModule,
   ],
   controllers: [AppController],
   providers: [AppService],
