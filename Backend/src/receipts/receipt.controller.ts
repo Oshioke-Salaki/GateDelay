@@ -7,17 +7,42 @@ export class ReceiptController {
 
   @Post('generate')
   generateReceipt(
-    @Body() body: { userId: string; transactionHash: string; marketId: string; amount: number; type: 'buy' | 'sell' | 'redeem' },
+    @Body()
+    body: {
+      userId: string;
+      transactionHash: string;
+      marketId: string;
+      amount: number;
+      type: 'buy' | 'sell' | 'redeem';
+    },
   ) {
-    return this.receiptService.generateReceipt(body.userId, body.transactionHash, body.marketId, body.amount, body.type);
+    return this.receiptService.generateReceipt(
+      body.userId,
+      body.transactionHash,
+      body.marketId,
+      body.amount,
+      body.type,
+    );
   }
 
   @Post('confirm/:receiptId')
   confirmReceipt(
     @Param('receiptId') receiptId: string,
-    @Body() body: { blockNumber: number; blockHash: string; gasUsed: number; gasPrice: number },
+    @Body()
+    body: {
+      blockNumber: number;
+      blockHash: string;
+      gasUsed: number;
+      gasPrice: number;
+    },
   ) {
-    return this.receiptService.confirmReceipt(receiptId, body.blockNumber, body.blockHash, body.gasUsed, body.gasPrice);
+    return this.receiptService.confirmReceipt(
+      receiptId,
+      body.blockNumber,
+      body.blockHash,
+      body.gasUsed,
+      body.gasPrice,
+    );
   }
 
   @Post('fail/:receiptId')
@@ -41,7 +66,10 @@ export class ReceiptController {
   }
 
   @Get(':receiptId/export')
-  exportReceipt(@Param('receiptId') receiptId: string, @Query('format') format: 'json' | 'csv' | 'pdf' = 'json') {
+  exportReceipt(
+    @Param('receiptId') receiptId: string,
+    @Query('format') format: 'json' | 'csv' | 'pdf' = 'json',
+  ) {
     return this.receiptService.exportReceipt(receiptId, format);
   }
 

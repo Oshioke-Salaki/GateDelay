@@ -81,7 +81,8 @@ export class AuthService {
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const userId = this.usersByEmail.get(dto.email);
-    if (!userId) return { message: 'If the email exists, a reset link was sent' };
+    if (!userId)
+      return { message: 'If the email exists, a reset link was sent' };
     const user = this.users.get(userId)!;
     const token = uuidv4();
     user.resetToken = token;
@@ -127,7 +128,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
       secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN', '7d') as any,
+      expiresIn: this.configService.get<string>(
+        'JWT_REFRESH_EXPIRES_IN',
+        '7d',
+      ) as any,
     });
     user.refreshToken = refreshToken;
     return {
@@ -144,7 +148,9 @@ export class AuthService {
     // Stub: in production, call Google/Twitter APIs to verify the token
     // For Google: https://www.googleapis.com/oauth2/v3/userinfo
     // For Twitter: https://api.twitter.com/2/users/me
-    throw new BadRequestException(`Social login via ${provider} not yet configured`);
+    throw new BadRequestException(
+      `Social login via ${provider} not yet configured`,
+    );
   }
 
   private async sendResetEmail(email: string, token: string) {

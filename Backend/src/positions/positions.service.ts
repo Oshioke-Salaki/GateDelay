@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Position } from './position.entity';
 import { OpenPositionDto, ClosePositionDto } from './dto/position.dto';
@@ -41,7 +45,8 @@ export class PositionsService {
 
   close(userId: string, id: string, dto: ClosePositionDto): Position {
     const position = this.getOne(userId, id);
-    if (position.status === 'closed') throw new ForbiddenException('Position already closed');
+    if (position.status === 'closed')
+      throw new ForbiddenException('Position already closed');
     position.currentPrice = dto.currentPrice;
     position.status = 'closed';
     position.closedAt = new Date();
@@ -67,9 +72,10 @@ export class PositionsService {
   }
 
   private _withMetrics(p: Position): Position {
-    const priceDiff = p.side === 'YES'
-      ? p.currentPrice - p.entryPrice
-      : p.entryPrice - p.currentPrice;
+    const priceDiff =
+      p.side === 'YES'
+        ? p.currentPrice - p.entryPrice
+        : p.entryPrice - p.currentPrice;
     p.pnl = priceDiff * p.shares;
     p.pnlPct = p.costBasis > 0 ? (p.pnl / p.costBasis) * 100 : 0;
     p.maxLoss = p.costBasis;

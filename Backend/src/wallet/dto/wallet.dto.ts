@@ -1,4 +1,9 @@
-import { IsString, IsNotEmpty, IsOptional, IsEthereumAddress } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEthereumAddress,
+} from 'class-validator';
 
 export class ConnectWalletDto {
   @IsEthereumAddress()

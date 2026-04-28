@@ -21,13 +21,17 @@ describe('BackupController', () => {
           useValue: {
             generateBackup: jest.fn().mockResolvedValue(mockBackup),
             verifyBackup: jest.fn().mockResolvedValue(true),
-            restoreFromBackup: jest.fn().mockResolvedValue({ address: '0x123' }),
+            restoreFromBackup: jest
+              .fn()
+              .mockResolvedValue({ address: '0x123' }),
           },
         },
         {
           provide: WalletService,
           useValue: {
-            registerRecoveredWallet: jest.fn().mockResolvedValue({ address: '0x123', userId: 'user1' }),
+            registerRecoveredWallet: jest
+              .fn()
+              .mockResolvedValue({ address: '0x123', userId: 'user1' }),
           },
         },
       ],
@@ -54,7 +58,10 @@ describe('BackupController', () => {
 
   describe('verify', () => {
     it('should return isValid true', async () => {
-      const result = await controller.verify({ encryptedData: 'data', password: 'pass' });
+      const result = await controller.verify({
+        encryptedData: 'data',
+        password: 'pass',
+      });
       expect(result).toEqual({ isValid: true });
     });
   });
@@ -62,8 +69,14 @@ describe('BackupController', () => {
   describe('restore', () => {
     it('should register the recovered wallet', async () => {
       const req = { user: { userId: 'user1' } };
-      const result = await controller.restore(req, { encryptedData: 'data', password: 'pass' });
-      expect(walletService.registerRecoveredWallet).toHaveBeenCalledWith('user1', '0x123');
+      const result = await controller.restore(req, {
+        encryptedData: 'data',
+        password: 'pass',
+      });
+      expect(walletService.registerRecoveredWallet).toHaveBeenCalledWith(
+        'user1',
+        '0x123',
+      );
       expect(result.address).toBe('0x123');
     });
   });

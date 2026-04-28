@@ -26,11 +26,17 @@ export class PriceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly maxConnectionsPerClient = 5;
   private readonly clientConnections = new Map<string, number>(); // clientId -> count
 
-  constructor(private readonly jwtService: JwtService, private readonly positionsService: PositionsService, private readonly portfolioService: PortfolioService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly positionsService: PositionsService,
+    private readonly portfolioService: PortfolioService,
+  ) {}
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.auth.token || client.handshake.headers.authorization?.split(' ')[1];
+      const token =
+        client.handshake.auth.token ||
+        client.handshake.headers.authorization?.split(' ')[1];
       if (!token) {
         client.disconnect();
         return;
@@ -74,7 +80,9 @@ export class PriceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const existing = this.subscriptions.get(client.id) || new Set();
     data.marketIds.forEach((id) => existing.add(id));
     this.subscriptions.set(client.id, existing);
-    this.logger.log(`Client ${client.id} subscribed to ${data.marketIds.join(', ')}`);
+    this.logger.log(
+      `Client ${client.id} subscribed to ${data.marketIds.join(', ')}`,
+    );
     return { subscribed: Array.from(existing) };
   }
 
@@ -86,16 +94,21 @@ export class PriceGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const existing = this.subscriptions.get(client.id);
     if (!existing) return { unsubscribed: [] };
     data.marketIds.forEach((id) => existing.delete(id));
-    this.logger.log(`Client ${client.id} unsubscribed from ${data.marketIds.join(', ')}`);
+    this.logger.log(
+      `Client ${client.id} unsubscribed from ${data.marketIds.join(', ')}`,
+    );
     return { subscribed: Array.from(existing) };
   }
 
-  broadcastPriceUpdate(marketId: string, data: { price: number; volume: number; timestamp: number }) {
+  broadcastPriceUpdate(
+    marketId: string,
+    data: { price: number; volume: number; timestamp: number },
+  ) {
     this.positionsService.updateMarketPrice(marketId, data.price);
     // snapshot portfolio for all users with positions in this market
-    this.positionsService.getUsersForMarket(marketId).forEach((userId) =>
-      this.portfolioService.recordSnapshot(userId),
-    );
+    this.positionsService
+      .getUsersForMarket(marketId)
+      .forEach((userId) => this.portfolioService.recordSnapshot(userId));
     this.subscriptions.forEach((markets, socketId) => {
       if (markets.has(marketId)) {
         this.server.to(socketId).emit('priceUpdate', { marketId, ...data });

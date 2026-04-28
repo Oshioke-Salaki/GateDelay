@@ -1,4 +1,10 @@
-import { IsString, IsOptional, IsIn, IsNumber, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsNumber,
+  IsDateString,
+} from 'class-validator';
 
 export class AnalysisRequestDto {
   @IsString()

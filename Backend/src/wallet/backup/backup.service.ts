@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bip39 from 'bip39';
 import * as crypto from 'crypto';
@@ -32,7 +37,10 @@ export class BackupService {
   /**
    * Verifies if the encrypted data can be decrypted with the given password.
    */
-  async verifyBackup(encryptedData: string, password: string): Promise<boolean> {
+  async verifyBackup(
+    encryptedData: string,
+    password: string,
+  ): Promise<boolean> {
     try {
       const decrypted = this.decrypt(encryptedData, password);
       return bip39.validateMnemonic(decrypted);
@@ -44,7 +52,10 @@ export class BackupService {
   /**
    * Decrypts the backup and returns the mnemonic and derived address.
    */
-  async restoreFromBackup(encryptedData: string, password: string): Promise<{ mnemonic: string; address: string }> {
+  async restoreFromBackup(
+    encryptedData: string,
+    password: string,
+  ): Promise<{ mnemonic: string; address: string }> {
     try {
       const mnemonic = this.decrypt(encryptedData, password);
       if (!bip39.validateMnemonic(mnemonic)) {
@@ -59,7 +70,9 @@ export class BackupService {
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       this.logger.error('Restoration failed', error);
-      throw new BadRequestException('Failed to restore from backup. Check your password.');
+      throw new BadRequestException(
+        'Failed to restore from backup. Check your password.',
+      );
     }
   }
 
@@ -76,7 +89,10 @@ export class BackupService {
 
     // Format: IV (32 hex) + Salt (32 hex) + Data
     const combinedData = iv.toString('hex') + salt.toString('hex') + encrypted;
-    const checksum = crypto.createHash('sha256').update(combinedData).digest('hex');
+    const checksum = crypto
+      .createHash('sha256')
+      .update(combinedData)
+      .digest('hex');
 
     return {
       data: combinedData,

@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Delete, Body, Param, Request, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Request,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { PositionsService } from './positions.service';
 import { OpenPositionDto, ClosePositionDto } from './dto/position.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';

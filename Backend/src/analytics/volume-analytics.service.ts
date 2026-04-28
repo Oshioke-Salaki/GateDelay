@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { VolumeData, VolumeReport, VolumeTrend, VolumeRanking } from './volume-analytics.entity';
+import {
+  VolumeData,
+  VolumeReport,
+  VolumeTrend,
+  VolumeRanking,
+} from './volume-analytics.entity';
 
 @Injectable()
 export class VolumeAnalyticsService {
@@ -8,7 +13,11 @@ export class VolumeAnalyticsService {
   private volumeReports = new Map<string, VolumeReport[]>();
   private volumeTrends = new Map<string, VolumeTrend[]>();
 
-  recordVolume(marketId: string, volume: number, period: 'hourly' | 'daily' | 'weekly' | 'monthly' = 'hourly'): VolumeData {
+  recordVolume(
+    marketId: string,
+    volume: number,
+    period: 'hourly' | 'daily' | 'weekly' | 'monthly' = 'hourly',
+  ): VolumeData {
     const data: VolumeData = {
       id: uuidv4(),
       marketId,
@@ -24,12 +33,15 @@ export class VolumeAnalyticsService {
     return data;
   }
 
-  generateVolumeReport(marketId: string, periodHours: number = 24): VolumeReport {
+  generateVolumeReport(
+    marketId: string,
+    periodHours: number = 24,
+  ): VolumeReport {
     const data = this.volumeData.get(marketId) || [];
     const now = new Date();
     const cutoff = new Date(now.getTime() - periodHours * 60 * 60 * 1000);
 
-    const relevantData = data.filter(d => d.timestamp >= cutoff);
+    const relevantData = data.filter((d) => d.timestamp >= cutoff);
 
     if (relevantData.length === 0) {
       return {
@@ -45,7 +57,9 @@ export class VolumeAnalyticsService {
 
     const totalVolume = relevantData.reduce((sum, d) => sum + d.volume, 0);
     const averageVolume = totalVolume / relevantData.length;
-    const peakData = relevantData.reduce((max, d) => d.volume > max.volume ? d : max);
+    const peakData = relevantData.reduce((max, d) =>
+      d.volume > max.volume ? d : max,
+    );
 
     const report: VolumeReport = {
       marketId,
@@ -68,17 +82,27 @@ export class VolumeAnalyticsService {
   analyzeTrends(marketId: string, periodHours: number = 24): VolumeTrend {
     const data = this.volumeData.get(marketId) || [];
     const now = new Date();
-    const currentCutoff = new Date(now.getTime() - periodHours * 60 * 60 * 1000);
-    const previousCutoff = new Date(now.getTime() - periodHours * 2 * 60 * 60 * 1000);
+    const currentCutoff = new Date(
+      now.getTime() - periodHours * 60 * 60 * 1000,
+    );
+    const previousCutoff = new Date(
+      now.getTime() - periodHours * 2 * 60 * 60 * 1000,
+    );
 
-    const currentData = data.filter(d => d.timestamp >= currentCutoff);
-    const previousData = data.filter(d => d.timestamp >= previousCutoff && d.timestamp < currentCutoff);
+    const currentData = data.filter((d) => d.timestamp >= currentCutoff);
+    const previousData = data.filter(
+      (d) => d.timestamp >= previousCutoff && d.timestamp < currentCutoff,
+    );
 
     const currentVolume = currentData.reduce((sum, d) => sum + d.volume, 0);
     const previousVolume = previousData.reduce((sum, d) => sum + d.volume, 0);
 
-    const percentageChange = previousVolume > 0 ? ((currentVolume - previousVolume) / previousVolume) * 100 : 0;
-    const trend = percentageChange > 5 ? 'up' : percentageChange < -5 ? 'down' : 'stable';
+    const percentageChange =
+      previousVolume > 0
+        ? ((currentVolume - previousVolume) / previousVolume) * 100
+        : 0;
+    const trend =
+      percentageChange > 5 ? 'up' : percentageChange < -5 ? 'down' : 'stable';
 
     const volumeTrend: VolumeTrend = {
       marketId,
@@ -97,13 +121,16 @@ export class VolumeAnalyticsService {
     return volumeTrend;
   }
 
-  getVolumeRankings(limit: number = 10, periodHours: number = 24): VolumeRanking[] {
+  getVolumeRankings(
+    limit: number = 10,
+    periodHours: number = 24,
+  ): VolumeRanking[] {
     const rankings: VolumeRanking[] = [];
 
     for (const [marketId, data] of this.volumeData.entries()) {
       const now = new Date();
       const cutoff = new Date(now.getTime() - periodHours * 60 * 60 * 1000);
-      const relevantData = data.filter(d => d.timestamp >= cutoff);
+      const relevantData = data.filter((d) => d.timestamp >= cutoff);
       const volume = relevantData.reduce((sum, d) => sum + d.volume, 0);
 
       rankings.push({
@@ -114,14 +141,20 @@ export class VolumeAnalyticsService {
     }
 
     rankings.sort((a, b) => b.volume - a.volume);
-    rankings.forEach((r, i) => r.rank = i + 1);
+    rankings.forEach((r, i) => (r.rank = i + 1));
 
     return rankings.slice(0, limit);
   }
 
-  getVolumeByTimeFilter(marketId: string, startDate: Date, endDate: Date): VolumeData[] {
+  getVolumeByTimeFilter(
+    marketId: string,
+    startDate: Date,
+    endDate: Date,
+  ): VolumeData[] {
     const data = this.volumeData.get(marketId) || [];
-    return data.filter(d => d.timestamp >= startDate && d.timestamp <= endDate);
+    return data.filter(
+      (d) => d.timestamp >= startDate && d.timestamp <= endDate,
+    );
   }
 
   getVolumeReport(marketId: string): VolumeReport | undefined {

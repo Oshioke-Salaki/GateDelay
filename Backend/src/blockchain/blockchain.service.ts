@@ -34,7 +34,9 @@ export class BlockchainService {
 
     let txHash: string;
     try {
-      const response = await this.provider.broadcastTransaction(dto.signedTransaction);
+      const response = await this.provider.broadcastTransaction(
+        dto.signedTransaction,
+      );
       txHash = response.hash;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -72,8 +74,14 @@ export class BlockchainService {
       }
 
       const currentBlock = await this.provider.getBlockNumber();
-      const confirmations = receipt ? currentBlock - receipt.blockNumber + 1 : 0;
-      const status = !receipt ? 'pending' : receipt.status === 1 ? 'confirmed' : 'failed';
+      const confirmations = receipt
+        ? currentBlock - receipt.blockNumber + 1
+        : 0;
+      const status = !receipt
+        ? 'pending'
+        : receipt.status === 1
+          ? 'confirmed'
+          : 'failed';
 
       const record: TransactionRecord = {
         txHash,
@@ -108,14 +116,18 @@ export class BlockchainService {
       const record = this.transactions.get(txHash);
       if (!record || record.status !== 'pending') return;
 
-      const receipt = await this.provider.getTransactionReceipt(txHash).catch(() => null);
+      const receipt = await this.provider
+        .getTransactionReceipt(txHash)
+        .catch(() => null);
       if (receipt) {
         const currentBlock = await this.provider.getBlockNumber();
         record.confirmations = currentBlock - receipt.blockNumber + 1;
         record.blockNumber = receipt.blockNumber;
         record.status = receipt.status === 1 ? 'confirmed' : 'failed';
         if (record.status === 'confirmed') record.confirmedAt = new Date();
-        this.logger.log(`Tx ${txHash} ${record.status} (${record.confirmations} confirmations)`);
+        this.logger.log(
+          `Tx ${txHash} ${record.status} (${record.confirmations} confirmations)`,
+        );
         return;
       }
     }

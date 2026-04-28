@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -26,6 +27,8 @@ import { NetworkModule } from './network/network.module';
 import { ResolutionModule } from './resolution/resolution.module';
 import { ApprovalModule } from './approval/approval.module';
 import { createKeyv } from '@keyv/redis';
+import { CategoriesModule } from './categories/categories.module';
+import { TradingPairModule } from './trading-pairs/trading-pair.module';
 
 @Module({
   imports: [
@@ -43,6 +46,16 @@ import { createKeyv } from '@keyv/redis';
           stores: [createKeyv(`redis://${redisHost}:${redisPort}`)],
         };
       },
+    }),
+    MongooseModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        uri: config.get<string>(
+          'MONGODB_URI',
+          'mongodb://localhost:27017/gatedelay',
+        ),
+      }),
     }),
     AuthModule,
     MarketDataModule,
@@ -64,8 +77,10 @@ import { createKeyv } from '@keyv/redis';
     NetworkModule,
     ResolutionModule,
     ApprovalModule,
+    CategoriesModule,
+    TradingPairModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule { }
+export class AppModule {}

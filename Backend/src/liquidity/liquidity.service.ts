@@ -3,7 +3,10 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import type { Cache } from 'cache-manager';
 import { create, all } from 'mathjs';
-import { MarketResolverService, Market } from '../markets/market-resolver.service';
+import {
+  MarketResolverService,
+  Market,
+} from '../markets/market-resolver.service';
 
 const math = create(all);
 
@@ -23,9 +26,9 @@ export interface MarketLiquidity {
 
 export interface LiquidityDepth {
   marketId: string;
-  imbalance: number;       // |yesRatio - 0.5|, 0 = perfectly balanced
+  imbalance: number; // |yesRatio - 0.5|, 0 = perfectly balanced
   dominantSide: 'YES' | 'NO' | 'BALANCED';
-  depthScore: number;      // 0–1, higher = deeper / more balanced
+  depthScore: number; // 0–1, higher = deeper / more balanced
 }
 
 export interface LiquidityHealth {
@@ -140,19 +143,24 @@ export class LiquidityService {
       yesStake: `${math.round(yes, 6)} ETH`,
       noStake: `${math.round(no, 6)} ETH`,
       totalLiquidity: `${math.round(total, 6)} ETH`,
-      yesRatio: yesRatio as number,
-      noRatio: noRatio as number,
+      yesRatio: yesRatio,
+      noRatio: noRatio,
       status: m.status,
     };
   }
 
   private toDepth(ml: MarketLiquidity): LiquidityDepth {
-    const imbalance = math.abs(ml.yesRatio - 0.5) as number;
-    const depthScore = math.round(1 - imbalance * 2, 4) as number; // 1 = balanced, 0 = fully one-sided
+    const imbalance = math.abs(ml.yesRatio - 0.5);
+    const depthScore = math.round(1 - imbalance * 2, 4); // 1 = balanced, 0 = fully one-sided
     const dominantSide: 'YES' | 'NO' | 'BALANCED' =
       imbalance < 0.05 ? 'BALANCED' : ml.yesRatio > 0.5 ? 'YES' : 'NO';
 
-    return { marketId: ml.marketId, imbalance: imbalance as number, dominantSide, depthScore };
+    return {
+      marketId: ml.marketId,
+      imbalance: imbalance,
+      dominantSide,
+      depthScore,
+    };
   }
 
   private computeHealth(
@@ -160,10 +168,9 @@ export class LiquidityService {
     markets: MarketLiquidity[],
   ): LiquidityHealth {
     const scores = depth.map((d) => d.depthScore);
-    const avgDepthScore =
-      scores.length
-        ? (math.round(math.mean(...scores) as number, 4) as number)
-        : 1;
+    const avgDepthScore = scores.length
+      ? math.round(math.mean(...scores), 4)
+      : 1;
 
     const lowLiquidityMarkets = markets
       .filter((m) => parseFloat(m.totalLiquidity) < 0.01)
@@ -174,7 +181,10 @@ export class LiquidityService {
       .map((d) => d.marketId);
 
     let status: LiquidityHealth['status'] = 'HEALTHY';
-    if (avgDepthScore < 0.5 || lowLiquidityMarkets.length > depth.length * 0.5) {
+    if (
+      avgDepthScore < 0.5 ||
+      lowLiquidityMarkets.length > depth.length * 0.5
+    ) {
       status = 'CRITICAL';
     } else if (avgDepthScore < 0.75 || imbalancedMarkets.length > 0) {
       status = 'WARNING';

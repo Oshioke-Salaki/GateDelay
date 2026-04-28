@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { OrderMatcherService } from './order-matcher.service';
 import { PlaceOrderDto, CancelOrderDto } from './order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,7 +24,10 @@ export class OrderMatcherController {
   }
 
   @Delete('cancel')
-  cancel(@Request() req: { user: { id: string } }, @Body() dto: CancelOrderDto) {
+  cancel(
+    @Request() req: { user: { id: string } },
+    @Body() dto: CancelOrderDto,
+  ) {
     return this.orderMatcher.cancelOrder(req.user.id, dto.orderId);
   }
 

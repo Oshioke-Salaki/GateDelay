@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import Big from 'big.js';
 import { Order, Fill, OrderSide } from './order.entity';
@@ -44,7 +49,9 @@ export class OrderMatcherService {
     };
 
     this.orders.set(order.id, order);
-    this.logger.log(`Order placed: ${order.id} ${order.side} ${order.quantity} @ ${order.price}`);
+    this.logger.log(
+      `Order placed: ${order.id} ${order.side} ${order.quantity} @ ${order.price}`,
+    );
 
     await this.withLock(this.bookKey(order), () => this.matchOrder(order));
     return order;
@@ -53,7 +60,8 @@ export class OrderMatcherService {
   cancelOrder(userId: string, orderId: string): Order {
     const order = this.orders.get(orderId);
     if (!order) throw new NotFoundException('Order not found');
-    if (order.userId !== userId) throw new BadRequestException('Not your order');
+    if (order.userId !== userId)
+      throw new BadRequestException('Not your order');
     if (order.status === 'FILLED' || order.status === 'CANCELLED') {
       throw new BadRequestException(`Order is already ${order.status}`);
     }
@@ -177,7 +185,11 @@ export class OrderMatcherService {
    * direction='desc' → highest price first (bids); 'asc' → lowest price first (asks).
    * Ties broken by createdAt ascending (FIFO).
    */
-  private insertSorted(book: Order[], order: Order, direction: 'asc' | 'desc'): void {
+  private insertSorted(
+    book: Order[],
+    order: Order,
+    direction: 'asc' | 'desc',
+  ): void {
     let lo = 0;
     let hi = book.length;
     while (lo < hi) {
@@ -203,7 +215,10 @@ export class OrderMatcherService {
   private withLock(key: string, fn: () => void): Promise<void> {
     const prev = this.locks.get(key) ?? Promise.resolve();
     const next = prev.then(() => fn());
-    this.locks.set(key, next.catch(() => {})); // don't let errors break the chain
+    this.locks.set(
+      key,
+      next.catch(() => {}),
+    ); // don't let errors break the chain
     return next;
   }
 

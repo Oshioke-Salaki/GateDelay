@@ -145,7 +145,12 @@ export class ApprovalService {
     ownerAddress: string,
     spenderAddress: string,
     tokenAddress: string,
-  ): Promise<{ owner: string; spender: string; token: string; allowance: string }> {
+  ): Promise<{
+    owner: string;
+    spender: string;
+    token: string;
+    allowance: string;
+  }> {
     const owner = this.checksumAddress(ownerAddress);
     const spender = this.checksumAddress(spenderAddress);
     const token = this.checksumAddress(tokenAddress);
@@ -206,7 +211,9 @@ export class ApprovalService {
     return { batchId, approvals: approvalResults };
   }
 
-  async getBatchStatus(batchId: string): Promise<BatchApproval & { approvals: ApprovalRecord[] }> {
+  async getBatchStatus(
+    batchId: string,
+  ): Promise<BatchApproval & { approvals: ApprovalRecord[] }> {
     const batch = this.batches.get(batchId);
     if (!batch) {
       throw new NotFoundException(`Batch ${batchId} not found`);
@@ -317,7 +324,9 @@ export class ApprovalService {
         return;
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown error';
-        this.logger.warn(`Poll attempt ${i + 1} failed for ${txHash}: ${message}`);
+        this.logger.warn(
+          `Poll attempt ${i + 1} failed for ${txHash}: ${message}`,
+        );
       }
     }
 

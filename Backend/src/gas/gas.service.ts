@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 import axios from 'axios';
 
 export interface GasTier {
-  maxFeePerGas: string;        // gwei
+  maxFeePerGas: string; // gwei
   maxPriorityFeePerGas: string; // gwei
   estimatedSeconds: number;
 }
@@ -36,7 +36,10 @@ export class GasService {
     private readonly config: ConfigService,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
   ) {
-    const rpcUrl = this.config.get<string>('BLOCKCHAIN_RPC_URL', 'https://rpc.mantle.xyz');
+    const rpcUrl = this.config.get<string>(
+      'BLOCKCHAIN_RPC_URL',
+      'https://rpc.mantle.xyz',
+    );
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.etherscanKey = this.config.get<string>('ETHERSCAN_API_KEY', '');
   }
@@ -74,7 +77,9 @@ export class GasService {
           return this.buildFromEtherscan(network, etherscanData);
         }
       } catch {
-        this.logger.warn('Etherscan gas fetch failed — falling back to provider');
+        this.logger.warn(
+          'Etherscan gas fetch failed — falling back to provider',
+        );
       }
     }
 
@@ -117,7 +122,9 @@ export class GasService {
 
   private async fetchEtherscanGas(): Promise<Record<string, string> | null> {
     const url = `https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=${this.etherscanKey}`;
-    const { data } = await axios.get<{ result: Record<string, string> }>(url, { timeout: 5000 });
+    const { data } = await axios.get<{ result: Record<string, string> }>(url, {
+      timeout: 5000,
+    });
     return data?.result ?? null;
   }
 
@@ -155,8 +162,10 @@ export class GasService {
   private buildRecommendation(standard: GasTier): string {
     const fee = parseFloat(standard.maxFeePerGas);
     if (fee < 5) return 'Gas prices are very low — good time to transact.';
-    if (fee < 20) return 'Gas prices are moderate — standard transactions are cost-effective.';
-    if (fee < 50) return 'Gas prices are elevated — consider waiting or use the slow tier.';
+    if (fee < 20)
+      return 'Gas prices are moderate — standard transactions are cost-effective.';
+    if (fee < 50)
+      return 'Gas prices are elevated — consider waiting or use the slow tier.';
     return 'Gas prices are high — only submit time-sensitive transactions.';
   }
 
@@ -165,9 +174,21 @@ export class GasService {
       network,
       baseFeeGwei: '0',
       tiers: {
-        slow: { maxFeePerGas: '1', maxPriorityFeePerGas: '1', estimatedSeconds: 120 },
-        standard: { maxFeePerGas: '2', maxPriorityFeePerGas: '2', estimatedSeconds: 30 },
-        fast: { maxFeePerGas: '5', maxPriorityFeePerGas: '5', estimatedSeconds: 10 },
+        slow: {
+          maxFeePerGas: '1',
+          maxPriorityFeePerGas: '1',
+          estimatedSeconds: 120,
+        },
+        standard: {
+          maxFeePerGas: '2',
+          maxPriorityFeePerGas: '2',
+          estimatedSeconds: 30,
+        },
+        fast: {
+          maxFeePerGas: '5',
+          maxPriorityFeePerGas: '5',
+          estimatedSeconds: 10,
+        },
       },
       recommendation: 'Gas data unavailable — using default estimates.',
       source: 'fallback',

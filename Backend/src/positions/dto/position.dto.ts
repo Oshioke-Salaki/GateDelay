@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsNumber, IsPositive, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsPositive,
+  IsIn,
+} from 'class-validator';
 
 export class OpenPositionDto {
   @IsString()

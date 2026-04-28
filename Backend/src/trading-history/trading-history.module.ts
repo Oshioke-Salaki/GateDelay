@@ -3,8 +3,8 @@ import { TradingHistoryService } from './trading-history.service';
 import { TradingHistoryController } from './trading-history.controller';
 
 @Module({
-    providers: [TradingHistoryService],
-    controllers: [TradingHistoryController],
-    exports: [TradingHistoryService],
+  providers: [TradingHistoryService],
+  controllers: [TradingHistoryController],
+  exports: [TradingHistoryService],
 })
-export class TradingHistoryModule { }
+export class TradingHistoryModule {}

@@ -60,10 +60,7 @@ export class ResolutionController {
   /** DELETE /api/resolution/:id — cancel a pending resolution request */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  cancel(
-    @Request() req: { user: { id: string } },
-    @Param('id') id: string,
-  ) {
+  cancel(@Request() req: { user: { id: string } }, @Param('id') id: string) {
     return this.resolutionService.cancelResolution(req.user.id, id);
   }
 

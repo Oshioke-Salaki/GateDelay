@@ -35,7 +35,13 @@ export class ReceiptService {
     return receipt;
   }
 
-  confirmReceipt(receiptId: string, blockNumber: number, blockHash: string, gasUsed: number, gasPrice: number): TransactionReceipt {
+  confirmReceipt(
+    receiptId: string,
+    blockNumber: number,
+    blockHash: string,
+    gasUsed: number,
+    gasPrice: number,
+  ): TransactionReceipt {
     const receipt = this.receipts.get(receiptId);
     if (!receipt) {
       throw new NotFoundException('Receipt not found');
@@ -71,7 +77,7 @@ export class ReceiptService {
 
   getUserReceipts(userId: string): TransactionReceipt[] {
     const receiptIds = this.receiptsByUser.get(userId) || [];
-    return receiptIds.map(id => this.receipts.get(id)!).filter(r => r);
+    return receiptIds.map((id) => this.receipts.get(id)!).filter((r) => r);
   }
 
   getReceiptWithBlockchainData(receiptId: string): ReceiptData {
@@ -83,14 +89,20 @@ export class ReceiptService {
         confirmations: receipt.status === 'confirmed' ? 12 : 0,
         gasUsed: receipt.gasUsed || 0,
         gasPrice: receipt.gasPrice ? receipt.gasPrice.toString() : '0',
-        transactionFee: receipt.gasUsed && receipt.gasPrice ? (receipt.gasUsed * receipt.gasPrice).toString() : '0',
+        transactionFee:
+          receipt.gasUsed && receipt.gasPrice
+            ? (receipt.gasUsed * receipt.gasPrice).toString()
+            : '0',
       },
     };
 
     return receiptData;
   }
 
-  exportReceipt(receiptId: string, format: 'json' | 'csv' | 'pdf' = 'json'): string {
+  exportReceipt(
+    receiptId: string,
+    format: 'json' | 'csv' | 'pdf' = 'json',
+  ): string {
     const receiptData = this.getReceiptWithBlockchainData(receiptId);
 
     if (format === 'json') {
@@ -98,7 +110,18 @@ export class ReceiptService {
     }
 
     if (format === 'csv') {
-      const headers = ['ID', 'Transaction Hash', 'User ID', 'Market ID', 'Amount', 'Type', 'Status', 'Block Number', 'Gas Used', 'Timestamp'];
+      const headers = [
+        'ID',
+        'Transaction Hash',
+        'User ID',
+        'Market ID',
+        'Amount',
+        'Type',
+        'Status',
+        'Block Number',
+        'Gas Used',
+        'Timestamp',
+      ];
       const values = [
         receiptData.receipt.id,
         receiptData.receipt.transactionHash,
@@ -111,7 +134,9 @@ export class ReceiptService {
         receiptData.receipt.gasUsed || '-',
         receiptData.receipt.timestamp.toISOString(),
       ];
-      return [headers, values].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      return [headers, values]
+        .map((row) => row.map((cell) => `"${cell}"`).join(','))
+        .join('\n');
     }
 
     // PDF format - return placeholder
@@ -120,26 +145,36 @@ export class ReceiptService {
 
   shareReceipt(receiptId: string): { shareToken: string; expiresAt: Date } {
     const receipt = this.getReceipt(receiptId);
-    const shareToken = Buffer.from(`${receiptId}:${Date.now()}`).toString('base64');
+    const shareToken = Buffer.from(`${receiptId}:${Date.now()}`).toString(
+      'base64',
+    );
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     return { shareToken, expiresAt };
   }
 
-  searchReceipts(userId: string, filters: { type?: string; status?: string; startDate?: Date; endDate?: Date }): TransactionReceipt[] {
+  searchReceipts(
+    userId: string,
+    filters: {
+      type?: string;
+      status?: string;
+      startDate?: Date;
+      endDate?: Date;
+    },
+  ): TransactionReceipt[] {
     let receipts = this.getUserReceipts(userId);
 
     if (filters.type) {
-      receipts = receipts.filter(r => r.type === filters.type);
+      receipts = receipts.filter((r) => r.type === filters.type);
     }
     if (filters.status) {
-      receipts = receipts.filter(r => r.status === filters.status);
+      receipts = receipts.filter((r) => r.status === filters.status);
     }
     if (filters.startDate) {
-      receipts = receipts.filter(r => r.timestamp >= filters.startDate!);
+      receipts = receipts.filter((r) => r.timestamp >= filters.startDate!);
     }
     if (filters.endDate) {
-      receipts = receipts.filter(r => r.timestamp <= filters.endDate!);
+      receipts = receipts.filter((r) => r.timestamp <= filters.endDate!);
     }
 
     return receipts;

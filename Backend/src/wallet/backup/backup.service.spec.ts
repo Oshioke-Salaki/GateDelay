@@ -66,7 +66,9 @@ describe('BackupService', () => {
     });
 
     it('should throw error for invalid data', async () => {
-      await expect(service.restoreFromBackup('invalid-data', 'password')).rejects.toThrow();
+      await expect(
+        service.restoreFromBackup('invalid-data', 'password'),
+      ).rejects.toThrow();
     });
   });
 });

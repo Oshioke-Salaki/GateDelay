@@ -12,7 +12,7 @@ export interface Position {
   costBasis: number;
   pnl: number;
   pnlPct: number;
-  maxLoss: number;       // risk metric: worst-case loss = costBasis
+  maxLoss: number; // risk metric: worst-case loss = costBasis
   status: PositionStatus;
   openedAt: Date;
   closedAt?: Date;

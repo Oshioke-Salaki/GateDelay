@@ -27,18 +27,20 @@ export class SearchService {
 
     if (dto.q) {
       const q = dto.q.toLowerCase();
-      results = results.filter((f: any) =>
-        f.flight?.iata?.toLowerCase().includes(q) ||
-        f.airline?.name?.toLowerCase().includes(q) ||
-        f.departure?.iata?.toLowerCase().includes(q) ||
-        f.arrival?.iata?.toLowerCase().includes(q),
+      results = results.filter(
+        (f: any) =>
+          f.flight?.iata?.toLowerCase().includes(q) ||
+          f.airline?.name?.toLowerCase().includes(q) ||
+          f.departure?.iata?.toLowerCase().includes(q) ||
+          f.arrival?.iata?.toLowerCase().includes(q),
       );
     }
 
     if (dto.sortBy === 'date') {
-      results.sort((a: any, b: any) =>
-        new Date(b.departure?.scheduled ?? 0).getTime() -
-        new Date(a.departure?.scheduled ?? 0).getTime(),
+      results.sort(
+        (a: any, b: any) =>
+          new Date(b.departure?.scheduled ?? 0).getTime() -
+          new Date(a.departure?.scheduled ?? 0).getTime(),
       );
     }
 
@@ -56,7 +58,10 @@ export class SearchService {
     const cached = await this.cache.get(cacheKey);
     if (cached) return cached;
 
-    const raw = await this.marketDataService.getFlights({ flightNumber: q, limit: 5 });
+    const raw = await this.marketDataService.getFlights({
+      flightNumber: q,
+      limit: 5,
+    });
     const suggestions = (raw?.data ?? []).map((f: any) => ({
       flight: f.flight?.iata,
       airline: f.airline?.name,

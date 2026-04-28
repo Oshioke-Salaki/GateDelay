@@ -22,7 +22,10 @@ export class WalletController {
   /** POST /wallets/connect — verify signature and store wallet association */
   @Post('connect')
   @HttpCode(HttpStatus.CREATED)
-  connect(@Request() req: { user: { userId: string } }, @Body() dto: ConnectWalletDto) {
+  connect(
+    @Request() req: { user: { userId: string } },
+    @Body() dto: ConnectWalletDto,
+  ) {
     return this.walletService.connectWallet(req.user.userId, dto);
   }
 

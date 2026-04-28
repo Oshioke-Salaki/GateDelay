@@ -55,7 +55,10 @@ export class ResolutionService {
 
   // ── Manual resolution request ────────────────────────────────────────────────
 
-  requestResolution(userId: string, dto: RequestResolutionDto): MarketResolution {
+  requestResolution(
+    userId: string,
+    dto: RequestResolutionDto,
+  ): MarketResolution {
     const existing = this.resolutionByMarket.get(dto.marketId);
     if (existing) {
       const res = this.resolutions.get(existing)!;
@@ -87,10 +90,14 @@ export class ResolutionService {
   cancelResolution(userId: string, resolutionId: string): MarketResolution {
     const resolution = this.getResolutionById(resolutionId);
     if (resolution.requestedBy !== userId) {
-      throw new BadRequestException('Only the requester can cancel this resolution');
+      throw new BadRequestException(
+        'Only the requester can cancel this resolution',
+      );
     }
     if (!['requested', 'pending'].includes(resolution.status)) {
-      throw new BadRequestException(`Cannot cancel a resolution with status: ${resolution.status}`);
+      throw new BadRequestException(
+        `Cannot cancel a resolution with status: ${resolution.status}`,
+      );
     }
     resolution.status = 'cancelled';
     resolution.cancelledAt = new Date();
@@ -168,7 +175,9 @@ export class ResolutionService {
 
     resolution.status = 'resolved';
     resolution.resolvedAt = new Date();
-    this.logger.log(`Resolution ${resolutionId} finalised — market ${resolution.marketId} resolved as ${resolution.outcome}`);
+    this.logger.log(
+      `Resolution ${resolutionId} finalised — market ${resolution.marketId} resolved as ${resolution.outcome}`,
+    );
     return resolution;
   }
 
@@ -272,7 +281,9 @@ export class ResolutionService {
     const resolution = this.getStatus(marketId);
     const resolutionId = resolution?.id;
 
-    const confirmations = resolutionId ? this.getConfirmations(resolutionId) : [];
+    const confirmations = resolutionId
+      ? this.getConfirmations(resolutionId)
+      : [];
     const disputes = resolutionId ? this.getDisputes(resolutionId) : [];
     const openDisputes = disputes.filter(
       (d) => d.status === 'open' || d.status === 'under_review',

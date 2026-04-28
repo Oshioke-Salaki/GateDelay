@@ -44,14 +44,18 @@ export class PortfolioService {
     const totalCost = positions.reduce((s, p) => s + p.costBasis, 0);
     const totalPnl = positions.reduce((s, p) => s + p.pnl, 0);
     const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-    const byMarket = positions.reduce<Record<string, { pnl: number; positions: number }>>((acc, p) => {
+    const byMarket = positions.reduce<
+      Record<string, { pnl: number; positions: number }>
+    >((acc, p) => {
       if (!acc[p.marketId]) acc[p.marketId] = { pnl: 0, positions: 0 };
       acc[p.marketId].pnl += p.pnl;
       acc[p.marketId].positions += 1;
       return acc;
     }, {});
     return {
-      totalCost, totalPnl, totalPnlPct,
+      totalCost,
+      totalPnl,
+      totalPnlPct,
       openCount: positions.filter((p) => p.status === 'open').length,
       closedCount: positions.filter((p) => p.status === 'closed').length,
       byMarket,

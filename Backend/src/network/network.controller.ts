@@ -40,7 +40,11 @@ export class NetworkController {
     @Param('networkName') networkName: string,
     @Body() body: { contractType: string; address: string },
   ) {
-    return this.networkService.updateContractAddress(networkName, body.contractType, body.address);
+    return this.networkService.updateContractAddress(
+      networkName,
+      body.contractType,
+      body.address,
+    );
   }
 
   @Get('switch-history')

@@ -10,7 +10,11 @@ import {
   Header,
 } from '@nestjs/common';
 import { BackupService } from './backup.service';
-import { GenerateBackupDto, VerifyBackupDto, RestoreBackupDto } from './dto/backup.dto';
+import {
+  GenerateBackupDto,
+  VerifyBackupDto,
+  RestoreBackupDto,
+} from './dto/backup.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { WalletService } from '../wallet.service';
 
@@ -31,14 +35,23 @@ export class BackupController {
   @Post('verify')
   @HttpCode(HttpStatus.OK)
   async verify(@Body() dto: VerifyBackupDto) {
-    const isValid = await this.backupService.verifyBackup(dto.encryptedData, dto.password);
+    const isValid = await this.backupService.verifyBackup(
+      dto.encryptedData,
+      dto.password,
+    );
     return { isValid };
   }
 
   @Post('restore')
   @HttpCode(HttpStatus.OK)
-  async restore(@Request() req: { user: { userId: string } }, @Body() dto: RestoreBackupDto) {
-    const { address } = await this.backupService.restoreFromBackup(dto.encryptedData, dto.password);
+  async restore(
+    @Request() req: { user: { userId: string } },
+    @Body() dto: RestoreBackupDto,
+  ) {
+    const { address } = await this.backupService.restoreFromBackup(
+      dto.encryptedData,
+      dto.password,
+    );
     return this.walletService.registerRecoveredWallet(req.user.userId, address);
   }
 

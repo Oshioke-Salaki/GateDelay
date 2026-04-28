@@ -10,13 +10,13 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 
 export interface TradingSignal {
   direction: SignalType;
-  confidence: number;   // 0–100
+  confidence: number; // 0–100
   rationale: string;
 }
 
 export interface RiskAssessment {
   level: RiskLevel;
-  score: number;        // 0–100 (higher = riskier)
+  score: number; // 0–100 (higher = riskier)
   factors: string[];
 }
 
@@ -28,7 +28,7 @@ export interface MarketAnalysis {
   risk: RiskAssessment;
   keyInsights: string[];
   recommendation: string;
-  generatedAt: string;  // ISO timestamp
+  generatedAt: string; // ISO timestamp
   model: string;
 }
 
@@ -68,7 +68,9 @@ export class AiService {
     return this.cache.get<MarketAnalysis>(`ai:analysis:${marketId}`) ?? null;
   }
 
-  private async fetchFromGroq(dto: AnalysisRequestDto): Promise<MarketAnalysis> {
+  private async fetchFromGroq(
+    dto: AnalysisRequestDto,
+  ): Promise<MarketAnalysis> {
     const prompt = this.buildPrompt(dto);
 
     const completion = await this.groq!.chat.completions.create({
@@ -116,7 +118,10 @@ ${dto.currentOdds !== undefined ? `Current implied probability (0–1): ${dto.cu
 ${dto.riskTolerance ? `Trader risk tolerance: ${dto.riskTolerance}` : ''}`;
   }
 
-  private parseGroqResponse(dto: AnalysisRequestDto, raw: string): MarketAnalysis {
+  private parseGroqResponse(
+    dto: AnalysisRequestDto,
+    raw: string,
+  ): MarketAnalysis {
     let parsed: any;
     try {
       parsed = JSON.parse(raw);

@@ -7,15 +7,21 @@ import { WebhookPayload, WebhookEvent, WebhookStatus } from './webhook.entity';
 export class WebhookService {
   private webhookEvents = new Map<string, WebhookEvent>();
   private webhookStatuses = new Map<string, WebhookStatus>();
-  private readonly webhookSecret = process.env.WEBHOOK_SECRET || 'default-secret';
+  private readonly webhookSecret =
+    process.env.WEBHOOK_SECRET || 'default-secret';
   private readonly maxRetries = 3;
 
   validateWebhookSignature(payload: string, signature: string): boolean {
-    const hash = createHmac('sha256', this.webhookSecret).update(payload).digest('hex');
+    const hash = createHmac('sha256', this.webhookSecret)
+      .update(payload)
+      .digest('hex');
     return hash === signature;
   }
 
-  async processWebhook(payload: WebhookPayload, signature: string): Promise<WebhookStatus> {
+  async processWebhook(
+    payload: WebhookPayload,
+    signature: string,
+  ): Promise<WebhookStatus> {
     const payloadString = JSON.stringify(payload);
 
     if (!this.validateWebhookSignature(payloadString, signature)) {
@@ -53,15 +59,24 @@ export class WebhookService {
     }
   }
 
-  private async createMarketFromWebhook(payload: WebhookPayload): Promise<void> {
+  private async createMarketFromWebhook(
+    payload: WebhookPayload,
+  ): Promise<void> {
     // Validate payload
-    if (!payload.marketId || !payload.marketName || !payload.outcomes || payload.outcomes.length < 2) {
+    if (
+      !payload.marketId ||
+      !payload.marketName ||
+      !payload.outcomes ||
+      payload.outcomes.length < 2
+    ) {
       throw new BadRequestException('Invalid market payload');
     }
 
     // Simulate market creation
     // In production, this would call the actual market creation service
-    console.log(`Creating market: ${payload.marketName} with outcomes: ${payload.outcomes.join(', ')}`);
+    console.log(
+      `Creating market: ${payload.marketName} with outcomes: ${payload.outcomes.join(', ')}`,
+    );
   }
 
   private handleWebhookError(event: WebhookEvent, error: any): WebhookStatus {

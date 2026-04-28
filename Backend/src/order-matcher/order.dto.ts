@@ -1,8 +1,17 @@
-import { IsString, IsNotEmpty, IsIn, IsNumber, IsPositive, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsIn,
+  IsNumber,
+  IsPositive,
+  Min,
+  Max,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PlaceOrderDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   marketId: string;
 
   @IsIn(['BUY', 'SELL'])
@@ -11,16 +20,21 @@ export class PlaceOrderDto {
   @IsIn(['YES', 'NO'])
   outcome: 'YES' | 'NO';
 
-  @IsNumber() @IsPositive() @Min(0.01) @Max(0.99)
+  @IsNumber()
+  @IsPositive()
+  @Min(0.01)
+  @Max(0.99)
   @Type(() => Number)
   price: number;
 
-  @IsNumber() @IsPositive()
+  @IsNumber()
+  @IsPositive()
   @Type(() => Number)
   quantity: number;
 }
 
 export class CancelOrderDto {
-  @IsString() @IsNotEmpty()
+  @IsString()
+  @IsNotEmpty()
   orderId: string;
 }

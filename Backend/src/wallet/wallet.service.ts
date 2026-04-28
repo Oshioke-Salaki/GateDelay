@@ -10,7 +10,7 @@ import { ethers } from 'ethers';
 import { ConnectWalletDto } from './dto/wallet.dto';
 
 export interface WalletEntry {
-  address: string;          // checksummed
+  address: string; // checksummed
   userId: string;
   connectedAt: Date;
   network: string;
@@ -35,18 +35,26 @@ export class WalletService {
   private readonly provider: ethers.JsonRpcProvider;
 
   constructor(private readonly config: ConfigService) {
-    const rpcUrl = this.config.get<string>('BLOCKCHAIN_RPC_URL', 'https://rpc.mantle.xyz');
+    const rpcUrl = this.config.get<string>(
+      'BLOCKCHAIN_RPC_URL',
+      'https://rpc.mantle.xyz',
+    );
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
   }
 
-  async connectWallet(userId: string, dto: ConnectWalletDto): Promise<WalletEntry> {
+  async connectWallet(
+    userId: string,
+    dto: ConnectWalletDto,
+  ): Promise<WalletEntry> {
     const checksummed = this.validateAddress(dto.address);
     this.verifySignature(checksummed, dto.message, dto.signature);
 
     if (this.walletRegistry.has(checksummed)) {
       const existing = this.walletRegistry.get(checksummed)!;
       if (existing.userId !== userId) {
-        throw new ConflictException('Wallet already connected to another account');
+        throw new ConflictException(
+          'Wallet already connected to another account',
+        );
       }
       return existing; // idempotent re-connect
     }
@@ -85,7 +93,9 @@ export class WalletService {
       };
     } catch (err) {
       this.logger.error(`Failed to fetch balance for ${checksummed}`, err);
-      throw new BadRequestException('Unable to retrieve balance — check RPC connectivity');
+      throw new BadRequestException(
+        'Unable to retrieve balance — check RPC connectivity',
+      );
     }
   }
 
@@ -100,13 +110,18 @@ export class WalletService {
     this.logger.log(`Wallet ${checksummed} disconnected from user ${userId}`);
   }
 
-  async registerRecoveredWallet(userId: string, address: string): Promise<WalletEntry> {
+  async registerRecoveredWallet(
+    userId: string,
+    address: string,
+  ): Promise<WalletEntry> {
     const checksummed = this.validateAddress(address);
 
     if (this.walletRegistry.has(checksummed)) {
       const existing = this.walletRegistry.get(checksummed)!;
       if (existing.userId !== userId) {
-        throw new ConflictException('Wallet already connected to another account');
+        throw new ConflictException(
+          'Wallet already connected to another account',
+        );
       }
       return existing;
     }
@@ -136,7 +151,11 @@ export class WalletService {
     }
   }
 
-  private verifySignature(address: string, message: string, signature: string): void {
+  private verifySignature(
+    address: string,
+    message: string,
+    signature: string,
+  ): void {
     try {
       const recovered = ethers.verifyMessage(message, signature);
       if (ethers.getAddress(recovered) !== address) {
