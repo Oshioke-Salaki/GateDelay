@@ -33,6 +33,7 @@ import { createKeyv } from '@keyv/redis';
 import { CategoriesModule } from './categories/categories.module';
 import { TradingPairModule } from './trading-pairs/trading-pair.module';
 import { WithdrawalModule } from './withdrawal/withdrawal.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { WithdrawalModule } from './withdrawal/withdrawal.module';
     CategoriesModule,
     TradingPairModule,
     WithdrawalModule,
+    ApiKeysModule,
   ],
   controllers: [AppController],
   providers: [AppService],

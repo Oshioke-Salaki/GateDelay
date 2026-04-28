@@ -35,37 +35,37 @@ export class UserSettingsController {
   @Get(':category')
   getCategory(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
   ) {
-    return this.settingsService.getCategory(req.user.id, category);
+    return this.settingsService.getCategory(req.user.id, category as SettingCategory);
   }
 
   @Get(':category/:key')
   getSetting(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
     @Param('key') key: string,
   ) {
-    return this.settingsService.getSetting(req.user.id, category, key);
+    return this.settingsService.getSetting(req.user.id, category as SettingCategory, key);
   }
 
   @Put(':category/:key')
   updateSetting(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
     @Body() dto: UpdateSettingDto,
   ) {
-    return this.settingsService.updateSetting(req.user.id, category, dto);
+    return this.settingsService.updateSetting(req.user.id, category as SettingCategory, dto);
   }
 
   @Put(':category')
   updateCategory(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
     @Body() dto: Omit<UpdateCategoryDto, 'category'> & { settings: Record<string, string | number | boolean> },
   ) {
     return this.settingsService.updateCategory(req.user.id, {
-      category,
+      category: category as SettingCategory,
       settings: dto.settings,
     });
   }
@@ -83,19 +83,19 @@ export class UserSettingsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   resetSetting(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
     @Param('key') key: string,
   ) {
-    return this.settingsService.deleteSetting(req.user.id, category, key);
+    return this.settingsService.deleteSetting(req.user.id, category as SettingCategory, key);
   }
 
   @Post(':category/reset')
   @HttpCode(HttpStatus.OK)
   resetCategory(
     @Request() req: { user: { id: string } },
-    @Param('category') category: SettingCategory,
+    @Param('category') category: string,
   ) {
-    return this.settingsService.resetCategory(req.user.id, category);
+    return this.settingsService.resetCategory(req.user.id, category as SettingCategory);
   }
 
   @Post('reset')
