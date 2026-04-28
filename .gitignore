@@ -85,6 +85,7 @@ Thumbs.db
 # Compiler files
 cache/
 out/
+!Backend/src/cache/
 
 # Ignores development broadcast logs
 !/broadcast

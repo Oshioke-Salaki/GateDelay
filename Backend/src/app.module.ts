@@ -34,6 +34,7 @@ import { CategoriesModule } from './categories/categories.module';
 import { TradingPairModule } from './trading-pairs/trading-pair.module';
 import { WithdrawalModule } from './withdrawal/withdrawal.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { AppCacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
     TradingPairModule,
     WithdrawalModule,
     ApiKeysModule,
+    AppCacheModule,
   ],
   controllers: [AppController],
   providers: [AppService],
