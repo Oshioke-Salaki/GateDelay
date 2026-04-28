@@ -25,6 +25,7 @@ import { WebhooksModule } from './webhooks/webhook.module';
 import { ReceiptsModule } from './receipts/receipt.module';
 import { NetworkModule } from './network/network.module';
 import { ResolutionModule } from './resolution/resolution.module';
+import { UserSettingsModule } from './user-settings/user-settings.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { RateLimiterModule } from './rate-limiter/rate-limiter.module';
 import { ApprovalModule } from './approval/approval.module';
@@ -78,6 +79,7 @@ import { TradingPairModule } from './trading-pairs/trading-pair.module';
     ReceiptsModule,
     NetworkModule,
     ResolutionModule,
+    UserSettingsModule,
     FavoritesModule,
     RateLimiterModule,
     ApprovalModule,
