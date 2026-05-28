@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@prb/math/contracts/PRBMath.sol";
+import "@prb/math/src/Common.sol";
 
 /// @title Quorum
 /// @notice Manages quorum requirements for governance decisions.
