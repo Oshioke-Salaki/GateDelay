@@ -3,9 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { Web3 } from 'web3';
-import { v4 as uuidv4 } from 'uuid';
 
 export interface VerificationCertificate {
   id: string;
@@ -50,7 +49,7 @@ export class VerificationService {
     );
 
     const certificate: VerificationCertificate = {
-      id: uuidv4(),
+      id: randomUUID(),
       marketId,
       dataSource,
       payloadHash,
