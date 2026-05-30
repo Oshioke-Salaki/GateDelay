@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Market } from "./TradingInterface";
 import { useToast } from "@/hooks/useToast";
 import { useSettings } from "@/hooks/useSettings";
+import LeverageSelector from "./LeverageSelector";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,6 +14,7 @@ interface OrderFormData {
     price: number;
     total: number;
     orderType: "market" | "limit";
+    leverage: number;
 }
 
 interface OrderPanelProps {
@@ -47,18 +49,22 @@ export default function OrderPanel({
             price: market.currentPrice,
             total: 0,
             orderType: "market",
+            leverage: 1,
         },
     });
 
-    const amount = watch("amount");
-    const price = watch("price");
+    const amount = watch("amount") || 0;
+    const price = watch("price") || market.currentPrice;
+    const leverage = watch("leverage") || 1;
 
-    // Calculate total
-    const total = amount * (orderType === "market" ? market.currentPrice : price);
+    // Calculate leverage adjustments
+    const positionSize = amount * (orderType === "market" ? market.currentPrice : price);
+    const requiredMargin = positionSize / leverage;
 
     // Mock balance - in production, fetch from wallet/backend
     const balance = 1000;
-    const maxAmount = orderType === "market" ? balance / market.currentPrice : balance / price;
+    const purchasingPower = balance * leverage; // Leverage multiplies purchasing power
+    const maxAmount = orderType === "market" ? purchasingPower / market.currentPrice : purchasingPower / price;
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -71,9 +77,11 @@ export default function OrderPanel({
         if (settings.trading.confirmTransactions) {
             const confirmed = confirm(
                 `Confirm ${activeTab.toUpperCase()} order:\n\n` +
-                `Amount: ${data.amount}\n` +
-                `Price: $${orderType === "market" ? market.currentPrice : data.price}\n` +
-                `Total: $${total.toFixed(2)}\n\n` +
+                `Amount: ${data.amount} shares\n` +
+                `Price: $${orderType === "market" ? market.currentPrice.toFixed(4) : Number(data.price).toFixed(4)}\n` +
+                `Leverage: ${leverage}x\n` +
+                `Position Size: $${positionSize.toFixed(2)}\n` +
+                `Required Margin: $${requiredMargin.toFixed(2)}\n\n` +
                 `Do you want to proceed?`
             );
 
@@ -88,12 +96,13 @@ export default function OrderPanel({
 
             toast.success(
                 "Order Placed",
-                `${activeTab.toUpperCase()} order for ${data.amount} shares placed successfully`
+                `${activeTab.toUpperCase()} order for ${data.amount} shares at ${leverage}x leverage placed successfully`
             );
 
             // Reset form
             setValue("amount", 0);
             setValue("total", 0);
+            setValue("leverage", 1);
         } catch (error) {
             toast.error("Order Failed", "Failed to place order. Please try again.");
         } finally {
@@ -206,7 +215,7 @@ export default function OrderPanel({
                         {...register("amount", {
                             required: "Amount is required",
                             min: { value: 0.0001, message: "Amount must be positive" },
-                            max: { value: maxAmount, message: "Insufficient balance" },
+                            max: { value: maxAmount, message: "Insufficient purchasing power" },
                         })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="0.0000"
@@ -230,19 +239,35 @@ export default function OrderPanel({
                     </div>
                 </div>
 
-                {/* Total */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Total (USD)</label>
-                    <div className="w-full px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 font-mono">
-                        ${total.toFixed(2)}
+                {/* Leverage Selector Widget */}
+                <div className="pt-2 border-t border-gray-100">
+                    <LeverageSelector
+                        leverage={leverage}
+                        onChange={(val) => setValue("leverage", val)}
+                    />
+                </div>
+
+                {/* Leverage Calculations Breakdown */}
+                <div className="space-y-2 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Position Size</span>
+                        <span className="font-semibold text-gray-900">${positionSize.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Required Margin</span>
+                        <span className="font-bold text-blue-600">${requiredMargin.toFixed(2)}</span>
                     </div>
                 </div>
 
-                {/* Balance */}
-                <div className="bg-blue-50 p-3 rounded-lg">
+                {/* Account Balances Context */}
+                <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-1">
                     <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Available Balance:</span>
                         <span className="font-semibold text-gray-900">${balance.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">Total Purchasing Power:</span>
+                        <span className="font-medium text-blue-700">${purchasingPower.toFixed(2)}</span>
                     </div>
                 </div>
 
