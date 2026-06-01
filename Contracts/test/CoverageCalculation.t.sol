@@ -34,9 +34,8 @@ contract CoverageCalculationTest is Test {
             7_500
         );
 
-        CoverageCalculation.CoverageParams memory params = coverage.getCoverageConfig(
-            CoverageCalculation.CoverageType.BASIC
-        );
+        CoverageCalculation.CoverageParams memory params = coverage
+            .getCoverageConfig(CoverageCalculation.CoverageType.BASIC);
 
         assertEq(params.baseCoverage, 200 ether);
         assertEq(params.maxCoverage, 600 ether);
@@ -83,8 +82,8 @@ contract CoverageCalculationTest is Test {
 
     function test_calculateCoverage_basicTier_lowRisk() public {
         // BASIC tier: 100 ether base, 70% multiplier
-        CoverageCalculation.CoverageResult memory calc =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.BASIC, 0);
+        CoverageCalculation.CoverageResult memory calc = coverage
+            .calculateCoverage(CoverageCalculation.CoverageType.BASIC, 0);
 
         assertEq(calc.baseCoverage, 100 ether);
         assertEq(calc.riskAdjustment, 0); // 0 risk score
@@ -93,8 +92,8 @@ contract CoverageCalculationTest is Test {
 
     function test_calculateCoverage_basicTier_highRisk() public {
         // BASIC tier with 50% risk
-        CoverageCalculation.CoverageResult memory calc =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.BASIC, 5_000);
+        CoverageCalculation.CoverageResult memory calc = coverage
+            .calculateCoverage(CoverageCalculation.CoverageType.BASIC, 5_000);
 
         assertEq(calc.baseCoverage, 100 ether);
         // riskAdjustment = 100 * 7000 * 5000 / (10000 * 10000) = 35 ether
@@ -103,14 +102,20 @@ contract CoverageCalculationTest is Test {
     }
 
     function test_calculateCoverage_allTiers() public {
-        CoverageCalculation.CoverageResult memory basic =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.BASIC, 5_000);
-        CoverageCalculation.CoverageResult memory standard =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.STANDARD, 5_000);
-        CoverageCalculation.CoverageResult memory premium =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.PREMIUM, 5_000);
-        CoverageCalculation.CoverageResult memory platinum =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.PLATINUM, 5_000);
+        CoverageCalculation.CoverageResult memory basic = coverage
+            .calculateCoverage(CoverageCalculation.CoverageType.BASIC, 5_000);
+        CoverageCalculation.CoverageResult memory standard = coverage
+            .calculateCoverage(
+                CoverageCalculation.CoverageType.STANDARD,
+                5_000
+            );
+        CoverageCalculation.CoverageResult memory premium = coverage
+            .calculateCoverage(CoverageCalculation.CoverageType.PREMIUM, 5_000);
+        CoverageCalculation.CoverageResult memory platinum = coverage
+            .calculateCoverage(
+                CoverageCalculation.CoverageType.PLATINUM,
+                5_000
+            );
 
         assertTrue(basic.finalCoverage < standard.finalCoverage);
         assertTrue(standard.finalCoverage < premium.finalCoverage);
@@ -119,8 +124,8 @@ contract CoverageCalculationTest is Test {
 
     function test_calculateCoverage_capAtMax() public {
         // Try to get a very high coverage with high risk
-        CoverageCalculation.CoverageResult memory calc =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.BASIC, 10_000); // 100% risk
+        CoverageCalculation.CoverageResult memory calc = coverage
+            .calculateCoverage(CoverageCalculation.CoverageType.BASIC, 10_000); // 100% risk
 
         // Should be capped at max (500 ether for BASIC)
         assertEq(calc.finalCoverage, 500 ether);
@@ -140,7 +145,8 @@ contract CoverageCalculationTest is Test {
 
         assertGt(allocatedAmount, 0);
 
-        CoverageCalculation.CoverageAllocation memory allocation = coverage.getAllocation(alice, market);
+        CoverageCalculation.CoverageAllocation memory allocation = coverage
+            .getAllocation(alice, market);
         assertEq(allocation.user, alice);
         assertEq(allocation.market, market);
         assertEq(allocation.allocatedAmount, allocatedAmount);
@@ -211,9 +217,13 @@ contract CoverageCalculationTest is Test {
 
         coverage.updateUtilization(alice, market, 200 ether);
 
-        CoverageCalculation.CoverageAllocation memory allocation = coverage.getAllocation(alice, market);
+        CoverageCalculation.CoverageAllocation memory allocation = coverage
+            .getAllocation(alice, market);
         assertEq(allocation.utilizationAmount, 200 ether);
-        assertEq(allocation.remainingCapacity, allocation.allocatedAmount - 200 ether);
+        assertEq(
+            allocation.remainingCapacity,
+            allocation.allocatedAmount - 200 ether
+        );
     }
 
     function test_updateUtilization_revertsExceedsLimit() public {
@@ -264,7 +274,8 @@ contract CoverageCalculationTest is Test {
 
         coverage.updateRiskScore(alice, market, 7_000);
 
-        CoverageCalculation.CoverageAllocation memory allocation = coverage.getAllocation(alice, market);
+        CoverageCalculation.CoverageAllocation memory allocation = coverage
+            .getAllocation(alice, market);
         assertEq(allocation.riskScore, 7_000);
     }
 
@@ -278,7 +289,8 @@ contract CoverageCalculationTest is Test {
 
         coverage.updateRiskScore(alice, market, 7_000);
 
-        CoverageCalculation.CoverageAllocation memory allocation = coverage.getAllocation(alice, market);
+        CoverageCalculation.CoverageAllocation memory allocation = coverage
+            .getAllocation(alice, market);
         // Coverage should increase with higher risk score
         assertGt(allocation.allocatedAmount, allocated1);
     }
@@ -361,7 +373,11 @@ contract CoverageCalculationTest is Test {
             5_000
         );
 
-        bool available = coverage.isCoverageAvailable(alice, market, 1000 ether);
+        bool available = coverage.isCoverageAvailable(
+            alice,
+            market,
+            1000 ether
+        );
         assertFalse(available);
     }
 
@@ -415,7 +431,9 @@ contract CoverageCalculationTest is Test {
     }
 
     function test_getBaseCoverage() public {
-        uint256 baseCoverage = coverage.getBaseCoverage(CoverageCalculation.CoverageType.PREMIUM);
+        uint256 baseCoverage = coverage.getBaseCoverage(
+            CoverageCalculation.CoverageType.PREMIUM
+        );
         assertEq(baseCoverage, 2500 ether);
     }
 
@@ -452,7 +470,11 @@ contract CoverageCalculationTest is Test {
         assertGt(allocated, 0);
 
         // 2. Check availability
-        bool available = coverage.isCoverageAvailable(alice, market, allocated / 2);
+        bool available = coverage.isCoverageAvailable(
+            alice,
+            market,
+            allocated / 2
+        );
         assertTrue(available);
 
         // 3. Update utilization
@@ -462,7 +484,8 @@ contract CoverageCalculationTest is Test {
         coverage.updateRiskScore(alice, market, 6_000);
 
         // 5. Query everything
-        CoverageCalculation.CoverageAllocation memory allocation = coverage.getAllocation(alice, market);
+        CoverageCalculation.CoverageAllocation memory allocation = coverage
+            .getAllocation(alice, market);
         assertEq(allocation.utilizationAmount, allocated / 2);
         assertEq(allocation.riskScore, 6_000);
     }
@@ -507,12 +530,18 @@ contract CoverageCalculationTest is Test {
     function testFuzz_calculateCoverage(uint256 riskScore) public {
         vm.assume(riskScore <= 10_000);
 
-        CoverageCalculation.CoverageResult memory calc =
-            coverage.calculateCoverage(CoverageCalculation.CoverageType.STANDARD, riskScore);
+        CoverageCalculation.CoverageResult memory calc = coverage
+            .calculateCoverage(
+                CoverageCalculation.CoverageType.STANDARD,
+                riskScore
+            );
 
         assertGe(calc.finalCoverage, calc.baseCoverage);
-        assertLe(calc.finalCoverage, coverage.getCoverageConfig(
-            CoverageCalculation.CoverageType.STANDARD
-        ).maxCoverage);
+        assertLe(
+            calc.finalCoverage,
+            coverage
+                .getCoverageConfig(CoverageCalculation.CoverageType.STANDARD)
+                .maxCoverage
+        );
     }
 }

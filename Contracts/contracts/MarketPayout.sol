@@ -2,8 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {
+    SafeERC20
+} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ReentrancyGuard
+} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title MarketPayout
 /// @notice Manages payout calculation, distribution, and tracking for market winners.
@@ -244,7 +248,9 @@ contract MarketPayout is ReentrancyGuard {
         require(resolution.finalized, MarketNotResolved());
 
         // Payout = (winning balance / total winning supply) × total collateral
-        payoutAmount = (winningBalance * resolution.totalCollateral) / totalWinningSupply;
+        payoutAmount =
+            (winningBalance * resolution.totalCollateral) /
+            totalWinningSupply;
 
         return payoutAmount;
     }
@@ -266,7 +272,10 @@ contract MarketPayout is ReentrancyGuard {
         PayoutRecord storage record = payoutRecords[market][recipient];
 
         // Check if recipient already has a pending payout
-        if (record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL) {
+        if (
+            record.status == PayoutStatus.PENDING ||
+            record.status == PayoutStatus.PARTIAL
+        ) {
             revert PayoutAlreadyClaimed();
         }
 
@@ -305,7 +314,10 @@ contract MarketPayout is ReentrancyGuard {
 
             PayoutRecord storage record = payoutRecords[market][recipients[i]];
 
-            if (record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL) {
+            if (
+                record.status == PayoutStatus.PENDING ||
+                record.status == PayoutStatus.PARTIAL
+            ) {
                 revert PayoutAlreadyClaimed();
             }
 
@@ -327,22 +339,34 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Distribute payout to recipient (called by admin or automated system)
-    function distributePayout(address market, address recipient) external nonReentrant {
+    function distributePayout(
+        address market,
+        address recipient
+    ) external nonReentrant {
         require(msg.sender == admin, NotAuthorized());
         require(market != address(0), InvalidMarket());
         require(recipient != address(0), InvalidRecipient());
 
         PayoutRecord storage record = payoutRecords[market][recipient];
-        require(record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL, PayoutNotPending());
+        require(
+            record.status == PayoutStatus.PENDING ||
+                record.status == PayoutStatus.PARTIAL,
+            PayoutNotPending()
+        );
 
         uint256 amountToPay = record.amount - record.claimedAmount;
         require(amountToPay > 0, NoPayoutAvailable());
 
-        require(pendingDistributions[market] >= amountToPay, InsufficientFunds());
+        require(
+            pendingDistributions[market] >= amountToPay,
+            InsufficientFunds()
+        );
 
         // Update payout record
         record.claimedAmount += amountToPay;
-        record.status = (record.claimedAmount >= record.amount) ? PayoutStatus.COMPLETE : PayoutStatus.PARTIAL;
+        record.status = (record.claimedAmount >= record.amount)
+            ? PayoutStatus.COMPLETE
+            : PayoutStatus.PARTIAL;
         record.claimedAt = block.timestamp;
 
         // Update pending distributions
@@ -358,7 +382,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Distribute batch payouts
-    function distributeBatchPayouts(address market, address[] calldata recipients) external nonReentrant {
+    function distributeBatchPayouts(
+        address market,
+        address[] calldata recipients
+    ) external nonReentrant {
         require(msg.sender == admin, NotAuthorized());
         require(market != address(0), InvalidMarket());
 
@@ -367,17 +394,24 @@ contract MarketPayout is ReentrancyGuard {
 
             PayoutRecord storage record = payoutRecords[market][recipients[i]];
 
-            if (record.status != PayoutStatus.PENDING && record.status != PayoutStatus.PARTIAL) {
+            if (
+                record.status != PayoutStatus.PENDING &&
+                record.status != PayoutStatus.PARTIAL
+            ) {
                 continue;
             }
 
             uint256 amountToPay = record.amount - record.claimedAmount;
-            if (amountToPay == 0 || pendingDistributions[market] < amountToPay) {
+            if (
+                amountToPay == 0 || pendingDistributions[market] < amountToPay
+            ) {
                 continue;
             }
 
             record.claimedAmount += amountToPay;
-            record.status = (record.claimedAmount >= record.amount) ? PayoutStatus.COMPLETE : PayoutStatus.PARTIAL;
+            record.status = (record.claimedAmount >= record.amount)
+                ? PayoutStatus.COMPLETE
+                : PayoutStatus.PARTIAL;
             record.claimedAt = block.timestamp;
 
             pendingDistributions[market] -= amountToPay;
@@ -401,7 +435,11 @@ contract MarketPayout is ReentrancyGuard {
         require(recipient != address(0), InvalidRecipient());
 
         PayoutRecord storage record = payoutRecords[market][recipient];
-        require(record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL, PayoutNotPending());
+        require(
+            record.status == PayoutStatus.PENDING ||
+                record.status == PayoutStatus.PARTIAL,
+            PayoutNotPending()
+        );
 
         record.status = PayoutStatus.FAILED;
         record.failureReason = reason;
@@ -418,11 +456,19 @@ contract MarketPayout is ReentrancyGuard {
             failedRecipients[market].push(recipient);
         }
 
-        emit PayoutFailureRecorded(market, recipient, record.amount - record.claimedAmount, reason);
+        emit PayoutFailureRecorded(
+            market,
+            recipient,
+            record.amount - record.claimedAmount,
+            reason
+        );
     }
 
     /// @notice Retry failed payouts
-    function retryFailedPayouts(address market, address[] calldata recipients) external {
+    function retryFailedPayouts(
+        address market,
+        address[] calldata recipients
+    ) external {
         require(msg.sender == admin, NotAuthorized());
         require(market != address(0), InvalidMarket());
 
@@ -435,7 +481,11 @@ contract MarketPayout is ReentrancyGuard {
             record.status = PayoutStatus.RETRIED;
             record.failureReason = "";
 
-            emit PayoutRetried(market, recipients[i], record.amount - record.claimedAmount);
+            emit PayoutRetried(
+                market,
+                recipients[i],
+                record.amount - record.claimedAmount
+            );
         }
     }
 
@@ -456,7 +506,12 @@ contract MarketPayout is ReentrancyGuard {
         record.claimedAmount = record.amount;
         record.claimedAt = block.timestamp;
 
-        emit PayoutClaimed(market, msg.sender, unclaimedAmount, block.timestamp);
+        emit PayoutClaimed(
+            market,
+            msg.sender,
+            unclaimedAmount,
+            block.timestamp
+        );
     }
 
     // -------------------------------------------------------------------------
@@ -464,25 +519,24 @@ contract MarketPayout is ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Get resolution details for a market
-    function getResolution(address market)
-        external
-        view
-        returns (MarketResolution memory)
-    {
+    function getResolution(
+        address market
+    ) external view returns (MarketResolution memory) {
         return resolutions[market];
     }
 
     /// @notice Get payout record for a recipient
-    function getPayoutRecord(address market, address recipient)
-        external
-        view
-        returns (PayoutRecord memory)
-    {
+    function getPayoutRecord(
+        address market,
+        address recipient
+    ) external view returns (PayoutRecord memory) {
         return payoutRecords[market][recipient];
     }
 
     /// @notice Get all payouts for a market
-    function getMarketPayouts(address market) external view returns (PayoutRecord[] memory) {
+    function getMarketPayouts(
+        address market
+    ) external view returns (PayoutRecord[] memory) {
         address[] memory recipients = marketRecipients[market];
         PayoutRecord[] memory payouts = new PayoutRecord[](recipients.length);
 
@@ -494,46 +548,57 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get settlement status for a market
-    function getSettlement(address market) external view returns (Settlement memory) {
+    function getSettlement(
+        address market
+    ) external view returns (Settlement memory) {
         return settlements[market];
     }
 
     /// @notice Get payout history for a recipient
-    function getPayoutHistory(address market, address recipient)
-        external
-        view
-        returns (PayoutRecord[] memory)
-    {
+    function getPayoutHistory(
+        address market,
+        address recipient
+    ) external view returns (PayoutRecord[] memory) {
         return payoutHistory[market][recipient];
     }
 
     /// @notice Get recipients for a market
-    function getMarketRecipients(address market) external view returns (address[] memory) {
+    function getMarketRecipients(
+        address market
+    ) external view returns (address[] memory) {
         return marketRecipients[market];
     }
 
     /// @notice Get failed recipients for a market
-    function getFailedRecipients(address market) external view returns (address[] memory) {
+    function getFailedRecipients(
+        address market
+    ) external view returns (address[] memory) {
         return failedRecipients[market];
     }
 
     /// @notice Get pending distribution amount
-    function getPendingDistribution(address market) external view returns (uint256) {
+    function getPendingDistribution(
+        address market
+    ) external view returns (uint256) {
         return pendingDistributions[market];
     }
 
     /// @notice Check if recipient has claimable payout
-    function hasClaimablePayout(address market, address recipient) external view returns (bool) {
+    function hasClaimablePayout(
+        address market,
+        address recipient
+    ) external view returns (bool) {
         PayoutRecord memory record = payoutRecords[market][recipient];
-        return record.status == PayoutStatus.COMPLETE && record.claimedAmount < record.amount;
+        return
+            record.status == PayoutStatus.COMPLETE &&
+            record.claimedAmount < record.amount;
     }
 
     /// @notice Get claimable payout amount
-    function getClaimableAmount(address market, address recipient)
-        external
-        view
-        returns (uint256)
-    {
+    function getClaimableAmount(
+        address market,
+        address recipient
+    ) external view returns (uint256) {
         PayoutRecord memory record = payoutRecords[market][recipient];
         if (record.status != PayoutStatus.COMPLETE) {
             return 0;
@@ -560,7 +625,10 @@ contract MarketPayout is ReentrancyGuard {
                 completedCount++;
             } else if (record.status == PayoutStatus.FAILED) {
                 totalFailed += (record.amount - record.claimedAmount);
-            } else if (record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL) {
+            } else if (
+                record.status == PayoutStatus.PENDING ||
+                record.status == PayoutStatus.PARTIAL
+            ) {
                 totalPending += (record.amount - record.claimedAmount);
             }
         }
@@ -586,7 +654,12 @@ contract MarketPayout is ReentrancyGuard {
         if (settlementStatus == PayoutStatus.COMPLETE) {
             emit SettlementCompleted(market, totalDistributed, completedCount);
         } else if (settlementStatus == PayoutStatus.PARTIAL) {
-            emit SettlementPartial(market, totalDistributed, totalFailed, totalPending);
+            emit SettlementPartial(
+                market,
+                totalDistributed,
+                totalFailed,
+                totalPending
+            );
         }
     }
 }

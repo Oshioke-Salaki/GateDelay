@@ -29,9 +29,15 @@ contract ClaimContractTest is Test {
         ClaimContract.Claim memory claim = claimContract.getClaim(claimId);
         assertEq(claim.claimant, alice);
         assertEq(claim.market, market);
-        assertEq(uint256(claim.claimType), uint256(ClaimContract.ClaimType.RESOLUTION));
+        assertEq(
+            uint256(claim.claimType),
+            uint256(ClaimContract.ClaimType.RESOLUTION)
+        );
         assertEq(claim.amountRequested, 100 ether);
-        assertEq(uint256(claim.status), uint256(ClaimContract.ClaimStatus.PENDING));
+        assertEq(
+            uint256(claim.status),
+            uint256(ClaimContract.ClaimStatus.PENDING)
+        );
     }
 
     function test_submitClaim_revertsInvalidMarket() public {
@@ -108,7 +114,10 @@ contract ClaimContractTest is Test {
         bool eligible = claimContract.validateClaim(claimId);
 
         assertTrue(eligible);
-        assertEq(uint256(claimContract.getClaimStatus(claimId)), uint256(ClaimContract.ClaimStatus.VALIDATED));
+        assertEq(
+            uint256(claimContract.getClaimStatus(claimId)),
+            uint256(ClaimContract.ClaimStatus.VALIDATED)
+        );
         assertEq(claimContract.getClaimPayout(claimId), 160 ether);
     }
 
@@ -126,7 +135,10 @@ contract ClaimContractTest is Test {
         bool eligible = claimContract.validateClaim(claimId);
 
         assertFalse(eligible);
-        assertEq(uint256(claimContract.getClaimStatus(claimId)), uint256(ClaimContract.ClaimStatus.REJECTED));
+        assertEq(
+            uint256(claimContract.getClaimStatus(claimId)),
+            uint256(ClaimContract.ClaimStatus.REJECTED)
+        );
         assertEq(claimContract.getClaimPayout(claimId), 0);
     }
 
@@ -145,7 +157,10 @@ contract ClaimContractTest is Test {
         claimContract.approveClaim(claimId);
         claimContract.payClaim(claimId);
 
-        assertEq(uint256(claimContract.getClaimStatus(claimId)), uint256(ClaimContract.ClaimStatus.PAID));
+        assertEq(
+            uint256(claimContract.getClaimStatus(claimId)),
+            uint256(ClaimContract.ClaimStatus.PAID)
+        );
         assertEq(claimContract.getClaimPayout(claimId), 70 ether);
     }
 
@@ -215,14 +230,20 @@ contract ClaimContractTest is Test {
     function test_updatePayoutRate_and_transferOwnership() public {
         vm.prank(owner);
         claimContract.updatePayoutRate(ClaimContract.ClaimType.FRAUD, 5_000);
-        assertEq(claimContract.payoutRatesBps(ClaimContract.ClaimType.FRAUD), 5_000);
+        assertEq(
+            claimContract.payoutRatesBps(ClaimContract.ClaimType.FRAUD),
+            5_000
+        );
 
         vm.prank(owner);
         claimContract.transferOwnership(bob);
 
         vm.prank(bob);
         claimContract.updatePayoutRate(ClaimContract.ClaimType.FRAUD, 4_000);
-        assertEq(claimContract.payoutRatesBps(ClaimContract.ClaimType.FRAUD), 4_000);
+        assertEq(
+            claimContract.payoutRatesBps(ClaimContract.ClaimType.FRAUD),
+            4_000
+        );
     }
 
     function test_updatePayoutRate_revertsInvalidRate() public {

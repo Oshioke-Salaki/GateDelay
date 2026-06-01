@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 /// @title CoverageCalculation
 /// @notice Handles coverage amount calculations, utilization tracking, limit enforcement, and queries.
 contract CoverageCalculation {
-
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
@@ -30,9 +29,9 @@ contract CoverageCalculation {
 
     /// @notice Coverage parameters for each type
     struct CoverageParams {
-        uint256 baseCoverage;      // Base coverage amount
-        uint256 maxCoverage;       // Maximum coverage limit
-        uint256 riskMultiplier;    // Risk-adjusted multiplier (in bps)
+        uint256 baseCoverage; // Base coverage amount
+        uint256 maxCoverage; // Maximum coverage limit
+        uint256 riskMultiplier; // Risk-adjusted multiplier (in bps)
         bool active;
     }
 
@@ -45,7 +44,7 @@ contract CoverageCalculation {
         uint256 utilizationAmount;
         uint256 utilizationPercentage; // in bps
         uint256 remainingCapacity;
-        uint256 riskScore;         // 0-10000 (0-100%)
+        uint256 riskScore; // 0-10000 (0-100%)
         uint256 adjustedCoverage;
         bool active;
         uint256 lastUpdated;
@@ -114,7 +113,8 @@ contract CoverageCalculation {
     mapping(CoverageType => CoverageParams) public coverageConfig;
 
     /// @dev user => market => CoverageAllocation
-    mapping(address => mapping(address => CoverageAllocation)) private _allocations;
+    mapping(address => mapping(address => CoverageAllocation))
+        private _allocations;
 
     /// @dev user => market array for tracking
     mapping(address => address[]) private _userMarkets;
@@ -145,8 +145,14 @@ contract CoverageCalculation {
         uint256 riskMultiplier
     ) external {
         require(msg.sender == admin, "Not admin");
-        require(baseCoverage > 0 && maxCoverage >= baseCoverage, InvalidCoverageAmount());
-        require(riskMultiplier > 0 && riskMultiplier <= BPS_DENOMINATOR, InvalidMultiplier());
+        require(
+            baseCoverage > 0 && maxCoverage >= baseCoverage,
+            InvalidCoverageAmount()
+        );
+        require(
+            riskMultiplier > 0 && riskMultiplier <= BPS_DENOMINATOR,
+            InvalidMultiplier()
+        );
 
         coverageConfig[coverageType] = CoverageParams({
             baseCoverage: baseCoverage,
@@ -155,7 +161,12 @@ contract CoverageCalculation {
             active: true
         });
 
-        emit CoverageTypeConfigured(coverageType, baseCoverage, maxCoverage, riskMultiplier);
+        emit CoverageTypeConfigured(
+            coverageType,
+            baseCoverage,
+            maxCoverage,
+            riskMultiplier
+        );
     }
 
     /// @notice Update admin address
@@ -172,7 +183,9 @@ contract CoverageCalculation {
     /// @notice Calculate base coverage for a coverage type
     /// @param coverageType The coverage type
     /// @return baseCoverage The base coverage amount
-    function getBaseCoverage(CoverageType coverageType) external view returns (uint256 baseCoverage) {
+    function getBaseCoverage(
+        CoverageType coverageType
+    ) external view returns (uint256 baseCoverage) {
         CoverageParams memory params = coverageConfig[coverageType];
         require(params.active, InvalidCoverageType());
         return params.baseCoverage;
@@ -182,11 +195,10 @@ contract CoverageCalculation {
     /// @param coverageType The coverage type
     /// @param riskScore Risk score (0-10000, representing 0-100%)
     /// @return calculation Struct containing base, adjustment, and final coverage
-    function calculateCoverage(CoverageType coverageType, uint256 riskScore)
-        external
-        view
-        returns (CoverageResult memory calculation)
-    {
+    function calculateCoverage(
+        CoverageType coverageType,
+        uint256 riskScore
+    ) external view returns (CoverageResult memory calculation) {
         CoverageParams memory params = coverageConfig[coverageType];
         require(params.active, InvalidCoverageType());
         require(riskScore <= MAX_RISK_SCORE, InvalidRiskScore());
@@ -195,8 +207,9 @@ contract CoverageCalculation {
 
         // Calculate risk adjustment using PRBMath
         // riskAdjustment = baseCoverage * riskMultiplier * riskScore / BPS_DENOMINATOR^2
-        uint256 riskAdjustment = (baseCoverage * params.riskMultiplier * riskScore) /
-            (BPS_DENOMINATOR * BPS_DENOMINATOR);
+        uint256 riskAdjustment = (baseCoverage *
+            params.riskMultiplier *
+            riskScore) / (BPS_DENOMINATOR * BPS_DENOMINATOR);
 
         uint256 finalCoverage = baseCoverage + riskAdjustment;
 
@@ -205,12 +218,14 @@ contract CoverageCalculation {
             finalCoverage = params.maxCoverage;
         }
 
-        return CoverageResult({
-            baseCoverage: baseCoverage,
-            riskAdjustment: riskAdjustment,
-            finalCoverage: finalCoverage,
-            maxAllowedUtilization: (finalCoverage * MAX_UTILIZATION_BPS) / BPS_DENOMINATOR
-        });
+        return
+            CoverageResult({
+                baseCoverage: baseCoverage,
+                riskAdjustment: riskAdjustment,
+                finalCoverage: finalCoverage,
+                maxAllowedUtilization: (finalCoverage * MAX_UTILIZATION_BPS) /
+                    BPS_DENOMINATOR
+            });
     }
 
     /// @notice Allocate coverage for a user-market pair
@@ -233,7 +248,10 @@ contract CoverageCalculation {
         require(params.active, InvalidCoverageType());
 
         // Calculate coverage
-        CoverageResult memory calc = _calculateCoverageInternal(coverageType, riskScore);
+        CoverageResult memory calc = _calculateCoverageInternal(
+            coverageType,
+            riskScore
+        );
 
         // Create or update allocation
         CoverageAllocation storage allocation = _allocations[user][market];
@@ -257,7 +275,13 @@ contract CoverageCalculation {
             _marketUsers[market].push(user);
         }
 
-        emit CoverageAllocated(user, market, coverageType, calc.finalCoverage, riskScore);
+        emit CoverageAllocated(
+            user,
+            market,
+            coverageType,
+            calc.finalCoverage,
+            riskScore
+        );
 
         return calc.finalCoverage;
     }
@@ -273,19 +297,30 @@ contract CoverageCalculation {
     ) external {
         CoverageAllocation storage allocation = _allocations[user][market];
         require(allocation.active, "Allocation not active");
-        require(utilizationAmount <= allocation.allocatedAmount, CoverageLimitExceeded());
+        require(
+            utilizationAmount <= allocation.allocatedAmount,
+            CoverageLimitExceeded()
+        );
 
         allocation.utilizationAmount = utilizationAmount;
-        allocation.remainingCapacity = allocation.allocatedAmount - utilizationAmount;
+        allocation.remainingCapacity =
+            allocation.allocatedAmount -
+            utilizationAmount;
 
         if (allocation.allocatedAmount > 0) {
             allocation.utilizationPercentage =
-                (utilizationAmount * BPS_DENOMINATOR) / allocation.allocatedAmount;
+                (utilizationAmount * BPS_DENOMINATOR) /
+                allocation.allocatedAmount;
         }
 
         allocation.lastUpdated = block.timestamp;
 
-        emit CoverageUtilizationUpdated(user, market, utilizationAmount, allocation.utilizationPercentage);
+        emit CoverageUtilizationUpdated(
+            user,
+            market,
+            utilizationAmount,
+            allocation.utilizationPercentage
+        );
     }
 
     /// @notice Update risk score for a user-market pair
@@ -305,7 +340,10 @@ contract CoverageCalculation {
         allocation.riskScore = newRiskScore;
 
         // Recalculate coverage with new risk score
-        CoverageResult memory calc = _calculateCoverageInternal(allocation.coverageType, newRiskScore);
+        CoverageResult memory calc = _calculateCoverageInternal(
+            allocation.coverageType,
+            newRiskScore
+        );
         allocation.adjustedCoverage = calc.finalCoverage;
         allocation.allocatedAmount = calc.finalCoverage;
 
@@ -314,7 +352,9 @@ contract CoverageCalculation {
             allocation.utilizationAmount = allocation.allocatedAmount;
             allocation.utilizationPercentage = BPS_DENOMINATOR;
         } else {
-            allocation.remainingCapacity = allocation.allocatedAmount - allocation.utilizationAmount;
+            allocation.remainingCapacity =
+                allocation.allocatedAmount -
+                allocation.utilizationAmount;
         }
 
         allocation.lastUpdated = block.timestamp;
@@ -330,21 +370,24 @@ contract CoverageCalculation {
     /// @param user Address of the user
     /// @param market Address of the market
     /// @return allocation The coverage allocation
-    function getAllocation(address user, address market)
-        external
-        view
-        returns (CoverageAllocation memory allocation)
-    {
+    function getAllocation(
+        address user,
+        address market
+    ) external view returns (CoverageAllocation memory allocation) {
         return _allocations[user][market];
     }
 
     /// @notice Get total allocated coverage for a user
     /// @param user Address of the user
     /// @return totalAllocated Total allocated coverage
-    function getTotalAllocated(address user) external view returns (uint256 totalAllocated) {
+    function getTotalAllocated(
+        address user
+    ) external view returns (uint256 totalAllocated) {
         address[] memory markets = _userMarkets[user];
         for (uint256 i = 0; i < markets.length; i++) {
-            CoverageAllocation memory allocation = _allocations[user][markets[i]];
+            CoverageAllocation memory allocation = _allocations[user][
+                markets[i]
+            ];
             if (allocation.active) {
                 totalAllocated += allocation.allocatedAmount;
             }
@@ -355,10 +398,14 @@ contract CoverageCalculation {
     /// @notice Get total utilization for a user
     /// @param user Address of the user
     /// @return totalUtilization Total utilization
-    function getTotalUtilization(address user) external view returns (uint256 totalUtilization) {
+    function getTotalUtilization(
+        address user
+    ) external view returns (uint256 totalUtilization) {
         address[] memory markets = _userMarkets[user];
         for (uint256 i = 0; i < markets.length; i++) {
-            CoverageAllocation memory allocation = _allocations[user][markets[i]];
+            CoverageAllocation memory allocation = _allocations[user][
+                markets[i]
+            ];
             if (allocation.active) {
                 totalUtilization += allocation.utilizationAmount;
             }
@@ -369,10 +416,14 @@ contract CoverageCalculation {
     /// @notice Get remaining capacity for a user
     /// @param user Address of the user
     /// @return totalRemaining Total remaining capacity
-    function getTotalRemainingCapacity(address user) external view returns (uint256 totalRemaining) {
+    function getTotalRemainingCapacity(
+        address user
+    ) external view returns (uint256 totalRemaining) {
         address[] memory markets = _userMarkets[user];
         for (uint256 i = 0; i < markets.length; i++) {
-            CoverageAllocation memory allocation = _allocations[user][markets[i]];
+            CoverageAllocation memory allocation = _allocations[user][
+                markets[i]
+            ];
             if (allocation.active) {
                 totalRemaining += allocation.remainingCapacity;
             }
@@ -383,14 +434,18 @@ contract CoverageCalculation {
     /// @notice Get markets covered by a user
     /// @param user Address of the user
     /// @return markets Array of market addresses
-    function getUserMarkets(address user) external view returns (address[] memory markets) {
+    function getUserMarkets(
+        address user
+    ) external view returns (address[] memory markets) {
         return _userMarkets[user];
     }
 
     /// @notice Get users covering a market
     /// @param market Address of the market
     /// @return users Array of user addresses
-    function getMarketUsers(address market) external view returns (address[] memory users) {
+    function getMarketUsers(
+        address market
+    ) external view returns (address[] memory users) {
         return _marketUsers[market];
     }
 
@@ -408,38 +463,39 @@ contract CoverageCalculation {
         if (!allocation.active) {
             return false;
         }
-        
+
         uint256 newUtilization = allocation.utilizationAmount + requestedAmount;
-        uint256 maxAllowedUtilization = (allocation.allocatedAmount * MAX_UTILIZATION_BPS) / BPS_DENOMINATOR;
-        
+        uint256 maxAllowedUtilization = (allocation.allocatedAmount *
+            MAX_UTILIZATION_BPS) / BPS_DENOMINATOR;
+
         return newUtilization <= maxAllowedUtilization;
     }
 
     /// @notice Get coverage type configuration
     /// @param coverageType The coverage type
     /// @return params The coverage parameters
-    function getCoverageConfig(CoverageType coverageType)
-        external
-        view
-        returns (CoverageParams memory params)
-    {
+    function getCoverageConfig(
+        CoverageType coverageType
+    ) external view returns (CoverageParams memory params) {
         return coverageConfig[coverageType];
     }
 
     /// @notice Get all active allocations for a user
     /// @param user Address of the user
     /// @return allocations Array of active allocations
-    function getUserAllocations(address user)
-        external
-        view
-        returns (CoverageAllocation[] memory allocations)
-    {
+    function getUserAllocations(
+        address user
+    ) external view returns (CoverageAllocation[] memory allocations) {
         address[] memory markets = _userMarkets[user];
-        CoverageAllocation[] memory result = new CoverageAllocation[](markets.length);
+        CoverageAllocation[] memory result = new CoverageAllocation[](
+            markets.length
+        );
 
         uint256 count = 0;
         for (uint256 i = 0; i < markets.length; i++) {
-            CoverageAllocation memory allocation = _allocations[user][markets[i]];
+            CoverageAllocation memory allocation = _allocations[user][
+                markets[i]
+            ];
             if (allocation.active) {
                 result[count] = allocation;
                 count++;
@@ -458,7 +514,9 @@ contract CoverageCalculation {
     /// @notice Get portfolio utilization for a user
     /// @param user Address of the user
     /// @return utilization Average utilization percentage across all allocations
-    function getPortfolioUtilization(address user) external view returns (uint256 utilization) {
+    function getPortfolioUtilization(
+        address user
+    ) external view returns (uint256 utilization) {
         address[] memory markets = _userMarkets[user];
         if (markets.length == 0) {
             return 0;
@@ -468,7 +526,9 @@ contract CoverageCalculation {
         uint256 totalUtilized = 0;
 
         for (uint256 i = 0; i < markets.length; i++) {
-            CoverageAllocation memory allocation = _allocations[user][markets[i]];
+            CoverageAllocation memory allocation = _allocations[user][
+                markets[i]
+            ];
             if (allocation.active) {
                 totalAllocated += allocation.allocatedAmount;
                 totalUtilized += allocation.utilizationAmount;
@@ -520,19 +580,19 @@ contract CoverageCalculation {
         });
     }
 
-    function _calculateCoverageInternal(CoverageType coverageType, uint256 riskScore)
-        internal
-        view
-        returns (CoverageResult memory)
-    {
+    function _calculateCoverageInternal(
+        CoverageType coverageType,
+        uint256 riskScore
+    ) internal view returns (CoverageResult memory) {
         CoverageParams memory params = coverageConfig[coverageType];
         require(params.active, InvalidCoverageType());
 
         uint256 baseCoverage = params.baseCoverage;
 
         // Calculate risk adjustment
-        uint256 riskAdjustment = (baseCoverage * params.riskMultiplier * riskScore) /
-            (BPS_DENOMINATOR * BPS_DENOMINATOR);
+        uint256 riskAdjustment = (baseCoverage *
+            params.riskMultiplier *
+            riskScore) / (BPS_DENOMINATOR * BPS_DENOMINATOR);
 
         uint256 finalCoverage = baseCoverage + riskAdjustment;
 
@@ -541,11 +601,13 @@ contract CoverageCalculation {
             finalCoverage = params.maxCoverage;
         }
 
-        return CoverageResult({
-            baseCoverage: baseCoverage,
-            riskAdjustment: riskAdjustment,
-            finalCoverage: finalCoverage,
-            maxAllowedUtilization: (finalCoverage * MAX_UTILIZATION_BPS) / BPS_DENOMINATOR
-        });
+        return
+            CoverageResult({
+                baseCoverage: baseCoverage,
+                riskAdjustment: riskAdjustment,
+                finalCoverage: finalCoverage,
+                maxAllowedUtilization: (finalCoverage * MAX_UTILIZATION_BPS) /
+                    BPS_DENOMINATOR
+            });
     }
 }
