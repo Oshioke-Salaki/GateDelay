@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import DarkModeToggle from "../../app/components/DarkModeToggle";
 import WalletButton from "../../app/components/WalletButton";
+import LatencyIndicator from "../network/LatencyIndicator";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Markets" },
@@ -147,6 +148,7 @@ export default function Navigation() {
 
         {/* Desktop actions */}
         <div className="hidden lg:flex items-center gap-3">
+          <LatencyIndicator />
           <DarkModeToggle />
           <WalletButton />
         </div>
@@ -270,8 +272,9 @@ export default function Navigation() {
           })}
         </nav>
 
-        {/* Wallet button at the bottom of the drawer */}
-        <div className="mt-auto pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+        {/* Latency + Wallet button at the bottom of the drawer */}
+        <div className="mt-auto pt-4 flex flex-col gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <LatencyIndicator showLabel={true} />
           <WalletButton />
         </div>
       </div>
