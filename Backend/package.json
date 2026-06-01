@@ -64,7 +64,9 @@
     "snappy": "^7.3.3",
     "socket.io": "^4.8.3",
     "uuid": "^14.0.0",
-    "web3": "^4.16.0"
+    "web3": "^4.16.0",
+    "bull": "^4.16.4",
+    "agenda": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
