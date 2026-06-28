@@ -5,6 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { useToast } from "../../hooks/useToast";
+import {
+  getBridgeRouteQuotes,
+  initiateBridgeTransaction,
+  updateBridgeTransaction,
+  type BridgeProtocol as ApiProtocol,
+} from "../../lib/bridgeApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,7 +128,7 @@ const SUPPORTED_TOKENS: Token[] = [
   { symbol: "DAI", name: "Dai Stablecoin", decimals: 18, logoUrl: "" },
 ];
 
-// Simulated routes — in production these come from a bridge aggregator API
+// Simulated routes — used as fallback when the backend is unreachable
 function getMockRoutes(
   amount: string,
   token: string,
@@ -131,6 +137,14 @@ function getMockRoutes(
 ): BridgeRoute[] {
   const amt = parseFloat(amount) || 0;
   if (amt <= 0 || fromChain.id === toChain.id) return [];
+
+  const PROTOCOL_ICONS: Record<string, string> = {
+    stargate: "⭐",
+    across: "🌉",
+    hop: "🐇",
+    cbridge: "🌐",
+    socket: "🔌",
+  };
 
   return [
     {
@@ -144,15 +158,7 @@ function getMockRoutes(
       gasUsd: 2.04,
       outputAmount: `${(amt * 0.9994 - 0.0012 * 1700).toFixed(4)} ${token}`,
       recommended: true,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Stargate",
-          estimatedTime: "~3 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Stargate", estimatedTime: "~3 min" }],
     },
     {
       id: "route-2",
@@ -165,15 +171,7 @@ function getMockRoutes(
       gasUsd: 1.36,
       outputAmount: `${(amt * 0.999 - 0.0008 * 1700).toFixed(4)} ${token}`,
       recommended: false,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Across",
-          estimatedTime: "~1 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Across", estimatedTime: "~1 min" }],
     },
     {
       id: "route-3",
@@ -186,17 +184,11 @@ function getMockRoutes(
       gasUsd: 2.55,
       outputAmount: `${(amt * 0.9996 - 0.0015 * 1700).toFixed(4)} ${token}`,
       recommended: false,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Hop",
-          estimatedTime: "~8 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Hop", estimatedTime: "~8 min" }],
     },
   ];
+
+  void PROTOCOL_ICONS; // suppress unused warning
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -470,6 +462,8 @@ export default function BridgeInterface() {
   const [sourceTxHash, setSourceTxHash] = useState<string | null>(null);
   const [destTxHash, setDestTxHash] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  /** ID of the backend bridge transaction record for status updates */
+  const [activeBridgeTxId, setActiveBridgeTxId] = useState<string | null>(null);
 
   // Wagmi balance hook (reads native balance on connected chain)
   const { data: balanceData } = useBalance({
@@ -486,8 +480,8 @@ export default function BridgeInterface() {
     setSelectedRouteId(null);
   }, [fromChain, toChain]);
 
-  // Fetch routes whenever inputs change
-  const handleFetchRoutes = useCallback(() => {
+  // Fetch routes via backend API, fall back to mock on error
+  const handleFetchRoutes = useCallback(async () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0 || fromChain.id === toChain.id) {
       setRoutes([]);
@@ -497,49 +491,138 @@ export default function BridgeInterface() {
     setLoadingRoutes(true);
     setRoutes([]);
     setSelectedRouteId(null);
-    // Simulate async API call
-    setTimeout(() => {
+
+    try {
+      // Attempt real API call — no auth token needed for public quotes
+      const quotes = await getBridgeRouteQuotes(
+        { fromChainId: fromChain.id, toChainId: toChain.id, tokenSymbol: selectedToken.symbol, amount },
+        "", // public endpoint; pass token here when auth is wired
+      );
+
+      const PROTOCOL_ICONS: Record<string, string> = {
+        stargate: "⭐", across: "🌉", hop: "🐇", cbridge: "🌐", socket: "🔌",
+      };
+
+      const apiRoutes: BridgeRoute[] = quotes
+        .filter((q) => q.supported)
+        .map((q, i) => ({
+          id: `api-route-${i}`,
+          provider: q.protocolName,
+          providerIcon: PROTOCOL_ICONS[q.protocol] ?? "🔗",
+          estimatedTime: q.estimatedTime,
+          fee: `${q.bridgeFee} ${selectedToken.symbol}`,
+          feeUsd: parseFloat(q.bridgeFee) * 1, // approx 1 USD/token
+          gasEstimate: "~gas",
+          gasUsd: 0,
+          outputAmount: `${q.outputAmount} ${selectedToken.symbol}`,
+          recommended: q.recommended,
+          steps: [{ type: "bridge" as const, fromChain: fromChain.name, toChain: toChain.name, protocol: q.protocolName, estimatedTime: q.estimatedTime }],
+        }));
+
+      setRoutes(apiRoutes);
+      setSelectedRouteId(apiRoutes[0]?.id ?? null);
+    } catch {
+      // Backend not reachable — fall back to mock data
       const r = getMockRoutes(amount, selectedToken.symbol, fromChain, toChain);
       setRoutes(r);
       setSelectedRouteId(r[0]?.id ?? null);
+    } finally {
       setLoadingRoutes(false);
-    }, 900);
+    }
   }, [amount, selectedToken, fromChain, toChain]);
 
-  // Simulate bridge transaction
+  // Bridge transaction — creates backend record and tracks status
   const handleBridge = useCallback(async () => {
-    if (!selectedRoute || !isConnected) return;
+    if (!selectedRoute || !isConnected || !address) return;
     setShowConfirmModal(false);
     setBridgeStatus("approving");
 
+    // Resolve protocol from route provider name
+    const PROVIDER_TO_PROTOCOL: Record<string, ApiProtocol> = {
+      "Stargate": "stargate",
+      "Across": "across",
+      "Hop Protocol": "hop",
+      "cBridge": "cbridge",
+      "Socket": "socket",
+    };
+    const protocol: ApiProtocol = PROVIDER_TO_PROTOCOL[selectedRoute.provider] ?? "stargate";
+
+    let txId: string | null = null;
+
     try {
-      // Step 1: Token approval
+      // Step 1: create backend transaction record
+      let backendTx = null;
+      try {
+        backendTx = await initiateBridgeTransaction(
+          {
+            protocol,
+            fromChainId: fromChain.id,
+            toChainId: toChain.id,
+            tokenSymbol: selectedToken.symbol,
+            tokenAddress: "0x0000000000000000000000000000000000000000",
+            amount,
+            senderAddress: useCustomRecipient && recipient ? recipient : address,
+            recipientAddress: useCustomRecipient && recipient ? recipient : address,
+            slippageBps: 50,
+          },
+          "", // pass JWT token here when auth is wired
+        );
+        txId = backendTx.id;
+        setActiveBridgeTxId(txId);
+      } catch {
+        // Backend unavailable — proceed with simulation only
+      }
+
+      // Step 2: Token approval simulation
       await new Promise((res) => setTimeout(res, 1500));
       info("Approval submitted", "Waiting for confirmation…");
 
-      // Step 2: Bridge transaction
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "bridging" }, "").catch(() => {});
+      }
+
+      // Step 3: Bridge transaction
       setBridgeStatus("bridging");
       await new Promise((res) => setTimeout(res, 2000));
-      const mockSourceHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      const mockSourceHash = "0x" + Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join("");
       setSourceTxHash(mockSourceHash);
       info("Bridge transaction sent", "Waiting for destination confirmation…");
 
-      // Step 3: Destination confirmation
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "confirming", sourceTxHash: mockSourceHash }, "").catch(() => {});
+      }
+
+      // Step 4: Destination confirmation
       setBridgeStatus("confirming");
       await new Promise((res) => setTimeout(res, 3000));
-      const mockDestHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      const mockDestHash = "0x" + Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join("");
       setDestTxHash(mockDestHash);
 
+      if (txId) {
+        await updateBridgeTransaction(
+          txId,
+          { status: "completed", destinationTxHash: mockDestHash, receivedAmount: amount },
+          "",
+        ).catch(() => {});
+      }
+
       setBridgeStatus("success");
-      success(
-        "Bridge complete!",
-        `${amount} ${selectedToken.symbol} arrived on ${toChain.name}.`
-      );
+      success("Bridge complete!", `${amount} ${selectedToken.symbol} arrived on ${toChain.name}.`);
     } catch {
       setBridgeStatus("failed");
       toastError("Bridge failed", "Transaction was rejected or timed out.");
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "failed", errorMessage: "Transaction rejected or timed out" }, "").catch(() => {});
+      }
     }
-  }, [selectedRoute, isConnected, amount, selectedToken, toChain, info, success, toastError]);
+  }, [
+    selectedRoute, isConnected, address, amount, selectedToken, fromChain, toChain,
+    useCustomRecipient, recipient, info, success, toastError,
+  ]);
 
   const handleReset = () => {
     setBridgeStatus("idle");
@@ -548,6 +631,7 @@ export default function BridgeInterface() {
     setAmount("");
     setRoutes([]);
     setSelectedRouteId(null);
+    setActiveBridgeTxId(null);
   };
 
   const isProcessing =

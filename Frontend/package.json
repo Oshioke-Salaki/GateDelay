@@ -23,6 +23,7 @@
     "react-hook-form": "^7.73.1",
     "react-modal": "^3.16.3",
     "recharts": "^3.8.1",
+    "qrcode": "^1.5.4",
     "socket.io-client": "^4.8.3",
     "viem": "^2.48.4",
     "wagmi": "^3.6.4"
@@ -34,6 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-modal": "^3.16.3",
+    "@types/qrcode": "^1.5.5",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
