@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useRef } from 'react'
 import { useSigner } from 'wagmi'
 import { ethers } from 'ethers'

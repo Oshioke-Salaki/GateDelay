@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNetwork as useWagmiNetwork, useSwitchNetwork } from 'wagmi'
+import { useAccount, useSwitchChain } from 'wagmi'
+import type { Chain } from 'viem'
 
 type Token = {
   name: string
@@ -59,8 +60,8 @@ const DEFAULT_NETWORKS: NetworkConfig[] = [
 export function useNetwork(customNetworks?: NetworkConfig[]) {
   const networks = useMemo(() => customNetworks ?? DEFAULT_NETWORKS, [customNetworks])
 
-  const { chain } = useWagmiNetwork()
-  const { switchNetwork, chains: wagmiChains } = useSwitchNetwork()
+  const { chain } = useAccount()
+  const { switchChain, chains: wagmiChains } = useSwitchChain()
 
   const [activeNetwork, setActiveNetwork] = useState<NetworkConfig | undefined>(() => {
     const id = chain?.id
@@ -76,11 +77,11 @@ export function useNetwork(customNetworks?: NetworkConfig[]) {
   const availableNetworks = useMemo(() => networks.map((n) => ({ id: n.id, name: n.name })), [networks])
 
   async function handleSwitchNetwork(networkId: number) {
-    if (switchNetwork) {
-      switchNetwork(networkId)
+    if (switchChain) {
+      switchChain({ chainId: networkId })
       return
     }
-    const target = wagmiChains.find((c) => c.id === networkId)
+    const target = wagmiChains.find((c: Chain) => c.id === networkId)
     if (target && (window as any).ethereum && (window as any).ethereum.request) {
       try {
         await (window as any).ethereum.request({

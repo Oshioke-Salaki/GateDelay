@@ -35,7 +35,7 @@ const NAV_LINKS = [
  *  - Active link is marked with aria-current="page"
  */
 export default function Navigation() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);

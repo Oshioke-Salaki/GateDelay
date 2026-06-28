@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "@particle-network/connectkit";
 import { useToast } from "../../hooks/useToast";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore – @types/qrcode may not be installed in all environments
 import QRCode from "qrcode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
