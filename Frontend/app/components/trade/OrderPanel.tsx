@@ -6,6 +6,7 @@ import { Market } from "./TradingInterface";
 import { useToast } from "@/hooks/useToast";
 import { useSettings } from "@/hooks/useSettings";
 import LeverageSelector from "./LeverageSelector";
+import OrderTypeSelector, { validateOrderType } from "@/components/trade/OrderTypeSelector";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,12 @@ export default function OrderPanel({
     const onSubmit = async (data: OrderFormData) => {
         if (!userAddress) {
             toast.error("Wallet Not Connected", "Please connect your wallet to trade");
+            return;
+        }
+
+        const orderValidation = validateOrderType(orderType, Number(data.price));
+        if (orderValidation !== true) {
+            toast.error("Invalid Order", orderValidation);
             return;
         }
 
@@ -144,31 +151,13 @@ export default function OrderPanel({
             {/* Order Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
                 {/* Order Type */}
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Order Type</label>
-                    <div className="flex space-x-2">
-                        <button
-                            type="button"
-                            onClick={() => setOrderType("market")}
-                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${orderType === "market"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                }`}
-                        >
-                            Market
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setOrderType("limit")}
-                            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${orderType === "limit"
-                                    ? "bg-blue-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                }`}
-                        >
-                            Limit
-                        </button>
-                    </div>
-                </div>
+                <OrderTypeSelector
+                    orderType={orderType}
+                    onChange={(type) => {
+                        setOrderType(type);
+                        setValue("orderType", type);
+                    }}
+                />
 
                 {/* Price (Limit Orders Only) */}
                 {orderType === "limit" && (
