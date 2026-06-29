@@ -11,6 +11,8 @@ export interface WebSocketContextValue extends WebSocketState {
     unsubscribe: (marketIds: string[]) => void;
     connect: () => void;
     disconnect: () => void;
+    on: (event: string, callback: (data: any) => void) => () => void;
+    off: (event: string, callback: (data: any) => void) => void;
     prices: Map<string, PriceUpdate>;
     getPrice: (marketId: string) => PriceUpdate | undefined;
     on: (event: string, callback: (data: any) => void) => () => void;
@@ -154,6 +156,8 @@ export function WebSocketProvider({
         unsubscribe: websocket.unsubscribe,
         connect: websocket.connect,
         disconnect: websocket.disconnect,
+        on: websocket.on,
+        off: websocket.off,
         prices,
         getPrice,
         on: websocket.on,
