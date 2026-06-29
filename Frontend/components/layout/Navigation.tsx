@@ -12,6 +12,7 @@ const NAV_LINKS = [
   { href: "/governance", label: "Governance" },
   { href: "/bridge", label: "Bridge" },
   { href: "/transactions", label: "History" },
+  { href: "/audit", label: "Audit" },
   { href: "/volatility", label: "Volatility" },
   { href: "/wallet", label: "Wallet" },
   { href: "/arbitrage-demo", label: "Arbitrage" },
@@ -35,7 +36,7 @@ const NAV_LINKS = [
  *  - Active link is marked with aria-current="page"
  */
 export default function Navigation() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);

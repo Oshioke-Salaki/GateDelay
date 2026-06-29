@@ -55,7 +55,7 @@ export class Deposit {
 
   @Prop({
     type: Number,
-    enum: Object.values(ConfirmationLevel),
+    enum: Object.values(ConfirmationLevel).filter((v) => typeof v === "number"),
     default: ConfirmationLevel.STANDARD,
   })
   requiredConfirmations: ConfirmationLevel;

@@ -1,45 +1,23 @@
-import React, { useState, useRef } from 'react'
-import { useWalletClient } from 'wagmi'
+import React, { useState, useRef, useMemo  } from 'react'
+import { useWalletClient , useConnectorClient} from 'wagmi'
 import { ethers, BrowserProvider, JsonRpcSigner } from 'ethers'
 import ArbitrageDisplay from './ArbitrageDisplay'
 
-function Modal({ open, onClose, onSubmit, defaultIn = '', defaultOut = '', defaultRouter = '' }: any) {
-  const [inAddr, setInAddr] = useState(defaultIn)
-  const [outAddr, setOutAddr] = useState(defaultOut)
-  const [routerAddr, setRouterAddr] = useState(defaultRouter)
-
-  if (!open) return null
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
-      <div style={{ background: 'white', padding: 16, borderRadius: 8, width: 420 }}>
-        <h3>Enter token & router addresses</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <label>
-            Token In address
-            <input value={inAddr} onChange={(e) => setInAddr(e.target.value)} style={{ width: '100%' }} />
-          </label>
-          <label>
-            Token Out address
-            <input value={outAddr} onChange={(e) => setOutAddr(e.target.value)} style={{ width: '100%' }} />
-          </label>
-          <label>
-            Router address
-            <input value={routerAddr} onChange={(e) => setRouterAddr(e.target.value)} style={{ width: '100%' }} />
-          </label>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <button onClick={() => onClose()} style={{ padding: '6px 10px' }}>Cancel</button>
-            <button onClick={() => onSubmit({ tokenIn: inAddr, tokenOut: outAddr, router: routerAddr })} style={{ padding: '6px 10px' }}>Submit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+/** Lazily resolve ethers from the global scope or a CDN-loaded bundle. */
+function getEthers() {
+  if (typeof window !== 'undefined' && (window as any).ethers) {
+    return (window as any).ethers
+  }
+  return null
 }
 
-// Simple executor that demonstrates creating two transactions: buy then sell.
-// In production you would craft contract calls, handle approvals, slippage, gas estimation,
-// and use flash swaps/atomic executions. This is a minimal example wiring to Wagmi.
+/** Derive a signer-like object from a wagmi v2 connector client via window.ethereum */
+async function getSigner() {
+  const { BrowserProvider } = await import('ethers').catch(() => ({ BrowserProvider: null }))
+  if (!BrowserProvider || typeof window === 'undefined' || !(window as any).ethereum) return null
+  const provider = new BrowserProvider((window as any).ethereum)
+  return provider.getSigner()
+}
 
 export default function WagmiArbitrageExecutor() {
   const { data: walletClient } = useWalletClient()
@@ -60,8 +38,6 @@ export default function WagmiArbitrageExecutor() {
   const pendingRef = useRef<any>(null)
 
   async function onExecute(opp: any) {
-    if (!signer) throw new Error('No signer available')
-
     // Gather addresses: use opportunity data or prompt the user for missing values
     let tokenIn = opp.buy?.tokenAddress
     let tokenOut = opp.sell?.tokenAddress
@@ -147,6 +123,29 @@ export default function WagmiArbitrageExecutor() {
     const rejecter = (pendingRef as any).current?.reject
     if (rejecter) rejecter(false)
     pendingRef.current = null
+  }
+
+  function Modal({ open, onClose, onSubmit }: any) {
+    const [inAddr, setInAddr] = useState('')
+    const [outAddr, setOutAddr] = useState('')
+    const [routerAddr, setRouterAddr] = useState('')
+    if (!open) return null
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+        <div style={{ background: 'white', padding: 16, borderRadius: 8, width: 420 }}>
+          <h3>Enter token &amp; router addresses</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <label>Token In<input value={inAddr} onChange={(e) => setInAddr(e.target.value)} style={{ width: '100%' }} /></label>
+            <label>Token Out<input value={outAddr} onChange={(e) => setOutAddr(e.target.value)} style={{ width: '100%' }} /></label>
+            <label>Router<input value={routerAddr} onChange={(e) => setRouterAddr(e.target.value)} style={{ width: '100%' }} /></label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => onClose()} style={{ padding: '6px 10px' }}>Cancel</button>
+              <button onClick={() => onSubmit({ tokenIn: inAddr, tokenOut: outAddr, router: routerAddr })} style={{ padding: '6px 10px' }}>Submit</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
