@@ -108,9 +108,9 @@ function SearchContent() {
 
   useEffect(() => {
     // Load search params from URL if present
-    const q = searchParams.get("q");
-    const category = searchParams.get("category");
-    const status = searchParams.get("status");
+    const q = searchParams?.get("q");
+    const category = searchParams?.get("category");
+    const status = searchParams?.get("status");
     // Could apply these to initial filters here
   }, [searchParams]);
 

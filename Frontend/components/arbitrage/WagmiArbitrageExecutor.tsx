@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react'
-import { useSigner } from 'wagmi'
-import { ethers } from 'ethers'
+import { useWalletClient } from 'wagmi'
+import { ethers, BrowserProvider, JsonRpcSigner } from 'ethers'
 import ArbitrageDisplay from './ArbitrageDisplay'
 
 function Modal({ open, onClose, onSubmit, defaultIn = '', defaultOut = '', defaultRouter = '' }: any) {
@@ -42,12 +42,14 @@ function Modal({ open, onClose, onSubmit, defaultIn = '', defaultOut = '', defau
 // and use flash swaps/atomic executions. This is a minimal example wiring to Wagmi.
 
 export default function WagmiArbitrageExecutor() {
-  const { data: signer } = useSigner()
+  const { data: walletClient } = useWalletClient()
   const [modalOpen, setModalOpen] = useState(false)
   const pendingRef = useRef<any>(null)
 
   async function onExecute(opp: any) {
-    if (!signer) throw new Error('No signer available')
+    if (!walletClient) throw new Error('No signer available')
+    const provider = new BrowserProvider(walletClient as any)
+    const signer = await provider.getSigner()
 
     // Gather addresses: use opportunity data or prompt the user for missing values
     let tokenIn = opp.buy?.tokenAddress
@@ -58,7 +60,7 @@ export default function WagmiArbitrageExecutor() {
       // show modal and wait for user input
       pendingRef.current = { opp }
       setModalOpen(true)
-      const result = await new Promise((resolve, reject) => {
+      const result = await new Promise<{ tokenIn: string; tokenOut: string; router: string } | false>((resolve, reject) => {
         // attach resolver to ref to be called by modal submit
         ;(pendingRef as any).current.resolve = resolve
         ;(pendingRef as any).current.reject = reject
@@ -71,14 +73,15 @@ export default function WagmiArbitrageExecutor() {
 
     // Detect network and only run real on-chain flow on local networks
     const network = await signer.provider.getNetwork()
-    const chainId = network.chainId
+    const chainId = Number(network.chainId)
     const LOCAL_CHAIN_IDS = [31337, 1337, 1338]
 
     if (!LOCAL_CHAIN_IDS.includes(chainId)) {
       // Simulate execution on public networks for safety
       await new Promise((res) => setTimeout(res, 800))
       const fakeHash = '0x' + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
-      return { success: true, simulated: true, txHash: fakeHash, message: `Simulated execution on chain ${chainId}` }
+      console.log('Simulated execution', { chainId, txHash: fakeHash })
+      return
     }
 
     const signerAddress = await signer.getAddress()
@@ -118,8 +121,7 @@ export default function WagmiArbitrageExecutor() {
 
     const swapTx = await router.swapExactTokensForTokens(amountInUnits, amountOutMin, path, signerAddress, deadline)
     const receipt = await swapTx.wait()
-
-    return { success: true, txHash: receipt.transactionHash }
+    console.log('Swap executed', { txHash: receipt.transactionHash })
   }
 
   function handleModalSubmit(values: any) {

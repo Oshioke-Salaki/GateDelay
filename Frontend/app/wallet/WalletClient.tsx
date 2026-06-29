@@ -12,15 +12,23 @@ const EmergencyWithdrawal = dynamic(
   { ssr: false },
 );
 
+const ImportWallet = dynamic(
+  () => import("../../components/wallet/ImportWallet"),
+  { ssr: false },
+);
+
 export default function WalletClient() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
       {/* QR display — left column */}
       <QRDisplay timeoutSeconds={300} />
 
-      {/* Right column: emergency withdrawal */}
-      <div className="space-y-4">
-        {/* Info card */}
+      {/* Right column: import wallet + emergency withdrawal */}
+      <div className="space-y-6">
+        {/* Import Wallet */}
+        <ImportWallet />
+
+        {/* Emergency withdrawal */}
         <div
           className="rounded-2xl p-5"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}

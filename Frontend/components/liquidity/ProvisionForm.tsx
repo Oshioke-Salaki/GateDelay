@@ -2,7 +2,8 @@
 
 import React, { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useSigner } from 'wagmi'
+import { useWalletClient } from 'wagmi'
+import { BrowserProvider } from 'ethers'
 
 type Props = {
   poolInfo: {
@@ -15,7 +16,7 @@ type Props = {
 
 export default function ProvisionForm({ poolInfo, onProvide }: Props) {
   const { register, handleSubmit, formState } = useForm<{ amount: string }>()
-  const { data: signer } = useSigner()
+  const { data: walletClient } = useWalletClient()
   const [status, setStatus] = useState<string | null>(null)
 
   const expectedLP = useMemo(() => (amountStr: string) => {
@@ -31,8 +32,10 @@ export default function ProvisionForm({ poolInfo, onProvide }: Props) {
     try {
       if (onProvide) await onProvide(amount)
       else {
-        if (!signer) throw new Error('No signer')
-        const tx = await signer.sendTransaction({ to: signer._address || signer.getAddress(), value: 0 })
+        if (!walletClient) throw new Error('No signer')
+        const provider = new BrowserProvider(walletClient as any)
+        const signer = await provider.getSigner()
+        const tx = await signer.sendTransaction({ to: await signer.getAddress(), value: 0 })
         await tx.wait()
       }
       setStatus('success')
