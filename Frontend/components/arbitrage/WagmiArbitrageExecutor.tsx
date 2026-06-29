@@ -21,6 +21,19 @@ async function getSigner() {
 
 export default function WagmiArbitrageExecutor() {
   const { data: walletClient } = useWalletClient()
+  
+  const signer = React.useMemo(() => {
+    if (!walletClient) return null
+    const { account, chain, transport } = walletClient
+    const network = {
+      chainId: chain.id,
+      name: chain.name,
+      ensAddress: chain.contracts?.ensRegistry?.address,
+    }
+    const provider = new BrowserProvider(transport, network)
+    return new JsonRpcSigner(provider, account.address)
+  }, [walletClient])
+
   const [modalOpen, setModalOpen] = useState(false)
   const pendingRef = useRef<any>(null)
 
@@ -141,7 +154,7 @@ export default function WagmiArbitrageExecutor() {
 
   return (
     <>
-      <ArbitrageDisplay onExecute={onExecute} />
+      <ArbitrageDisplay onExecute={onExecute as any} />
       <Modal open={modalOpen} onClose={handleModalClose} onSubmit={handleModalSubmit} />
     </>
   )

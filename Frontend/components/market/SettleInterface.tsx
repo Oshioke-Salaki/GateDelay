@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useMemo  } from 'react'
 import { useWalletClient } from 'wagmi'
-import { BrowserProvider } from 'ethers'
+import { BrowserProvider , JsonRpcSigner } from 'ethers'
 
 type Market = {
   id: string
@@ -14,6 +14,19 @@ type Market = {
 
 export default function SettleInterface({ market }: { market: Market }) {
   const { data: walletClient } = useWalletClient()
+
+  const signer = useMemo(() => {
+    if (!walletClient) return null
+    const { account, chain, transport } = walletClient
+    const network = {
+      chainId: chain.id,
+      name: chain.name,
+      ensAddress: chain.contracts?.ensRegistry?.address,
+    }
+    const provider = new BrowserProvider(transport, network)
+    return new JsonRpcSigner(provider, account.address)
+  }, [walletClient])
+
   const [status, setStatus] = useState<string | null>(null)
 
   const totalPool = market.totalYesStake + market.totalNoStake

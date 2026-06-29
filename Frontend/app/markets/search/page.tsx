@@ -107,6 +107,7 @@ function SearchContent() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    if (!searchParams) return;
     // Load search params from URL if present
     if (!searchParams) return;
     const q = searchParams.get("q");
