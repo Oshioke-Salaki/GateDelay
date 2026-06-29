@@ -13,6 +13,8 @@ export interface WebSocketContextValue extends WebSocketState {
     disconnect: () => void;
     prices: Map<string, PriceUpdate>;
     getPrice: (marketId: string) => PriceUpdate | undefined;
+    on: (event: string, callback: (data: any) => void) => () => void;
+    off: (event: string, callback: (data: any) => void) => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -154,6 +156,8 @@ export function WebSocketProvider({
         disconnect: websocket.disconnect,
         prices,
         getPrice,
+        on: websocket.on,
+        off: websocket.off,
     };
 
     return (
