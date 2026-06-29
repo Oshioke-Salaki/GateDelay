@@ -1,5 +1,13 @@
 "use client";
-import { useAccount, useDisconnect, useModal } from "@particle-network/connectkit";
+
+import { useState } from "react";
+import { useAccount, useDisconnect } from "@particle-network/connectkit";
+import dynamic from "next/dynamic";
+
+const ConnectModal = dynamic(
+  () => import("../../components/wallet/ConnectModal"),
+  { ssr: false },
+);
 
 function truncate(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
@@ -8,7 +16,7 @@ function truncate(addr: string) {
 export default function WalletButton() {
   const { isConnected, address, isConnecting } = useAccount();
   const { disconnect } = useDisconnect();
-  const { setOpen } = useModal();
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (isConnecting) {
     return (
@@ -45,12 +53,16 @@ export default function WalletButton() {
   }
 
   return (
-    <button
-      onClick={() => setOpen(true)}
-      className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-      style={{ background: "#3b82f6" }}
-    >
-      Connect Wallet
-    </button>
+    <>
+      <button
+        onClick={() => setModalOpen(true)}
+        className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        style={{ background: "#3b82f6" }}
+      >
+        Connect Wallet
+      </button>
+
+      <ConnectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }

@@ -13,27 +13,37 @@ contract ERC1155Holder {
     function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure returns (bytes4) {
         return this.onERC1155Received.selector;
     }
-    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata) external pure returns (bytes4) {
+
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        returns (bytes4)
+    {
         return this.onERC1155BatchReceived.selector;
     }
 }
 
 contract ResolutionTest is Test {
+    event MarketResolved(address indexed market, Resolution.Outcome outcome, address indexed resolver);
+    event DisputeRaised(address indexed market, address indexed disputer, string evidenceURI);
+    event PayoutClaimed(address indexed market, address indexed claimant, uint256 amount);
+    event RefundClaimed(address indexed market, address indexed claimant, uint256 amount);
+
     // -------------------------------------------------------------------------
     // Contracts
     // -------------------------------------------------------------------------
-    ERC20Token   internal collateral;
+    ERC20Token internal collateral;
     PositionToken internal positionToken;
     LiquidityPool internal pool;
-    Resolution   internal resolution;
+    Resolution internal resolution;
 
     // -------------------------------------------------------------------------
     // Actors
     // -------------------------------------------------------------------------
     address internal resolverAddr = address(0xBEEF1);
-    address internal adminAddr    = address(0xBEEF2);
-    address internal alice        = address(0xA11CE);
-    address internal bob          = address(0xB0B);
+    address internal adminAddr = address(0xBEEF2);
+    address internal alice = address(0xA11CE);
+    address internal bob = address(0xB0B);
 
     // -------------------------------------------------------------------------
     // Market
@@ -41,8 +51,8 @@ contract ResolutionTest is Test {
     // We use a fixed market address that we control (this test contract acts as the market)
     address internal marketAddr;
 
-    uint256 constant INITIAL_SUPPLY  = 1_000_000;
-    uint256 constant DISPUTE_WINDOW  = 1 days;
+    uint256 constant INITIAL_SUPPLY = 1_000_000;
+    uint256 constant DISPUTE_WINDOW = 1 days;
     uint256 constant DEADLINE_OFFSET = 1 hours; // deadline is 1 hour in the past after warp
 
     // -------------------------------------------------------------------------
@@ -65,12 +75,7 @@ contract ResolutionTest is Test {
         pool = new LiquidityPool(address(collateral), marketAddr);
 
         // Deploy Resolution
-        resolution = new Resolution(
-            DISPUTE_WINDOW,
-            resolverAddr,
-            adminAddr,
-            address(positionToken)
-        );
+        resolution = new Resolution(DISPUTE_WINDOW, resolverAddr, adminAddr, address(positionToken));
 
         // Set resolution on pool
         pool.setResolution(address(resolution));
@@ -88,7 +93,7 @@ contract ResolutionTest is Test {
 
         // Fund alice and bob with collateral (for future use)
         collateral.transfer(alice, 10_000 ether);
-        collateral.transfer(bob,   10_000 ether);
+        collateral.transfer(bob, 10_000 ether);
     }
 
     // -------------------------------------------------------------------------
@@ -157,7 +162,7 @@ contract ResolutionTest is Test {
     // Validates: Requirements 4.6
     function testFuzz_claimPayout_formula(uint128 yesAmount, uint128 noAmount) public {
         uint256 yes = bound(uint256(yesAmount), 1, 1_000_000 ether);
-        uint256 no  = bound(uint256(noAmount),  1, 1_000_000 ether);
+        uint256 no = bound(uint256(noAmount), 1, 1_000_000 ether);
 
         // Mint YES to alice, NO to bob
         _mintYes(alice, yes);
@@ -170,8 +175,8 @@ contract ResolutionTest is Test {
         vm.warp(block.timestamp + DISPUTE_WINDOW + 1);
 
         uint256 totalCollateral = pool.totalLiquidity();
-        uint256 totalYesSupply  = positionToken.totalSupply(positionToken.yesId(marketAddr));
-        uint256 expectedPayout  = (yes * totalCollateral) / totalYesSupply;
+        uint256 totalYesSupply = positionToken.totalSupply(positionToken.yesId(marketAddr));
+        uint256 expectedPayout = (yes * totalCollateral) / totalYesSupply;
 
         uint256 balanceBefore = collateral.balanceOf(alice);
 
@@ -189,10 +194,10 @@ contract ResolutionTest is Test {
     // Validates: Requirements 4.8
     function testFuzz_totalPayouts_conservation(uint128 aliceYes, uint128 bobYes) public {
         uint256 aYes = bound(uint256(aliceYes), 1, 500_000 ether);
-        uint256 bYes = bound(uint256(bobYes),   1, 500_000 ether);
+        uint256 bYes = bound(uint256(bobYes), 1, 500_000 ether);
 
         _mintYes(alice, aYes);
-        _mintYes(bob,   bYes);
+        _mintYes(bob, bYes);
 
         _resolveMarket(Resolution.Outcome.YES);
         vm.warp(block.timestamp + DISPUTE_WINDOW + 1);
@@ -200,7 +205,7 @@ contract ResolutionTest is Test {
         uint256 totalCollateralBefore = pool.totalLiquidity();
 
         uint256 aliceBefore = collateral.balanceOf(alice);
-        uint256 bobBefore   = collateral.balanceOf(bob);
+        uint256 bobBefore = collateral.balanceOf(bob);
 
         vm.prank(alice);
         resolution.claimPayout(marketAddr);
@@ -209,15 +214,10 @@ contract ResolutionTest is Test {
         resolution.claimPayout(marketAddr);
 
         uint256 alicePayout = collateral.balanceOf(alice) - aliceBefore;
-        uint256 bobPayout   = collateral.balanceOf(bob)   - bobBefore;
+        uint256 bobPayout = collateral.balanceOf(bob) - bobBefore;
 
         // Sum of payouts must equal total collateral (within 1 wei rounding)
-        assertApproxEqAbs(
-            alicePayout + bobPayout,
-            totalCollateralBefore,
-            1,
-            "total payouts must conserve collateral"
-        );
+        assertApproxEqAbs(alicePayout + bobPayout, totalCollateralBefore, 1, "total payouts must conserve collateral");
     }
 
     // Feature: prediction-market-contracts, Property 14: Dispute-then-settle round trip
@@ -260,7 +260,7 @@ contract ResolutionTest is Test {
     // Validates: Requirements 4.14
     function testFuzz_claimRefund_cancellation(uint128 aliceYes, uint128 bobNo) public {
         uint256 aYes = bound(uint256(aliceYes), 1, 500_000 ether);
-        uint256 bNo  = bound(uint256(bobNo),    1, 500_000 ether);
+        uint256 bNo = bound(uint256(bobNo), 1, 500_000 ether);
 
         _mintYes(alice, aYes);
         _mintNo(bob, bNo);
@@ -271,13 +271,13 @@ contract ResolutionTest is Test {
 
         uint256 totalCollateral = pool.totalLiquidity();
         uint256 totalSupply = positionToken.totalSupply(positionToken.yesId(marketAddr))
-                            + positionToken.totalSupply(positionToken.noId(marketAddr));
+            + positionToken.totalSupply(positionToken.noId(marketAddr));
 
         uint256 expectedAlice = (aYes * totalCollateral) / totalSupply;
-        uint256 expectedBob   = (bNo  * totalCollateral) / totalSupply;
+        uint256 expectedBob = (bNo * totalCollateral) / totalSupply;
 
         uint256 aliceBefore = collateral.balanceOf(alice);
-        uint256 bobBefore   = collateral.balanceOf(bob);
+        uint256 bobBefore = collateral.balanceOf(bob);
 
         vm.prank(alice);
         resolution.claimRefund(marketAddr);
@@ -290,7 +290,7 @@ contract ResolutionTest is Test {
 
         // Tokens burned
         assertEq(positionToken.balanceOf(alice, positionToken.yesId(marketAddr)), 0, "alice YES tokens burned");
-        assertEq(positionToken.balanceOf(bob,   positionToken.noId(marketAddr)),  0, "bob NO tokens burned");
+        assertEq(positionToken.balanceOf(bob, positionToken.noId(marketAddr)), 0, "bob NO tokens burned");
     }
 
     // =========================================================================
@@ -412,7 +412,7 @@ contract ResolutionTest is Test {
         vm.warp(block.timestamp + 3 hours);
         vm.prank(resolverAddr);
         vm.expectEmit(true, false, true, true);
-        emit Resolution.MarketResolved(marketAddr, Resolution.Outcome.YES, resolverAddr);
+        emit MarketResolved(marketAddr, Resolution.Outcome.YES, resolverAddr);
         resolution.resolve(marketAddr, Resolution.Outcome.YES, bytes("data"));
     }
 
@@ -421,7 +421,7 @@ contract ResolutionTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.DisputeRaised(marketAddr, alice, "ipfs://evidence");
+        emit DisputeRaised(marketAddr, alice, "ipfs://evidence");
         resolution.dispute(marketAddr, "ipfs://evidence");
     }
 
@@ -436,7 +436,7 @@ contract ResolutionTest is Test {
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.PayoutClaimed(marketAddr, alice, expectedPayout);
+        emit PayoutClaimed(marketAddr, alice, expectedPayout);
         resolution.claimPayout(marketAddr);
     }
 
@@ -448,12 +448,12 @@ contract ResolutionTest is Test {
 
         uint256 totalCollateral = pool.totalLiquidity();
         uint256 totalSupply = positionToken.totalSupply(positionToken.yesId(marketAddr))
-                            + positionToken.totalSupply(positionToken.noId(marketAddr));
+            + positionToken.totalSupply(positionToken.noId(marketAddr));
         uint256 expectedRefund = (100 ether * totalCollateral) / totalSupply;
 
         vm.prank(alice);
         vm.expectEmit(true, true, false, true);
-        emit Resolution.RefundClaimed(marketAddr, alice, expectedRefund);
+        emit RefundClaimed(marketAddr, alice, expectedRefund);
         resolution.claimRefund(marketAddr);
     }
 
@@ -470,10 +470,7 @@ contract ResolutionTest is Test {
         vm.prank(alice);
         resolution.dispute(marketAddr, "evidence");
 
-        assertEq(
-            uint256(resolution.getMarketStatus(marketAddr)),
-            uint256(MarketFactory.MarketStatus.DISPUTED)
-        );
+        assertEq(uint256(resolution.getMarketStatus(marketAddr)), uint256(MarketFactory.MarketStatus.DISPUTED));
     }
 
     function test_disputeWindow_oneSecondAfterExpiry_cannotDispute() public {
@@ -573,10 +570,10 @@ contract ResolutionTest is Test {
 
         uint256 totalCollateral = pool.totalLiquidity();
         uint256 totalSupply = positionToken.totalSupply(positionToken.yesId(marketAddr))
-                            + positionToken.totalSupply(positionToken.noId(marketAddr));
+            + positionToken.totalSupply(positionToken.noId(marketAddr));
 
         uint256 aliceBefore = collateral.balanceOf(alice);
-        uint256 bobBefore   = collateral.balanceOf(bob);
+        uint256 bobBefore = collateral.balanceOf(bob);
 
         vm.prank(alice);
         resolution.claimRefund(marketAddr);
@@ -585,10 +582,10 @@ contract ResolutionTest is Test {
         resolution.claimRefund(marketAddr);
 
         uint256 aliceRefund = collateral.balanceOf(alice) - aliceBefore;
-        uint256 bobRefund   = collateral.balanceOf(bob)   - bobBefore;
+        uint256 bobRefund = collateral.balanceOf(bob) - bobBefore;
 
         assertEq(aliceRefund, (60 ether * totalCollateral) / totalSupply, "alice refund");
-        assertEq(bobRefund,   (40 ether * totalCollateral) / totalSupply, "bob refund");
+        assertEq(bobRefund, (40 ether * totalCollateral) / totalSupply, "bob refund");
     }
 
     // =========================================================================
@@ -596,10 +593,7 @@ contract ResolutionTest is Test {
     // =========================================================================
 
     function test_getMarketStatus_initiallyOpen() public {
-        assertEq(
-            uint256(resolution.getMarketStatus(marketAddr)),
-            uint256(MarketFactory.MarketStatus.OPEN)
-        );
+        assertEq(uint256(resolution.getMarketStatus(marketAddr)), uint256(MarketFactory.MarketStatus.OPEN));
     }
 
     function test_getResolutionRecord_afterResolve() public {
@@ -619,28 +613,19 @@ contract ResolutionTest is Test {
 
     function test_poolStatus_updatedOnResolve() public {
         _resolveMarket(Resolution.Outcome.YES);
-        assertEq(
-            uint256(pool.marketStatus()),
-            uint256(MarketFactory.MarketStatus.RESOLVED)
-        );
+        assertEq(uint256(pool.marketStatus()), uint256(MarketFactory.MarketStatus.RESOLVED));
     }
 
     function test_poolStatus_updatedOnDispute() public {
         _resolveMarket(Resolution.Outcome.YES);
         vm.prank(alice);
         resolution.dispute(marketAddr, "evidence");
-        assertEq(
-            uint256(pool.marketStatus()),
-            uint256(MarketFactory.MarketStatus.DISPUTED)
-        );
+        assertEq(uint256(pool.marketStatus()), uint256(MarketFactory.MarketStatus.DISPUTED));
     }
 
     function test_poolStatus_updatedOnCancel() public {
         vm.prank(adminAddr);
         resolution.cancelMarket(marketAddr);
-        assertEq(
-            uint256(pool.marketStatus()),
-            uint256(MarketFactory.MarketStatus.CANCELLED)
-        );
+        assertEq(uint256(pool.marketStatus()), uint256(MarketFactory.MarketStatus.CANCELLED));
     }
 }

@@ -85,6 +85,7 @@ Thumbs.db
 # Compiler files
 cache/
 out/
+!Backend/src/cache/
 
 # Ignores development broadcast logs
 !/broadcast
@@ -94,8 +95,9 @@ out/
 # Dotenv file
 .env
 
-# Libraries
+# Libraries (Foundry/Solidity — excludes frontend lib)
 lib/
+!Frontend/lib/
 
 # Anvil
 anvil.pid
@@ -105,3 +107,8 @@ artifacts/
 
 # TypeScript
 *.tsbuildinfo
+
+.agents/
+.claude/
+issue.md
+skills-lock.json

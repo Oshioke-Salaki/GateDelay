@@ -7,26 +7,36 @@ import "../src/MarketMaker.sol";
 import "../src/Trading.sol";
 
 contract TradingTest is Test {
-    ERC20Token  token;
+event TradeExecuted(
+    address indexed trader,
+    uint256 indexed marketId,
+    uint256 outcome,
+    bool isBuy,
+    uint256 shares,
+    uint256 collateralAmount,
+    uint256 fee
+);
+
+ERC20Token token;
     MarketMaker mm;
-    Trading     trading;
+    Trading trading;
 
     address alice = address(0xA);
-    address bob   = address(0xB);
+    address bob = address(0xB);
 
-    uint256 constant WAD    = 1e18;
-    uint256 constant B      = 100 * WAD;
-    uint256 constant FEE    = 30; // 0.3%
+    uint256 constant WAD = 1e18;
+    uint256 constant B = 100 * WAD;
+    uint256 constant FEE = 30; // 0.3%
     uint256 marketId;
 
     function setUp() public {
-        token   = new ERC20Token(0);
-        mm      = new MarketMaker(address(token));
+        token = new ERC20Token(0);
+        mm = new MarketMaker(address(token));
         trading = new Trading(address(mm), FEE);
 
         token.addMinter(address(mm));
         token.mint(alice, 10_000 * WAD);
-        token.mint(bob,   10_000 * WAD);
+        token.mint(bob, 10_000 * WAD);
 
         // Trading contract needs to be approved as a minter so MM can pull from it
         // (Trading holds MM positions on behalf of traders)
@@ -37,8 +47,8 @@ contract TradingTest is Test {
     function testFeeAccumulation() public {
         uint256 shares = 10 * WAD;
         uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
-        uint256 fee     = (rawCost * FEE) / 10_000;
-        uint256 total   = rawCost + fee;
+        uint256 fee = (rawCost * FEE) / 10_000;
+        uint256 total = rawCost + fee;
 
         vm.startPrank(alice);
         token.approve(address(trading), total);
@@ -84,9 +94,9 @@ contract TradingTest is Test {
 
     // ── Fee withdrawal ────────────────────────────────────────────────────────
     function testWithdrawFees() public {
-        uint256 shares  = 10 * WAD;
+        uint256 shares = 10 * WAD;
         uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
-        uint256 total   = rawCost + (rawCost * FEE) / 10_000;
+        uint256 total = rawCost + (rawCost * FEE) / 10_000;
 
         vm.startPrank(alice);
         token.approve(address(trading), total);
@@ -109,24 +119,24 @@ contract TradingTest is Test {
 
     // ── Trade events ──────────────────────────────────────────────────────────
     function testBuyEmitsEvent() public {
-        uint256 shares  = 5 * WAD;
+        uint256 shares = 5 * WAD;
         uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
-        uint256 fee     = (rawCost * FEE) / 10_000;
-        uint256 total   = rawCost + fee;
+        uint256 fee = (rawCost * FEE) / 10_000;
+        uint256 total = rawCost + fee;
 
         vm.startPrank(alice);
         token.approve(address(trading), total);
         vm.expectEmit(true, true, false, false);
-        emit Trading.TradeExecuted(alice, marketId, 0, true, shares, total, fee);
+        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee);
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
     }
 
     // ── Position tracking ─────────────────────────────────────────────────────
     function testPositionTracked() public {
-        uint256 shares  = 10 * WAD;
+        uint256 shares = 10 * WAD;
         uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
-        uint256 total   = rawCost + (rawCost * FEE) / 10_000;
+        uint256 total = rawCost + (rawCost * FEE) / 10_000;
 
         vm.startPrank(alice);
         token.approve(address(trading), total);

@@ -39,16 +39,25 @@ contract MockMarket {
 }
 
 contract PositionTokenTest is Test {
+    event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
+event TransferBatch(
+    address indexed operator,
+    address indexed from,
+    address indexed to,
+    uint256[] ids,
+    uint256[] values
+);
+
     MockFactory factory;
     PositionToken token;
     MockMarket market;
 
     address alice = address(0xA11CE);
-    address bob   = address(0xB0B);
+    address bob = address(0xB0B);
 
     function setUp() public {
         factory = new MockFactory();
-        token   = factory.token();
+        token = factory.token();
 
         // Deploy a mock market and authorise it
         market = new MockMarket(token);
@@ -107,7 +116,7 @@ contract PositionTokenTest is Test {
     function test_mint_emitsTransferSingle() public {
         uint256 id = token.yesId(address(market));
         vm.expectEmit(true, true, true, true);
-        emit PositionToken.TransferSingle(address(market), address(0), alice, id, 77);
+        emit TransferSingle(address(market), address(0), alice, id, 77);
         market.mint(alice, id, 77);
     }
 
@@ -123,10 +132,12 @@ contract PositionTokenTest is Test {
     function test_mintBatch_increasesBalances() public {
         uint256 yId = token.yesId(address(market));
         uint256 nId = token.noId(address(market));
-        uint256[] memory ids     = new uint256[](2);
+        uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
-        ids[0] = yId; ids[1] = nId;
-        amounts[0] = 30; amounts[1] = 70;
+        ids[0] = yId;
+        ids[1] = nId;
+        amounts[0] = 30;
+        amounts[1] = 70;
         market.mintBatch(alice, ids, amounts);
         assertEq(token.balanceOf(alice, yId), 30);
         assertEq(token.balanceOf(alice, nId), 70);
@@ -136,20 +147,23 @@ contract PositionTokenTest is Test {
     function test_mintBatch_emitsTransferBatch() public {
         uint256 yId = token.yesId(address(market));
         uint256 nId = token.noId(address(market));
-        uint256[] memory ids     = new uint256[](2);
+        uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
-        ids[0] = yId; ids[1] = nId;
-        amounts[0] = 10; amounts[1] = 20;
+        ids[0] = yId;
+        ids[1] = nId;
+        amounts[0] = 10;
+        amounts[1] = 20;
         vm.expectEmit(true, true, true, true);
-        emit PositionToken.TransferBatch(address(market), address(0), alice, ids, amounts);
+        emit TransferBatch(address(market), address(0), alice, ids, amounts);
         market.mintBatch(alice, ids, amounts);
     }
 
     /// Req 2.7 — ArrayLengthMismatch on unequal arrays
     function test_mintBatch_revertsOnLengthMismatch() public {
-        uint256[] memory ids     = new uint256[](2);
+        uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](1);
-        ids[0] = 1; ids[1] = 2;
+        ids[0] = 1;
+        ids[1] = 2;
         amounts[0] = 10;
         vm.expectRevert(PositionToken.ArrayLengthMismatch.selector);
         market.mintBatch(alice, ids, amounts);
@@ -157,9 +171,10 @@ contract PositionTokenTest is Test {
 
     /// Req 2.8 — UnauthorisedMinter on mintBatch
     function test_mintBatch_revertsIfUnauthorised() public {
-        uint256[] memory ids     = new uint256[](1);
+        uint256[] memory ids = new uint256[](1);
         uint256[] memory amounts = new uint256[](1);
-        ids[0] = 1; amounts[0] = 10;
+        ids[0] = 1;
+        amounts[0] = 10;
         vm.expectRevert(PositionToken.UnauthorisedMinter.selector);
         vm.prank(address(0xBAD));
         token.mintBatch(alice, ids, amounts, "");
@@ -207,12 +222,14 @@ contract PositionTokenTest is Test {
         uint256 yId = token.yesId(address(market));
         uint256 nId = token.noId(address(market));
         market.mint(alice, yId, 100);
-        market.mint(bob,   nId, 200);
+        market.mint(bob, nId, 200);
 
         address[] memory accounts = new address[](2);
-        uint256[] memory ids      = new uint256[](2);
-        accounts[0] = alice; accounts[1] = bob;
-        ids[0] = yId;        ids[1] = nId;
+        uint256[] memory ids = new uint256[](2);
+        accounts[0] = alice;
+        accounts[1] = bob;
+        ids[0] = yId;
+        ids[1] = nId;
 
         uint256[] memory balances = token.balanceOfBatch(accounts, ids);
         assertEq(balances[0], 100);
@@ -222,8 +239,9 @@ contract PositionTokenTest is Test {
     /// Req 2.9 — balanceOfBatch reverts on unequal arrays
     function test_balanceOfBatch_revertsOnLengthMismatch() public {
         address[] memory accounts = new address[](2);
-        uint256[] memory ids      = new uint256[](1);
-        accounts[0] = alice; accounts[1] = bob;
+        uint256[] memory ids = new uint256[](1);
+        accounts[0] = alice;
+        accounts[1] = bob;
         ids[0] = 1;
         vm.expectRevert(PositionToken.ArrayLengthMismatch.selector);
         token.balanceOfBatch(accounts, ids);
@@ -273,9 +291,10 @@ contract PositionTokenTest is Test {
         uint256 yId = token.yesId(address(market));
         uint256 nId = token.noId(address(market));
 
-        uint256[] memory ids     = new uint256[](2);
+        uint256[] memory ids = new uint256[](2);
         uint256[] memory amounts = new uint256[](2);
-        ids[0] = yId; ids[1] = nId;
+        ids[0] = yId;
+        ids[1] = nId;
         amounts[0] = uint256(amount0);
         amounts[1] = uint256(amount1);
 
@@ -307,7 +326,7 @@ contract PositionTokenTest is Test {
 
         uint256 id = token.yesId(address(market));
         uint256 balanceBefore = token.balanceOf(holder, id);
-        uint256 supplyBefore  = token.totalSupply(id);
+        uint256 supplyBefore = token.totalSupply(id);
 
         market.mint(holder, id, uint256(amount));
         market.burn(holder, id, uint256(amount));

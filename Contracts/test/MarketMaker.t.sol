@@ -6,26 +6,26 @@ import "../src/ERC20Token.sol";
 import "../src/MarketMaker.sol";
 
 contract MarketMakerTest is Test {
-    ERC20Token  token;
+    ERC20Token token;
     MarketMaker mm;
 
     address alice = address(0xA);
-    address bob   = address(0xB);
+    address bob = address(0xB);
 
     uint256 constant WAD = 1e18;
-    uint256 constant B   = 100 * WAD;
+    uint256 constant B = 100 * WAD;
     uint256 marketId;
 
     function setUp() public {
         token = new ERC20Token(0);
-        mm    = new MarketMaker(address(token));
+        mm = new MarketMaker(address(token));
 
         // Grant MarketMaker minting rights so it can be funded
         token.addMinter(address(mm));
 
         // Fund alice and bob
         token.mint(alice, 10_000 * WAD);
-        token.mint(bob,   10_000 * WAD);
+        token.mint(bob, 10_000 * WAD);
 
         // Create a binary market
         marketId = mm.createMarket("Will flight be delayed?", 2, B);
@@ -33,17 +33,17 @@ contract MarketMakerTest is Test {
 
     // ── Market creation ───────────────────────────────────────────────────────
     function testCreateMarket() public view {
-        (
-            string memory desc,
-            uint256 b,
-            uint256 numOutcomes,
-            ,
-            bool resolved,
-            ,
-            address creator
-        ) = mm.markets(marketId);
-        assertEq(desc,        "Will flight be delayed?");
-        assertEq(b,           B);
+(
+    string memory desc,
+    uint256 b,
+    uint256 numOutcomes,
+    bool resolved,
+    ,
+    address creator
+) = mm.markets(marketId);
+
+assertEq(desc, "Will flight be delayed?");
+assertEq(b, B);
         assertEq(numOutcomes, 2);
         assertFalse(resolved);
         assertEq(creator, address(this));
@@ -57,7 +57,7 @@ contract MarketMakerTest is Test {
     // ── Buy ───────────────────────────────────────────────────────────────────
     function testBuy() public {
         uint256 shares = 10 * WAD;
-        uint256 cost   = mm.getCostToBuy(marketId, 0, shares);
+        uint256 cost = mm.getCostToBuy(marketId, 0, shares);
 
         vm.startPrank(alice);
         token.approve(address(mm), cost);
@@ -77,7 +77,7 @@ contract MarketMakerTest is Test {
     // ── Sell ──────────────────────────────────────────────────────────────────
     function testSell() public {
         uint256 shares = 10 * WAD;
-        uint256 cost   = mm.getCostToBuy(marketId, 0, shares);
+        uint256 cost = mm.getCostToBuy(marketId, 0, shares);
 
         vm.startPrank(alice);
         token.approve(address(mm), cost);
@@ -107,7 +107,7 @@ contract MarketMakerTest is Test {
 
     function testPriceShiftsAfterBuy() public {
         uint256 shares = 50 * WAD;
-        uint256 cost   = mm.getCostToBuy(marketId, 0, shares);
+        uint256 cost = mm.getCostToBuy(marketId, 0, shares);
 
         vm.startPrank(alice);
         token.approve(address(mm), cost);
@@ -121,7 +121,7 @@ contract MarketMakerTest is Test {
     // ── Resolution & redemption ───────────────────────────────────────────────
     function testResolveAndRedeem() public {
         uint256 shares = 10 * WAD;
-        uint256 cost   = mm.getCostToBuy(marketId, 0, shares);
+        uint256 cost = mm.getCostToBuy(marketId, 0, shares);
 
         vm.startPrank(alice);
         token.approve(address(mm), cost);
@@ -159,9 +159,9 @@ contract MarketMakerTest is Test {
     // ── Multiple outcomes ─────────────────────────────────────────────────────
     function testMultipleOutcomes() public {
         uint256 mid = mm.createMarket("3-outcome market", 3, B);
-        uint256 p0  = mm.getPrice(mid, 0);
-        uint256 p1  = mm.getPrice(mid, 1);
-        uint256 p2  = mm.getPrice(mid, 2);
+        uint256 p0 = mm.getPrice(mid, 0);
+        uint256 p1 = mm.getPrice(mid, 1);
+        uint256 p2 = mm.getPrice(mid, 2);
         assertApproxEqRel(p0 + p1 + p2, WAD, 1e15);
     }
 }

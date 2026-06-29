@@ -6,6 +6,13 @@ import "../src/MarketFactory.sol";
 import "../src/PositionToken.sol";
 
 contract MarketFactoryTest is Test {
+event MarketCreated(
+    address indexed market,
+    address indexed creator,
+    address indexed collateralToken,
+    uint256 resolutionDeadline
+);
+
     PositionToken internal positionToken;
     MarketFactory internal factory;
 
@@ -111,14 +118,11 @@ contract MarketFactoryTest is Test {
 
         // Predict the market address that will be generated
         // keccak256(abi.encodePacked(address(this), block.timestamp, 0))
-        address expectedMarket = address(
-            uint160(
-                uint256(keccak256(abi.encodePacked(address(this), block.timestamp, uint256(0))))
-            )
-        );
+        address expectedMarket =
+            address(uint160(uint256(keccak256(abi.encodePacked(address(this), block.timestamp, uint256(0))))));
 
         vm.expectEmit(true, true, true, true);
-        emit MarketFactory.MarketCreated(expectedMarket, address(this), validToken, deadline);
+        emit MarketCreated(expectedMarket, address(this), validToken, deadline);
         factory.createMarket(validToken, deadline, 1 ether, "ipfs://meta");
     }
 
