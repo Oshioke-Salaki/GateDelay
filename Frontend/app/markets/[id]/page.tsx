@@ -10,6 +10,8 @@ import PriceChart from "../../components/chart/PriceChart";
 import LiquidityChart from "../../../components/chart/LiquidityChart";
 import GasEstimator, { type GasSpeed, type GasEstimate } from "../../../components/gas/GasEstimator";
 import AnalysisPanel from "../../../components/ai/AnalysisPanel";
+import MarketSentiment from "../../../components/market/MarketSentiment";
+
 
 // Mock data — replace with real contract/API calls
 const MOCK_MARKET = {
@@ -121,8 +123,17 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
         defaultCollapsed={false}
       />
 
+      {/* Market Sentiment (Social + News + Trading) */}
+      <MarketSentiment
+        marketId={market.id}
+        marketTitle={market.title}
+        marketDescription={market.description}
+        defaultCollapsed={false}
+      />
+
       {/* Trading interface + Recent trades */}
       <div className="grid sm:grid-cols-2 gap-4">        {/* Trade */}
+
         <div
           className="rounded-xl p-5 space-y-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}

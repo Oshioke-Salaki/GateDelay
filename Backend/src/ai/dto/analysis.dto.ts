@@ -30,4 +30,20 @@ export class AnalysisRequestDto {
   @IsOptional()
   @IsNumber()
   currentOdds?: number;
+
+  /** Optional social media sentiment inputs (already aggregated upstream). */
+  @IsOptional()
+  @IsString()
+  socialSignals?: string;
+
+  /** Optional news sentiment inputs (already aggregated upstream). */
+  @IsOptional()
+  @IsString()
+  newsSignals?: string;
+
+  /** Optional trading/market microstructure inputs (already aggregated upstream). */
+  @IsOptional()
+  @IsString()
+  tradingSignals?: string;
 }
+

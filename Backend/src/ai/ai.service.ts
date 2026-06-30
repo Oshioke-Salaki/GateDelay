@@ -115,8 +115,23 @@ Market title: "${dto.marketTitle}"
 ${dto.marketDescription ? `Description: "${dto.marketDescription}"` : ''}
 ${dto.deadline ? `Resolution deadline: ${dto.deadline}` : ''}
 ${dto.currentOdds !== undefined ? `Current implied probability (0–1): ${dto.currentOdds}` : ''}
-${dto.riskTolerance ? `Trader risk tolerance: ${dto.riskTolerance}` : ''}`;
+${dto.riskTolerance ? `Trader risk tolerance: ${dto.riskTolerance}` : ''}
+
+SOCIAL MEDIA / COMMUNITY SENTIMENT (may be pre-aggregated):
+${dto.socialSignals ? dto.socialSignals : 'N/A'}
+
+NEWS SENTIMENT / HEADLINES (may be pre-aggregated):
+${dto.newsSignals ? dto.newsSignals : 'N/A'}
+
+TRADING / MICROSTRUCTURE SIGNALS (may be pre-aggregated):
+${dto.tradingSignals ? dto.tradingSignals : 'N/A'}
+
+Rules:
+- Use the social/news/trading inputs to set direction + confidence.
+- If inputs are N/A or weak, prefer "neutral" with lower confidence.
+- Risk score should reflect disagreement between sources and volatility/uncertainty in the inputs.`;
   }
+
 
   private parseGroqResponse(
     dto: AnalysisRequestDto,

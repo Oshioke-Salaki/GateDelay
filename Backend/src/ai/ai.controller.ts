@@ -45,7 +45,10 @@ export class AiController {
     return {
       marketId: analysis.marketId,
       signal: analysis.signal,
+      risk: analysis.risk,
+      summary: analysis.summary,
       generatedAt: analysis.generatedAt,
     };
   }
+
 }
