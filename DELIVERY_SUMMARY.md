@@ -182,6 +182,7 @@
 | recoveryTimeout | 1 hour | uint256 (sec) | > 0 |
 | healthCheckWindow | 24 hours | uint256 (sec) | > 0 |
 
+
 ### Events Emitted
 
 ```solidity
