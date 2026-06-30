@@ -95,7 +95,7 @@ export default function ShareDistribution({
               cx="50%"
               cy="50%"
               outerRadius={80}
-              label={({ outcome, percentage }) => `${outcome} ${percentage.toFixed(1)}%`}
+              label={({ outcome, percentage }: any) => `${outcome} ${percentage.toFixed(1)}%`}
             >
               {stats.data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

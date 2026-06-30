@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Search, Calendar, Filter } from "lucide-react";
-import type { ArchivedMarket } from "../../archive/page";
+import type { ArchivedMarket } from "../../app/archive/page";
 
 interface ArchiveViewProps {
   markets: ArchivedMarket[];

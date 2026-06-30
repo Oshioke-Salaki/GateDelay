@@ -129,7 +129,7 @@ export default function TradingChart({ marketId }: TradingChartProps) {
                                     borderRadius: "8px",
                                     padding: "12px",
                                 }}
-                                formatter={(value: number) => [`$${value.toFixed(4)}`, "Price"]}
+                                formatter={(value: any) => [`$${parseFloat(value).toFixed(4)}`, "Price"]}
                                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
                             />
                             <Area
@@ -163,7 +163,7 @@ export default function TradingChart({ marketId }: TradingChartProps) {
                                     borderRadius: "8px",
                                     padding: "12px",
                                 }}
-                                formatter={(value: number) => [`$${value.toFixed(4)}`, "Price"]}
+                                formatter={(value: any) => [`$${parseFloat(value).toFixed(4)}`, "Price"]}
                                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
                             />
                             <Line

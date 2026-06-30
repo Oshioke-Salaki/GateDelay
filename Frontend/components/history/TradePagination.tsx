@@ -75,7 +75,7 @@ export default function TradePagination({
     queryKey: ["trades", pair, page, pageSize, sideFilter, startDate, endDate],
     queryFn: () => fetchTradeHistory(pair, page, pageSize, sideFilter, startDate, endDate),
     staleTime: 30000,
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const trades = data?.trades || [];

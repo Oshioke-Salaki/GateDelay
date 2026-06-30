@@ -5,11 +5,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useCallback } from "react";
 import DarkModeToggle from "../../app/components/DarkModeToggle";
 import WalletButton from "../../app/components/WalletButton";
+import LatencyIndicator from "../network/LatencyIndicator";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Markets" },
+  { href: "/governance", label: "Governance" },
   { href: "/bridge", label: "Bridge" },
   { href: "/transactions", label: "History" },
+  { href: "/audit", label: "Audit" },
+  { href: "/volatility", label: "Volatility" },
+  { href: "/wallet", label: "Wallet" },
+  { href: "/arbitrage-demo", label: "Arbitrage" },
   { href: "/profile", label: "Profile" },
   { href: "/settings", label: "Settings" },
 ];
@@ -30,7 +36,7 @@ const NAV_LINKS = [
  *  - Active link is marked with aria-current="page"
  */
 export default function Navigation() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,7 +132,7 @@ export default function Navigation() {
         {/* Desktop nav links */}
         <div className="hidden lg:flex items-center gap-1" role="list">
           {NAV_LINKS.map(({ href, label }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+            const active = pathname === href || pathname?.startsWith(href + "/");
             return (
               <Link
                 key={href}
@@ -147,6 +153,7 @@ export default function Navigation() {
 
         {/* Desktop actions */}
         <div className="hidden lg:flex items-center gap-3">
+          <LatencyIndicator />
           <DarkModeToggle />
           <WalletButton />
         </div>
@@ -249,7 +256,7 @@ export default function Navigation() {
         {/* Nav links — large touch targets */}
         <nav aria-label="Mobile navigation links">
           {NAV_LINKS.map(({ href, label }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+            const active = pathname === href || pathname?.startsWith(href + "/");
             return (
               <Link
                 key={href}
@@ -270,8 +277,9 @@ export default function Navigation() {
           })}
         </nav>
 
-        {/* Wallet button at the bottom of the drawer */}
-        <div className="mt-auto pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+        {/* Latency + Wallet button at the bottom of the drawer */}
+        <div className="mt-auto pt-4 flex flex-col gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+          <LatencyIndicator showLabel={true} />
           <WalletButton />
         </div>
       </div>

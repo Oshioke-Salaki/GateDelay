@@ -3,6 +3,7 @@ import Link from "next/link";
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import MarketCard, { Market } from "../../components/market/MarketCard";
 import TrendingMarkets from "../../components/dashboard/TrendingMarkets";
+import TradingChallenge from "../../components/challenge/TradingChallenge";
 
 const SAMPLE_MARKETS: Market[] = [
   {
@@ -111,6 +112,8 @@ export default function DashboardPage() {
         </div>
 
         <TrendingMarkets />
+
+        <TradingChallenge />
 
         {/* Market grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
