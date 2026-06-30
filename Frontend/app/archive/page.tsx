@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import ArchiveView from "../components/archive/ArchiveView";
+import ArchiveView from "../../components/archive/ArchiveView";
 import { MarketListSkeleton } from "../components/ui/Skeleton";
 
 export interface ArchivedMarket {

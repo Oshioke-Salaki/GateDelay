@@ -165,7 +165,7 @@ export default function GasTracker({ className = "" }: GasTrackerProps) {
                   border: "1px solid var(--border)",
                   color: "var(--foreground)",
                 }}
-                formatter={(value: number) => `${value.toFixed(2)} Gwei`}
+                formatter={(value: any) => `${parseFloat(value).toFixed(2)} Gwei`}
               />
               <Line
                 type="monotone"

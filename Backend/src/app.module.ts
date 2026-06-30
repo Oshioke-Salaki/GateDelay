@@ -43,6 +43,7 @@ import { MarketAuditModule } from './market-audit/market-audit.module';
 import { VerificationModule } from './verification/verification.module';
 import { MarketMetadataModule } from './market-metadata/market-metadata.module';
 import { EventNotificationModule } from './event-notifications/event-notification.module';
+import { BridgeModule } from './bridge/bridge.module';
 
 @Module({
   imports: [
@@ -107,6 +108,7 @@ import { EventNotificationModule } from './event-notifications/event-notificatio
     VerificationModule,
     MarketMetadataModule,
     EventNotificationModule,
+    BridgeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -8,6 +8,8 @@ solc           = "0.8.20"
 optimizer      = true
 optimizer_runs = 200
 via_ir         = true
+auto_detect_solc = true
+offline = false
 
 [profile.default.fuzz]
 runs = 256

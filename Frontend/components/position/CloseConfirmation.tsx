@@ -403,8 +403,9 @@ export default function CloseConfirmation({
                                 {isSubmitting ? "Settling..." : `Settle Position`}
                             </button>
                         </div>
-                    </motion.div>
-                </AnimatePresence>
-            </Modal>
-        );
+                    </form>
+                </motion.div>
+            </AnimatePresence>
+        </Modal>
+    );
 }

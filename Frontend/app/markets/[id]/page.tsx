@@ -1,17 +1,36 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { StatsSkeleton, ChartSkeleton } from "../../components/ui/Skeleton";
 import StatusIndicator from "../../components/market/StatusIndicator";
 import OrderBook from "../../components/market/OrderBook";
 import TradeConfirmation from "../../../components/trade/TradeConfirmation";
 import LiquidityDisplay from "../../../components/market/LiquidityDisplay";
-import { useAccount } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import PriceChart from "../../components/chart/PriceChart";
 import LiquidityChart from "../../../components/chart/LiquidityChart";
 import GasEstimator, { type GasSpeed, type GasEstimate } from "../../../components/gas/GasEstimator";
 import AnalysisPanel from "../../../components/ai/AnalysisPanel";
 import MarketSentiment from "../../../components/market/MarketSentiment";
+import ExecutionProgress, { type ExecutionStatus } from "../../../components/trade/ExecutionProgress";
+import EventTimeline from "../../../components/market/EventTimeline";
 
+// ── ABI (only the buy function) ──────────────────────────────────────────────
+const MARKET_MAKER_ABI = [
+  {
+    name: "buy",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "marketId", type: "uint256" },
+      { name: "outcome", type: "uint256" },
+      { name: "shares", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+const MARKET_MAKER_ADDRESS =
+  (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
 
 // Mock data — replace with real contract/API calls
 const MOCK_MARKET = {
@@ -36,7 +55,7 @@ const MOCK_MARKET = {
 };
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
   const market = { ...MOCK_MARKET, id: params.id };
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
@@ -45,10 +64,33 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   const [gasSpeed, setGasSpeed] = useState<GasSpeed>("standard");
   const [gasEstimate, setGasEstimate] = useState<GasEstimate | null>(null);
 
+  // Trade execution hooks
+  const { writeContract, data: txHash, isPending: isSigning, error: signError, reset: resetWrite } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess, error: confirmError } = useWaitForTransactionReceipt({ hash: txHash });
+
+  const [isProgressOpen, setIsProgressOpen] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<ExecutionStatus>("idle");
+
   const amountValue = parseFloat(amount) || 0;
   const price = side === "YES" ? market.yesPrice : market.noPrice;
   const shares = amountValue > 0 ? (amountValue / price).toFixed(2) : "—";
   const isTradeValid = amountValue > 0 && market.status === "open";
+
+  // Monitor transaction states
+  useEffect(() => {
+    if (!isProgressOpen) return;
+
+    if (isSigning) {
+      setProgressStatus("submitting");
+    } else if (isConfirming) {
+      setProgressStatus("confirming");
+    } else if (isSuccess) {
+      setProgressStatus("success");
+      setConfirmationMessage(`Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`);
+    } else if (signError || confirmError) {
+      setProgressStatus("error");
+    }
+  }, [isProgressOpen, isSigning, isConfirming, isSuccess, signError, confirmError, side, amountValue, price]);
 
   const openConfirmation = () => {
     if (isTradeValid) {
@@ -56,9 +98,34 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
     }
   };
 
+  const executeTrade = () => {
+    setProgressStatus("submitting");
+    setIsProgressOpen(true);
+    
+    // Calculate shares: (amount / price) * 1e18 for ERC-20 decimal conversion
+    const calculatedShares = amountValue / price;
+    const sharesBigInt = BigInt(Math.floor(calculatedShares * 1e18));
+    
+    try {
+      writeContract({
+        address: MARKET_MAKER_ADDRESS,
+        abi: MARKET_MAKER_ABI,
+        functionName: "buy",
+        args: [BigInt(market.id || "1"), BigInt(side === "YES" ? 0 : 1), sharesBigInt],
+      });
+    } catch (e: any) {
+      setProgressStatus("error");
+    }
+  };
+
   const handleConfirmTrade = () => {
     setIsConfirmationOpen(false);
-    setConfirmationMessage(`Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`);
+    executeTrade();
+  };
+
+  const handleRetryTrade = () => {
+    resetWrite();
+    executeTrade();
   };
 
   return (
@@ -130,6 +197,9 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
         marketDescription={market.description}
         defaultCollapsed={false}
       />
+
+      {/* Event Timeline */}
+      <EventTimeline marketId={market.id} />
 
       {/* Trading interface + Recent trades */}
       <div className="grid sm:grid-cols-2 gap-4">        {/* Trade */}
@@ -249,6 +319,21 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
         price={price}
         onClose={() => setIsConfirmationOpen(false)}
         onConfirm={handleConfirmTrade}
+      />
+
+      <ExecutionProgress
+        isOpen={isProgressOpen}
+        onClose={() => {
+          setIsProgressOpen(false);
+          resetWrite();
+        }}
+        status={progressStatus}
+        hash={txHash}
+        error={signError || confirmError}
+        onRetry={handleRetryTrade}
+        side={side}
+        amount={amountValue}
+        price={price}
       />
     </main>
   );

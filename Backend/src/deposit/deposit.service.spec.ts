@@ -27,7 +27,18 @@ describe('DepositService', () => {
     save: jest.fn().mockResolvedValue(this),
   };
 
-  const mockDepositModel = {
+  const mockDepositModelFn = jest.fn().mockImplementation((dto) => {
+    return {
+      ...mockDeposit,
+      ...dto,
+      save: jest.fn().mockResolvedValue({
+        ...mockDeposit,
+        ...dto,
+      }),
+    };
+  });
+
+  const mockDepositModel = Object.assign(mockDepositModelFn, {
     new: jest.fn().mockResolvedValue(mockDeposit),
     constructor: jest.fn().mockResolvedValue(mockDeposit),
     find: jest.fn(),
@@ -38,7 +49,7 @@ describe('DepositService', () => {
     countDocuments: jest.fn(),
     aggregate: jest.fn(),
     exec: jest.fn(),
-  };
+  });
 
   const mockConfigService = {
     get: jest.fn((key: string, defaultValue?: string) => {
