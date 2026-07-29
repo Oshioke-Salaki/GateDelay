@@ -4,6 +4,9 @@ pragma solidity ^0.8.20;
 /// @title LMSR – Logarithmic Market Scoring Rule library
 /// @notice Pure math library for LMSR pricing. Uses a fixed-point approximation
 ///         of ln/exp with 18-decimal precision (WAD arithmetic).
+/// @dev Trading-model ambiguity (LMSR vs CLOB) is documented in
+///      docs/adr/0001-lmsr-vs-clob-ambiguity.md — Phase 2 will choose the product path.
+///      This library is used by MarketMaker; OrderBook is a separate, unwired CLOB.
 library LMSR {
     uint256 internal constant WAD = 1e18;
 

@@ -6,6 +6,9 @@ import "./ERC20Token.sol";
 
 /// @title MarketMaker – LMSR-based prediction market
 /// @notice Manages liquidity pools and outcome positions for binary/multi-outcome markets.
+/// @dev Canonical prediction-market trading path (with Trading.sol wrapper). See
+///      docs/adr/0001-lmsr-vs-clob-ambiguity.md — OrderBook is not integrated here;
+///      Phase 2 decides LMSR-only vs CLOB vs hybrid.
 contract MarketMaker {
     using LMSR for uint256[];
 

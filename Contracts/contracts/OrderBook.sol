@@ -9,6 +9,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /**
  * @title  OrderBook
  * @notice On-chain central limit order book (CLOB) for a base/quote token pair.
+ * @dev   Standalone CLOB — not wired to MarketMaker/LMSR/Trading. Product decision
+ *        deferred to Phase 2; see docs/adr/0001-lmsr-vs-clob-ambiguity.md.
  *
  * Architecture
  * ────────────
