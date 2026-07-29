@@ -1,98 +1,208 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# GateDelay Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Node.js/TypeScript backend for the GateDelay flight-delay derivatives platform.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Architecture overview
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+The backend has two layers that co-exist in this repository:
 
-## Project setup
+| Layer | Entry point | Status |
+|---|---|---|
+| **Express** (Phase 1) | `server.js` | ✅ Runnable today |
+| **NestJS** (Phase 2) | `src/main.ts` | 🚧 Dependencies not yet installed |
 
-```bash
-$ npm install
-```
+Phase 1 is the currently active server. Phase 2 (`src/main.ts`) is scaffolded and fully authored but requires additional dependency installation before it can be compiled or run — see [Phase 2 – NestJS boot path](#phase-2--nestjs-boot-path) below.
 
-## Compile and run the project
+---
+
+## Phase 1 – Express boot path (active)
+
+### Prerequisites
+
+- Node.js ≥ 20
+- MongoDB running locally (default: `mongodb://localhost:27017/gatedelay`) or a remote URI
+- Redis running locally (default: `localhost:6379`)
+
+### Install and run
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+# from the Backend/ directory
+cp .env.example .env        # fill in secrets — see Environment variables below
+npm install
+npm start                   # node server.js  →  http://localhost:4000
+npm run dev                 # node --watch server.js (restarts on file change)
 ```
 
-## Run tests
+Health check:
+
+```
+GET http://localhost:4000/health
+→ { "status": "ok", "timestamp": "..." }
+```
+
+### What server.js provides
+
+- `GET  /health` – liveness probe
+- `POST /api/upgrades` – create an upgrade job
+- `POST /api/upgrades/:id/start` – execute an upgrade
+- `GET  /api/upgrades` / `GET /api/upgrades/:id` – status
+- `POST /api/upgrades/:id/rollback` – rollback
+- `*    /api/migrations` – migration routes
+- `*    /api/rollback` – rollback routes
+- `*    /api/beta` – beta-feature routes
+- `*    /api/oncall` – on-call routes
+
+---
+
+## Phase 2 – NestJS boot path
+
+> **Blocked on dependency install.** The source is complete (`src/main.ts`,
+> `src/app.module.ts`, and all feature modules), but none of the `@nestjs/*`
+> packages are in `package.json` yet. The steps below unblock the full NestJS
+> stack.
+
+### Step 1 — install NestJS dependencies
 
 ```bash
-# unit tests
-$ npm run test
+# Core runtime
+npm install @nestjs/core @nestjs/common @nestjs/platform-express reflect-metadata rxjs
 
-# e2e tests
-$ npm run test:e2e
+# Feature modules used by app.module.ts
+npm install @nestjs/config @nestjs/mongoose @nestjs/cache-manager @nestjs/schedule @nestjs/throttler
+npm install @nestjs/jwt @nestjs/passport passport passport-jwt passport-local
+npm install @keyv/redis mongoose ioredis
 
-# test coverage
-$ npm run test:cov
+# Dev / build toolchain
+npm install --save-dev typescript ts-node @nestjs/cli @nestjs/schematics
+npm install --save-dev @types/node @types/express @types/passport-jwt @types/passport-local
 ```
 
-## Deployment
+### Step 2 — fix tsconfig for NestJS
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+`tsconfig.json` currently uses `"module": "nodenext"` which requires explicit
+`.js` extensions on all relative imports. NestJS scaffolded imports don't
+include them. Change the relevant lines:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```jsonc
+// tsconfig.json  — change these two values:
+"module": "commonjs",
+"moduleResolution": "node",
+// and add:
+"rootDir": "./src"
+```
+
+### Step 3 — add scripts to package.json
+
+```jsonc
+"scripts": {
+  "start":       "node server.js",
+  "dev":         "node --watch server.js",
+  "build":       "nest build",
+  "start:dev":   "nest start --watch",
+  "start:debug": "nest start --debug --watch",
+  "start:prod":  "node dist/main"
+}
+```
+
+### Step 4 — run the NestJS server
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run build       # compiles src/ → dist/
+npm run start:dev   # ts-node watch mode  →  http://localhost:3000
+npm run start:prod  # node dist/main      →  http://localhost:3000
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+NestJS listens on `PORT` (default **3000**); Express listens on `PORT` (default
+**4000**). Set different `PORT` values if running both at once.
 
-## Resources
+### NestJS boot dependencies
 
-Check out a few resources that may come in handy when working with NestJS:
+| Package | Purpose |
+|---|---|
+| `@nestjs/core` | `NestFactory`, application lifecycle |
+| `@nestjs/common` | `ValidationPipe`, guards, decorators |
+| `@nestjs/platform-express` | Default HTTP adapter |
+| `reflect-metadata` | Decorator metadata (required by NestJS) |
+| `@nestjs/config` | `ConfigModule` / `ConfigService` — env vars |
+| `@nestjs/mongoose` | `MongooseModule` — MongoDB ODM |
+| `@nestjs/cache-manager` | `CacheModule` with Redis store |
+| `@nestjs/schedule` | `ScheduleModule` — cron jobs |
+| `@nestjs/throttler` | `ThrottlerModule` — rate limiting |
+| `@nestjs/jwt` / `@nestjs/passport` | Auth module |
+| `@keyv/redis` | Redis Keyv adapter for CacheModule |
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### External services required at startup
 
-## Support
+| Service | Default | Module that fails without it |
+|---|---|---|
+| MongoDB | `mongodb://localhost:27017/gatedelay` | `MongooseModule` |
+| Redis | `localhost:6379` | `CacheModule` (Keyv adapter) |
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+## Environment variables
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Copy `.env.example` to `.env` and fill in the values before starting either server.
 
-## License
+| Variable | Default | Required for |
+|---|---|---|
+| `PORT` | 3000 (NestJS) / 4000 (Express) | Both |
+| `FRONTEND_URL` | `*` | NestJS CORS |
+| `MONGODB_URI` | `mongodb://localhost:27017/gatedelay` | Both |
+| `REDIS_HOST` | `localhost` | NestJS CacheModule |
+| `REDIS_PORT` | `6379` | NestJS CacheModule |
+| `JWT_SECRET` | — | NestJS AuthModule |
+| `JWT_REFRESH_SECRET` | — | NestJS AuthModule |
+| `JWT_EXPIRES_IN` | `15m` | NestJS AuthModule |
+| `JWT_REFRESH_EXPIRES_IN` | `7d` | NestJS AuthModule |
+| `AVIATION_STACK_API_KEY` | — | Flight data feeds |
+| `BLOCKCHAIN_RPC_URL` | `https://rpc.mantle.xyz` | BlockchainModule |
+| `BLOCKCHAIN_CHAIN_ID` | `5000` | BlockchainModule |
+| `GROQ_API_KEY` | — | AiModule |
+| `ETHERSCAN_API_KEY` | — | Gas estimation (optional) |
+| `FIREBASE_SERVICE_ACCOUNT` | — | Push notifications (optional) |
+| `SMTP_HOST/PORT/USER/PASS` | — | Email (password reset) |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+## Project structure
+
+```
+Backend/
+├── src/                    # NestJS TypeScript application (Phase 2)
+│   ├── main.ts             # NestJS entry point
+│   ├── app.module.ts       # Root module — imports all feature modules
+│   ├── auth/
+│   ├── market-data/
+│   ├── blockchain/
+│   └── … (40+ feature modules)
+├── routes/                 # Express route handlers (Phase 1)
+├── middleware/             # Express middleware (Phase 1)
+├── jobs/                   # Background job workers (Phase 1)
+├── models/                 # Mongoose models (Phase 1)
+├── services/               # Business logic (Phase 1)
+├── workers/                # Queue workers (Phase 1)
+├── config/                 # Rate limit / PagerDuty config
+├── migrations/             # DB migration scripts
+├── server.js               # Express entry point (Phase 1 — active)
+├── heartbeatServer.js      # Standalone heartbeat/health server
+├── nest-cli.json           # NestJS CLI config (Phase 2)
+├── tsconfig.json           # TypeScript compiler config
+├── tsconfig.build.json     # Build-time tsconfig (excludes tests)
+└── .env.example            # Environment variable template
+```
+
+---
+
+## Known issues / Phase 2 blockers
+
+1. **No `@nestjs/*` packages in `package.json`** — `tsc` and `nest build` both
+   fail until the dependency set above is installed.
+2. **`"module": "nodenext"` in tsconfig** — requires `.js` extensions on all
+   relative imports; switch to `"commonjs"` for NestJS compatibility.
+3. **Missing `start:dev` / `build` / `start:prod` scripts** — add them per Step
+   3 above. Current `npm start` and `npm run dev` only launch `server.js`.
+4. **Port collision** — both servers default to the `PORT` env var. Set
+   distinct values when running both simultaneously.
