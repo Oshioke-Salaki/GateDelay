@@ -23,7 +23,7 @@ import {
 
 // ── Protocol configuration ───────────────────────────────────────────────────
 
-interface ProtocolConfig {
+export interface ProtocolConfig {
   name: string;
   /** Base fee in basis points */
   feeBps: number;
@@ -492,7 +492,7 @@ export class BridgeService {
   /**
    * Get protocol information for the client.
    */
-  getProtocolInfo(): ProtocolConfig & { protocol: BridgeProtocol }[] {
+  getProtocolInfo(): (ProtocolConfig & { protocol: BridgeProtocol })[] {
     return Object.entries(PROTOCOL_CONFIGS).map(([protocol, config]) => ({
       protocol: protocol as BridgeProtocol,
       ...config,

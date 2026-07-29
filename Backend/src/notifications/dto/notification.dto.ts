@@ -1,5 +1,5 @@
 import { IsString, IsEnum, IsOptional, IsObject, IsBoolean, IsArray } from 'class-validator';
-import { NotificationChannel, NotificationType } from '../notification.entity';
+import type { NotificationChannel, NotificationType } from '../notification.entity';
 
 export class SendNotificationDto {
   @IsString()

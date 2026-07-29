@@ -204,6 +204,7 @@ export class NotificationService {
     const serviceAccountJson = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT');
     if (!serviceAccountJson) return null;
     try {
+      // @ts-ignore
       const admin = await import('firebase-admin');
       if (!admin.apps.length) {
         admin.initializeApp({

@@ -11,7 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { BridgeService } from './bridge.service';
+import { BridgeService, ProtocolConfig } from './bridge.service';
 import {
   InitiateBridgeDto,
   UpdateBridgeTxDto,

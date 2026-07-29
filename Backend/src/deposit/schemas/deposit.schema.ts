@@ -21,6 +21,9 @@ export enum ConfirmationLevel {
 
 @Schema({ timestamps: true })
 export class Deposit {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
   @Prop({ required: true, index: true })
   userId: string;
 

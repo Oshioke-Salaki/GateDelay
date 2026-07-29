@@ -280,7 +280,7 @@ export class DepositService {
         confirmations,
         blockNumber: receipt?.blockNumber,
         blockHash: receipt?.blockHash,
-        status: receipt?.status,
+        status: receipt?.status ?? undefined,
       };
     } catch (error) {
       this.logger.error(`Failed to get transaction details for ${txHash}`, error);
