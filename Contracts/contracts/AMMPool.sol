@@ -5,7 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {UD60x18, ud} from "@prb/math/src/UD60x18.sol";
 import {sqrt as uSqrt} from "@prb/math/src/Common.sol";
 
@@ -91,7 +91,7 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      */
     constructor(address tokenA, address tokenB, uint256 feeRateBps_, uint256 protocolSharePct_, address feeRecipient_)
         ERC20("GateDelay AMM LP", "GD-LP")
-        Ownable(msg.sender)
+        Ownable()
     {
         if (tokenA == address(0) || tokenB == address(0) || feeRecipient_ == address(0)) {
             revert ZeroAddress();

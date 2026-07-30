@@ -3,10 +3,10 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../contracts/AutomatedResolver.sol";
-import "../src/Resolution.sol";
-import "../src/PositionToken.sol";
-import "../src/LiquidityPool.sol";
-import "../src/ERC20Token.sol";
+import "../contracts/Resolution.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/LiquidityPool.sol";
+import "../contracts/ERC20Token.sol";
 
 contract AutomatedResolverTest is Test {
     AutomatedResolver public resolver;
@@ -15,9 +15,9 @@ contract AutomatedResolverTest is Test {
     LiquidityPool public pool;
     ERC20Token public collateral;
 
-    address public admin = address(0xADMIN);
-    address public resolverAddr = address(0xRESOLVER);
-    address public market = address(0xMARKET);
+    address public admin = address(0x1);
+    address public resolverAddr = address(0x1);
+    address public market = address(0x4);
 
     bytes32 public constant DATA_FEED_BTC = keccak256("BTC/USD");
     bytes32 public constant DATA_FEED_ETH = keccak256("ETH/USD");

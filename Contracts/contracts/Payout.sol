@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import { UD60x18, ud, unwrap } from "@prb/math/src/UD60x18.sol";
-import "../src/ERC20Token.sol";
+import "./ERC20Token.sol";
 
 /// @title Payout – market payout calculation and claim processing
 /// @notice Supports three payout models:

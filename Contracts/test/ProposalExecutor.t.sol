@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/ProposalExecutor.sol";
+import "../contracts/ProposalExecutor.sol";
 
 contract ProposalExecutorTest is Test {
     ProposalExecutor executor;

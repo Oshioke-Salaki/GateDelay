@@ -7,9 +7,9 @@ import "../contracts/EvidenceStorage.sol";
 contract EvidenceStorageTest is Test {
     EvidenceStorage public storage_;
 
-    address public admin = address(0xADMIN);
-    address public alice = address(0xALICE);
-    address public bob = address(0xBOB);
+    address public admin = address(0x1);
+    address public alice = address(0x2);
+    address public bob = address(0x5);
 
     bytes32 public constant EVIDENCE_HASH_1 = keccak256("evidence1");
     bytes32 public constant EVIDENCE_HASH_2 = keccak256("evidence2");

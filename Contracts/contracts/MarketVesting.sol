@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title MarketVesting
 /// @notice Token vesting for market participants supporting linear, cliff, and stepped schedules.
@@ -21,7 +21,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     error NothingToRelease();
     error NotBeneficiary();
     error InvalidStepCount();
-    error VestingRevoked();
+    error ErrorVestingRevoked();
     error NotRevocable();
     error AlreadyRevoked();
 
@@ -76,7 +76,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable() {}
 
     // ── Vesting Creation ───────────────────────────────────────────────────────
 
@@ -143,7 +143,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
         VestingRecord storage v = _vestings[vestingId];
-        if (v.revoked) revert VestingRevoked();
+        if (v.revoked) revert ErrorVestingRevoked();
         if (msg.sender != v.beneficiary) revert NotBeneficiary();
 
         uint256 releasable = _releasableAmount(v);

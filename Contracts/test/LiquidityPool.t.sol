@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/LiquidityPool.sol";
-import "../src/ERC20Token.sol";
-import "../src/MarketFactory.sol";
+import "../contracts/LiquidityPool.sol";
+import "../contracts/ERC20Token.sol";
+import "../contracts/MarketFactory.sol";
 
 contract LiquidityPoolTest is Test {
     event LiquidityChanged(address indexed provider, bool isDeposit, uint256 collateralAmount, uint256 lpAmount);

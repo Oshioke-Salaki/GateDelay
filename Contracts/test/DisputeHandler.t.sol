@@ -7,10 +7,10 @@ import "../contracts/DisputeHandler.sol";
 contract DisputeHandlerTest is Test {
     DisputeHandler public handler;
 
-    address public admin = address(0xADMIN);
-    address public alice = address(0xALICE);
-    address public bob = address(0xBOB);
-    address public market = address(0xMARKET);
+    address public admin = address(0x1);
+    address public alice = address(0x2);
+    address public bob = address(0x5);
+    address public market = address(0x4);
 
     event DisputeSubmitted(
         uint256 indexed disputeId,

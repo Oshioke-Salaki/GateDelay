@@ -145,14 +145,12 @@ contract CoverageCalculation {
         uint256 riskMultiplier
     ) external {
         require(msg.sender == admin, "Not admin");
-        require(
-            baseCoverage > 0 && maxCoverage >= baseCoverage,
-            InvalidCoverageAmount()
-        );
-        require(
-            riskMultiplier > 0 && riskMultiplier <= BPS_DENOMINATOR,
-            InvalidMultiplier()
-        );
+        if (!(baseCoverage > 0 && maxCoverage >= baseCoverage)) {
+            revert InvalidCoverageAmount();
+        }
+        if (!(riskMultiplier > 0 && riskMultiplier <= BPS_DENOMINATOR)) {
+            revert InvalidMultiplier();
+        }
 
         coverageConfig[coverageType] = CoverageParams({
             baseCoverage: baseCoverage,
@@ -187,7 +185,7 @@ contract CoverageCalculation {
         CoverageType coverageType
     ) external view returns (uint256 baseCoverage) {
         CoverageParams memory params = coverageConfig[coverageType];
-        require(params.active, InvalidCoverageType());
+        if (!(params.active)) revert InvalidCoverageType();
         return params.baseCoverage;
     }
 
@@ -200,8 +198,8 @@ contract CoverageCalculation {
         uint256 riskScore
     ) external view returns (CoverageResult memory calculation) {
         CoverageParams memory params = coverageConfig[coverageType];
-        require(params.active, InvalidCoverageType());
-        require(riskScore <= MAX_RISK_SCORE, InvalidRiskScore());
+        if (!(params.active)) revert InvalidCoverageType();
+        if (!(riskScore <= MAX_RISK_SCORE)) revert InvalidRiskScore();
 
         uint256 baseCoverage = params.baseCoverage;
 
@@ -240,12 +238,12 @@ contract CoverageCalculation {
         CoverageType coverageType,
         uint256 riskScore
     ) external returns (uint256 allocatedAmount) {
-        require(user != address(0), InvalidUser());
-        require(market != address(0), InvalidMarket());
-        require(riskScore <= MAX_RISK_SCORE, InvalidRiskScore());
+        if (!(user != address(0))) revert InvalidUser();
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(riskScore <= MAX_RISK_SCORE)) revert InvalidRiskScore();
 
         CoverageParams memory params = coverageConfig[coverageType];
-        require(params.active, InvalidCoverageType());
+        if (!(params.active)) revert InvalidCoverageType();
 
         // Calculate coverage
         CoverageResult memory calc = _calculateCoverageInternal(
@@ -297,10 +295,9 @@ contract CoverageCalculation {
     ) external {
         CoverageAllocation storage allocation = _allocations[user][market];
         require(allocation.active, "Allocation not active");
-        require(
-            utilizationAmount <= allocation.allocatedAmount,
-            CoverageLimitExceeded()
-        );
+        if (!(utilizationAmount <= allocation.allocatedAmount)) {
+            revert CoverageLimitExceeded();
+        }
 
         allocation.utilizationAmount = utilizationAmount;
         allocation.remainingCapacity =
@@ -332,7 +329,7 @@ contract CoverageCalculation {
         address market,
         uint256 newRiskScore
     ) external {
-        require(newRiskScore <= MAX_RISK_SCORE, InvalidRiskScore());
+        if (!(newRiskScore <= MAX_RISK_SCORE)) revert InvalidRiskScore();
 
         CoverageAllocation storage allocation = _allocations[user][market];
         require(allocation.active, "Allocation not active");
@@ -585,7 +582,7 @@ contract CoverageCalculation {
         uint256 riskScore
     ) internal view returns (CoverageResult memory) {
         CoverageParams memory params = coverageConfig[coverageType];
-        require(params.active, InvalidCoverageType());
+        if (!(params.active)) revert InvalidCoverageType();
 
         uint256 baseCoverage = params.baseCoverage;
 

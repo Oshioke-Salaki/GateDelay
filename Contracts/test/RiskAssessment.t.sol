@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/RiskAssessment.sol";
-import "../src/PositionToken.sol";
-import "../src/MarketFactory.sol";
+import "../contracts/RiskAssessment.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/MarketFactory.sol";
 
 contract RiskAssessmentTest is Test {
     RiskAssessment assessment;
     PositionToken positionToken;
     MarketFactory factory;
 
-    address admin = address(0xADM1N);
+    address admin = address(0x1);
     address alice = address(0xA11CE);
     address market = address(0xDEAD);
 
@@ -41,10 +41,10 @@ contract RiskAssessmentTest is Test {
         vm.prank(admin);
         assessment.updateRiskThresholds(9000, 8000, 7000);
 
-        RiskAssessment.RiskThreshold memory threshold = assessment.riskThreshold();
-        assertEq(threshold.maxExposure, 9000);
-        assertEq(threshold.maxConcentration, 8000);
-        assertEq(threshold.maxVolatility, 7000);
+        (uint256 maxExposure, uint256 maxConcentration, uint256 maxVolatility) = assessment.riskThreshold();
+        assertEq(maxExposure, 9000);
+        assertEq(maxConcentration, 8000);
+        assertEq(maxVolatility, 7000);
     }
 
     function test_updateRiskThresholds_revertsNotAdmin() public {

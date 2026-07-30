@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title TimelockVesting
 /// @notice Linear vesting with a mandatory timelock between queuing and executing each release.
@@ -26,7 +26,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     error NotBeneficiaryOrOwner();
     error NotGuardian();
     error InvalidTimelockDelay();
-    error VestingRevoked();
+    error ErrorVestingRevoked();
     error NotRevocable();
     error AlreadyRevoked();
 
@@ -120,7 +120,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     // ── Constructor ────────────────────────────────────────────────────────────
 
     /// @param _guardian Address allowed to queue early releases
-    constructor(address _guardian) Ownable(msg.sender) {
+    constructor(address _guardian) Ownable() {
         if (_guardian == address(0)) revert ZeroAddress();
         guardian = _guardian;
     }
@@ -183,7 +183,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
         VestingSchedule storage schedule = _schedules[vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert ErrorVestingRevoked();
         if (msg.sender != schedule.beneficiary && msg.sender != owner()) revert NotBeneficiaryOrOwner();
         if (_hasPendingRelease[vestingId]) revert ReleaseAlreadyQueued();
 
@@ -218,7 +218,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (block.timestamp < rel.executeAfter) revert TimelockNotExpired();
 
         VestingSchedule storage schedule = _schedules[rel.vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert ErrorVestingRevoked();
 
         rel.status = ReleaseStatus.Executed;
         _hasPendingRelease[rel.vestingId] = false;
@@ -257,7 +257,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (amount == 0) revert ZeroAmount();
 
         VestingSchedule storage schedule = _schedules[vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert ErrorVestingRevoked();
         if (_hasPendingRelease[vestingId]) revert ReleaseAlreadyQueued();
 
         uint256 remaining = schedule.totalAmount - schedule.releasedAmount;

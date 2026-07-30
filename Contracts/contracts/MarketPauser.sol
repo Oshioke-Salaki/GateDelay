@@ -59,14 +59,14 @@ contract MarketPauser is Pausable, AccessControl {
     // -------------------------------------------------------------------------
     modifier onlyPauser() {
         if (!hasRole(PAUSER_ROLE, msg.sender) && !hasRole(EMERGENCY_PAUSER_ROLE, msg.sender)) {
-            revert AccessControl.AccessDenied();
+            revert("AccessControl: Access denied");
         }
         _;
     }
 
     modifier onlyEmergencyPauser() {
         if (!hasRole(EMERGENCY_PAUSER_ROLE, msg.sender)) {
-            revert AccessControl.AccessDenied();
+            revert("AccessControl: Access denied");
         }
         _;
     }

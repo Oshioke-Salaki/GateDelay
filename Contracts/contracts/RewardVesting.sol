@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title RewardVesting
 /// @notice Linear reward vesting with optional cliff periods.
@@ -67,7 +67,7 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     // ── Constructor ────────────────────────────────────────────────────────────
 
     /// @param _vestingToken ERC20 token to be distributed through vesting schedules
-    constructor(address _vestingToken) Ownable(msg.sender) {
+    constructor(address _vestingToken) Ownable() {
         if (_vestingToken == address(0)) revert ZeroAddress();
         vestingToken = IERC20(_vestingToken);
     }

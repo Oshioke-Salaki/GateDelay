@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarginCalculator.sol";
-import "../src/PositionToken.sol";
-import "../src/MarketFactory.sol";
+import "../contracts/MarginCalculator.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/MarketFactory.sol";
 
 contract MarginCalculatorTest is Test {
     MarginCalculator calculator;

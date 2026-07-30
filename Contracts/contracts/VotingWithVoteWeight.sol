@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {VoteWeight} from "./VoteWeight.sol";
 
 /// @title VotingWithVoteWeight
@@ -84,7 +84,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
 
     /// @param _governanceToken Address of the governance token
     /// @param _voteWeight Address of the VoteWeight contract
-    constructor(address _governanceToken, address _voteWeight) Ownable(msg.sender) {
+    constructor(address _governanceToken, address _voteWeight) Ownable() {
         if (_governanceToken == address(0)) revert ZeroAddress();
         if (_voteWeight == address(0)) revert ZeroAddress();
         

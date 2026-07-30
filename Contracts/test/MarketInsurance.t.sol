@@ -2,11 +2,11 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarketInsurance.sol";
-import "../src/MarketFactory.sol";
-import "../src/RiskAssessment.sol";
-import "../src/PositionToken.sol";
-import "../src/PremiumCalculator.sol";
+import "../contracts/MarketInsurance.sol";
+import "../contracts/MarketFactory.sol";
+import "../contracts/RiskAssessment.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/PremiumCalculator.sol";
 
 contract MarketInsuranceTest is Test {
     MarketInsurance insurance;
@@ -15,7 +15,7 @@ contract MarketInsuranceTest is Test {
     PositionToken positionToken;
     PremiumCalculator premiumCalculator;
 
-    address admin = address(0xADM1N);
+    address admin = address(0x1);
     address alice = address(0xA11CE);
     address bob = address(0xB0B0);
     address market = address(0xDEAD);

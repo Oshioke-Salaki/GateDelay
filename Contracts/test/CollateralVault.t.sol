@@ -19,7 +19,7 @@ contract CollateralVaultTest is Test {
 
     address internal alice     = address(0xA11CE);
     address internal bob       = address(0xB0B);
-    address internal liquidator = address(0xL1Q);
+    address internal liquidator = address(0x2);
     address internal market    = address(0xDEAD);
     address internal market2   = address(0xBEEF);
 

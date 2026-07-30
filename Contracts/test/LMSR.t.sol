@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/LMSR.sol";
+import "../contracts/LMSR.sol";
 
 /// @dev Thin wrapper so we can call library functions from tests
 contract LMSRHarness {

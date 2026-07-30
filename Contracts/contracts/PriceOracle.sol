@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title PriceOracle
-/// @notice Aggregates price data from multiple oracle feeds with fallback support.
+/// @notice Aggregates price data from multiple oracle feeds with fbData support.
 /// @dev Designed to be feed-agnostic; integrators push prices via `updatePrice`.
 ///      For production use, authorised updaters would be Chainlink / API3 adapters.
 contract PriceOracle is Ownable {
@@ -31,7 +31,7 @@ contract PriceOracle is Ownable {
     event FeedRegistered(bytes32 indexed feedId, string description, uint256 maxStaleness);
     event FeedDeactivated(bytes32 indexed feedId);
     event PriceUpdated(bytes32 indexed feedId, int256 price, uint256 timestamp);
-    event FallbackSet(bytes32 indexed primaryFeedId, bytes32 indexed fallbackFeedId);
+    event fbDataSet(bytes32 indexed primaryFeedId, bytes32 indexed fbDataFeedId);
     event UpdaterSet(address indexed updater, bool approved);
 
     // ── State ──────────────────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ contract PriceOracle is Ownable {
     /// @notice Feed data keyed by feedId
     mapping(bytes32 => FeedData) public feeds;
 
-    /// @notice Primary → fallback feed mapping
-    mapping(bytes32 => bytes32) public fallbackFeed;
+    /// @notice Primary → fbData feed mapping
+    mapping(bytes32 => bytes32) public fbDataFeed;
 
     /// @notice Addresses authorised to push price updates
     mapping(address => bool) public isUpdater;
@@ -59,7 +59,7 @@ contract PriceOracle is Ownable {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    constructor() Ownable(msg.sender) {
+    constructor() Ownable() {
         isUpdater[msg.sender] = true;
     }
 
@@ -87,12 +87,12 @@ contract PriceOracle is Ownable {
         emit FeedDeactivated(feedId);
     }
 
-    /// @notice Set a fallback feed for a primary feed.
-    function setFallback(bytes32 primaryFeedId, bytes32 fallbackFeedId) external onlyOwner {
+    /// @notice Set a fbData feed for a primary feed.
+    function setfbData(bytes32 primaryFeedId, bytes32 fbDataFeedId) external onlyOwner {
         if (!feeds[primaryFeedId].active) revert FeedNotRegistered();
-        if (!feeds[fallbackFeedId].active) revert FeedNotRegistered();
-        fallbackFeed[primaryFeedId] = fallbackFeedId;
-        emit FallbackSet(primaryFeedId, fallbackFeedId);
+        if (!feeds[fbDataFeedId].active) revert FeedNotRegistered();
+        fbDataFeed[primaryFeedId] = fbDataFeedId;
+        emit fbDataSet(primaryFeedId, fbDataFeedId);
     }
 
     /// @notice Approve or revoke a price updater.
@@ -152,12 +152,12 @@ contract PriceOracle is Ownable {
             return (primary.price, primary.updatedAt);
         }
 
-        // Try fallback
-        bytes32 fb = fallbackFeed[feedId];
+        // Try fbData
+        bytes32 fb = fbDataFeed[feedId];
         if (fb != bytes32(0) && feeds[fb].active) {
-            FeedData storage fallback = feeds[fb];
-            if (_isFresh(fallback)) {
-                return (fallback.price, fallback.updatedAt);
+            FeedData storage fbData = feeds[fb];
+            if (_isFresh(fbData)) {
+                return (fbData.price, fbData.updatedAt);
             }
         }
 

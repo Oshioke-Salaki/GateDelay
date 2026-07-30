@@ -134,7 +134,7 @@ contract RevokeFunction is Ownable {
     // Constructor
     // -------------------------------------------------------------------------
     
-    constructor() Ownable(msg.sender) {
+    constructor() Ownable() {
         // Set default permission descriptions
         _permissionDescriptions[EXECUTE_PERMISSION] = "Permission to execute functions";
         _permissionDescriptions[TRANSFER_PERMISSION] = "Permission to transfer assets";

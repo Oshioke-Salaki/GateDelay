@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/ERC20Token.sol";
-import "../src/MarketMaker.sol";
+import "../contracts/ERC20Token.sol";
+import "../contracts/MarketMaker.sol";
 
 contract MarketMakerTest is Test {
     ERC20Token token;

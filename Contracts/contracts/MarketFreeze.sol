@@ -57,7 +57,7 @@ contract MarketFreeze is Ownable {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(address initialOwner) Ownable() {}
 
     // -------------------------------------------------------------------------
     // Modifiers

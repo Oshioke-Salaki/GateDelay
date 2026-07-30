@@ -7,11 +7,11 @@ import "../contracts/MarketArbitration.sol";
 contract MarketArbitrationTest is Test {
     MarketArbitration public arbitration;
 
-    address public admin = address(0xADMIN);
-    address public arb1 = address(0xARB1);
-    address public arb2 = address(0xARB2);
-    address public arb3 = address(0xARB3);
-    address public market = address(0xMARKET);
+    address public admin = address(0x1);
+    address public arb1 = address(0x3);
+    address public arb2 = address(0x6);
+    address public arb3 = address(0x7);
+    address public market = address(0x4);
 
     event ArbitrationCreated(
         uint256 indexed arbitrationId,
@@ -40,7 +40,7 @@ contract MarketArbitrationTest is Test {
     }
 
     function test_approveArbitrator() public {
-        address newArb = address(0xNEWARB);
+        address newArb = address(0x8);
         
         vm.prank(admin);
         arbitration.approveArbitrator(newArb);
@@ -149,7 +149,7 @@ contract MarketArbitrationTest is Test {
         arbitration.startVoting(arbId);
         vm.stopPrank();
 
-        address notArbitrator = address(0xNOTARB);
+        address notArbitrator = address(0x9);
         vm.prank(notArbitrator);
         vm.expectRevert(MarketArbitration.NotArbitrator.selector);
         arbitration.vote(arbId, MarketArbitration.Decision.UPHOLD, "");
