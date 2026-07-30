@@ -37,6 +37,7 @@
     "@tensorflow/tfjs": "^4.22.0",
     "archiver": "^8.0.0",
     "async": "^3.2.6",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.15.2",
     "bcrypt": "^6.0.0",
     "big.js": "^6.2.2",

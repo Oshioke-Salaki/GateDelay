@@ -1,11 +1,25 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 import Redis from 'ioredis';
-import { Deposit, DepositDocument, DepositStatus, ConfirmationLevel } from './schemas/deposit.schema';
-import { CreateDepositDto, GetDepositsDto, DepositResponseDto } from './dto/deposit.dto';
+import {
+  Deposit,
+  DepositDocument,
+  DepositStatus,
+  ConfirmationLevel,
+} from './schemas/deposit.schema';
+import {
+  CreateDepositDto,
+  GetDepositsDto,
+  DepositResponseDto,
+} from './dto/deposit.dto';
 
 @Injectable()
 export class DepositService {
@@ -25,7 +39,10 @@ export class DepositService {
     );
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
 
-    const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379');
+    const redisUrl = this.configService.get<string>(
+      'REDIS_URL',
+      'redis://localhost:6379',
+    );
     this.redis = new Redis(redisUrl);
   }
 
@@ -36,7 +53,9 @@ export class DepositService {
     // Check if deposit already exists
     const existing = await this.depositModel.findOne({ txHash: dto.txHash });
     if (existing) {
-      throw new BadRequestException('Deposit with this transaction hash already exists');
+      throw new BadRequestException(
+        'Deposit with this transaction hash already exists',
+      );
     }
 
     // Verify transaction exists on blockchain
@@ -60,13 +79,16 @@ export class DepositService {
 
     const deposit = new this.depositModel({
       ...dto,
-      requiredConfirmations: dto.requiredConfirmations ?? ConfirmationLevel.STANDARD,
+      requiredConfirmations:
+        dto.requiredConfirmations ?? ConfirmationLevel.STANDARD,
       expiresAt,
     });
 
     await deposit.save();
 
-    this.logger.log(`Created deposit ${deposit.id} for user ${dto.userId}, tx: ${dto.txHash}`);
+    this.logger.log(
+      `Created deposit ${deposit.id} for user ${dto.userId}, tx: ${dto.txHash}`,
+    );
 
     // Cache the deposit
     await this.cacheDeposit(deposit);
@@ -274,7 +296,9 @@ export class DepositService {
         return { confirmations: 0 };
       }
 
-      const confirmations = receipt ? currentBlock - receipt.blockNumber + 1 : 0;
+      const confirmations = receipt
+        ? currentBlock - receipt.blockNumber + 1
+        : 0;
 
       return {
         confirmations,
@@ -283,7 +307,10 @@ export class DepositService {
         status: receipt?.status ?? undefined,
       };
     } catch (error) {
-      this.logger.error(`Failed to get transaction details for ${txHash}`, error);
+      this.logger.error(
+        `Failed to get transaction details for ${txHash}`,
+        error,
+      );
       return { confirmations: 0 };
     }
   }
@@ -364,8 +391,13 @@ export class DepositService {
   // Private helper methods
 
   private toResponseDto(deposit: DepositDocument): DepositResponseDto {
+    const doc = deposit as DepositDocument & {
+      id?: string;
+      createdAt?: Date;
+      updatedAt?: Date;
+    };
     return {
-      id: deposit.id,
+      id: doc.id ?? String(deposit._id),
       userId: deposit.userId,
       txHash: deposit.txHash,
       fromAddress: deposit.fromAddress,
@@ -380,17 +412,24 @@ export class DepositService {
       balanceUpdated: deposit.balanceUpdated,
       notificationSent: deposit.notificationSent,
       confirmedAt: deposit.confirmedAt,
-      createdAt: deposit.createdAt,
-      updatedAt: deposit.updatedAt,
+      createdAt: doc.createdAt as Date,
+      updatedAt: doc.updatedAt as Date,
     };
   }
 
   private async cacheDeposit(deposit: DepositDocument): Promise<void> {
-    const key = `deposit:${deposit.id}`;
-    await this.redis.setex(key, this.CACHE_TTL, JSON.stringify(this.toResponseDto(deposit)));
+    const doc = deposit as DepositDocument & { id?: string };
+    const key = `deposit:${doc.id ?? String(deposit._id)}`;
+    await this.redis.setex(
+      key,
+      this.CACHE_TTL,
+      JSON.stringify(this.toResponseDto(deposit)),
+    );
   }
 
-  private async getCachedDeposit(id: string): Promise<DepositResponseDto | null> {
+  private async getCachedDeposit(
+    id: string,
+  ): Promise<DepositResponseDto | null> {
     const key = `deposit:${id}`;
     const cached = await this.redis.get(key);
     return cached ? JSON.parse(cached) : null;

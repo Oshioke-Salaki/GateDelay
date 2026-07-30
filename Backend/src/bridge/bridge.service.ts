@@ -209,10 +209,7 @@ export class BridgeService {
     }
 
     // Security: check max fee guard
-    const feeAmount = amountBig
-      .times(config.feeBps)
-      .div(10000)
-      .toFixed(6);
+    const feeAmount = amountBig.times(config.feeBps).div(10000).toFixed(6);
     if (dto.maxFeeUsd) {
       const maxFee = new Big(dto.maxFeeUsd);
       // Simple USD approximation: if fee amount > maxFeeUsd (assuming $1/token)
@@ -377,50 +374,52 @@ export class BridgeService {
   async getAnalytics(userId?: string): Promise<BridgeAnalytics> {
     const matchStage = userId ? { $match: { userId } } : { $match: {} };
 
-    const [totalTxs, statusAgg, protocolAgg, chainPairAgg] =
-      await Promise.all([
-        this.bridgeTxModel.countDocuments(userId ? { userId } : {}),
+    const [totalTxs, statusAgg, protocolAgg, chainPairAgg] = await Promise.all([
+      this.bridgeTxModel.countDocuments(userId ? { userId } : {}),
 
-        // Status breakdown
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]),
+      // Status breakdown
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
 
-        // By protocol
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          {
-            $group: {
-              _id: '$protocol',
-              count: { $sum: 1 },
-              totalVolume: { $sum: { $toDouble: '$amount' } },
-            },
+      // By protocol
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        {
+          $group: {
+            _id: '$protocol',
+            count: { $sum: 1 },
+            totalVolume: { $sum: { $toDouble: '$amount' } },
           },
-          { $sort: { count: -1 } },
-        ]),
+        },
+        { $sort: { count: -1 } },
+      ]),
 
-        // By chain pair
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          {
-            $group: {
-              _id: {
-                fromChainId: '$fromChainId',
-                toChainId: '$toChainId',
-                fromChainName: '$fromChainName',
-                toChainName: '$toChainName',
-              },
-              count: { $sum: 1 },
+      // By chain pair
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        {
+          $group: {
+            _id: {
+              fromChainId: '$fromChainId',
+              toChainId: '$toChainId',
+              fromChainName: '$fromChainName',
+              toChainName: '$toChainName',
             },
+            count: { $sum: 1 },
           },
-          { $sort: { count: -1 } },
-          { $limit: 10 },
-        ]),
-      ]);
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+    ]);
 
     const statusMap = statusAgg.reduce(
-      (acc: Record<string, number>, { _id, count }: { _id: string; count: number }) => {
+      (
+        acc: Record<string, number>,
+        { _id, count }: { _id: string; count: number },
+      ) => {
         acc[_id] = count;
         return acc;
       },
@@ -493,6 +492,7 @@ export class BridgeService {
    * Get protocol information for the client.
    */
   getProtocolInfo(): (ProtocolConfig & { protocol: BridgeProtocol })[] {
+  getProtocolInfo(): Array<ProtocolConfig & { protocol: BridgeProtocol }> {
     return Object.entries(PROTOCOL_CONFIGS).map(([protocol, config]) => ({
       protocol: protocol as BridgeProtocol,
       ...config,

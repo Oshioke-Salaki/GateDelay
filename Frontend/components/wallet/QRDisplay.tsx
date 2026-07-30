@@ -4,9 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount } from "@particle-network/connectkit";
 import { useToast } from "../../hooks/useToast";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore – @types/qrcode may not be installed in all environments
-import QRCode from "qrcode";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,18 +45,33 @@ function QRCanvas({ data, size = 220 }: { data: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!canvasRef.current || !data) return;
-    QRCode.toCanvas(canvasRef.current, data, {
-      width: size,
-      margin: 2,
-      color: {
-        dark: "#000000",
-        light: "#ffffff",
-      },
-      errorCorrectionLevel: "M",
-    }).catch(() => {
-      /* ignore canvas errors */
-    });
+    if (!canvasRef.current || !data || typeof window === "undefined") return;
+    let active = true;
+
+    const renderQr = async () => {
+      try {
+        const module = await import("qrcode");
+        const QRCode = module.default ?? module;
+
+        if (!active || !canvasRef.current) return;
+        await QRCode.toCanvas(canvasRef.current, data, {
+          width: size,
+          margin: 2,
+          color: {
+            dark: "#000000",
+            light: "#ffffff",
+          },
+          errorCorrectionLevel: "M",
+        });
+      } catch {
+        /* ignore canvas errors */
+      }
+    };
+
+    renderQr();
+    return () => {
+      active = false;
+    };
   }, [data, size]);
 
   return (
@@ -144,6 +156,7 @@ export default function QRDisplay({
   const [qrValue, setQrValue] = useState<string>("");
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const readyTimeoutRef = useRef<number | null>(null);
   const isRunning = status === "ready" || status === "scanning";
 
   // Build QR code data: EIP-681 URI for Ethereum addresses
@@ -162,8 +175,13 @@ export default function QRDisplay({
     setTimeLeft(timeoutSeconds);
     setQrValue(buildQrValue(address));
 
-    // Small delay to show "generating" state before rendering canvas
-    setTimeout(() => setStatus("ready"), 400);
+    // Small delay to show "generating" state before rendering canvas.
+    // Clear stale timeouts when switching QR sessions or unmounting.
+    if (readyTimeoutRef.current) clearTimeout(readyTimeoutRef.current);
+    readyTimeoutRef.current = window.setTimeout(() => {
+      setStatus("ready");
+      readyTimeoutRef.current = null;
+    }, 400);
   }, [address, timeoutSeconds, buildQrValue, toastError]);
 
   // Countdown timer
@@ -186,6 +204,12 @@ export default function QRDisplay({
     };
   }, [isRunning, onTimeout]);
 
+  useEffect(() => {
+    return () => {
+      if (readyTimeoutRef.current) clearTimeout(readyTimeoutRef.current);
+    };
+  }, []);
+
   // Detect connection while QR is shown
   useEffect(() => {
     if ((status === "ready" || status === "scanning") && isConnected && address) {
@@ -199,6 +223,11 @@ export default function QRDisplay({
   // Copy address to clipboard
   const handleCopy = useCallback(async () => {
     if (!address) return;
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      toastError("Copy failed", "Clipboard API unavailable in this browser.");
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);

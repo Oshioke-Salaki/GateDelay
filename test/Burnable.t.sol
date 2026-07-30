@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "../contracts/Burnable.sol";
+import "../Contracts/Burnable.sol";
 
 contract BurnableTest is Test {
     Burnable token;

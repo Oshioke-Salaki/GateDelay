@@ -25,23 +25,72 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## GateDelay Backend Setup
+
+**For complete setup instructions, prerequisites, and troubleshooting, see [SETUP.md](./SETUP.md)**
+
+### Quick Start
+
+**Prerequisites**: Node.js >= 20.11, MongoDB, Redis
+
+```bash
+# 1. Install dependencies
+$ npm install
+
+# 2. Configure environment
+$ cp .env.example .env
+# Edit .env with your configuration
+
+# 3. Start external services (MongoDB, Redis)
+
+# 4. Build (⚠️ currently has build errors - see SETUP.md)
+$ npm run build
+```
+
 ## Project setup
 
 ```bash
 $ npm install
 ```
 
+## Health endpoints
+
+The backend exposes health check endpoints for monitoring and CI/CD probes:
+
+**Express server (port 4000):**
+- `GET /health` - Basic health check with status and timestamp
+- `GET /health/details` - Comprehensive health report including database, blockchain, Redis, and system components
+
+**NestJS (port 3000):**
+- `GET /api/health` - Basic health check with service info
+- `GET /api/health/details` - Detailed health with uptime, memory, and environment info
+
 ## Compile and run the project
 
 ```bash
-# development
-$ npm run start
+# Express server
+$ npm run start:express
 
-# watch mode
-$ npm run start:dev
+# Express server with watch mode
+$ npm run start:express:dev
 
-# production mode
-$ npm run start:prod
+# NestJS development
+$ npm run start:nest
+
+# NestJS watch mode
+$ npm run start:nest:dev
+
+# NestJS debug mode
+$ npm run start:nest:debug
+
+# NestJS production
+$ npm run start:nest:prod
+```
+
+## Build the project
+
+```bash
+$ npm run build
 ```
 
 ## Run tests
@@ -50,11 +99,17 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
+# watch mode
+$ npm run test:watch
+
 # e2e tests
 $ npm run test:e2e
 
 # test coverage
 $ npm run test:cov
+
+# debug tests
+$ npm run test:debug
 ```
 
 ## Deployment
