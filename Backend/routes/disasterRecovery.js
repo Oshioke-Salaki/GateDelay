@@ -204,6 +204,127 @@ router.get(
 );
 
 /**
+ * GET /disaster-recovery/stats
+ * Get disaster recovery statistics.
+ */
+router.get(
+  '/stats',
+  handleErrors(async (req, res) => {
+    const stats = await recoveryService.getRecoveryStats();
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  })
+);
+
+/**
+ * GET /disaster-recovery/jobs/:jobId/timeline
+ * Get detailed timeline of a recovery job.
+ */
+router.get(
+  '/jobs/:jobId/timeline',
+  handleErrors(async (req, res) => {
+    const { jobId } = req.params;
+    
+    try {
+      const timeline = await recoveryService.getRecoveryTimeline(jobId);
+      res.json({
+        success: true,
+        data: timeline,
+      });
+    } catch (error) {
+      res.status(404).json({
+        success: false,
+        error: error.message,
+        code: 'JOB_NOT_FOUND',
+      });
+    }
+  })
+);
+
+/**
+ * POST /disaster-recovery/validate/:jobId
+ * Validate if a recovery job can be executed.
+ */
+router.post(
+  '/validate/:jobId',
+  handleErrors(async (req, res) => {
+    const { jobId } = req.params;
+    
+    try {
+      const validation = await recoveryService.validateRecoveryExecution(jobId);
+      
+      const statusCode = validation.canExecute ? 200 : 400;
+      res.status(statusCode).json({
+        success: validation.canExecute,
+        data: validation,
+      });
+    } catch (error) {
+      res.status(404).json({
+        success: false,
+        error: error.message,
+        code: 'JOB_NOT_FOUND',
+      });
+    }
+  })
+);
+
+/**
+ * POST /disaster-recovery/jobs/:jobId/execute
+ * Execute a pending or scheduled recovery job.
+ */
+router.post(
+  '/jobs/:jobId/execute',
+  handleErrors(async (req, res) => {
+    const { jobId } = req.params;
+    
+    try {
+      const job = await recoveryService.getRecoveryJob(jobId);
+      
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          error: 'Recovery job not found',
+          code: 'JOB_NOT_FOUND',
+        });
+      }
+      
+      if (job.status === recoveryService.RECOVERY_STATUS.IN_PROGRESS) {
+        return res.status(409).json({
+          success: false,
+          error: 'Recovery job is already in progress',
+          code: 'ALREADY_IN_PROGRESS',
+        });
+      }
+      
+      if (job.status === recoveryService.RECOVERY_STATUS.COMPLETED) {
+        return res.status(409).json({
+          success: false,
+          error: 'Recovery job has already been completed',
+          code: 'ALREADY_COMPLETED',
+        });
+      }
+      
+      const result = await recoveryService.executeRecoveryJob(jobId);
+      
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        code: 'EXECUTION_ERROR',
+      });
+    }
+  })
+);
+
+
+/**
  * DELETE /disaster-recovery/jobs/:jobId
  * Cancel a scheduled recovery job.
  */
