@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 /**
@@ -75,7 +75,7 @@ contract CashbackContract is Ownable, ReentrancyGuard {
 
     // ------------------------- Constructor --------------------
 
-    constructor(address _paymentToken, address _initialOwner) Ownable(_initialOwner) {
+    constructor(address _paymentToken, address _initialOwner) Ownable() {
         if (_paymentToken == address(0)) revert ZeroAddress();
         if (_initialOwner == address(0)) revert ZeroAddress();
         paymentToken = IERC20(_paymentToken);

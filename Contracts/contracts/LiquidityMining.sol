@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title LiquidityMining
 /// @notice Manages liquidity mining rewards across multiple pools.
@@ -86,7 +86,7 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     // ── Constructor ────────────────────────────────────────────────────────────
 
     /// @param _rewardToken Address of the ERC20 token distributed as rewards
-    constructor(address _rewardToken) Ownable(msg.sender) {
+    constructor(address _rewardToken) Ownable() {
         if (_rewardToken == address(0)) revert ZeroAddress();
         rewardToken = IERC20(_rewardToken);
     }

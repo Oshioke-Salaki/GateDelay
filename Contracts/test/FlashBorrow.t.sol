@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 
@@ -31,6 +31,8 @@ contract FlashBorrowReceiver {
 }
 
 contract FlashBorrowTest is Test {
+    event FlashBorrowExecuted(address indexed borrower, address indexed receiver, address token, uint256 amount, bytes data);
+    event FlashBorrowRepaid(address indexed borrower, address indexed receiver, address token, uint256 amount);
     FlashBorrow internal flashBorrow;
     MockToken internal token;
     FlashBorrowReceiver internal receiver;
@@ -63,10 +65,10 @@ contract FlashBorrowTest is Test {
         bytes memory data = abi.encodePacked(uint256(42));
 
         vm.expectEmit(true, true, true, true);
-        emit FlashBorrow.FlashBorrowExecuted(borrower, address(receiver), address(token), amount, data);
+        emit FlashBorrowExecuted(borrower, address(receiver), address(token), amount, data);
 
         vm.expectEmit(true, true, true, true);
-        emit FlashBorrow.FlashBorrowRepaid(borrower, address(receiver), address(token), amount);
+        emit FlashBorrowRepaid(borrower, address(receiver), address(token), amount);
 
         vm.prank(borrower);
         flashBorrow.flashBorrow(address(token), amount, address(receiver), data);

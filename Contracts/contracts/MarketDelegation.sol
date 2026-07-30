@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title MarketDelegation
 /// @notice Comprehensive delegation system for prediction markets with permission management.
@@ -147,7 +147,7 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable() {}
 
     // ── Delegation Management ──────────────────────────────────────────────────
 

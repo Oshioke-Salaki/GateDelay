@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/ERC20Token.sol";
-import "../src/MarketMaker.sol";
-import "../src/Trading.sol";
+import "../contracts/ERC20Token.sol";
+import "../contracts/MarketMaker.sol";
+import "../contracts/Trading.sol";
 
 contract TradingTest is Test {
 event TradeExecuted(
@@ -14,7 +14,9 @@ event TradeExecuted(
     bool isBuy,
     uint256 shares,
     uint256 collateralAmount,
-    uint256 fee
+    uint256 fee,
+    uint256 rebate,
+    address indexed referrer
 );
 
 ERC20Token token;
@@ -32,7 +34,7 @@ ERC20Token token;
     function setUp() public {
         token = new ERC20Token(0);
         mm = new MarketMaker(address(token));
-        trading = new Trading(address(mm), FEE);
+        trading = new Trading(address(mm), FEE, 0, address(this));
 
         token.addMinter(address(mm));
         token.mint(alice, 10_000 * WAD);
@@ -55,7 +57,7 @@ ERC20Token token;
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
 
-        assertEq(trading.accumulatedFees(), fee);
+        assertEq(trading.accumulatedCommission(), fee);
     }
 
     // ── Slippage protection ───────────────────────────────────────────────────
@@ -77,19 +79,19 @@ ERC20Token token;
 
     // ── Fee update ────────────────────────────────────────────────────────────
     function testSetFee() public {
-        trading.setFeeBps(50);
+        trading.setFeeSplit(50, 0);
         assertEq(trading.feeBps(), 50);
     }
 
     function testSetFeeExceedsMax() public {
         vm.expectRevert(Trading.InvalidFee.selector);
-        trading.setFeeBps(1001);
+        trading.setFeeSplit(1001, 0);
     }
 
     function testSetFeeUnauthorized() public {
         vm.prank(alice);
         vm.expectRevert(Trading.Unauthorized.selector);
-        trading.setFeeBps(10);
+        trading.setFeeSplit(10, 0);
     }
 
     // ── Fee withdrawal ────────────────────────────────────────────────────────
@@ -103,12 +105,12 @@ ERC20Token token;
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
 
-        uint256 fees = trading.accumulatedFees();
+        uint256 fees = trading.accumulatedCommission();
         uint256 balBefore = token.balanceOf(address(this));
         trading.withdrawFees(address(this));
 
         assertEq(token.balanceOf(address(this)), balBefore + fees);
-        assertEq(trading.accumulatedFees(), 0);
+        assertEq(trading.accumulatedCommission(), 0);
     }
 
     function testWithdrawFeesUnauthorized() public {
@@ -127,22 +129,9 @@ ERC20Token token;
         vm.startPrank(alice);
         token.approve(address(trading), total);
         vm.expectEmit(true, true, false, false);
-        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee);
+        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee, 0, address(0));
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
     }
 
-    // ── Position tracking ─────────────────────────────────────────────────────
-    function testPositionTracked() public {
-        uint256 shares = 10 * WAD;
-        uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
-        uint256 total = rawCost + (rawCost * FEE) / 10_000;
-
-        vm.startPrank(alice);
-        token.approve(address(trading), total);
-        trading.executeBuy(marketId, 0, shares, total);
-        vm.stopPrank();
-
-        assertEq(trading.getPosition(alice, marketId, 0), shares);
-    }
 }

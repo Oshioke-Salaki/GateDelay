@@ -2,11 +2,11 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/Resolution.sol";
-import "../src/PositionToken.sol";
-import "../src/LiquidityPool.sol";
-import "../src/MarketFactory.sol";
-import "../src/ERC20Token.sol";
+import "../contracts/Resolution.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/LiquidityPool.sol";
+import "../contracts/MarketFactory.sol";
+import "../contracts/ERC20Token.sol";
 
 /// @dev Helper: ERC1155 receiver so test contract can hold tokens
 contract ERC1155Holder {

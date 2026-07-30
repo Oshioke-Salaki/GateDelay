@@ -181,7 +181,7 @@ contract MarketInitializer {
     /// @notice Validate market parameters.
     function validateParameters(MarketParameters calldata params)
         external
-        pure
+        view
         returns (bool)
     {
         _validateParameters(params);
@@ -193,7 +193,7 @@ contract MarketInitializer {
     // -------------------------------------------------------------------------
 
     /// @notice Validate market parameters.
-    function _validateParameters(MarketParameters calldata params) internal pure {
+    function _validateParameters(MarketParameters calldata params) internal view {
         if (params.collateralToken == address(0)) revert ZeroCollateralToken();
         if (params.resolutionDeadline <= block.timestamp) revert InvalidDeadline();
         if (params.minLiquidity == 0) revert ZeroMinLiquidity();

@@ -17,7 +17,7 @@ contract CashbackTest is Test {
     address feeEngine = address(0xFEE);
 
     function setUp() public {
-        token = new ERC20PresetMinterPauser("TestToken", "TT", address(this));
+        token = new ERC20PresetMinterPauser("TestToken", "TT");
         cashback = new CashbackContract(address(token), address(this));
 
         // Fund cashback contract

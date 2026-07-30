@@ -34,7 +34,7 @@ contract StrategyVault is Ownable {
     error ZeroAmount();
     error InsufficientBalance();
 
-    constructor(address _asset) Ownable(msg.sender) {
+    constructor(address _asset) Ownable() {
         if (_asset == address(0)) revert ZeroAddress();
         asset = IERC20(_asset);
     }

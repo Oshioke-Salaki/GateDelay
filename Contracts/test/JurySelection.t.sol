@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/JurySelection.sol";
+import "../contracts/JurySelection.sol";
 
 contract JurySelectionTest is Test {
     JurySelection jury;

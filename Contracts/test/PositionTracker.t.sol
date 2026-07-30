@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/PositionTracker.sol";
-import "../src/PositionToken.sol";
-import "../src/MarketFactory.sol";
+import "../contracts/PositionTracker.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/MarketFactory.sol";
 
 contract PositionTrackerTest is Test {
     PositionTracker tracker;

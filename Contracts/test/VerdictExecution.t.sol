@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/VerdictExecution.sol";
-import "../src/Resolution.sol";
-import "../src/PositionToken.sol";
+import "../contracts/VerdictExecution.sol";
+import "../contracts/Resolution.sol";
+import "../contracts/PositionToken.sol";
 
 contract VerdictExecutionTest is Test {
     VerdictExecution verdictExec;
@@ -19,7 +19,7 @@ contract VerdictExecutionTest is Test {
         verdictExec = new VerdictExecution(arbitrator);
 
         // Deploy a minimal PositionToken (factory set to zero for tests)
-        pt = new PositionToken(address(0))
+        pt = new PositionToken(address(0));
 
         // Deploy Resolution with `verdictExec` as admin so it can call settleDispute
         resolution = new Resolution(

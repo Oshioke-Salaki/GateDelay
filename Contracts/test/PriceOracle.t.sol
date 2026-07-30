@@ -5,6 +5,11 @@ import "forge-std/Test.sol";
 import "../contracts/PriceOracle.sol";
 
 contract PriceOracleTest is Test {
+    event FeedRegistered(bytes32 indexed feedId, string description, uint256 maxStaleness);
+    event FeedDeactivated(bytes32 indexed feedId);
+    event PriceUpdated(bytes32 indexed feedId, int256 price, uint256 timestamp);
+    event fbDataSet(bytes32 indexed primaryFeedId, bytes32 indexed fbDataFeedId);
+    event UpdaterSet(address indexed updater, bool approved);
     PriceOracle internal oracle;
 
     bytes32 constant ETH_USD  = keccak256("ETH/USD");
@@ -98,7 +103,7 @@ contract PriceOracleTest is Test {
     }
 
     function test_getPrice_usesFallbackWhenPrimaryStale() public {
-        oracle.setFallback(ETH_USD, FALLBACK);
+        oracle.setfbData(ETH_USD, FALLBACK);
         oracle.updatePrice(ETH_USD, 2000e18);
         oracle.updatePrice(FALLBACK, 1999e18);
 
@@ -113,7 +118,7 @@ contract PriceOracleTest is Test {
     }
 
     function test_getPrice_revertsWhenBothStale() public {
-        oracle.setFallback(ETH_USD, FALLBACK);
+        oracle.setfbData(ETH_USD, FALLBACK);
         oracle.updatePrice(ETH_USD, 2000e18);
         oracle.updatePrice(FALLBACK, 1999e18);
 

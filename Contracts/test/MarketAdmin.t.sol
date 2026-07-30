@@ -2,9 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarketAdmin.sol";
+import "../contracts/MarketAdmin.sol";
 
 contract MarketAdminTest is Test {
+    event AdminTransferred(address indexed oldAdmin, address indexed newAdmin);
+    event OperatorAdded(address indexed operator);
+    event OperatorRemoved(address indexed operator);
     MarketAdmin internal admin;
     
     address internal alice = address(0xA11CE);
@@ -32,7 +35,7 @@ contract MarketAdminTest is Test {
     function test_TransferAdminEmitsEvent() public {
         vm.prank(alice);
         vm.expectEmit(true, true, false, false);
-        emit MarketAdmin.AdminTransferred(alice, bob);
+        emit AdminTransferred(alice, bob);
         admin.transferAdmin(bob);
     }
 
@@ -105,7 +108,7 @@ contract MarketAdminTest is Test {
     function test_AddOperatorEmitsEvent() public {
         vm.prank(alice);
         vm.expectEmit(true, false, false, false);
-        emit MarketAdmin.OperatorAdded(bob);
+        emit OperatorAdded(bob);
         admin.addOperator(bob);
     }
 
@@ -125,7 +128,7 @@ contract MarketAdminTest is Test {
         
         vm.prank(alice);
         vm.expectEmit(true, false, false, false);
-        emit MarketAdmin.OperatorRemoved(bob);
+        emit OperatorRemoved(bob);
         admin.removeOperator(bob);
     }
 

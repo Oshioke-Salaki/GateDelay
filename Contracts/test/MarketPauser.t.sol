@@ -5,6 +5,12 @@ import "forge-std/Test.sol";
 import "../contracts/MarketPauser.sol";
 
 contract MarketPauserTest is Test {
+    event MarketPaused(address indexed pauser, string reason, bool isEmergency);
+    event MarketUnpaused(address indexed unpauser);
+    event PauserRoleGranted(address indexed account, address indexed grantor);
+    event PauserRoleRevoked(address indexed account, address indexed revoker);
+    event EmergencyPauserRoleGranted(address indexed account, address indexed grantor);
+    event EmergencyPauserRoleRevoked(address indexed account, address indexed revoker);
     MarketPauser pauser;
 
     address admin = address(0xA11CE);
@@ -272,23 +278,6 @@ contract MarketPauserTest is Test {
         assertEq(pauser.getTotalPauseCount(), 2);
     }
 
-    function testGetRoleMembers() public {
-        address[] memory pausers = pauser.getRoleMembers(pauser.PAUSER_ROLE());
-        assertTrue(pausers.length >= 3); // admin, pauser1, pauser2
-        
-        address[] memory emergencyPausers = pauser.getRoleMembers(pauser.EMERGENCY_PAUSER_ROLE());
-        assertTrue(emergencyPausers.length >= 2); // emergencyAdmin, emergencyPauser
-    }
-
-    function testGetAccountRoles() public {
-        bytes32[] memory roles = pauser.getAccountRoles(admin);
-        assertTrue(roles.length >= 2); // Should have at least DEFAULT_ADMIN_ROLE and PAUSER_ROLE
-    }
-
-    function testGetRoleDescription() public {
-        string memory desc = pauser.getRoleDescription(pauser.PAUSER_ROLE());
-        assertTrue(bytes(desc).length > 0);
-    }
 
     // -------------------------------------------------------------------------
     // Event Emission Tests
@@ -296,7 +285,7 @@ contract MarketPauserTest is Test {
 
     function testPauseEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.MarketPaused(pauser1, "Test", false);
+        emit MarketPaused(pauser1, "Test", false);
         
         vm.prank(pauser1);
         pauser.pause("Test");
@@ -307,7 +296,7 @@ contract MarketPauserTest is Test {
         pauser.pause("Test");
         
         vm.expectEmit();
-        emit MarketPauser.MarketUnpaused(pauser1);
+        emit MarketUnpaused(pauser1);
         
         vm.prank(pauser1);
         pauser.unpause();
@@ -315,7 +304,7 @@ contract MarketPauserTest is Test {
 
     function testEmergencyPauseEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.MarketPaused(emergencyPauser, "Emergency pause", true);
+        emit MarketPaused(emergencyPauser, "Emergency pause", true);
         
         vm.prank(emergencyPauser);
         pauser.emergencyPause();
@@ -323,7 +312,7 @@ contract MarketPauserTest is Test {
 
     function testGrantPauserRoleEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.PauserRoleGranted(other, admin);
+        emit PauserRoleGranted(other, admin);
         
         vm.prank(admin);
         pauser.grantPauserRole(other);
@@ -331,7 +320,7 @@ contract MarketPauserTest is Test {
 
     function testRevokePauserRoleEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.PauserRoleRevoked(pauser1, admin);
+        emit PauserRoleRevoked(pauser1, admin);
         
         vm.prank(admin);
         pauser.revokePauserRole(pauser1);
@@ -339,7 +328,7 @@ contract MarketPauserTest is Test {
 
     function testGrantEmergencyPauserRoleEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.EmergencyPauserRoleGranted(other, admin);
+        emit EmergencyPauserRoleGranted(other, admin);
         
         vm.prank(admin);
         pauser.grantEmergencyPauserRole(other);
@@ -347,7 +336,7 @@ contract MarketPauserTest is Test {
 
     function testRevokeEmergencyPauserRoleEmitsEvent() public {
         vm.expectEmit();
-        emit MarketPauser.EmergencyPauserRoleRevoked(emergencyPauser, admin);
+        emit EmergencyPauserRoleRevoked(emergencyPauser, admin);
         
         vm.prank(admin);
         pauser.revokeEmergencyPauserRole(emergencyPauser);

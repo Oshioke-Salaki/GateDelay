@@ -2,12 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarketSettlement.sol";
-import "../src/PositionToken.sol";
-import "../src/MarketFactory.sol";
-import "../src/LiquidityPool.sol";
-import "../src/Resolution.sol";
-import "../src/ERC20Token.sol";
+import "../contracts/MarketSettlement.sol";
+import "../contracts/PositionToken.sol";
+import "../contracts/MarketFactory.sol";
+import "../contracts/LiquidityPool.sol";
+import "../contracts/Resolution.sol";
+import "../contracts/ERC20Token.sol";
 
 contract MarketSettlementTest is Test {
     MarketSettlement settlement;

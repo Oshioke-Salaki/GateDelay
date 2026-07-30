@@ -2,9 +2,13 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/EmergencyStop.sol";
+import "../contracts/EmergencyStop.sol";
 
 contract EmergencyStopTest is Test {
+    event EmergencyStopActivated(address indexed activator, string reason);
+    event EmergencyStopDeactivated(address indexed deactivator);
+    event RecoveryInitiated(address indexed initiator);
+    event RecoveryCompleted(address indexed completer);
     EmergencyStop internal emergency;
     
     address internal admin = address(0xA11CE);
@@ -32,7 +36,7 @@ contract EmergencyStopTest is Test {
     function test_ActivateEmergencyStopEmitsEvent() public {
         vm.prank(admin);
         vm.expectEmit(true, false, false, true);
-        emit EmergencyStop.EmergencyStopActivated(admin, "Critical vulnerability");
+        emit EmergencyStopActivated(admin, "Critical vulnerability");
         emergency.activateEmergencyStop("Critical vulnerability");
     }
 
@@ -96,7 +100,7 @@ contract EmergencyStopTest is Test {
         
         vm.prank(admin);
         vm.expectEmit(true, false, false, false);
-        emit EmergencyStop.EmergencyStopDeactivated(admin);
+        emit EmergencyStopDeactivated(admin);
         emergency.deactivateEmergencyStop();
     }
 
@@ -165,7 +169,7 @@ contract EmergencyStopTest is Test {
         
         vm.prank(admin);
         vm.expectEmit(true, false, false, false);
-        emit EmergencyStop.RecoveryInitiated(admin);
+        emit RecoveryInitiated(admin);
         emergency.initiateRecovery();
     }
 
@@ -203,7 +207,7 @@ contract EmergencyStopTest is Test {
         
         vm.prank(admin);
         vm.expectEmit(true, false, false, false);
-        emit EmergencyStop.RecoveryCompleted(admin);
+        emit RecoveryCompleted(admin);
         emergency.completeRecovery();
     }
 

@@ -44,7 +44,7 @@ contract Whitelist is Ownable {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(address initialOwner) Ownable() { _transferOwnership(initialOwner); }
 
     // -------------------------------------------------------------------------
     // Modifiers

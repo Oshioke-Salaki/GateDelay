@@ -59,7 +59,7 @@ contract KYCStorage is Ownable {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    constructor(address initialOwner) Ownable(initialOwner) {
+    constructor(address initialOwner) Ownable() {
         // owner is implicitly able to add verifiers; they are not a verifier by default
     }
 

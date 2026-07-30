@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title Voting
 /// @notice Token-weighted voting with delegation support for governance proposals.
@@ -66,7 +66,7 @@ contract Voting is Ownable, ReentrancyGuard {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    constructor(address _governanceToken) Ownable(msg.sender) {
+    constructor(address _governanceToken) Ownable() {
         if (_governanceToken == address(0)) revert ZeroAddress();
         governanceToken = IERC20(_governanceToken);
     }

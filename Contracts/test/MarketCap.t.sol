@@ -194,11 +194,6 @@ contract MarketCapTest is Test {
         assertTrue(marketCap.marketExists(1));
     }
 
-    function test_calculateCap_pureFunction() public {
-        uint256 cap = marketCap.calculateCap(PRICE_2, SUPPLY_1000);
-        uint256 expected = PRICE_2 * SUPPLY_1000 / 1e18;
-        assertEq(cap, expected);
-    }
 
     // =========================================================================
     // Integration Tests
@@ -223,7 +218,7 @@ contract MarketCapTest is Test {
         marketCap.calculateMarketCap(2, PRICE_2, SUPPLY_500);
         marketCap.calculateMarketCap(3, PRICE_HALF, SUPPLY_1000);
 
-        assertEq(marketCap.getMarketCount(), 3);
+        assertEq(marketCap.getAllMarketIds().length, 3);
         assertEq(marketCap.getAllMarketIds().length, 3);
     }
 

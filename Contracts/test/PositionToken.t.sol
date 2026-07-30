@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/PositionToken.sol";
+import "../contracts/PositionToken.sol";
 
 /// @notice Helper contract that acts as the factory for tests
 contract MockFactory {

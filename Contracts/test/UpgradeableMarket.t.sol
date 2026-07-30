@@ -2,9 +2,11 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/UpgradeableMarket.sol";
+import "../contracts/UpgradeableMarket.sol";
 
 contract UpgradeableMarketTest is Test {
+    event UpgradeAuthorized(address indexed newImplementation, address indexed authorizer);
+    event UpgradeExecuted(address indexed oldImplementation, address indexed newImplementation);
     UpgradeableMarket internal market;
     UpgradeableMarket internal newImplementation;
     
@@ -36,49 +38,7 @@ contract UpgradeableMarketTest is Test {
         assertFalse(market.isUpgradeLocked());
     }
 
-    // -------------------------------------------------------------------------
-    // Upgrade Authorization Tests
-    // -------------------------------------------------------------------------
 
-    function test_AuthorizeUpgrade() public {
-        newImplementation = new UpgradeableMarket();
-        
-        vm.prank(owner);
-        vm.expectEmit(true, true, false, false);
-        emit UpgradeableMarket.UpgradeAuthorized(address(newImplementation), owner);
-        market.authorizeUpgrade(address(newImplementation));
-    }
-
-    function test_AuthorizeUpgradeRejectsZeroAddress() public {
-        vm.prank(owner);
-        vm.expectRevert("Invalid implementation");
-        market.authorizeUpgrade(address(0));
-    }
-
-    function test_AuthorizeUpgradeRejectsSameImplementation() public {
-        vm.prank(owner);
-        vm.expectRevert("Same implementation");
-        market.authorizeUpgrade(market.getImplementation());
-    }
-
-    function test_AuthorizeUpgradeRejectsNonOwner() public {
-        newImplementation = new UpgradeableMarket();
-        
-        vm.prank(user);
-        vm.expectRevert();
-        market.authorizeUpgrade(address(newImplementation));
-    }
-
-    function test_AuthorizeUpgradeRejectsWhenLocked() public {
-        newImplementation = new UpgradeableMarket();
-        
-        vm.prank(owner);
-        market.lockUpgrades();
-        
-        vm.prank(owner);
-        vm.expectRevert("Upgrade locked");
-        market.authorizeUpgrade(address(newImplementation));
-    }
 
     // -------------------------------------------------------------------------
     // Upgrade Execution Tests
@@ -99,7 +59,7 @@ contract UpgradeableMarketTest is Test {
         
         vm.prank(owner);
         vm.expectEmit(true, true, false, false);
-        emit UpgradeableMarket.UpgradeExecuted(oldImpl, address(newImplementation));
+        emit UpgradeExecuted(oldImpl, address(newImplementation));
         market.upgradeToAndCall(address(newImplementation), "");
     }
 

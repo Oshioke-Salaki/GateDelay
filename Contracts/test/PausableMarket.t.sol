@@ -2,9 +2,11 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/PausableMarket.sol";
+import "../contracts/PausableMarket.sol";
 
 contract PausableMarketTest is Test {
+    event MarketPaused(address indexed pauser, string reason);
+    event MarketUnpaused(address indexed unpauser);
     PausableMarket internal market;
     
     address internal owner = address(0xA11CE);
@@ -32,7 +34,7 @@ contract PausableMarketTest is Test {
     function test_PauseEmitsEvent() public {
         vm.prank(owner);
         vm.expectEmit(true, false, false, true);
-        emit PausableMarket.MarketPaused(owner, "Emergency maintenance");
+        emit MarketPaused(owner, "Emergency maintenance");
         market.pause("Emergency maintenance");
     }
 
@@ -90,7 +92,7 @@ contract PausableMarketTest is Test {
         
         vm.prank(owner);
         vm.expectEmit(true, false, false, false);
-        emit PausableMarket.MarketUnpaused(owner);
+        emit MarketUnpaused(owner);
         market.unpause();
     }
 

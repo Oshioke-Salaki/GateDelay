@@ -7,7 +7,7 @@ import {
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {
     ReentrancyGuard
-} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title MarketPayout
 /// @notice Manages payout calculation, distribution, and tracking for market winners.
@@ -197,10 +197,10 @@ contract MarketPayout is ReentrancyGuard {
         uint256 totalCollateral,
         address resolver
     ) external {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
-        require(outcome != Outcome.NONE, InvalidOutcome());
-        require(totalCollateral > 0, InvalidAmount());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(outcome != Outcome.NONE)) revert InvalidOutcome();
+        if (!(totalCollateral > 0)) revert InvalidAmount();
 
         resolutions[market] = MarketResolution({
             market: market,
@@ -218,7 +218,7 @@ contract MarketPayout is ReentrancyGuard {
 
     /// @notice Update admin address
     function updateAdmin(address newAdmin) external {
-        require(msg.sender == admin, NotAuthorized());
+        if (!(msg.sender == admin)) revert NotAuthorized();
         require(newAdmin != address(0), "Invalid admin");
         admin = newAdmin;
     }
@@ -239,13 +239,13 @@ contract MarketPayout is ReentrancyGuard {
         uint256 winningBalance,
         uint256 totalWinningSupply
     ) external view returns (uint256 payoutAmount) {
-        require(market != address(0), InvalidMarket());
-        require(recipient != address(0), InvalidRecipient());
-        require(winningBalance > 0, InvalidAmount());
-        require(totalWinningSupply > 0, InvalidAmount());
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(recipient != address(0))) revert InvalidRecipient();
+        if (!(winningBalance > 0)) revert InvalidAmount();
+        if (!(totalWinningSupply > 0)) revert InvalidAmount();
 
         MarketResolution memory resolution = resolutions[market];
-        require(resolution.finalized, MarketNotResolved());
+        if (!(resolution.finalized)) revert MarketNotResolved();
 
         // Payout = (winning balance / total winning supply) × total collateral
         payoutAmount =
@@ -261,13 +261,13 @@ contract MarketPayout is ReentrancyGuard {
         address recipient,
         uint256 payoutAmount
     ) external {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
-        require(recipient != address(0), InvalidRecipient());
-        require(payoutAmount > 0, InvalidAmount());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(recipient != address(0))) revert InvalidRecipient();
+        if (!(payoutAmount > 0)) revert InvalidAmount();
 
         MarketResolution memory resolution = resolutions[market];
-        require(resolution.finalized, MarketNotResolved());
+        if (!(resolution.finalized)) revert MarketNotResolved();
 
         PayoutRecord storage record = payoutRecords[market][recipient];
 
@@ -302,15 +302,15 @@ contract MarketPayout is ReentrancyGuard {
         address[] calldata recipients,
         uint256[] calldata amounts
     ) external {
-        require(msg.sender == admin, NotAuthorized());
-        require(recipients.length == amounts.length, ArrayLengthMismatch());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(recipients.length == amounts.length)) revert ArrayLengthMismatch();
 
         MarketResolution memory resolution = resolutions[market];
-        require(resolution.finalized, MarketNotResolved());
+        if (!(resolution.finalized)) revert MarketNotResolved();
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(recipients[i] != address(0), InvalidRecipient());
-            require(amounts[i] > 0, InvalidAmount());
+            if (!(recipients[i] != address(0))) revert InvalidRecipient();
+            if (!(amounts[i] > 0)) revert InvalidAmount();
 
             PayoutRecord storage record = payoutRecords[market][recipients[i]];
 
@@ -343,24 +343,21 @@ contract MarketPayout is ReentrancyGuard {
         address market,
         address recipient
     ) external nonReentrant {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
-        require(recipient != address(0), InvalidRecipient());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(recipient != address(0))) revert InvalidRecipient();
 
         PayoutRecord storage record = payoutRecords[market][recipient];
-        require(
-            record.status == PayoutStatus.PENDING ||
-                record.status == PayoutStatus.PARTIAL,
-            PayoutNotPending()
-        );
+        if (!(record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL)) {
+            revert PayoutNotPending();
+        }
 
         uint256 amountToPay = record.amount - record.claimedAmount;
-        require(amountToPay > 0, NoPayoutAvailable());
+        if (!(amountToPay > 0)) revert NoPayoutAvailable();
 
-        require(
-            pendingDistributions[market] >= amountToPay,
-            InsufficientFunds()
-        );
+        if (!(pendingDistributions[market] >= amountToPay)) {
+            revert InsufficientFunds();
+        }
 
         // Update payout record
         record.claimedAmount += amountToPay;
@@ -386,11 +383,11 @@ contract MarketPayout is ReentrancyGuard {
         address market,
         address[] calldata recipients
     ) external nonReentrant {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(recipients[i] != address(0), InvalidRecipient());
+            if (!(recipients[i] != address(0))) revert InvalidRecipient();
 
             PayoutRecord storage record = payoutRecords[market][recipients[i]];
 
@@ -430,16 +427,14 @@ contract MarketPayout is ReentrancyGuard {
         address recipient,
         string calldata reason
     ) external {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
-        require(recipient != address(0), InvalidRecipient());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
+        if (!(recipient != address(0))) revert InvalidRecipient();
 
         PayoutRecord storage record = payoutRecords[market][recipient];
-        require(
-            record.status == PayoutStatus.PENDING ||
-                record.status == PayoutStatus.PARTIAL,
-            PayoutNotPending()
-        );
+        if (!(record.status == PayoutStatus.PENDING || record.status == PayoutStatus.PARTIAL)) {
+            revert PayoutNotPending();
+        }
 
         record.status = PayoutStatus.FAILED;
         record.failureReason = reason;
@@ -469,14 +464,14 @@ contract MarketPayout is ReentrancyGuard {
         address market,
         address[] calldata recipients
     ) external {
-        require(msg.sender == admin, NotAuthorized());
-        require(market != address(0), InvalidMarket());
+        if (!(msg.sender == admin)) revert NotAuthorized();
+        if (!(market != address(0))) revert InvalidMarket();
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            require(recipients[i] != address(0), InvalidRecipient());
+            if (!(recipients[i] != address(0))) revert InvalidRecipient();
 
             PayoutRecord storage record = payoutRecords[market][recipients[i]];
-            require(record.status == PayoutStatus.FAILED, PayoutNotPending());
+            if (!(record.status == PayoutStatus.FAILED)) revert PayoutNotPending();
 
             record.status = PayoutStatus.RETRIED;
             record.failureReason = "";
@@ -495,13 +490,13 @@ contract MarketPayout is ReentrancyGuard {
 
     /// @notice Claim payout (called by recipient)
     function claimPayout(address market) external nonReentrant {
-        require(market != address(0), InvalidMarket());
+        if (!(market != address(0))) revert InvalidMarket();
 
         PayoutRecord storage record = payoutRecords[market][msg.sender];
-        require(record.status == PayoutStatus.COMPLETE, NoPayoutAvailable());
+        if (!(record.status == PayoutStatus.COMPLETE)) revert NoPayoutAvailable();
 
         uint256 unclaimedAmount = record.amount - record.claimedAmount;
-        require(unclaimedAmount > 0, NoPayoutAvailable());
+        if (!(unclaimedAmount > 0)) revert NoPayoutAvailable();
 
         record.claimedAmount = record.amount;
         record.claimedAt = block.timestamp;

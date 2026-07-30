@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/Quorum.sol";
+import "../contracts/Quorum.sol";
 
 contract QuorumTest is Test {
     Quorum quorum;

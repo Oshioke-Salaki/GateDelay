@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Voting} from "./Voting.sol";
 
 /// @title Governance
@@ -60,7 +60,7 @@ contract Governance is Ownable, ReentrancyGuard {
     /// @param _voting          Address of the deployed Voting contract.
     /// @param _quorum          Minimum total votes for a proposal to be valid.
     /// @param _votingDuration  Default voting period in seconds.
-    constructor(address _voting, uint256 _quorum, uint256 _votingDuration) Ownable(msg.sender) {
+    constructor(address _voting, uint256 _quorum, uint256 _votingDuration) Ownable() {
         if (_voting == address(0)) revert ZeroAddress();
         voting = Voting(_voting);
         quorum = _quorum;
