@@ -32,7 +32,8 @@ export class RateLimiterService {
     timestamps = timestamps.filter((t) => t > windowStart);
 
     const count = timestamps.length;
-    const resetAt = timestamps.length > 0 ? timestamps[0] + windowMs : now + windowMs;
+    const resetAt =
+      timestamps.length > 0 ? timestamps[0] + windowMs : now + windowMs;
 
     if (count >= limit) {
       const oldestInWindow = timestamps[0];
@@ -65,7 +66,10 @@ export class RateLimiterService {
     this.windows.delete(key);
   }
 
-  getKeyStats(key: string, windowMs: number): { count: number; oldestMs: number | null } {
+  getKeyStats(
+    key: string,
+    windowMs: number,
+  ): { count: number; oldestMs: number | null } {
     const now = Date.now();
     const timestamps = (this.windows.get(key) ?? []).filter(
       (t) => t > now - windowMs,

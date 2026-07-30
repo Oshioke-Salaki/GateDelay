@@ -5,10 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @title Whitelist
 /// @notice Manages market access whitelisting with batch updates, guards, and queryable history.
-/// @dev Threat Assumptions:
-/// - The contract owner is fully trusted and their keys are not compromised.
-/// - The owner will promptly remove any whitelisted account that becomes compromised or malicious.
-/// - The whitelist does not protect against compromised accounts until the owner explicitly revokes their access.
 contract Whitelist is Ownable {
     // -------------------------------------------------------------------------
     // Custom errors

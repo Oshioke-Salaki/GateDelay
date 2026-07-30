@@ -188,12 +188,7 @@ export class NetworkService {
       throw new BadRequestException(`Network ${networkName} not found`);
     }
 
-    if (
-      !Object.prototype.hasOwnProperty.call(
-        network.contractAddresses,
-        contractType,
-      )
-    ) {
+    if (!network.contractAddresses.hasOwnProperty(contractType)) {
       throw new BadRequestException(`Invalid contract type: ${contractType}`);
     }
 

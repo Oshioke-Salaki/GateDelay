@@ -62,12 +62,3 @@ To learn more about Next.js, take a look at the following resources:
 
 - [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## SSR Notes
-
-- `Frontend/components/wallet/QRDisplay.tsx` is a client-only wallet QR component.
-- The QR rendering library (`qrcode`) is dynamically imported at runtime to avoid SSR bundling or server-side DOM access issues.
-- Clipboard access is guarded as a browser-only API.
-- QR session timers are cleaned up on unmount to keep client transition paths stable during hydration.
-- Phase 2+: if server-rendered QR previews are required, add a lightweight server-safe placeholder before hydration.

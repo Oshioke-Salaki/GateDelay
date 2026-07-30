@@ -1,13 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { createRequire } from 'module';
 import { MarketResolverService } from './market-resolver.service';
 
 // Use the existing CommonJS tradeAggregator for real-time stats
-const nodeRequire = createRequire(__filename);
-const tradeAggregator = nodeRequire('../../services/tradeAggregator') as {
-  getMarketStats?: (marketId: string) => Promise<Record<string, unknown>>;
-  getRealTimeStats: (marketId: string) => Promise<Record<string, unknown>>;
-};
+const tradeAggregator = require('../../services/tradeAggregator');
 
 @Controller('api/markets')
 export class MarketsController {

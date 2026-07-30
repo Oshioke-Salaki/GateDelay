@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../Contracts/src/CircuitBreaker.sol";
+import "../src/CircuitBreaker.sol";
 
 contract CircuitBreakerTest is Test {
     CircuitBreaker circuitBreaker;

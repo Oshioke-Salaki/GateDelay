@@ -201,26 +201,24 @@ export class LiquidityService {
             ),
           );
 
-    const position: LiquidityPosition =
-      existing ??
-      ({
-        userId,
-        marketId,
-        walletAddress: normalizedAddress,
-        shares: 0,
-        principalEth: 0,
-        removedPrincipalEth: 0,
-        rewardsAccruedEth: 0,
-        feesAccruedEth: 0,
-        claimedRewardsEth: 0,
-        claimedFeesEth: 0,
-        autoManage: autoManage ?? false,
-        targetYesRatio: this.normalizeTargetRatio(targetYesRatio),
-        createdAt: now,
-        updatedAt: now,
-        lastAccrualAt: now,
-        automationExecutions: 0,
-      } as LiquidityPosition);
+    const position: LiquidityPosition = existing ?? {
+      userId,
+      marketId,
+      walletAddress: normalizedAddress,
+      shares: 0,
+      principalEth: 0,
+      removedPrincipalEth: 0,
+      rewardsAccruedEth: 0,
+      feesAccruedEth: 0,
+      claimedRewardsEth: 0,
+      claimedFeesEth: 0,
+      autoManage: autoManage ?? false,
+      targetYesRatio: this.normalizeTargetRatio(targetYesRatio),
+      createdAt: now,
+      updatedAt: now,
+      lastAccrualAt: now,
+      automationExecutions: 0,
+    };
 
     if (typeof autoManage === 'boolean') {
       position.autoManage = autoManage;
@@ -263,7 +261,9 @@ export class LiquidityService {
 
     const pool = this.pools.get(marketId);
     if (!pool || pool.totalShares <= 0 || pool.totalLiquidityEth <= 0) {
-      throw new BadRequestException('Liquidity pool has no available liquidity');
+      throw new BadRequestException(
+        'Liquidity pool has no available liquidity',
+      );
     }
 
     const now = new Date();
@@ -276,7 +276,10 @@ export class LiquidityService {
     const withdrawnEth = this.round12(
       math.number(
         math.round(
-          math.divide(math.multiply(shareAmount, pool.totalLiquidityEth), pool.totalShares),
+          math.divide(
+            math.multiply(shareAmount, pool.totalLiquidityEth),
+            pool.totalShares,
+          ),
           12,
         ),
       ),
@@ -285,7 +288,10 @@ export class LiquidityService {
     const claimedRewardsEth = this.round12(
       math.number(
         math.round(
-          math.divide(math.multiply(position.rewardsAccruedEth, shareAmount), position.shares),
+          math.divide(
+            math.multiply(position.rewardsAccruedEth, shareAmount),
+            position.shares,
+          ),
           12,
         ),
       ),
@@ -293,7 +299,10 @@ export class LiquidityService {
     const claimedFeesEth = this.round12(
       math.number(
         math.round(
-          math.divide(math.multiply(position.feesAccruedEth, shareAmount), position.shares),
+          math.divide(
+            math.multiply(position.feesAccruedEth, shareAmount),
+            position.shares,
+          ),
           12,
         ),
       ),
@@ -302,21 +311,30 @@ export class LiquidityService {
     position.rewardsAccruedEth = this.round12(
       position.rewardsAccruedEth - claimedRewardsEth,
     );
-    position.feesAccruedEth = this.round12(position.feesAccruedEth - claimedFeesEth);
+    position.feesAccruedEth = this.round12(
+      position.feesAccruedEth - claimedFeesEth,
+    );
     position.claimedRewardsEth = this.round12(
       position.claimedRewardsEth + claimedRewardsEth,
     );
-    position.claimedFeesEth = this.round12(position.claimedFeesEth + claimedFeesEth);
+    position.claimedFeesEth = this.round12(
+      position.claimedFeesEth + claimedFeesEth,
+    );
 
     const principalReduction = this.round12(
       math.number(
         math.round(
-          math.divide(math.multiply(position.principalEth, shareAmount), position.shares),
+          math.divide(
+            math.multiply(position.principalEth, shareAmount),
+            position.shares,
+          ),
           12,
         ),
       ),
     );
-    position.principalEth = this.round12(position.principalEth - principalReduction);
+    position.principalEth = this.round12(
+      position.principalEth - principalReduction,
+    );
     position.removedPrincipalEth = this.round12(
       position.removedPrincipalEth + principalReduction,
     );
@@ -324,7 +342,9 @@ export class LiquidityService {
     position.updatedAt = now;
     position.lastAccrualAt = now;
 
-    pool.totalLiquidityEth = this.round12(pool.totalLiquidityEth - withdrawnEth);
+    pool.totalLiquidityEth = this.round12(
+      pool.totalLiquidityEth - withdrawnEth,
+    );
     pool.totalShares = this.round12(pool.totalShares - shareAmount);
     pool.totalRewardsDistributedEth = this.round12(
       pool.totalRewardsDistributedEth + claimedRewardsEth,
@@ -370,7 +390,9 @@ export class LiquidityService {
     });
 
     return userPositions.map((position) => {
-      const pool = this.pools.get(position.marketId) ?? this.createEmptyPool(position.marketId);
+      const pool =
+        this.pools.get(position.marketId) ??
+        this.createEmptyPool(position.marketId);
       return this.toPositionView(position, pool);
     });
   }
@@ -407,7 +429,10 @@ export class LiquidityService {
         const value = providerPositions.reduce(
           (sum, position) =>
             sum +
-            this.estimatePositionValue(position, this.pools.get(position.marketId)),
+            this.estimatePositionValue(
+              position,
+              this.pools.get(position.marketId),
+            ),
           0,
         );
         const earnings = providerPositions.reduce(
@@ -426,11 +451,17 @@ export class LiquidityService {
           positions: providerPositions.length,
         };
       })
-      .sort((a, b) => Number.parseFloat(b.estimatedValueEth) - Number.parseFloat(a.estimatedValueEth))
+      .sort(
+        (a, b) =>
+          Number.parseFloat(b.estimatedValueEth) -
+          Number.parseFloat(a.estimatedValueEth),
+      )
       .slice(0, 10);
 
     const marketBreakdown = pools.map((pool) => {
-      const marketPositions = positions.filter((p) => p.marketId === pool.marketId);
+      const marketPositions = positions.filter(
+        (p) => p.marketId === pool.marketId,
+      );
       const rewards = marketPositions.reduce(
         (sum, p) => sum + p.rewardsAccruedEth + p.claimedRewardsEth,
         0,
@@ -445,11 +476,15 @@ export class LiquidityService {
         totalLiquidityEth: this.formatEth(pool.totalLiquidityEth),
         totalRewardsEth: this.formatEth(rewards),
         totalFeesEth: this.formatEth(fees),
-        autoManagedProviders: marketPositions.filter((p) => p.autoManage).length,
+        autoManagedProviders: marketPositions.filter((p) => p.autoManage)
+          .length,
       };
     });
 
-    const estimatedApy = totals.principal > 0 ? ((totals.rewards + totals.fees) / totals.principal) * 100 : 0;
+    const estimatedApy =
+      totals.principal > 0
+        ? ((totals.rewards + totals.fees) / totals.principal) * 100
+        : 0;
 
     const analytics: LiquidityAnalytics = {
       generatedAt: now.toISOString(),
@@ -488,12 +523,19 @@ export class LiquidityService {
       const deviation = math.abs(currentYesRatio - position.targetYesRatio);
 
       if (deviation >= AUTOMATION_THRESHOLD) {
-        const bonusReward = this.round12(position.principalEth * 0.0015 * deviation);
-        position.rewardsAccruedEth = this.round12(position.rewardsAccruedEth + bonusReward);
+        const bonusReward = this.round12(
+          position.principalEth * 0.0015 * deviation,
+        );
+        position.rewardsAccruedEth = this.round12(
+          position.rewardsAccruedEth + bonusReward,
+        );
         position.automationExecutions += 1;
         position.updatedAt = now;
         position.lastAccrualAt = now;
-        this.positions.set(this.positionKey(position.userId, position.marketId), position);
+        this.positions.set(
+          this.positionKey(position.userId, position.marketId),
+          position,
+        );
 
         executions.push({
           marketId: position.marketId,
@@ -627,7 +669,9 @@ export class LiquidityService {
     const existing = this.pools.get(market.id);
     if (existing) return existing;
 
-    const seededLiquidity = this.round12(weiToEth(market.totalYesStake + market.totalNoStake));
+    const seededLiquidity = this.round12(
+      weiToEth(market.totalYesStake + market.totalNoStake),
+    );
     const now = new Date();
     const pool: LiquidityPoolState = {
       marketId: market.id,
@@ -661,7 +705,11 @@ export class LiquidityService {
     const elapsedMs = now.getTime() - position.lastAccrualAt.getTime();
     if (elapsedMs <= 0) return;
 
-    if (position.shares <= 0 || pool.totalShares <= 0 || pool.totalLiquidityEth <= 0) {
+    if (
+      position.shares <= 0 ||
+      pool.totalShares <= 0 ||
+      pool.totalLiquidityEth <= 0
+    ) {
       position.lastAccrualAt = now;
       return;
     }
@@ -674,10 +722,16 @@ export class LiquidityService {
     const rewardRatePerHour = BASE_REWARD_APY / (365 * 24);
     const feeRatePerHour = BASE_FEE_APY / (365 * 24);
 
-    const reward = this.round12(exposure * rewardRatePerHour * hours * utilizationBoost);
-    const fee = this.round12(exposure * feeRatePerHour * hours * (1 + shareRatio));
+    const reward = this.round12(
+      exposure * rewardRatePerHour * hours * utilizationBoost,
+    );
+    const fee = this.round12(
+      exposure * feeRatePerHour * hours * (1 + shareRatio),
+    );
 
-    position.rewardsAccruedEth = this.round12(position.rewardsAccruedEth + reward);
+    position.rewardsAccruedEth = this.round12(
+      position.rewardsAccruedEth + reward,
+    );
     position.feesAccruedEth = this.round12(position.feesAccruedEth + fee);
     position.updatedAt = now;
     position.lastAccrualAt = now;
@@ -688,7 +742,9 @@ export class LiquidityService {
     pool: LiquidityPoolState,
   ): LiquidityPositionView {
     const shareRatio =
-      pool.totalShares > 0 ? this.round6(position.shares / pool.totalShares) : 0;
+      pool.totalShares > 0
+        ? this.round6(position.shares / pool.totalShares)
+        : 0;
 
     const positionValue = this.estimatePositionValue(position, pool);
     const totalEarned =
@@ -722,16 +778,25 @@ export class LiquidityService {
     pool?: LiquidityPoolState,
   ): number {
     if (!pool || pool.totalShares <= 0 || pool.totalLiquidityEth <= 0) {
-      return this.round12(position.principalEth + position.rewardsAccruedEth + position.feesAccruedEth);
+      return this.round12(
+        position.principalEth +
+          position.rewardsAccruedEth +
+          position.feesAccruedEth,
+      );
     }
 
     const underlying = math.number(
       math.round(
-        math.divide(math.multiply(position.shares, pool.totalLiquidityEth), pool.totalShares),
+        math.divide(
+          math.multiply(position.shares, pool.totalLiquidityEth),
+          pool.totalShares,
+        ),
         12,
       ),
     );
-    return this.round12(underlying + position.rewardsAccruedEth + position.feesAccruedEth);
+    return this.round12(
+      underlying + position.rewardsAccruedEth + position.feesAccruedEth,
+    );
   }
 
   private positionKey(userId: string, marketId: string): string {

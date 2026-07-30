@@ -38,8 +38,9 @@ export class TradeReconciliationService {
 
     const activeBooks = sources
       .map((source) => ({ source, book: this.sourceBooks.get(source) }))
-      .filter((entry): entry is { source: string; book: Map<string, SourceTrade> } =>
-        Boolean(entry.book),
+      .filter(
+        (entry): entry is { source: string; book: Map<string, SourceTrade> } =>
+          Boolean(entry.book),
       );
 
     const allTradeIds = new Set<string>();
@@ -109,7 +110,9 @@ export class TradeReconciliationService {
 
   getDiscrepancies(status?: 'OPEN' | 'RESOLVED'): TradeDiscrepancy[] {
     const all = Array.from(this.discrepancies.values());
-    return status ? all.filter((entry) => entry.resolutionStatus === status) : all;
+    return status
+      ? all.filter((entry) => entry.resolutionStatus === status)
+      : all;
   }
 
   getReports(limit = 20): ReconciliationReport[] {
@@ -124,8 +127,15 @@ export class TradeReconciliationService {
     this.reconcile();
   }
 
-  private findConflictingFields(valuesBySource: Record<string, SourceTrade>): string[] {
-    const fields: Array<keyof SourceTrade> = ['marketId', 'amount', 'status', 'txHash'];
+  private findConflictingFields(
+    valuesBySource: Record<string, SourceTrade>,
+  ): string[] {
+    const fields: Array<keyof SourceTrade> = [
+      'marketId',
+      'amount',
+      'status',
+      'txHash',
+    ];
     const conflicts: string[] = [];
 
     fields.forEach((field) => {

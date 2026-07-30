@@ -1,4 +1,3 @@
-console.log("[aml.js] Initializing AML compliance route handler...");
 const express = require('express');
 const router = express.Router();
 

@@ -28,10 +28,7 @@ export class FavoritesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  add(
-    @Request() req: { user: { id: string } },
-    @Body() dto: AddFavoriteDto,
-  ) {
+  add(@Request() req: { user: { id: string } }, @Body() dto: AddFavoriteDto) {
     return this.favoritesService.addFavorite(req.user.id, dto);
   }
 
