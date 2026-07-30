@@ -255,6 +255,12 @@ async function runRetentionPolicy() {
   try {
     const result = await backupService.applyRetentionPolicy();
     console.log(`Retention policy cleanup completed: ${result.deletedCount} backups deleted`);
+    
+    // Log retention results
+    if (result.deletedBackups.length > 0) {
+      console.log(`Deleted backups: ${result.deletedBackups.join(', ')}`);
+    }
+    
     return result;
   } catch (error) {
     console.error('Error running retention policy:', error.message);
@@ -277,6 +283,46 @@ function shutdown() {
   backupSchedules.clear();
 }
 
+/**
+ * Get backup status summary
+ */
+function getBackupStatusSummary() {
+  const schedules = getSchedules();
+  const summaries = schedules.map(schedule => ({
+    id: schedule.id,
+    name: schedule.name,
+    type: schedule.type,
+    frequency: schedule.frequency,
+    enabled: schedule.enabled,
+    nextRun: schedule.nextRun,
+    lastRun: schedule.lastRun,
+    lastRunStatus: schedule.lastRunStatus,
+  }));
+  
+  return {
+    totalSchedules: summaries.length,
+    activeSchedules: summaries.filter(s => s.enabled).length,
+    schedules: summaries,
+    summary: `${summaries.filter(s => s.enabled).length}/${summaries.length} schedules active`,
+  };
+}
+
+/**
+ * Pause/resume a schedule
+ */
+function toggleSchedule(scheduleId) {
+  const schedule = backupSchedules.get(scheduleId);
+  
+  if (!schedule) {
+    throw new Error(`Schedule ${scheduleId} not found`);
+  }
+  
+  schedule.enabled = !schedule.enabled;
+  console.log(`Schedule ${scheduleId} is now ${schedule.enabled ? 'enabled' : 'disabled'}`);
+  
+  return schedule;
+}
+
 module.exports = {
   initializeBackupScheduler,
   scheduleBackup,
@@ -287,4 +333,6 @@ module.exports = {
   getSchedule,
   runRetentionPolicy,
   shutdown,
+  getBackupStatusSummary,
+  toggleSchedule,
 };

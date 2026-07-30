@@ -7,10 +7,18 @@ const AWS = require('aws-sdk');
 const archiver = require('archiver');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { createReadStream, createWriteStream } = require('fs');
 
 // Initialize AWS clients
-const s3 = new AWS.S3();
-const dynamodb = new AWS.DynamoDB();
+const s3 = new AWS.S3({
+  region: process.env.AWS_REGION || 'us-east-1',
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
+const dynamodb = new AWS.DynamoDB({
+  region: process.env.AWS_REGION || 'us-east-1',
+});
 
 // Backup status constants
 const BACKUP_STATUS = {
@@ -181,18 +189,42 @@ async function prepareBackup(backup) {
 async function collectData(backup) {
   console.log(`Collecting data for backup: ${backup.id}`);
   
-  // In production, this would:
-  // - Export databases
-  // - Copy file systems
-  // - Query APIs
-  const archivePath = path.join(process.cwd(), `backup-${backup.id}-temp.tar`);
+  const archivePath = path.join(process.env.BACKUP_TEMP_DIR || '/tmp', `backup-${backup.id}-data.tar`);
   
-  // Create mock archive file
-  fs.writeFileSync(archivePath, `Mock backup data for ${backup.id}`);
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return archivePath;
+  try {
+    return new Promise((resolve, reject) => {
+      const output = createWriteStream(archivePath);
+      const archive = archiver('tar', {});
+      
+      output.on('close', () => {
+        console.log(`Data collected: ${archive.pointer()} bytes`);
+        resolve(archivePath);
+      });
+      
+      archive.on('error', reject);
+      archive.pipe(output);
+      
+      // Add data sources
+      const dataSources = backup.source.length > 0 
+        ? backup.source 
+        : [process.env.DATA_DIR || './data'];
+      
+      for (const source of dataSources) {
+        if (fs.existsSync(source)) {
+          if (fs.lstatSync(source).isDirectory()) {
+            archive.directory(source, path.basename(source));
+          } else {
+            archive.file(source, { name: path.basename(source) });
+          }
+        }
+      }
+      
+      archive.finalize();
+    });
+  } catch (error) {
+    console.error(`Error collecting data:`, error.message);
+    throw error;
+  }
 }
 
 /**
@@ -201,15 +233,30 @@ async function collectData(backup) {
 async function compressBackup(archivePath) {
   console.log(`Compressing backup: ${archivePath}`);
   
-  const compressedPath = `${archivePath}.gz`;
-  
-  // In production, this would use archiver to compress
-  // For now, simulate compression
-  fs.copyFileSync(archivePath, compressedPath);
-  
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  return compressedPath;
+  return new Promise((resolve, reject) => {
+    const compressedPath = `${archivePath}.gz`;
+    const output = createWriteStream(compressedPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    output.on('close', () => {
+      console.log(`Backup compressed: ${archive.pointer()} bytes`);
+      resolve(compressedPath);
+    });
+    
+    archive.on('error', (err) => {
+      console.error(`Error during compression:`, err);
+      reject(err);
+    });
+    
+    archive.pipe(output);
+    
+    // Add the archive file to compress
+    if (fs.existsSync(archivePath)) {
+      archive.file(archivePath, { name: path.basename(archivePath) });
+    }
+    
+    archive.finalize();
+  });
 }
 
 /**
@@ -218,14 +265,22 @@ async function compressBackup(archivePath) {
 async function calculateChecksum(filePath) {
   console.log(`Calculating checksum for: ${filePath}`);
   
-  const crypto = require('crypto');
-  
-  // In production, read actual file
-  const mockData = `backup-checksum-${Date.now()}`;
-  const hash = crypto.createHash('sha256');
-  hash.update(mockData);
-  
-  return hash.digest('hex');
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = createReadStream(filePath);
+    
+    stream.on('data', (chunk) => {
+      hash.update(chunk);
+    });
+    
+    stream.on('end', () => {
+      const checksum = hash.digest('hex');
+      console.log(`Checksum calculated: ${checksum}`);
+      resolve(checksum);
+    });
+    
+    stream.on('error', reject);
+  });
 }
 
 /**
@@ -234,16 +289,36 @@ async function calculateChecksum(filePath) {
 async function uploadToS3(backup, filePath) {
   console.log(`Uploading backup ${backup.id} to S3`);
   
-  // In production, this would:
-  // - Create S3 bucket key
-  // - Upload file to S3
-  // - Set retention policy
-  const s3Key = `backups/${backup.id}/data.tar.gz`;
-  
-  // Mock S3 upload
-  await new Promise(resolve => setTimeout(resolve, 400));
-  
-  return `s3://backup-bucket/${s3Key}`;
+  try {
+    const fileStream = createReadStream(filePath);
+    const fileSize = fs.statSync(filePath).size;
+    
+    const s3Key = `backups/${backup.id}/data-${Date.now()}.tar.gz`;
+    const bucketName = process.env.AWS_BACKUP_BUCKET || 'backup-bucket';
+    
+    const params = {
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: fileStream,
+      ContentLength: fileSize,
+      ServerSideEncryption: 'AES256',
+      StorageClass: 'STANDARD_IA',
+      Metadata: {
+        'backup-id': backup.id,
+        'backup-type': backup.type,
+        'created-at': backup.createdAt,
+      },
+      Tagging: `backup-type=${backup.type}&retention=${backup.retentionDays}`,
+    };
+    
+    const result = await s3.upload(params).promise();
+    
+    console.log(`Backup uploaded to S3: ${result.Location}`);
+    return result.Location;
+  } catch (error) {
+    console.error(`Error uploading to S3:`, error.message);
+    throw new Error(`S3 upload failed: ${error.message}`);
+  }
 }
 
 /**
@@ -252,13 +327,30 @@ async function uploadToS3(backup, filePath) {
 async function verifyBackup(backup) {
   console.log(`Verifying backup: ${backup.id}`);
   
-  // In production, this would:
-  // - Verify S3 upload
-  // - Test restore
-  // - Validate data
-  await new Promise(resolve => setTimeout(resolve, 200));
-  
-  return true;
+  try {
+    // Verify S3 object exists
+    const bucketName = process.env.AWS_BACKUP_BUCKET || 'backup-bucket';
+    const s3Key = backup.location.split('/').slice(-2).join('/');
+    
+    const headParams = {
+      Bucket: bucketName,
+      Key: s3Key,
+    };
+    
+    const headResult = await s3.headObject(headParams).promise();
+    
+    console.log(`Backup verified on S3: ${headResult.ContentLength} bytes`);
+    
+    return {
+      verified: true,
+      size: headResult.ContentLength,
+      etag: headResult.ETag,
+      lastModified: headResult.LastModified,
+    };
+  } catch (error) {
+    console.error(`Error verifying backup:`, error.message);
+    throw new Error(`Backup verification failed: ${error.message}`);
+  }
 }
 
 /**
@@ -296,10 +388,31 @@ async function generateBackupReport(backup) {
     steps: backup.steps,
     progress: backup.progress,
     error: backup.error,
+    summary: {
+      totalSteps: backup.steps.length,
+      completedSteps: backup.steps.filter(s => s.status === 'COMPLETED').length,
+      successRate: backup.steps.length > 0 
+        ? ((backup.steps.filter(s => s.status === 'COMPLETED').length / backup.steps.length) * 100).toFixed(2) + '%'
+        : '0%',
+    },
+    retention: {
+      retentionDays: backup.retentionDays,
+      expiresAt: backup.expiresAt,
+      daysRemaining: Math.ceil((new Date(backup.expiresAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+    },
     createdAt: new Date().toISOString(),
   };
 
   backupReports.set(report.id, report);
+  
+  // Log summary
+  console.log(`Backup Report Generated:
+    ID: ${report.id}
+    Status: ${report.status}
+    Duration: ${report.duration}ms
+    Size: ${formatBytes(report.size)}
+    Success Rate: ${report.summary.successRate}`);
+  
   return report;
 }
 
@@ -383,38 +496,78 @@ async function restoreFromBackup(backupId, restorePath) {
 
   try {
     // Step 1: Download from S3
-    restore.steps.push({ step: 'DOWNLOAD_S3', status: 'IN_PROGRESS' });
-    // In production, download from S3
-    await new Promise(resolve => setTimeout(resolve, 400));
+    restore.steps.push({ step: 'DOWNLOAD_S3', status: 'IN_PROGRESS', timestamp: new Date().toISOString() });
+    
+    const tempFilePath = path.join(process.env.BACKUP_TEMP_DIR || '/tmp', `restore-${restore.id}.tar.gz`);
+    const s3Key = backup.location.split('/').slice(-2).join('/');
+    const bucketName = process.env.AWS_BACKUP_BUCKET || 'backup-bucket';
+    
+    await new Promise((resolve, reject) => {
+      const file = createWriteStream(tempFilePath);
+      const stream = s3.getObject({
+        Bucket: bucketName,
+        Key: s3Key,
+      }).createReadStream();
+      
+      stream.on('error', reject);
+      file.on('error', reject);
+      file.on('finish', resolve);
+      
+      stream.pipe(file);
+    });
+    
     restore.steps[restore.steps.length - 1].status = 'COMPLETED';
 
     // Step 2: Decompress
-    restore.steps.push({ step: 'DECOMPRESS', status: 'IN_PROGRESS' });
-    // In production, decompress file
-    await new Promise(resolve => setTimeout(resolve, 300));
+    restore.steps.push({ step: 'DECOMPRESS', status: 'IN_PROGRESS', timestamp: new Date().toISOString() });
+    
+    const extractPath = path.join(process.env.BACKUP_TEMP_DIR || '/tmp', `restore-${restore.id}-extracted`);
+    
+    await new Promise((resolve, reject) => {
+      if (!fs.existsSync(extractPath)) {
+        fs.mkdirSync(extractPath, { recursive: true });
+      }
+      
+      const extract = require('extract-zip');
+      extract(tempFilePath, { dir: extractPath })
+        .then(resolve)
+        .catch(reject);
+    });
+    
     restore.steps[restore.steps.length - 1].status = 'COMPLETED';
 
     // Step 3: Verify checksum
-    restore.steps.push({ step: 'VERIFY_CHECKSUM', status: 'IN_PROGRESS' });
-    // In production, verify checksum matches
-    await new Promise(resolve => setTimeout(resolve, 200));
+    restore.steps.push({ step: 'VERIFY_CHECKSUM', status: 'IN_PROGRESS', timestamp: new Date().toISOString() });
+    
+    const downloadedChecksum = await calculateChecksum(tempFilePath);
+    if (downloadedChecksum !== backup.checksum) {
+      throw new Error(`Checksum mismatch: ${downloadedChecksum} !== ${backup.checksum}`);
+    }
+    
     restore.steps[restore.steps.length - 1].status = 'COMPLETED';
 
     // Step 4: Restore data
-    restore.steps.push({ step: 'RESTORE_DATA', status: 'IN_PROGRESS' });
-    // In production, restore to database/filesystem
-    await new Promise(resolve => setTimeout(resolve, 500));
+    restore.steps.push({ step: 'RESTORE_DATA', status: 'IN_PROGRESS', timestamp: new Date().toISOString() });
+    
+    if (fs.existsSync(restorePath)) {
+      fs.rmSync(restorePath, { recursive: true, force: true });
+    }
+    fs.cpSync(extractPath, restorePath, { recursive: true });
+    
     restore.steps[restore.steps.length - 1].status = 'COMPLETED';
 
     restore.status = 'COMPLETED';
     restore.completedAt = new Date().toISOString();
+    
+    // Cleanup temp files
+    await cleanupTempFiles(tempFilePath, extractPath);
 
     return restore;
   } catch (error) {
     restore.status = 'FAILED';
     restore.error = error.message;
     restore.completedAt = new Date().toISOString();
-    restore.steps.push({ step: 'ERROR', status: 'FAILED', error: error.message });
+    restore.steps.push({ step: 'ERROR', status: 'FAILED', error: error.message, timestamp: new Date().toISOString() });
     throw error;
   }
 }
@@ -427,6 +580,9 @@ async function getBackupReports(filters = {}) {
   
   if (filters.backupId) {
     reports = reports.filter(r => r.backupId === filters.backupId);
+  }
+  if (filters.status) {
+    reports = reports.filter(r => r.status === filters.status);
   }
   
   reports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -441,6 +597,43 @@ async function getBackupReport(reportId) {
   return backupReports.get(reportId) || null;
 }
 
+/**
+ * Format bytes to human-readable size
+ */
+function formatBytes(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+}
+
+/**
+ * Get backup statistics
+ */
+async function getBackupStats() {
+  const allBackups = Array.from(backups.values());
+  const totalSize = allBackups.reduce((sum, b) => sum + b.size, 0);
+  
+  return {
+    totalBackups: allBackups.length,
+    byStatus: {
+      VERIFIED: allBackups.filter(b => b.status === BACKUP_STATUS.VERIFIED).length,
+      FAILED: allBackups.filter(b => b.status === BACKUP_STATUS.FAILED).length,
+      IN_PROGRESS: allBackups.filter(b => b.status === BACKUP_STATUS.IN_PROGRESS).length,
+      PENDING: allBackups.filter(b => b.status === BACKUP_STATUS.PENDING).length,
+    },
+    byType: {
+      FULL: allBackups.filter(b => b.type === BACKUP_TYPES.FULL).length,
+      INCREMENTAL: allBackups.filter(b => b.type === BACKUP_TYPES.INCREMENTAL).length,
+      DIFFERENTIAL: allBackups.filter(b => b.type === BACKUP_TYPES.DIFFERENTIAL).length,
+    },
+    totalSize: formatBytes(totalSize),
+    oldestBackup: allBackups.length > 0 ? new Date(allBackups[allBackups.length - 1].createdAt) : null,
+    newestBackup: allBackups.length > 0 ? new Date(allBackups[0].createdAt) : null,
+  };
+}
+
 module.exports = {
   BACKUP_STATUS,
   BACKUP_TYPES,
@@ -452,4 +645,5 @@ module.exports = {
   restoreFromBackup,
   getBackupReports,
   getBackupReport,
+  getBackupStats,
 };
