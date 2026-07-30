@@ -7,6 +7,7 @@ import "./ERC20Token.sol";
 /// @title Trading – high-level trade execution with fees + taker referrer rebates
 /// @notice Wraps MarketMaker with fee collection and a taker-based rebate on BUY only.
 ///         Sell-side fee/rebate is intentionally skipped to match current MarketMaker.sell() flow.
+/// @dev LMSR execution path only — not OrderBook/CLOB. See docs/adr/0001-lmsr-vs-clob-ambiguity.md.
 contract Trading {
     // ── State ─────────────────────────────────────────────────────────────────
     MarketMaker public immutable marketMaker;
