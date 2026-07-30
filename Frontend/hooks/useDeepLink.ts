@@ -90,8 +90,8 @@ export function useDeepLink(autoNavigate: boolean = true) {
             }
 
             const query = url.toString();
-            const currentPath = pathname || "";
-            return query ? `${currentPath}?${query}` : currentPath;
+            const safePathname = pathname || "";
+            return query ? `${safePathname}?${query}` : safePathname;
         },
         [pathname]
     );
