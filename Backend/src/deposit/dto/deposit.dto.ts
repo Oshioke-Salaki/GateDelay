@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsNumber, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+  IsNumber,
+  Min,
+} from 'class-validator';
 import { ConfirmationLevel } from '../schemas/deposit.schema';
 
 export class CreateDepositDto {

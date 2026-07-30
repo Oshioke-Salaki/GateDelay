@@ -91,7 +91,8 @@ export class VerificationService {
     }
 
     const recalculatedHash = this.hashPayload(payload);
-    const integrityVerified = recalculatedHash === record.certificate.payloadHash;
+    const integrityVerified =
+      recalculatedHash === record.certificate.payloadHash;
 
     const authenticityVerified = this.verifyAuthenticity(
       recalculatedHash,

@@ -1,11 +1,3 @@
-/**
- * @title Blacklist Contract - Security & Threat Assumptions
- * @custom:security-threats
- * - Threat Model: Address blacklisting prevents unauthorized/malicious actors from executing privileged GateDelay operations.
- * - Admin Privilege: Only authorized admin roles can modify the blacklist mapping.
- * - Race Conditions: Updates to the blacklist take effect immediately upon block confirmation.
- * - Off-Chain Dependency: Backend AML/compliance services sync blacklisted addresses via contract events.
- */
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 

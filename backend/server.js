@@ -3,7 +3,6 @@ const cors = require('cors');
 
 const migrationRoutes = require('./routes/migration');
 const rollbackRoutes = require('./routes/rollback');
-const restoreRoutes = require('./routes/restore');
 const betaRoutes = require('./routes/beta');
 const oncallRoutes = require('./routes/oncall');
 const upgradeCoordinator = require('./services/upgradeCoordinator');
@@ -21,7 +20,6 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/migrations', migrationRoutes);
 app.use('/api/rollback', rollbackRoutes);
-app.use('/api/restore', restoreRoutes);
 app.use('/api/beta', betaRoutes);
 app.use('/api/oncall', oncallRoutes);
 

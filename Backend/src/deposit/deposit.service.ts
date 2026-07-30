@@ -304,7 +304,7 @@ export class DepositService {
         confirmations,
         blockNumber: receipt?.blockNumber,
         blockHash: receipt?.blockHash,
-        status: receipt?.status ?? undefined,
+        status: receipt?.status,
       };
     } catch (error) {
       this.logger.error(
@@ -391,13 +391,8 @@ export class DepositService {
   // Private helper methods
 
   private toResponseDto(deposit: DepositDocument): DepositResponseDto {
-    const doc = deposit as DepositDocument & {
-      id?: string;
-      createdAt?: Date;
-      updatedAt?: Date;
-    };
     return {
-      id: doc.id ?? String(deposit._id),
+      id: deposit.id,
       userId: deposit.userId,
       txHash: deposit.txHash,
       fromAddress: deposit.fromAddress,
@@ -412,14 +407,13 @@ export class DepositService {
       balanceUpdated: deposit.balanceUpdated,
       notificationSent: deposit.notificationSent,
       confirmedAt: deposit.confirmedAt,
-      createdAt: doc.createdAt as Date,
-      updatedAt: doc.updatedAt as Date,
+      createdAt: deposit.createdAt,
+      updatedAt: deposit.updatedAt,
     };
   }
 
   private async cacheDeposit(deposit: DepositDocument): Promise<void> {
-    const doc = deposit as DepositDocument & { id?: string };
-    const key = `deposit:${doc.id ?? String(deposit._id)}`;
+    const key = `deposit:${deposit.id}`;
     await this.redis.setex(
       key,
       this.CACHE_TTL,

@@ -6,10 +6,7 @@ import {
   IsBoolean,
   IsArray,
 } from 'class-validator';
-import type {
-  NotificationChannel,
-  NotificationType,
-} from '../notification.entity';
+import { NotificationChannel, NotificationType } from '../notification.entity';
 
 export class SendNotificationDto {
   @IsString()

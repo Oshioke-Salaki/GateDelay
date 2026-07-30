@@ -55,6 +55,9 @@ export default function TradeRollback({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    toast[type](message);
+  };
 
   // Fetch history when component mounts or marketId changes
   useEffect(() => {
@@ -120,7 +123,7 @@ export default function TradeRollback({
         setStep('confirm');
       } else {
         setError(data.error || data.data?.reason || 'Validation failed');
-        toast.error('Rollback validation failed', 'error');
+        showToast('Rollback validation failed', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Validation failed');
@@ -153,10 +156,10 @@ export default function TradeRollback({
           status: 'pending',
         });
         setStep('status');
-        toast.success('Rollback requested successfully', 'success');
+        showToast('Rollback requested successfully', 'success');
       } else {
         setError(data.error || 'Failed to request rollback');
-        toast.error('Failed to request rollback', 'error');
+        showToast('Failed to request rollback', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to request rollback');
@@ -176,11 +179,11 @@ export default function TradeRollback({
       const data = await response.json();
       if (data.success) {
         setStatus(data.data);
-        toast.success('Rollback executed successfully', 'success');
+        showToast('Rollback executed successfully', 'success');
         if (onRollbackComplete) onRollbackComplete();
       } else {
         setError(data.error || 'Failed to execute rollback');
-        toast.error('Failed to execute rollback', 'error');
+        showToast('Failed to execute rollback', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to execute rollback');

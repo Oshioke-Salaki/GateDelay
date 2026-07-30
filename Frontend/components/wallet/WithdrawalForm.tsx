@@ -39,7 +39,6 @@ export default function WithdrawalForm({
     watch,
     formState: { errors },
     reset,
-    setValue,
   } = useForm<WithdrawalFormData>({
     defaultValues: {
       amount: 0,
@@ -179,7 +178,13 @@ export default function WithdrawalForm({
                 type="button"
                 onClick={() => {
                   const value = Math.min(quickAmount, availableBalance);
-                  setValue("amount", value, { shouldValidate: true });
+                  const input = document.querySelector(
+                    'input[type="number"]',
+                  ) as HTMLInputElement;
+                  if (input) {
+                    input.value = value.toString();
+                    input.dispatchEvent(new Event("change", { bubbles: true }));
+                  }
                 }}
                 className="flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:opacity-80 active:scale-95"
                 style={{
@@ -194,7 +199,13 @@ export default function WithdrawalForm({
             <button
               type="button"
               onClick={() => {
-                setValue("amount", availableBalance, { shouldValidate: true });
+                const input = document.querySelector(
+                  'input[type="number"]',
+                ) as HTMLInputElement;
+                if (input) {
+                  input.value = availableBalance.toString();
+                  input.dispatchEvent(new Event("change", { bubbles: true }));
+                }
               }}
               className="flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:opacity-80 active:scale-95"
               style={{

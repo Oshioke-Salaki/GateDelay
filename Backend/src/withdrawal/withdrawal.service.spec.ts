@@ -1,19 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { WithdrawalService } from './withdrawal.service';
 import { ethers } from 'ethers';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function mockConfigService(overrides: Record<string, string> = {}): Partial<ConfigService> {
+function mockConfigService(
+  overrides: Record<string, string> = {},
+): Partial<ConfigService> {
   return {
     get: jest.fn((key: string, def?: unknown) => overrides[key] ?? def),
   };
 }
 
 /** Produce a real 65-byte personal-sign signature for `msg` using `wallet`. */
-async function sign(wallet: { signMessage(msg: string): Promise<string> }, msg: string): Promise<string> {
+async function sign(
+  wallet: { signMessage(msg: string): Promise<string> },
+  msg: string,
+): Promise<string> {
   return wallet.signMessage(msg);
 }
 
@@ -153,7 +162,9 @@ describe('WithdrawalService', () => {
       });
 
       const pending = service.listWithdrawals(USER_ID, { status: 'pending' });
-      const confirmed = service.listWithdrawals(USER_ID, { status: 'confirmed' });
+      const confirmed = service.listWithdrawals(USER_ID, {
+        status: 'confirmed',
+      });
       expect(pending).toHaveLength(1);
       expect(confirmed).toHaveLength(0);
     });
@@ -182,9 +193,9 @@ describe('WithdrawalService', () => {
         amount: AMOUNT,
       });
 
-      expect(() =>
-        service.cancelWithdrawal(withdrawalId, OTHER_USER),
-      ).toThrow(ForbiddenException);
+      expect(() => service.cancelWithdrawal(withdrawalId, OTHER_USER)).toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw when cancelling an already cancelled withdrawal', () => {
@@ -196,9 +207,9 @@ describe('WithdrawalService', () => {
       });
       service.cancelWithdrawal(withdrawalId, USER_ID);
 
-      expect(() =>
-        service.cancelWithdrawal(withdrawalId, USER_ID),
-      ).toThrow(BadRequestException);
+      expect(() => service.cancelWithdrawal(withdrawalId, USER_ID)).toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw when withdrawal id does not exist', () => {
@@ -269,11 +280,10 @@ describe('WithdrawalService', () => {
 
       // Only one signature so far — should NOT be ready
       const sigA = await sign(walletA, `GateDelay withdrawal ${withdrawalId}`);
-      const msAfterFirst = service.addMultiSigSignature(
-        withdrawalId,
-        USER_ID,
-        { signerAddress: walletA.address, signature: sigA },
-      );
+      const msAfterFirst = service.addMultiSigSignature(withdrawalId, USER_ID, {
+        signerAddress: walletA.address,
+        signature: sigA,
+      });
       expect(msAfterFirst.status).toBe('pending');
 
       // Second signature — threshold reached → ready
