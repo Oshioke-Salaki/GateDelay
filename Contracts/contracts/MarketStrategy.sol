@@ -34,7 +34,7 @@ contract MarketStrategy is Ownable {
     event StrategyUpdated(bytes32 indexed id, address target, bool active);
     event StrategyExecuted(bytes32 indexed id, bool success);
 
-    constructor() Ownable() {}
+constructor() Ownable(msg.sender) {}
 
     /**
      * @notice Define market strategies
@@ -75,12 +75,13 @@ contract MarketStrategy is Ownable {
         if (bytes(strategies[id].name).length == 0) revert StrategyNotFound();
         if (!strategies[id].active) revert StrategyNotActive();
 
-        bytes memory dataToExecute;
-        if (executionData.length > 0) {
-            dataToExecute = executionData;
-        } else {
-            dataToExecute = strategies[id].defaultData;
-        }
+bytes memory dataToExecute;
+if (executionData.length > 0) {
+    dataToExecute = executionData;
+} else {
+    dataToExecute = strategies[id].defaultData;
+}
+
         
         (bool success, ) = strategies[id].target.call(dataToExecute);
 
