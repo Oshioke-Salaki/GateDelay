@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
-const Big = require('big.js');
+// TODO: Quarantined - big.js not in package.json. Add dependency or implement alternative.
+// const Big = require('big.js');
 const { InsurancePolicy, COVERAGE_STATUSES, markPolicyClaimed } = require('./insuranceService');
 
 /**

@@ -1,4 +1,5 @@
-const { ethers } = require('ethers');
+// TODO: Quarantined - ethers not in package.json. Add dependency or implement alternative.
+// const { ethers } = require('ethers');
 // Note: gnosis-safe-sdk is mentioned in requirements but not in package.json.
 // We will implement the logic using ethers.js as the primary library.
 

@@ -36,10 +36,10 @@ export function useDeepLink(autoNavigate: boolean = true) {
     });
 
     const parseDeepLink = useCallback((): DeepLinkState => {
-        const marketId = searchParams.get("marketId");
-        const outcome = searchParams.get("outcome") as "yes" | "no" | null;
-        const side = searchParams.get("side") as "buy" | "sell" | null;
-        const tab = searchParams.get("tab");
+        const marketId = searchParams?.get("marketId") ?? null;
+        const outcome = searchParams?.get("outcome") as "yes" | "no" | null;
+        const side = searchParams?.get("side") as "buy" | "sell" | null;
+        const tab = searchParams?.get("tab") ?? null;
 
         if (!marketId) {
             return { isMarketLink: false, params: null, isValid: true };
@@ -87,7 +87,8 @@ export function useDeepLink(autoNavigate: boolean = true) {
             }
 
             const query = url.toString();
-            return query ? `${pathname}?${query}` : pathname;
+            const safePathname = pathname || "";
+            return query ? `${safePathname}?${query}` : safePathname;
         },
         [pathname]
     );
@@ -132,7 +133,7 @@ export function useDeepLink(autoNavigate: boolean = true) {
     );
 
     const clearDeepLink = useCallback(() => {
-        router.replace(pathname);
+        router.replace(pathname || "");
     }, [router, pathname]);
 
     const getMarketState = useCallback(() => {

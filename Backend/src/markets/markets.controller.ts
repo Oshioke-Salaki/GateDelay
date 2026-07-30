@@ -1,8 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
+import { createRequire } from 'module';
 import { MarketResolverService } from './market-resolver.service';
 
 // Use the existing CommonJS tradeAggregator for real-time stats
-const tradeAggregator = require('../../services/tradeAggregator');
+const nodeRequire = createRequire(__filename);
+const tradeAggregator = nodeRequire('../../services/tradeAggregator') as {
+  getMarketStats?: (marketId: string) => Promise<Record<string, unknown>>;
+  getRealTimeStats: (marketId: string) => Promise<Record<string, unknown>>;
+};
 
 @Controller('api/markets')
 export class MarketsController {
@@ -25,7 +30,8 @@ export class MarketsController {
         return {
           id: m.id,
           name: m.title,
-          asset: m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
+          asset:
+            m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
           price: parseFloat(stats.lastPrice || '0') || 0,
           feePercent: 0, // placeholder — augment from orderbook/provider if available
           liquidity: parseFloat(stats.volume || '0') || 0,

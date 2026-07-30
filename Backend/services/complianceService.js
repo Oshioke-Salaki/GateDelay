@@ -1,5 +1,7 @@
-const Joi = require('joi');
-const moment = require('moment');
+// TODO: Quarantined - joi not in package.json. Add dependency or implement alternative.
+// const Joi = require('joi');
+// TODO: Quarantined - moment not in package.json. Add dependency or implement alternative.
+// const moment = require('moment');
 
 class ComplianceService {
   constructor(db) {

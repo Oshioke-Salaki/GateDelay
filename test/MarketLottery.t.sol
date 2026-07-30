@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-import {MarketLottery} from "../Contracts/contracts/MarketLottery.sol";
+import {MarketLottery} from "../Contracts/src/MarketLottery.sol";
 
 contract MarketLotteryTest is Test {
     MarketLottery lottery;

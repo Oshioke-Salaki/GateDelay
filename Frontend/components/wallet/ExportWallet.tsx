@@ -29,12 +29,16 @@ export default function ExportWallet() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [history, setHistory] = useState<ExportHistoryRecord[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     try {
-      const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
-      if (stored) {
-        setHistory(JSON.parse(stored));
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = localStorage.getItem(HISTORY_STORAGE_KEY);
+        if (stored) {
+          setHistory(JSON.parse(stored));
+        }
       }
     } catch (e) {
       // Ignore
@@ -45,7 +49,9 @@ export default function ExportWallet() {
     try {
       const next = [record, ...history].slice(0, 10);
       setHistory(next);
-      localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(next));
+      }
     } catch (e) {
       // Ignore
     }
@@ -108,6 +114,9 @@ export default function ExportWallet() {
 
       // Create Blob & Download
       try {
+        if (typeof window === 'undefined') {
+          throw new Error("Browser APIs not available");
+        }
         const blob = new Blob([encryptedData], { type: "text/plain;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -123,7 +132,7 @@ export default function ExportWallet() {
 
       setSuccess(true);
       saveHistory({
-        id: crypto.randomUUID?.() || Date.now().toString(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID?.()) || Date.now().toString(),
         timestamp: new Date().toISOString(),
         format,
         status: "success",
@@ -135,7 +144,7 @@ export default function ExportWallet() {
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred");
       saveHistory({
-        id: crypto.randomUUID?.() || Date.now().toString(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID?.()) || Date.now().toString(),
         timestamp: new Date().toISOString(),
         format,
         status: "failure",
@@ -145,6 +154,16 @@ export default function ExportWallet() {
       setIsExporting(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-lg mx-auto">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="animate-spin text-zinc-400" size={24} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xl max-w-lg mx-auto">

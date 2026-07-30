@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/MarketMinter.sol";
+import "../Contracts/src/MarketMinter.sol";
 import "../Contracts/src/ERC20Token.sol";
 
 contract MarketMinterTest is Test {

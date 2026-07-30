@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/Whitelist.sol";
+import "../src/Whitelist.sol";
 
 contract WhitelistedMarketHarness is Whitelist {
     constructor(address initialOwner) Whitelist(initialOwner) {}

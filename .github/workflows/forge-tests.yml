@@ -1,0 +1,80 @@
+name: Forge Tests
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Contracts/**'
+      - 'test/**'
+      - 'foundry.toml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'Contracts/**'
+      - 'test/**'
+      - 'foundry.toml'
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: default
+
+jobs:
+  # ─── Contracts/test/ suite (uses Contracts/foundry.toml) ─────────────────
+  contracts-tests:
+    name: Contracts/test/ suite
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Contracts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Build Contracts
+        run: forge build --sizes
+
+      - name: List test suites (Contracts/test/)
+        run: forge test --list
+
+      - name: Run Contracts/test/ tests
+        run: forge test -vvv
+        env:
+          FOUNDRY_PROFILE: ci
+
+  # ─── root test/ suite (uses root foundry.toml) ───────────────────────────
+  root-tests:
+    name: root test/ suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Build (root profile)
+        run: forge build --sizes
+
+      - name: List test suites (root test/)
+        run: forge test --list
+
+      - name: Run root test/ tests
+        run: forge test -vvv
