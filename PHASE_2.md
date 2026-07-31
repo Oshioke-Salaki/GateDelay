@@ -3,6 +3,8 @@
 > **Theme:** Core market wiring
 > **Goal:** End-to-end wiring for MarketFactory, MarketMaker, LMSR, Trading, OrderBook/CLOB decision, resolution, and backend trade engine.
 
+> **Area distribution:** frontend 37, backend 39, contracts 38, docs 32, infra 32, security 32 (210 issues)
+
 Parent index: [PHASES.md](PHASES.md)
 
 ---
@@ -10,1893 +12,1894 @@ Parent index: [PHASES.md](PHASES.md)
 ## Issues (210 tracked)
 
 Copy any issue below into GitHub using the template in [PHASES.md](PHASES.md#filing-github-issues).
+Issues span frontend, backend, contracts, docs, infra, and security within this phase theme.
 
-### P2-001: Connect LMSR pricing in API_PROTECTION_README.md
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/API_PROTECTION_README.md; implement the chosen model consistently across layers.
+### P2-001: Map contract events to UI in ARBITRAGE_DEMO.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ARBITRAGE_DEMO.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/API_PROTECTION_README.md`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ARBITRAGE_DEMO.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ARBITRAGE_DEMO.md`
 
-### P2-002: Integrate Trading.sol with COLLATERAL.md
+### P2-002: Sync market state in .env.example
 **Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/COLLATERAL.md.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/.env.example`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/COLLATERAL.md`
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/.env.example`
 
-### P2-003: Resolve LMSR vs CLOB for DEPOSIT_SERVICE_DOCUMENTATION.md
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/DEPOSIT_SERVICE_DOCUMENTATION.md.
+### P2-003: Add Foundry integration test for test.yml
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/.github/workflows/test.yml` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/.github/workflows/test.yml`
+- [ ] `forge build` succeeds with `Contracts/.github/workflows/test.yml`
+**Related:** `Contracts/.github/workflows/test.yml`
 
-### P2-004: Index on-chain events from DEPOSIT_SERVICE_README.md
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/DEPOSIT_SERVICE_README.md so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-004: Add architecture diagram for BUG_ANALYSIS_REPORT.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `BUG_ANALYSIS_REPORT.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/DEPOSIT_SERVICE_README.md`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `BUG_ANALYSIS_REPORT.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `BUG_ANALYSIS_REPORT.md`
 
-### P2-005: Sync market state via IMPLEMENTATION.md
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/IMPLEMENTATION.md is part of the core trading path.
+### P2-005: Wire artifact upload for ci.yml
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `.github/workflows/ci.yml` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/IMPLEMENTATION.md`
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `.github/workflows/ci.yml`
 
-### P2-006: Expose REST endpoint for LIQUIDATION.md
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/LIQUIDATION.md; implement the chosen model consistently across layers.
+### P2-006: Review secrets exposure in rateLimits.js
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/config/rateLimits.js` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/LIQUIDATION.md`
-
-### P2-007: Map contract ABI to MARGIN.md
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/MARGIN.md.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/MARGIN.md`
-
-### P2-008: Add WebSocket feed for README.md
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/README.md.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/README.md`
-
-### P2-009: Implement settlement hook in RISK.md
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/RISK.md so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/RISK.md`
-
-### P2-010: Bridge frontend trade UI to TRADE_REPORTS.md
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/TRADE_REPORTS.md is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/TRADE_REPORTS.md`
-
-### P2-011: Add resolution pipeline in TRADE_REPORTS_SETUP.md
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/TRADE_REPORTS_SETUP.md; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/TRADE_REPORTS_SETUP.md`
-
-### P2-012: Deploy script update for UPTIME_MONITORING.md
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/UPTIME_MONITORING.md.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/UPTIME_MONITORING.md`
-
-### P2-013: Add Foundry test covering pagerduty.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/config/pagerduty.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/config/pagerduty.js`
-
-### P2-014: Emit events from rateLimits.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/config/rateLimits.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/config/rateLimits.js`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/config/rateLimits.js`
 
-### P2-015: Decode logs in eslint.config.mjs
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/eslint.config.mjs is part of the core trading path.
+### P2-007: Surface trade errors in ERROR_BOUNDARY_CHECKLIST.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_CHECKLIST.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/eslint.config.mjs`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/ERROR_BOUNDARY_CHECKLIST.md`
 
-### P2-016: Add market lifecycle state to heartbeatServer.js
+### P2-008: Document setup for API_PROTECTION_README.md
 **Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/heartbeatServer.js; implement the chosen model consistently across layers.
+**Description:** Backend foundations: ensure `Backend/API_PROTECTION_README.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/heartbeatServer.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/API_PROTECTION_README.md`
+**Related:** `Backend/API_PROTECTION_README.md`
 
-### P2-017: Connect AviationStack data to arbitrageMonitor.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/jobs/arbitrageMonitor.js.
+### P2-009: Add Foundry test for API_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/API_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/jobs/arbitrageMonitor.js`
+- [ ] No critical compiler warnings in `Contracts/API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/API_REFERENCE.md`
 
-### P2-018: Wire position tracking in batchExecutor.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/jobs/batchExecutor.js.
+### P2-010: Add runbook section to CHECKLIST.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `CHECKLIST.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/jobs/batchExecutor.js`
+- [ ] Commands in `CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `CHECKLIST.md`
 
-### P2-019: Add order placement through complianceChecker.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/jobs/complianceChecker.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-011: Document rollback for .env.example
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/.env.example`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/jobs/complianceChecker.js`
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/.env.example`
 
-### P2-020: Wire MarketFactory to heartbeatMonitor.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/jobs/heartbeatMonitor.js is part of the core trading path.
+### P2-012: Add beta gate check in ddosGuard.js
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/middleware/ddosGuard.js`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/jobs/heartbeatMonitor.js`
-
-### P2-021: Connect LMSR pricing in liquidationMonitor.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/jobs/liquidationMonitor.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/jobs/liquidationMonitor.js`
-
-### P2-022: Integrate Trading.sol with sanityCheck.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/jobs/sanityCheck.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/jobs/sanityCheck.js`
-
-### P2-023: Resolve LMSR vs CLOB for snapshotCapture.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/jobs/snapshotCapture.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/jobs/snapshotCapture.js`
-
-### P2-024: Index on-chain events from tradeExecutor.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/jobs/tradeExecutor.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/jobs/tradeExecutor.js`
-
-### P2-025: Sync market state via upgradeManager.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/jobs/upgradeManager.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/jobs/upgradeManager.js`
-
-### P2-026: Expose REST endpoint for backwardCompat.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/middleware/backwardCompat.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/middleware/backwardCompat.js`
-
-### P2-027: Map contract ABI to ddosGuard.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/middleware/ddosGuard.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] No secrets or private keys in `Backend/middleware/ddosGuard.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/middleware/ddosGuard.js`
 
-### P2-028: Add WebSocket feed for deprecation.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/middleware/deprecation.js.
+### P2-013: Validate env usage in ERROR_BOUNDARY_DOCUMENTATION.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/middleware/deprecation.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md`
 
-### P2-029: Implement settlement hook in permissions.js
+### P2-014: Add health check for COLLATERAL.md
 **Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/middleware/permissions.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+**Description:** Phase 2 stabilizes the repo; `Backend/COLLATERAL.md` must match the canonical run path in README. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/middleware/permissions.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/COLLATERAL.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/COLLATERAL.md`
 
-### P2-030: Bridge frontend trade UI to rateLimiter.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/middleware/rateLimiter.js is part of the core trading path.
+### P2-015: Add invariant test for BUG_ANALYSIS_AND_FIXES.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/BUG_ANALYSIS_AND_FIXES.md`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
+- [ ] `forge build` succeeds with `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+
+### P2-016: Align README with CIRCUIT_BREAKER_IMPLEMENTATION.md
+**Labels:** `phase-2`, `docs`
+**Description:** Link `CIRCUIT_BREAKER_IMPLEMENTATION.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `CIRCUIT_BREAKER_IMPLEMENTATION.md`
+
+### P2-017: Add Docker build for upgradeManager.js
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Backend/jobs/upgradeManager.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P2-018: Harden auth flow in rateLimiter.js
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/middleware/rateLimiter.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
 **Related:** `Backend/middleware/rateLimiter.js`
 
-### P2-031: Add resolution pipeline in throttle.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/middleware/throttle.js; implement the chosen model consistently across layers.
+### P2-019: Add empty state to ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/middleware/throttle.js`
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md` fits the app shell
+**Related:** `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md`
 
-### P2-032: Deploy script update for tradeValidation.js
+### P2-020: Ensure package scripts cover DEPOSIT_SERVICE_DOCUMENTATION.md
 **Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/middleware/tradeValidation.js.
+**Description:** Contributors report friction around `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/middleware/tradeValidation.js`
+- [ ] Local dev server starts without errors involving `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
 
-### P2-033: Add Foundry test covering version.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/middleware/version.js.
+### P2-021: Add event coverage test for Burnable.sol
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/Burnable.sol` in README or contract comments. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/middleware/version.js`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/Burnable.sol`
 
-### P2-034: Emit events from 001_init_markets.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/migrations/001_init_markets.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-022: Document API contract in CIRCUIT_BREAKER_QUICK_REFERENCE.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `CIRCUIT_BREAKER_QUICK_REFERENCE.md` that contradict the codebase. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/migrations/001_init_markets.js`
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `CIRCUIT_BREAKER_QUICK_REFERENCE.md`
 
-### P2-035: Decode logs in AuditLog.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/models/AuditLog.js is part of the core trading path.
+### P2-023: Add health probe for package-lock.json
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Backend/package-lock.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/models/AuditLog.js`
-
-### P2-036: Add market lifecycle state to Balance.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/models/Balance.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/models/Balance.js`
-
-### P2-037: Connect AviationStack data to Collateral.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/models/Collateral.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/models/Collateral.js`
-
-### P2-038: Wire position tracking in Dispute.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/models/Dispute.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/models/Dispute.js`
-
-### P2-039: Add order placement through Liquidation.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/models/Liquidation.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/models/Liquidation.js`
-
-### P2-040: Wire MarketFactory to MarginAccount.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/models/MarginAccount.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/models/MarginAccount.js`
-
-### P2-041: Connect LMSR pricing in MarginCall.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/models/MarginCall.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/models/MarginCall.js`
-
-### P2-042: Integrate Trading.sol with MarketSnapshot.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/models/MarketSnapshot.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/models/MarketSnapshot.js`
-
-### P2-043: Resolve LMSR vs CLOB for Notification.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/models/Notification.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/models/Notification.js`
-
-### P2-044: Index on-chain events from Order.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/models/Order.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/models/Order.js`
-
-### P2-045: Sync market state via PriceHistory.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/models/PriceHistory.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/models/PriceHistory.js`
-
-### P2-046: Expose REST endpoint for Referral.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/models/Referral.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/models/Referral.js`
-
-### P2-047: Map contract ABI to RiskConfig.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/models/RiskConfig.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/models/RiskConfig.js`
-
-### P2-048: Add WebSocket feed for RiskScore.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/models/RiskScore.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/models/RiskScore.js`
-
-### P2-049: Implement settlement hook in TradeReport.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/models/TradeReport.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/models/TradeReport.js`
-
-### P2-050: Bridge frontend trade UI to nest-cli.json
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/nest-cli.json is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/nest-cli.json`
-
-### P2-051: Add resolution pipeline in package-lock.json
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/package-lock.json; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
 **Related:** `Backend/package-lock.json`
 
-### P2-052: Deploy script update for package.json
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/package.json.
+### P2-024: Review oracle trust in AuditLog.js
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/models/AuditLog.js` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/models/AuditLog.js`
+
+### P2-025: Connect WebSocket prices in ERROR_BOUNDARY_QUICKSTART.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_QUICKSTART.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/ERROR_BOUNDARY_QUICKSTART.md`
+
+### P2-026: Add WebSocket feed in DEPOSIT_SERVICE_README.md
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/DEPOSIT_SERVICE_README.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/DEPOSIT_SERVICE_README.md`
+
+### P2-027: Emit settlement events from CODE_REVIEW_REPORT.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/CODE_REVIEW_REPORT.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/CODE_REVIEW_REPORT.md`
+**Related:** `Contracts/CODE_REVIEW_REPORT.md`
+
+### P2-028: Update setup section in CIRCUIT_BREAKER_VERIFICATION.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `CIRCUIT_BREAKER_VERIFICATION.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `CIRCUIT_BREAKER_VERIFICATION.md` verified on a clean checkout
+**Related:** `CIRCUIT_BREAKER_VERIFICATION.md`
+
+### P2-029: Pin toolchain version in package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `Backend/package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
 **Related:** `Backend/package.json`
 
-### P2-053: Add Foundry test covering aggregatedTrades.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/aggregatedTrades.js.
+### P2-030: Add input validation to beta.js
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/routes/beta.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/aggregatedTrades.js`
-
-### P2-054: Emit events from alerts.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/alerts.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/alerts.js`
-
-### P2-055: Decode logs in aml.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/aml.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/aml.js`
-
-### P2-056: Add market lifecycle state to api.example.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/api.example.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/api.example.js`
-
-### P2-057: Connect AviationStack data to approvals.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/approvals.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/approvals.js`
-
-### P2-058: Wire position tracking in beta.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/beta.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/beta.js`
 **Related:** `Backend/routes/beta.js`
 
-### P2-059: Add order placement through blacklist.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/blacklist.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-031: Connect wallet signing in ERROR_BOUNDARY_SUMMARY.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/blacklist.js`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ERROR_BOUNDARY_SUMMARY.md`
 
-### P2-060: Wire MarketFactory to bridge.js
+### P2-032: Add order placement through IMPLEMENTATION.md
 **Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/bridge.js is part of the core trading path.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/IMPLEMENTATION.md`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/bridge.js`
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/IMPLEMENTATION.md`
 
-### P2-061: Connect LMSR pricing in circuitBreaker.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/circuitBreaker.js; implement the chosen model consistently across layers.
+### P2-033: Verify forge build for FLASHBORROW_DOCUMENTATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/FLASHBORROW_DOCUMENTATION.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/circuitBreaker.js`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_DOCUMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_DOCUMENTATION.md`
+**Related:** `Contracts/FLASHBORROW_DOCUMENTATION.md`
 
-### P2-062: Integrate Trading.sol with claims.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/claims.js.
+### P2-034: Add architecture diagram for DELIVERY_SUMMARY.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `DELIVERY_SUMMARY.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/claims.js`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `DELIVERY_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `DELIVERY_SUMMARY.md`
 
-### P2-063: Resolve LMSR vs CLOB for collateral.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/collateral.js.
+### P2-035: Wire artifact upload for deploy.js
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `Backend/scripts/deploy.js` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/collateral.js`
-
-### P2-064: Index on-chain events from compression.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/compression.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/compression.js`
-
-### P2-065: Sync market state via disputes.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/disputes.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/disputes.js`
-
-### P2-066: Expose REST endpoint for escalation.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/escalation.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/escalation.js`
-
-### P2-067: Map contract ABI to experiments.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/experiments.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/experiments.js`
-
-### P2-068: Add WebSocket feed for exports.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/exports.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/exports.js`
-
-### P2-069: Implement settlement hook in features.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/features.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/features.js`
-
-### P2-070: Bridge frontend trade UI to freeze.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/freeze.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/freeze.js`
-
-### P2-071: Add resolution pipeline in gas.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/gas.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/gas.js`
-
-### P2-072: Deploy script update for governance.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/governance.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/governance.js`
-
-### P2-073: Add Foundry test covering health.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/health.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/health.js`
-
-### P2-074: Emit events from heartbeat.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/heartbeat.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/heartbeat.js`
-
-### P2-075: Decode logs in imports.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/imports.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/imports.js`
-
-### P2-076: Add market lifecycle state to insurance.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/insurance.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/insurance.js`
-
-### P2-077: Connect AviationStack data to ipfs.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/ipfs.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/ipfs.js`
-
-### P2-078: Wire position tracking in kyc.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/kyc.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/kyc.js`
-
-### P2-079: Add order placement through legacy.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/legacy.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/legacy.js`
-
-### P2-080: Wire MarketFactory to lending.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/lending.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/lending.js`
-
-### P2-081: Connect LMSR pricing in marketAnalytics.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/marketAnalytics.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/marketAnalytics.js`
-
-### P2-082: Integrate Trading.sol with migration.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/migration.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/migration.js`
-
-### P2-083: Resolve LMSR vs CLOB for mining.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/mining.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/mining.js`
-
-### P2-084: Index on-chain events from multisig.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/multisig.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/multisig.js`
-
-### P2-085: Sync market state via oncall.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/oncall.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/oncall.js`
-
-### P2-086: Expose REST endpoint for oracle.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/oracle.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/oracle.js`
-
-### P2-087: Map contract ABI to pause.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/pause.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/pause.js`
-
-### P2-088: Add WebSocket feed for permissions.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/permissions.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/permissions.js`
-
-### P2-089: Implement settlement hook in referrals.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/referrals.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/referrals.js`
-
-### P2-090: Bridge frontend trade UI to releases.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/releases.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/releases.js`
-
-### P2-091: Add resolution pipeline in risk.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/risk.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/risk.js`
-
-### P2-092: Deploy script update for rollback.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/rollback.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/rollback.js`
-
-### P2-093: Add Foundry test covering runbooks.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/runbooks.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/runbooks.js`
-
-### P2-094: Emit events from shutdown.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/shutdown.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/shutdown.js`
-
-### P2-095: Decode logs in sla.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/sla.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/sla.js`
-
-### P2-096: Add market lifecycle state to snapshots.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/snapshots.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/snapshots.js`
-
-### P2-097: Connect AviationStack data to status.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/status.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/status.js`
-
-### P2-098: Wire position tracking in swaps.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/swaps.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/swaps.js`
-
-### P2-099: Add order placement through tradeReports.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/tradeReports.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/tradeReports.js`
-
-### P2-100: Wire MarketFactory to trades.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/trades.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/trades.js`
-
-### P2-101: Connect LMSR pricing in uptime.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/uptime.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/uptime.js`
-
-### P2-102: Integrate Trading.sol with index.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/routes/v1/index.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/routes/v1/index.js`
-
-### P2-103: Resolve LMSR vs CLOB for index.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/routes/v2/index.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/routes/v2/index.js`
-
-### P2-104: Index on-chain events from voting.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/routes/voting.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/routes/voting.js`
-
-### P2-105: Sync market state via whitelist.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/routes/whitelist.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/routes/whitelist.js`
-
-### P2-106: Expose REST endpoint for yield.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/routes/yield.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/routes/yield.js`
-
-### P2-107: Map contract ABI to deploy.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/scripts/deploy.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
 **Related:** `Backend/scripts/deploy.js`
 
-### P2-108: Add WebSocket feed for test.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/scripts/test.js.
+### P2-036: Review secrets exposure in blacklist.js
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/routes/blacklist.js` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/scripts/test.js`
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/blacklist.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/routes/blacklist.js`
 
-### P2-109: Implement settlement hook in server.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/server.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-037: Add error boundary around README.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/README.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/server.js`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/README.md`
 
-### P2-110: Bridge frontend trade UI to abTesting.js
+### P2-038: Remove dead code in LIQUIDATION.md
 **Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/abTesting.js is part of the core trading path.
+**Description:** Backend foundations: ensure `Backend/LIQUIDATION.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/abTesting.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/LIQUIDATION.md`
+**Related:** `Backend/LIQUIDATION.md`
 
-### P2-111: Add resolution pipeline in alertRouting.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/alertRouting.js; implement the chosen model consistently across layers.
+### P2-039: Pin dependency version in FLASHBORROW_README.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/FLASHBORROW_README.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/alertRouting.js`
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_README.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/FLASHBORROW_README.md`
 
-### P2-112: Deploy script update for amlService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/amlService.js.
+### P2-040: Add runbook section to DOES_IT_WORK_ANSWER.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `DOES_IT_WORK_ANSWER.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/amlService.js`
+- [ ] Commands in `DOES_IT_WORK_ANSWER.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `DOES_IT_WORK_ANSWER.md`
 
-### P2-113: Add Foundry test covering analyticsService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/analyticsService.js.
+### P2-041: Document rollback for deployService.js
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/services/deployService.js`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/analyticsService.js`
-
-### P2-114: Emit events from approvalService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/approvalService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/approvalService.js`
-
-### P2-115: Decode logs in arbitrageService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/arbitrageService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/arbitrageService.js`
-
-### P2-116: Add market lifecycle state to auditTrail.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/auditTrail.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/auditTrail.js`
-
-### P2-117: Connect AviationStack data to batchProcessor.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/batchProcessor.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/batchProcessor.js`
-
-### P2-118: Wire position tracking in betaAccess.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/betaAccess.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/betaAccess.js`
-
-### P2-119: Add order placement through blacklistService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/blacklistService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/blacklistService.js`
-
-### P2-120: Wire MarketFactory to breakerService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/breakerService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/breakerService.js`
-
-### P2-121: Connect LMSR pricing in bridgeService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/bridgeService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/bridgeService.js`
-
-### P2-122: Integrate Trading.sol with claimService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/claimService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/claimService.js`
-
-### P2-123: Resolve LMSR vs CLOB for collateralService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/collateralService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/collateralService.js`
-
-### P2-124: Index on-chain events from complianceService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/complianceService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/complianceService.js`
-
-### P2-125: Sync market state via compressionService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/compressionService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/compressionService.js`
-
-### P2-126: Expose REST endpoint for ddosProtection.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/ddosProtection.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/ddosProtection.js`
-
-### P2-127: Map contract ABI to deployService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/deployService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
 **Related:** `Backend/services/deployService.js`
 
-### P2-128: Add WebSocket feed for deprecationService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/deprecationService.js.
+### P2-042: Add beta gate check in circuitBreaker.js
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/routes/circuitBreaker.js`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/deprecationService.js`
+- [ ] No secrets or private keys in `Backend/routes/circuitBreaker.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/routes/circuitBreaker.js`
 
-### P2-129: Implement settlement hook in disputeService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/disputeService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-043: Stabilize hydration in SETTINGS_DOCUMENTATION.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/SETTINGS_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/disputeService.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/SETTINGS_DOCUMENTATION.md`
 
-### P2-130: Bridge frontend trade UI to escalation.js
+### P2-044: Fix lint violations in MARGIN.md
 **Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/escalation.js is part of the core trading path.
+**Description:** Phase 2 stabilizes the repo; `Backend/MARGIN.md` must match the canonical run path in README. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/escalation.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/MARGIN.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/MARGIN.md`
 
-### P2-131: Add resolution pipeline in exportService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/exportService.js; implement the chosen model consistently across layers.
+### P2-045: Cross-check LMSR/CLOB usage in FlashLoanProtection.sol
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/FlashLoanProtection.sol`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/exportService.js`
+- [ ] `forge build` succeeds with `Contracts/FlashLoanProtection.sol`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/FlashLoanProtection.sol`
 
-### P2-132: Deploy script update for featureFlagService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/featureFlagService.js.
+### P2-046: Align README with FEATURE_SUMMARY.md
+**Labels:** `phase-2`, `docs`
+**Description:** Link `FEATURE_SUMMARY.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/featureFlagService.js`
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `FEATURE_SUMMARY.md`
 
-### P2-133: Add Foundry test covering freezeService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/freezeService.js.
+### P2-047: Add Docker build for upgradeCoordinator.js
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Backend/services/upgradeCoordinator.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/freezeService.js`
-
-### P2-134: Emit events from gasOptimizer.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/gasOptimizer.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/gasOptimizer.js`
-
-### P2-135: Decode logs in governanceService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/governanceService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/governanceService.js`
-
-### P2-136: Add market lifecycle state to healthCheck.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/healthCheck.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/healthCheck.js`
-
-### P2-137: Connect AviationStack data to heartbeat.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/heartbeat.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/heartbeat.js`
-
-### P2-138: Wire position tracking in importService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/importService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/importService.js`
-
-### P2-139: Add order placement through insuranceService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/insuranceService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/insuranceService.js`
-
-### P2-140: Wire MarketFactory to ipfsService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/ipfsService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/ipfsService.js`
-
-### P2-141: Connect LMSR pricing in kycService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/kycService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/kycService.js`
-
-### P2-142: Integrate Trading.sol with lendingService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/lendingService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/lendingService.js`
-
-### P2-143: Resolve LMSR vs CLOB for liquidationService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/liquidationService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/liquidationService.js`
-
-### P2-144: Index on-chain events from marginEngine.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/marginEngine.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/marginEngine.js`
-
-### P2-145: Sync market state via migrationService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/migrationService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/migrationService.js`
-
-### P2-146: Expose REST endpoint for miningService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/miningService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/miningService.js`
-
-### P2-147: Map contract ABI to multisigService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/multisigService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/multisigService.js`
-
-### P2-148: Add WebSocket feed for oncallService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/oncallService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/oncallService.js`
-
-### P2-149: Implement settlement hook in oracleService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/oracleService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/oracleService.js`
-
-### P2-150: Bridge frontend trade UI to pagerduty.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/pagerduty.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/pagerduty.js`
-
-### P2-151: Add resolution pipeline in pauseService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/pauseService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/pauseService.js`
-
-### P2-152: Deploy script update for permissionService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/permissionService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/permissionService.js`
-
-### P2-153: Add Foundry test covering referralService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/referralService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/referralService.js`
-
-### P2-154: Emit events from releaseService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/releaseService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/releaseService.js`
-
-### P2-155: Decode logs in riskService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/riskService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/riskService.js`
-
-### P2-156: Add market lifecycle state to rollbackService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/rollbackService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/rollbackService.js`
-
-### P2-157: Connect AviationStack data to runbookService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/runbookService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/runbookService.js`
-
-### P2-158: Wire position tracking in sanityChecker.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/sanityChecker.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/sanityChecker.js`
-
-### P2-159: Add order placement through schedulerService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/schedulerService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/schedulerService.js`
-
-### P2-160: Wire MarketFactory to shutdownService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/shutdownService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/shutdownService.js`
-
-### P2-161: Connect LMSR pricing in slaTracker.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/slaTracker.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/slaTracker.js`
-
-### P2-162: Integrate Trading.sol with snapshotService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/snapshotService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/snapshotService.js`
-
-### P2-163: Resolve LMSR vs CLOB for statusService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/statusService.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/statusService.js`
-
-### P2-164: Index on-chain events from swapService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/swapService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/swapService.js`
-
-### P2-165: Sync market state via syncService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/syncService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/syncService.js`
-
-### P2-166: Expose REST endpoint for throttleService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/throttleService.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/throttleService.js`
-
-### P2-167: Map contract ABI to timeService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/timeService.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/services/timeService.js`
-
-### P2-168: Add WebSocket feed for tradeAggregator.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/tradeAggregator.js.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/tradeAggregator.js`
-
-### P2-169: Implement settlement hook in tradeEngine.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/tradeEngine.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/tradeEngine.js`
-
-### P2-170: Bridge frontend trade UI to tradeReportService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/tradeReportService.js is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/services/tradeReportService.js`
-
-### P2-171: Add resolution pipeline in tradeValidator.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/tradeValidator.js; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/tradeValidator.js`
-
-### P2-172: Deploy script update for upgradeCoordinator.js
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/services/upgradeCoordinator.js.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
 **Related:** `Backend/services/upgradeCoordinator.js`
 
-### P2-173: Add Foundry test covering uptimeService.js
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/services/uptimeService.js.
+### P2-048: Harden auth flow in multisig.js
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/routes/multisig.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/services/uptimeService.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/routes/multisig.js`
 
-### P2-174: Emit events from votingService.js
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/services/votingService.js so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-049: Replace mock market data in SETTINGS_QUICKSTART.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/SETTINGS_QUICKSTART.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/services/votingService.js`
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_QUICKSTART.md` fits the app shell
+**Related:** `Frontend/SETTINGS_QUICKSTART.md`
 
-### P2-175: Decode logs in whitelistService.js
+### P2-050: Expose REST endpoint in README.md
 **Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/services/whitelistService.js is part of the core trading path.
+**Description:** Contributors report friction around `Backend/README.md`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
+- [ ] Local dev server starts without errors involving `Backend/README.md`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/README.md`
+
+### P2-051: Resolve LMSR vs CLOB in GAS_OPTIMIZATION_REPORT.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/GAS_OPTIMIZATION_REPORT.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/GAS_OPTIMIZATION_REPORT.md`
+
+### P2-052: Document API contract in FINAL_VERIFICATION_REPORT.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `FINAL_VERIFICATION_REPORT.md` that contradict the codebase. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `FINAL_VERIFICATION_REPORT.md`
+
+### P2-053: Add health probe for deploy.test.js
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Backend/tests/deploy.test.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/tests/deploy.test.js`
+
+### P2-054: Review oracle trust in whitelist.js
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/routes/whitelist.js` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/routes/whitelist.js`
+
+### P2-055: Add resolution status to SETTINGS_SUMMARY.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/SETTINGS_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/SETTINGS_SUMMARY.md`
+
+### P2-056: Connect AviationStack to RISK.md
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/RISK.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/RISK.md`
+
+### P2-057: Verify Resolution flow in INTEGRATION_GUIDE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/INTEGRATION_GUIDE.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/INTEGRATION_GUIDE.md`
+**Related:** `Contracts/INTEGRATION_GUIDE.md`
+
+### P2-058: Update setup section in FLASHBORROW_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+**Related:** `FLASHBORROW_IMPLEMENTATION_SUMMARY.md`
+
+### P2-059: Pin toolchain version in tsconfig.build.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `Backend/tsconfig.build.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/tsconfig.build.json`
+
+### P2-060: Add input validation to auditTrail.js
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/services/auditTrail.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/auditTrail.js`
+**Related:** `Backend/services/auditTrail.js`
+
+### P2-061: Replace mock data in TRADING_INTERFACE_DOCUMENTATION.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/TRADING_INTERFACE_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/TRADING_INTERFACE_DOCUMENTATION.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/TRADING_INTERFACE_DOCUMENTATION.md`
+
+### P2-062: Validate env vars for TRADE_REPORTS.md
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/TRADE_REPORTS.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/TRADE_REPORTS.md`
+
+### P2-063: Add deployment script for Liquidation.sol
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/Liquidation.sol` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/Liquidation.sol`
+- [ ] `forge build` succeeds with `Contracts/Liquidation.sol`
+**Related:** `Contracts/Liquidation.sol`
+
+### P2-064: Add architecture diagram for FLASHBORROW_VERIFICATION.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `FLASHBORROW_VERIFICATION.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_VERIFICATION.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `FLASHBORROW_VERIFICATION.md`
+
+### P2-065: Wire artifact upload for tsconfig.json
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `Backend/tsconfig.json` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/tsconfig.json`
+
+### P2-066: Review secrets exposure in betaAccess.js
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/services/betaAccess.js` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/betaAccess.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/services/betaAccess.js`
+
+### P2-067: Document component props in TRADING_INTERFACE_QUICKSTART.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/TRADING_INTERFACE_QUICKSTART.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/TRADING_INTERFACE_QUICKSTART.md`
+
+### P2-068: Consolidate duplicate logic in TRADE_REPORTS_SETUP.md
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/TRADE_REPORTS_SETUP.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/TRADE_REPORTS_SETUP.md`
+**Related:** `Backend/TRADE_REPORTS_SETUP.md`
+
+### P2-069: Add gas snapshot for MARKET_CAP_IMPLEMENTATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/MARKET_CAP_IMPLEMENTATION.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+
+### P2-070: Add runbook section to README.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `Frontend/README.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Commands in `Frontend/README.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `Frontend/README.md`
+
+### P2-071: Document rollback for test.yml
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Contracts/.github/workflows/test.yml`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/.github/workflows/test.yml`
+
+### P2-072: Add beta gate check in blacklistService.js
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/services/blacklistService.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/services/blacklistService.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/services/blacklistService.js`
+
+### P2-073: Wire trade UI to API in TRADING_INTERFACE_SUMMARY.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/TRADING_INTERFACE_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/TRADING_INTERFACE_SUMMARY.md`
+
+### P2-074: Index on-chain logs in UPTIME_MONITORING.md
+**Labels:** `phase-2`, `backend`
+**Description:** Phase 2 stabilizes the repo; `Backend/UPTIME_MONITORING.md` must match the canonical run path in README. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/UPTIME_MONITORING.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/UPTIME_MONITORING.md`
+
+### P2-075: Integrate Trading.sol with MARKET_DELEGATION_API_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_DELEGATION_API_REFERENCE.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+
+### P2-076: Align README with IMPLEMENTATION_CHECKLIST.md
+**Labels:** `phase-2`, `docs`
+**Description:** Link `IMPLEMENTATION_CHECKLIST.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_CHECKLIST.md`
+
+### P2-077: Add Docker build for foundry.toml
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Contracts/foundry.toml` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/foundry.toml`
+
+### P2-078: Harden auth flow in multisigService.js
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/services/multisigService.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/services/multisigService.js`
+
+### P2-079: Sync position state in WEBSOCKET_IMPLEMENTATION.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/WEBSOCKET_IMPLEMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_IMPLEMENTATION.md` fits the app shell
+**Related:** `Frontend/WEBSOCKET_IMPLEMENTATION.md`
+
+### P2-080: Decode Trading events in pagerduty.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/config/pagerduty.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/config/pagerduty.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/config/pagerduty.js`
+
+### P2-081: Bridge PositionTracker in MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md`
+
+### P2-082: Document API contract in IMPLEMENTATION_COMPLETE.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `IMPLEMENTATION_COMPLETE.md` that contradict the codebase. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `IMPLEMENTATION_COMPLETE.md`
+
+### P2-083: Add health probe for package-lock.json
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Contracts/package-lock.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Contracts/package-lock.json`
+
+### P2-084: Review oracle trust in whitelistService.js
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/services/whitelistService.js` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/services/whitelistService.js`
 
-### P2-176: Add market lifecycle state to yieldService.js
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/services/yieldService.js; implement the chosen model consistently across layers.
+### P2-085: Wire wallet connect flow in WEBSOCKET_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/services/yieldService.js`
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md`
 
-### P2-177: Connect AviationStack data to ai.controller.ts
+### P2-086: Add smoke test for rateLimits.js
 **Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/ai/ai.controller.ts.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/config/rateLimits.js`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/ai/ai.controller.ts`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/config/rateLimits.js`
 
-### P2-178: Wire position tracking in ai.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/ai/ai.module.ts.
+### P2-087: Align ABI export for MARKET_DELEGATION_QUICK_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/ai/ai.module.ts`
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
+**Related:** `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
 
-### P2-179: Add order placement through ai.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/ai/ai.service.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-088: Update setup section in IMPLEMENTATION_REPORT.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `IMPLEMENTATION_REPORT.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/ai/ai.service.ts`
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_REPORT.md` verified on a clean checkout
+**Related:** `IMPLEMENTATION_REPORT.md`
 
-### P2-180: Wire MarketFactory to analysis.dto.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/ai/dto/analysis.dto.ts is part of the core trading path.
+### P2-089: Pin toolchain version in package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `Contracts/package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/src/ai/dto/analysis.dto.ts`
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Contracts/package.json`
 
-### P2-181: Connect LMSR pricing in analytics.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/analytics/analytics.module.ts; implement the chosen model consistently across layers.
+### P2-090: Add input validation to auth.controller.ts
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/src/auth/auth.controller.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/src/analytics/analytics.module.ts`
-
-### P2-182: Integrate Trading.sol with volume-analytics.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/analytics/volume-analytics.controller.ts.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/analytics/volume-analytics.controller.ts`
-
-### P2-183: Resolve LMSR vs CLOB for volume-analytics.entity.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/analytics/volume-analytics.entity.ts.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/analytics/volume-analytics.entity.ts`
-
-### P2-184: Index on-chain events from volume-analytics.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/analytics/volume-analytics.service.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/analytics/volume-analytics.service.ts`
-
-### P2-185: Sync market state via api-keys.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/api-keys/api-keys.controller.ts is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/src/api-keys/api-keys.controller.ts`
-
-### P2-186: Expose REST endpoint for api-keys.entity.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/api-keys/api-keys.entity.ts; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/src/api-keys/api-keys.entity.ts`
-
-### P2-187: Map contract ABI to api-keys.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/api-keys/api-keys.module.ts.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/api-keys/api-keys.module.ts`
-
-### P2-188: Add WebSocket feed for api-keys.service.spec.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/api-keys/api-keys.service.spec.ts.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/api-keys/api-keys.service.spec.ts`
-
-### P2-189: Implement settlement hook in api-keys.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/api-keys/api-keys.service.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/api-keys/api-keys.service.ts`
-
-### P2-190: Bridge frontend trade UI to api-keys.dto.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/api-keys/dto/api-keys.dto.ts is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/src/api-keys/dto/api-keys.dto.ts`
-
-### P2-191: Add resolution pipeline in app.controller.spec.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/app.controller.spec.ts; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/src/app.controller.spec.ts`
-
-### P2-192: Deploy script update for app.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/app.controller.ts.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/app.controller.ts`
-
-### P2-193: Add Foundry test covering app.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/app.module.ts.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/app.module.ts`
-
-### P2-194: Emit events from app.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/app.service.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/app.service.ts`
-
-### P2-195: Decode logs in approval.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/approval/approval.controller.ts is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/src/approval/approval.controller.ts`
-
-### P2-196: Add market lifecycle state to approval.entity.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/approval/approval.entity.ts; implement the chosen model consistently across layers.
-**Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-**Related:** `Backend/src/approval/approval.entity.ts`
-
-### P2-197: Connect AviationStack data to approval.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/approval/approval.module.ts.
-**Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/approval/approval.module.ts`
-
-### P2-198: Wire position tracking in approval.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/approval/approval.service.ts.
-**Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/approval/approval.service.ts`
-
-### P2-199: Add order placement through approval.dto.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/approval/dto/approval.dto.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
-**Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/approval/dto/approval.dto.ts`
-
-### P2-200: Wire MarketFactory to auth.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/auth/auth.controller.ts is part of the core trading path.
-**Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.controller.ts`
 **Related:** `Backend/src/auth/auth.controller.ts`
 
-### P2-201: Connect LMSR pricing in auth.module.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/auth/auth.module.ts; implement the chosen model consistently across layers.
+### P2-091: Fix TypeScript path alias in WEBSOCKET_QUICKSTART.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/WEBSOCKET_QUICKSTART.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/WEBSOCKET_QUICKSTART.md`
+
+### P2-092: Add missing module export in eslint.config.mjs
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/eslint.config.mjs`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/eslint.config.mjs`
+
+### P2-093: Verify remappings for MARKET_DELEGATION_README.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_DELEGATION_README.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_README.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_README.md`
+**Related:** `Contracts/MARKET_DELEGATION_README.md`
+
+### P2-094: Add architecture diagram for IMPLEMENTATION_SUCCESS.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `IMPLEMENTATION_SUCCESS.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_SUCCESS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `IMPLEMENTATION_SUCCESS.md`
+
+### P2-095: Wire artifact upload for DeployMarketCap.s.sol
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `Contracts/script/DeployMarketCap.s.sol` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Contracts/script/DeployMarketCap.s.sol`
+
+### P2-096: Review secrets exposure in auth.module.ts
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/src/auth/auth.module.ts` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.module.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/auth.module.ts`
 
-### P2-202: Integrate Trading.sol with auth.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/auth/auth.service.ts.
+### P2-097: Add vitest coverage for WEBSOCKET_SUMMARY.md
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/WEBSOCKET_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/WEBSOCKET_SUMMARY.md`
+
+### P2-098: Wire MarketFactory events to heartbeatServer.js
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/heartbeatServer.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/heartbeatServer.js`
+**Related:** `Backend/heartbeatServer.js`
+
+### P2-099: Connect LMSR pricing in MARKET_RELAY_IMPLEMENTATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/MARKET_RELAY_IMPLEMENTATION.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+
+### P2-100: Add runbook section to IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `IMPLEMENTATION_SUMMARY.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Commands in `IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `IMPLEMENTATION_SUMMARY.md`
+
+### P2-101: Document rollback for DeployRevokeFunction.s.sol
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Contracts/script/DeployRevokeFunction.s.sol`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/script/DeployRevokeFunction.s.sol`
+
+### P2-102: Add beta gate check in auth.service.ts
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/auth/auth.service.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/auth/auth.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/src/auth/auth.service.ts`
 
-### P2-203: Resolve LMSR vs CLOB for auth.dto.ts
-**Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/auth/dto/auth.dto.ts.
+### P2-103: Display live order book in page.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/analytics/page.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/analytics/page.tsx`
+
+### P2-104: Implement settlement hook in arbitrageMonitor.js
+**Labels:** `phase-2`, `backend`
+**Description:** Phase 2 stabilizes the repo; `Backend/jobs/arbitrageMonitor.js` must match the canonical run path in README. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/arbitrageMonitor.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/arbitrageMonitor.js`
+
+### P2-105: Add market lifecycle to MARKET_RELAY_INTEGRATION_GUIDE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+
+### P2-106: Align README with IMPLEMENTATION_VERIFIED.txt
+**Labels:** `phase-2`, `docs`
+**Description:** Link `IMPLEMENTATION_VERIFIED.txt` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_VERIFIED.txt`
+
+### P2-107: Add Docker build for DeployVoteWeight.s.sol
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Contracts/script/DeployVoteWeight.s.sol` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/script/DeployVoteWeight.s.sol`
+
+### P2-108: Harden auth flow in auth.dto.ts
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/src/auth/dto/auth.dto.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
 **Related:** `Backend/src/auth/dto/auth.dto.ts`
 
-### P2-204: Index on-chain events from user.entity.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/auth/entities/user.entity.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-109: Add loading skeleton to page.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api-keys/page.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api-keys/page.tsx` fits the app shell
+**Related:** `Frontend/app/api-keys/page.tsx`
+
+### P2-110: Unify Express/Nest path for batchExecutor.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/jobs/batchExecutor.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/batchExecutor.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/batchExecutor.js`
+
+### P2-111: Fix compiler warning in MARKET_RELAY_QUICK_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_RELAY_QUICK_REFERENCE.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_RELAY_QUICK_REFERENCE.md`
+
+### P2-112: Document API contract in LIQUIDATION_IMPLEMENTATION.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `LIQUIDATION_IMPLEMENTATION.md` that contradict the codebase. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `LIQUIDATION_IMPLEMENTATION.md`
+
+### P2-113: Add health probe for hardhat.config.js
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Frontend/localnet/hardhat.config.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/localnet/hardhat.config.js`
+
+### P2-114: Review oracle trust in user.entity.ts
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/src/auth/entities/user.entity.ts` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/src/auth/entities/user.entity.ts`
 
-### P2-205: Sync market state via jwt-auth.guard.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/auth/guards/jwt-auth.guard.ts is part of the core trading path.
+### P2-115: Add smoke test for route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/gateway/[hash]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/gateway/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/ipfs/gateway/[hash]/route.ts`
+
+### P2-116: Resolve TypeScript errors in complianceChecker.js
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/complianceChecker.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/complianceChecker.js`
+
+### P2-117: Add fuzz harness for MARKET_RELAY_README.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_RELAY_README.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_README.md`
+**Related:** `Contracts/MARKET_RELAY_README.md`
+
+### P2-118: Update setup section in LIQUIDATION_QUICK_START.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `LIQUIDATION_QUICK_START.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `LIQUIDATION_QUICK_START.md` verified on a clean checkout
+**Related:** `LIQUIDATION_QUICK_START.md`
+
+### P2-119: Pin toolchain version in package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `Frontend/localnet/package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Frontend/localnet/package.json`
+
+### P2-120: Add input validation to jwt-auth.guard.ts
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/src/auth/guards/jwt-auth.guard.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/guards/jwt-auth.guard.ts`
 **Related:** `Backend/src/auth/guards/jwt-auth.guard.ts`
 
-### P2-206: Expose REST endpoint for jwt.strategy.ts
-**Labels:** `phase-2`, `backend`
-**Description:** ADR 0001 (LMSR vs CLOB) affects Backend/src/auth/strategies/jwt.strategy.ts; implement the chosen model consistently across layers.
+### P2-121: Fix responsive layout in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/pin/[hash]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/pin/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ipfs/pin/[hash]/route.ts`
+
+### P2-122: Add integration test for heartbeatMonitor.js
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/jobs/heartbeatMonitor.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/heartbeatMonitor.js`
+
+### P2-123: Wire MarketFactory to MARKET_RELAY_SECURITY_ANALYSIS.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+**Related:** `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+
+### P2-124: Add architecture diagram for MARKET_DELEGATION_CHECKLIST.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `MARKET_DELEGATION_CHECKLIST.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MARKET_DELEGATION_CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `MARKET_DELEGATION_CHECKLIST.md`
+
+### P2-125: Wire artifact upload for deploy.js
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `Frontend/localnet/scripts/deploy.js` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Frontend/localnet/scripts/deploy.js`
+
+### P2-126: Review secrets exposure in jwt.strategy.ts
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/src/auth/strategies/jwt.strategy.ts` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/strategies/jwt.strategy.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/strategies/jwt.strategy.ts`
 
-### P2-207: Map contract ABI to blockchain.controller.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Market data must flow from contracts through Backend services to Frontend components via Backend/src/blockchain/blockchain.controller.ts.
+### P2-127: Bridge order placement in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/retrieve/[hash]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Foundry/integration test proves happy path
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-**Related:** `Backend/src/blockchain/blockchain.controller.ts`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/ipfs/retrieve/[hash]/route.ts`
 
-### P2-208: Add WebSocket feed for blockchain.module.ts
+### P2-128: Map contract ABI in liquidationMonitor.js
 **Labels:** `phase-2`, `backend`
-**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/src/blockchain/blockchain.module.ts.
+**Description:** Backend foundations: ensure `Backend/jobs/liquidationMonitor.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Event indexing or polling documented
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-**Related:** `Backend/src/blockchain/blockchain.module.ts`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/liquidationMonitor.js`
+**Related:** `Backend/jobs/liquidationMonitor.js`
 
-### P2-209: Implement settlement hook in blockchain.service.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Wire Backend/src/blockchain/blockchain.service.ts so mock data (`Frontend/data/mockMarkets.ts`) can be replaced with live API/chain reads.
+### P2-129: Deploy script update for MarketMinter.sol
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/MarketMinter.sol` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] Error states surfaced to UI
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-**Related:** `Backend/src/blockchain/blockchain.service.ts`
+- [ ] No critical compiler warnings in `Contracts/MarketMinter.sol`
+- [ ] `forge build` succeeds with `Contracts/MarketMinter.sol`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MarketMinter.sol`
 
-### P2-210: Bridge frontend trade UI to nonce.dto.ts
-**Labels:** `phase-2`, `backend`
-**Description:** Phase 2 connects on-chain markets to backend and frontend; Backend/src/blockchain/dto/nonce.dto.ts is part of the core trading path.
+### P2-130: Add runbook section to MARKET_DELEGATION_COMPLETE.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `MARKET_DELEGATION_COMPLETE.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
 **Acceptance criteria:**
-- [ ] On-chain action reflected in backend within acceptable latency
-- [ ] Frontend displays live data instead of mocks where applicable
-- [ ] Foundry/integration test proves happy path
-**Related:** `Backend/src/blockchain/dto/nonce.dto.ts`
+- [ ] Commands in `MARKET_DELEGATION_COMPLETE.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `MARKET_DELEGATION_COMPLETE.md`
+
+### P2-131: Document rollback for package-lock.json
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Frontend/package-lock.json`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Frontend/package-lock.json`
+
+### P2-132: Add beta gate check in market-audit.dto.ts
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/market-audit/dto/market-audit.dto.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/dto/market-audit.dto.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/dto/market-audit.dto.ts`
+
+### P2-133: Fix Next.js boot error in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/upload-json/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/ipfs/upload-json/route.ts`
+
+### P2-134: Fix broken import in sanityCheck.js
+**Labels:** `phase-2`, `backend`
+**Description:** Phase 2 stabilizes the repo; `Backend/jobs/sanityCheck.js` must match the canonical run path in README. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/sanityCheck.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/sanityCheck.js`
+
+### P2-135: Document NatSpec in QUICK_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/QUICK_REFERENCE.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/QUICK_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/QUICK_REFERENCE.md`
+
+### P2-136: Align README with MARKET_RELAY_DELIVERY_SUMMARY.md
+**Labels:** `phase-2`, `docs`
+**Description:** Link `MARKET_RELAY_DELIVERY_SUMMARY.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `MARKET_RELAY_DELIVERY_SUMMARY.md`
+
+### P2-137: Add Docker build for package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Frontend/package.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Frontend/package.json`
+
+### P2-138: Harden auth flow in market-audit.controller.ts
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/src/market-audit/market-audit.controller.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/market-audit/market-audit.controller.ts`
+
+### P2-139: Align route layout for route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/market-audit/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-audit/route.ts` fits the app shell
+**Related:** `Frontend/app/api/market-audit/route.ts`
+
+### P2-140: Stabilize boot sequence of snapshotCapture.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/jobs/snapshotCapture.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/snapshotCapture.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/snapshotCapture.js`
+
+### P2-141: Resolve import path in README.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/README.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/README.md`
+
+### P2-142: Document API contract in MARKET_RELAY_FILES_CHECKLIST.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `MARKET_RELAY_FILES_CHECKLIST.md` that contradict the codebase. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `MARKET_RELAY_FILES_CHECKLIST.md`
+
+### P2-143: Add health probe for tsconfig.json
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Frontend/tsconfig.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/tsconfig.json`
+
+### P2-144: Review oracle trust in market-audit.entity.ts
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/src/market-audit/market-audit.entity.ts` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/market-audit/market-audit.entity.ts`
+
+### P2-145: Connect WebSocket hook in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/market-sentiment/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-sentiment/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/market-sentiment/route.ts`
+
+### P2-146: Add startup logging to tradeExecutor.js
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/tradeExecutor.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/tradeExecutor.js`
+
+### P2-147: Stabilize `forge test` for README_MARKETCAP.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/README_MARKETCAP.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_MARKETCAP.md`
+**Related:** `Contracts/README_MARKETCAP.md`
+
+### P2-148: Update setup section in MINTING_PAUSABLE_IMPLEMENTATION.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `MINTING_PAUSABLE_IMPLEMENTATION.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MINTING_PAUSABLE_IMPLEMENTATION.md` verified on a clean checkout
+**Related:** `MINTING_PAUSABLE_IMPLEMENTATION.md`
+
+### P2-149: Pin toolchain version in package-lock.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `package-lock.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `package-lock.json`
+
+### P2-150: Add input validation to market-audit.module.ts
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/src/market-audit/market-audit.module.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.module.ts`
+**Related:** `Backend/src/market-audit/market-audit.module.ts`
+
+### P2-151: Map contract events to UI in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/execute/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/execute/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/multisig/execute/route.ts`
+
+### P2-152: Sync market state in upgradeManager.js
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/jobs/upgradeManager.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P2-153: Add Foundry integration test for README_VOTE_DELEGATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/README_VOTE_DELEGATION.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_VOTE_DELEGATION.md`
+- [ ] `forge build` succeeds with `Contracts/README_VOTE_DELEGATION.md`
+**Related:** `Contracts/README_VOTE_DELEGATION.md`
+
+### P2-154: Add architecture diagram for PHASES.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `PHASES.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASES.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASES.md`
+
+### P2-155: Wire artifact upload for package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `package.json` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `package.json`
+
+### P2-156: Review secrets exposure in market-audit.service.spec.ts
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/src/market-audit/market-audit.service.spec.ts` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.spec.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/market-audit/market-audit.service.spec.ts`
+
+### P2-157: Surface trade errors in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/propose/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/multisig/propose/route.ts`
+
+### P2-158: Document setup for backwardCompat.js
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/middleware/backwardCompat.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/backwardCompat.js`
+**Related:** `Backend/middleware/backwardCompat.js`
+
+### P2-159: Add Foundry test for REVOKE_FUNCTION_API_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/REVOKE_FUNCTION_API_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+
+### P2-160: Add runbook section to PHASE_1.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `PHASE_1.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Commands in `PHASE_1.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PHASE_1.md`
+
+### P2-161: Document rollback for ci.yml
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `.github/workflows/ci.yml`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `.github/workflows/ci.yml`
+
+### P2-162: Add beta gate check in market-audit.service.ts
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/market-audit/market-audit.service.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/market-audit.service.ts`
+
+### P2-163: Validate env usage in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/sign/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/multisig/sign/route.ts`
+
+### P2-164: Add health check for ddosGuard.js
+**Labels:** `phase-2`, `backend`
+**Description:** Phase 2 stabilizes the repo; `Backend/middleware/ddosGuard.js` must match the canonical run path in README. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/ddosGuard.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/ddosGuard.js`
+
+### P2-165: Add invariant test for REVOKE_FUNCTION_DOCUMENTATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+
+### P2-166: Align README with PHASE_2.md
+**Labels:** `phase-2`, `docs`
+**Description:** Link `PHASE_2.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `PHASE_2.md`
+
+### P2-167: Add Docker build for .env.example
+**Labels:** `phase-2`, `infra`
+**Description:** Coordinate `Backend/.env.example` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/.env.example`
+
+### P2-168: Harden auth flow in rate-limiter.config.ts
+**Labels:** `phase-2`, `security`
+**Description:** Security: review `Backend/src/rate-limiter/rate-limiter.config.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/rate-limiter/rate-limiter.config.ts`
+
+### P2-169: Add empty state to route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/status/[txId]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/status/[txId]/route.ts` fits the app shell
+**Related:** `Frontend/app/api/multisig/status/[txId]/route.ts`
+
+### P2-170: Ensure package scripts cover deprecation.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/middleware/deprecation.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/middleware/deprecation.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/middleware/deprecation.js`
+
+### P2-171: Add event coverage test for REVOKE_FUNCTION_FEATURES.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/REVOKE_FUNCTION_FEATURES.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/REVOKE_FUNCTION_FEATURES.md`
+
+### P2-172: Document API contract in PHASE_3.md
+**Labels:** `phase-2`, `docs`
+**Description:** Remove outdated implementation claims in `PHASE_3.md` that contradict the codebase. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `PHASE_3.md`
+
+### P2-173: Add health probe for upgradeManager.js
+**Labels:** `phase-2`, `infra`
+**Description:** Infra: `Backend/jobs/upgradeManager.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P2-174: Review oracle trust in rate-limiter.decorator.ts
+**Labels:** `phase-2`, `security`
+**Description:** Phase 2 security baseline — `Backend/src/rate-limiter/rate-limiter.decorator.ts` must not expose admin routes or keys without guards. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/rate-limiter/rate-limiter.decorator.ts`
+
+### P2-175: Connect WebSocket prices in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/wallet/[walletId]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/wallet/[walletId]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/multisig/wallet/[walletId]/route.ts`
+
+### P2-176: Add WebSocket feed in permissions.js
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/middleware/permissions.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/middleware/permissions.js`
+
+### P2-177: Emit settlement events from REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+**Related:** `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+
+### P2-178: Update setup section in PHASE_4.md
+**Labels:** `phase-2`, `docs`
+**Description:** Documentation: `PHASE_4.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_4.md` verified on a clean checkout
+**Related:** `PHASE_4.md`
+
+### P2-179: Pin toolchain version in package-lock.json
+**Labels:** `phase-2`, `infra`
+**Description:** Phase 2 CI — ensure `Backend/package-lock.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/package-lock.json`
+
+### P2-180: Add input validation to rate-limiter.guard.ts
+**Labels:** `phase-2`, `security`
+**Description:** Align `Backend/src/rate-limiter/rate-limiter.guard.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.guard.ts`
+**Related:** `Backend/src/rate-limiter/rate-limiter.guard.ts`
+
+### P2-181: Connect wallet signing in route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ping/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ping/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ping/route.ts`
+
+### P2-182: Add order placement through rateLimiter.js
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/middleware/rateLimiter.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/middleware/rateLimiter.js`
+
+### P2-183: Verify forge build for REVOKE_FUNCTION_QUICK_START.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/REVOKE_FUNCTION_QUICK_START.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+**Related:** `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+
+### P2-184: Add architecture diagram for PHASE_5.md
+**Labels:** `phase-2`, `docs`
+**Description:** Phase 2 docs pass — verify `PHASE_5.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_5.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASE_5.md`
+
+### P2-185: Wire artifact upload for package.json
+**Labels:** `phase-2`, `infra`
+**Description:** Document how `Backend/package.json` maps to staging vs production env vars. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/package.json`
+
+### P2-186: Review secrets exposure in rate-limiter.module.ts
+**Labels:** `phase-2`, `security`
+**Description:** Document trust assumptions for `Backend/src/rate-limiter/rate-limiter.module.ts` (oracles, multisig, beta access). _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.module.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/rate-limiter/rate-limiter.module.ts`
+
+### P2-187: Add error boundary around route.ts
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/trending-markets/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/trending-markets/route.ts`
+
+### P2-188: Remove dead code in throttle.js
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/middleware/throttle.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/throttle.js`
+**Related:** `Backend/middleware/throttle.js`
+
+### P2-189: Pin dependency version in REVOKE_FUNCTION_README.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/REVOKE_FUNCTION_README.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_README.md`
+
+### P2-190: Add runbook section to PR_INSTRUCTIONS.md
+**Labels:** `phase-2`, `docs`
+**Description:** Reduce onboarding time: `PR_INSTRUCTIONS.md` should answer "how do I run wallet + trade flow locally?" _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Commands in `PR_INSTRUCTIONS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PR_INSTRUCTIONS.md`
+
+### P2-191: Document rollback for deploy.js
+**Labels:** `phase-2`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/scripts/deploy.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/scripts/deploy.js`
+
+### P2-192: Add beta gate check in rate-limiter.service.ts
+**Labels:** `phase-2`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/rate-limiter/rate-limiter.service.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/rate-limiter/rate-limiter.service.ts`
+
+### P2-193: Stabilize hydration in page.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/archive/page.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/archive/page.tsx`
+
+### P2-194: Fix lint violations in tradeValidation.js
+**Labels:** `phase-2`, `backend`
+**Description:** Phase 2 stabilizes the repo; `Backend/middleware/tradeValidation.js` must match the canonical run path in README. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/tradeValidation.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/tradeValidation.js`
+
+### P2-195: Cross-check LMSR/CLOB usage in RoleManager.sol
+**Labels:** `phase-2`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/RoleManager.sol`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/RoleManager.sol`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/RoleManager.sol`
+
+### P2-196: Fix responsive layout in page.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Phase 2 wiring: `Frontend/app/audit/page.tsx` must consume live backend/chain data instead of `Frontend/data/mockMarkets.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/audit/page.tsx` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/audit/page.tsx`
+
+### P2-197: Add integration test for version.js
+**Labels:** `phase-2`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/middleware/version.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/middleware/version.js`
+
+### P2-198: Wire MarketFactory to VERIFICATION_REPORT.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Contracts foundations: `Contracts/VERIFICATION_REPORT.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/VERIFICATION_REPORT.md`
+- [ ] `forge build` succeeds with `Contracts/VERIFICATION_REPORT.md`
+**Related:** `Contracts/VERIFICATION_REPORT.md`
+
+### P2-199: Replace mock market data in BridgeClient.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/bridge/BridgeClient.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/bridge/BridgeClient.tsx` fits the app shell
+**Related:** `Frontend/app/bridge/BridgeClient.tsx`
+
+### P2-200: Expose REST endpoint in 001_init_markets.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/migrations/001_init_markets.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/migrations/001_init_markets.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/migrations/001_init_markets.js`
+
+### P2-201: Resolve LMSR vs CLOB in VOTEWEIGHT_CHECKLIST.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/VOTEWEIGHT_CHECKLIST.md` in README or contract comments. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/VOTEWEIGHT_CHECKLIST.md`
+
+### P2-202: Bridge order placement in page.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Phase 2 wiring: `Frontend/app/bridge/page.tsx` must consume live backend/chain data instead of `Frontend/data/mockMarkets.ts`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/bridge/page.tsx`
+
+### P2-203: Map contract ABI in AuditLog.js
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/models/AuditLog.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/models/AuditLog.js`
+**Related:** `Backend/models/AuditLog.js`
+
+### P2-204: Deploy script update for VOTEWEIGHT_DOCUMENTATION.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/VOTEWEIGHT_DOCUMENTATION.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/VOTEWEIGHT_DOCUMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/VOTEWEIGHT_DOCUMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/VOTEWEIGHT_DOCUMENTATION.md`
+
+### P2-205: Add resolution status to ConnectKitBridge.tsx
+**Labels:** `phase-2`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/components/ConnectKitBridge.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/components/ConnectKitBridge.tsx` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/components/ConnectKitBridge.tsx`
+
+### P2-206: Connect AviationStack to Balance.js
+**Labels:** `phase-2`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/models/Balance.js`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/models/Balance.js`
+
+### P2-207: Verify Resolution flow in VOTEWEIGHT_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/VOTEWEIGHT_IMPLEMENTATION_SUMMARY.md`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/VOTEWEIGHT_IMPLEMENTATION_SUMMARY.md`
+**Related:** `Contracts/VOTEWEIGHT_IMPLEMENTATION_SUMMARY.md`
+
+### P2-208: Document setup for Collateral.js
+**Labels:** `phase-2`, `backend`
+**Description:** Backend foundations: ensure `Backend/models/Collateral.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/models/Collateral.js`
+**Related:** `Backend/models/Collateral.js`
+
+### P2-209: Add Foundry test for VOTEWEIGHT_QUICK_REFERENCE.md
+**Labels:** `phase-2`, `contracts`
+**Description:** Phase 2 ensures `Contracts/VOTEWEIGHT_QUICK_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/VOTEWEIGHT_QUICK_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/VOTEWEIGHT_QUICK_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/VOTEWEIGHT_QUICK_REFERENCE.md`
+
+### P2-210: Unify Express/Nest path for Dispute.js
+**Labels:** `phase-2`, `backend`
+**Description:** Contributors report friction around `Backend/models/Dispute.js`; eliminate silent failures on `npm run start:dev`. _(Phase 2: core market wiring.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/models/Dispute.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/models/Dispute.js`

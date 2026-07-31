@@ -3,6 +3,8 @@
 > **Theme:** Hardening
 > **Goal:** Security review, rate limiting, circuit breakers, test coverage, monitoring, fuzzing, and operational resilience.
 
+> **Area distribution:** frontend 36, backend 36, contracts 35, docs 32, infra 32, security 39 (210 issues)
+
 Parent index: [PHASES.md](PHASES.md)
 
 ---
@@ -10,1893 +12,1894 @@ Parent index: [PHASES.md](PHASES.md)
 ## Issues (210 tracked)
 
 Copy any issue below into GitHub using the template in [PHASES.md](PHASES.md#filing-github-issues).
+Issues span frontend, backend, contracts, docs, infra, and security within this phase theme.
 
-### P4-001: Add rate limit to API_PROTECTION_README.md
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/API_PROTECTION_README.md per Phase 4 checklist.
+### P4-001: Validate env usage in ARBITRAGE_DEMO.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/ARBITRAGE_DEMO.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/API_PROTECTION_README.md`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ARBITRAGE_DEMO.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ARBITRAGE_DEMO.md`
 
-### P4-002: Fuzz test COLLATERAL.md
+### P4-002: Add health check for .env.example
 **Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/COLLATERAL.md.
+**Description:** Phase 4 stabilizes the repo; `Backend/.env.example` must match the canonical run path in README. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/COLLATERAL.md`
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/.env.example`
 
-### P4-003: Add reentrancy guard review for DEPOSIT_SERVICE_DOCUMENTATION.md
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/DEPOSIT_SERVICE_DOCUMENTATION.md.
+### P4-003: Add invariant test for test.yml
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/.github/workflows/test.yml`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/.github/workflows/test.yml`
+- [ ] `forge build` succeeds with `Contracts/.github/workflows/test.yml`
+**Related:** `Contracts/.github/workflows/test.yml`
 
-### P4-004: Expand unit tests in DEPOSIT_SERVICE_README.md
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/DEPOSIT_SERVICE_README.md.
+### P4-004: Add phase checklist to BUG_ANALYSIS_REPORT.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `BUG_ANALYSIS_REPORT.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/DEPOSIT_SERVICE_README.md`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `BUG_ANALYSIS_REPORT.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `BUG_ANALYSIS_REPORT.md`
 
-### P4-005: Add e2e test for IMPLEMENTATION.md
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/IMPLEMENTATION.md: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-005: Configure secrets mapping for ci.yml
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `.github/workflows/ci.yml` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/IMPLEMENTATION.md`
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `.github/workflows/ci.yml`
 
-### P4-006: Harden auth on LIQUIDATION.md
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/LIQUIDATION.md per Phase 4 checklist.
+### P4-006: Audit access control in rateLimits.js
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/config/rateLimits.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/LIQUIDATION.md`
-
-### P4-007: Add input validation to MARGIN.md
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/MARGIN.md.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/MARGIN.md`
-
-### P4-008: Review access control in README.md
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/README.md.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/README.md`
-
-### P4-009: Add monitoring metric for RISK.md
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/RISK.md.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/RISK.md`
-
-### P4-010: Add alert rule for TRADE_REPORTS.md
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/TRADE_REPORTS.md: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/TRADE_REPORTS.md`
-
-### P4-011: Stress test TRADE_REPORTS_SETUP.md
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/TRADE_REPORTS_SETUP.md per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/TRADE_REPORTS_SETUP.md`
-
-### P4-012: Add circuit breaker to UPTIME_MONITORING.md
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/UPTIME_MONITORING.md.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/UPTIME_MONITORING.md`
-
-### P4-013: Review oracle trust in pagerduty.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/config/pagerduty.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/config/pagerduty.js`
-
-### P4-014: Add slippage bounds to rateLimits.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/config/rateLimits.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/config/rateLimits.js`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/config/rateLimits.js`
 
-### P4-015: Pen-test endpoint eslint.config.mjs
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/eslint.config.mjs: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-007: Add empty state to ERROR_BOUNDARY_CHECKLIST.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/ERROR_BOUNDARY_CHECKLIST.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/eslint.config.mjs`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/ERROR_BOUNDARY_CHECKLIST.md`
 
-### P4-016: Add audit log for heartbeatServer.js
+### P4-008: Ensure package scripts cover API_PROTECTION_README.md
 **Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/heartbeatServer.js per Phase 4 checklist.
+**Description:** Contributors report friction around `Backend/API_PROTECTION_README.md`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/heartbeatServer.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/API_PROTECTION_README.md`
+**Related:** `Backend/API_PROTECTION_README.md`
 
-### P4-017: Review gas limits in arbitrageMonitor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/jobs/arbitrageMonitor.js.
+### P4-009: Add event coverage test for API_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/API_REFERENCE.md` in README or contract comments. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/jobs/arbitrageMonitor.js`
+- [ ] No critical compiler warnings in `Contracts/API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/API_REFERENCE.md`
 
-### P4-018: Add chaos test for batchExecutor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/jobs/batchExecutor.js.
+### P4-010: Add glossary entry in CHECKLIST.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `CHECKLIST.md` that contradict the codebase. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/jobs/batchExecutor.js`
+- [ ] Commands in `CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `CHECKLIST.md`
 
-### P4-019: Document threat model for complianceChecker.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/jobs/complianceChecker.js.
+### P4-011: Add CI job for .env.example
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Backend/.env.example` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/jobs/complianceChecker.js`
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/.env.example`
 
-### P4-020: Security audit heartbeatMonitor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/jobs/heartbeatMonitor.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-012: Add circuit breaker check for ddosGuard.js
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/middleware/ddosGuard.js` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/jobs/heartbeatMonitor.js`
-
-### P4-021: Add rate limit to liquidationMonitor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/jobs/liquidationMonitor.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/jobs/liquidationMonitor.js`
-
-### P4-022: Fuzz test sanityCheck.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/jobs/sanityCheck.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/jobs/sanityCheck.js`
-
-### P4-023: Add reentrancy guard review for snapshotCapture.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/jobs/snapshotCapture.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/jobs/snapshotCapture.js`
-
-### P4-024: Expand unit tests in tradeExecutor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/jobs/tradeExecutor.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/jobs/tradeExecutor.js`
-
-### P4-025: Add e2e test for upgradeManager.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/jobs/upgradeManager.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/jobs/upgradeManager.js`
-
-### P4-026: Harden auth on backwardCompat.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/middleware/backwardCompat.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/middleware/backwardCompat.js`
-
-### P4-027: Add input validation to ddosGuard.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/middleware/ddosGuard.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] No secrets or private keys in `Backend/middleware/ddosGuard.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/middleware/ddosGuard.js`
 
-### P4-028: Review access control in deprecation.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/middleware/deprecation.js.
+### P4-013: Wire wallet connect flow in ERROR_BOUNDARY_DOCUMENTATION.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/middleware/deprecation.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md`
 
-### P4-029: Add monitoring metric for permissions.js
+### P4-014: Add smoke test for COLLATERAL.md
 **Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/middleware/permissions.js.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/COLLATERAL.md`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/middleware/permissions.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/COLLATERAL.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/COLLATERAL.md`
 
-### P4-030: Add alert rule for rateLimiter.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/middleware/rateLimiter.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-015: Align ABI export for BUG_ANALYSIS_AND_FIXES.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/BUG_ANALYSIS_AND_FIXES.md`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+
+### P4-016: Document env matrix in CIRCUIT_BREAKER_IMPLEMENTATION.md
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `CIRCUIT_BREAKER_IMPLEMENTATION.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `CIRCUIT_BREAKER_IMPLEMENTATION.md`
+
+### P4-017: Add smoke test post-build for upgradeManager.js
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Backend/jobs/upgradeManager.js` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P4-018: Add slippage bounds in rateLimiter.js
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/middleware/rateLimiter.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
 **Related:** `Backend/middleware/rateLimiter.js`
 
-### P4-031: Stress test throttle.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/middleware/throttle.js per Phase 4 checklist.
+### P4-019: Fix TypeScript path alias in ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/middleware/throttle.js`
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md` fits the app shell
+**Related:** `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md`
 
-### P4-032: Add circuit breaker to tradeValidation.js
+### P4-020: Add missing module export in DEPOSIT_SERVICE_DOCUMENTATION.md
 **Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/middleware/tradeValidation.js.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/middleware/tradeValidation.js`
+- [ ] Local dev server starts without errors involving `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
 
-### P4-033: Review oracle trust in version.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/middleware/version.js.
+### P4-021: Verify remappings for Burnable.sol
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/Burnable.sol` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/middleware/version.js`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/Burnable.sol`
 
-### P4-034: Add slippage bounds to 001_init_markets.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/migrations/001_init_markets.js.
+### P4-022: Fix broken links in CIRCUIT_BREAKER_QUICK_REFERENCE.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `CIRCUIT_BREAKER_QUICK_REFERENCE.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/migrations/001_init_markets.js`
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `CIRCUIT_BREAKER_QUICK_REFERENCE.md`
 
-### P4-035: Pen-test endpoint AuditLog.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/models/AuditLog.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-023: Add parallel job for package-lock.json
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Backend/package-lock.json` maps to staging vs production env vars. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/models/AuditLog.js`
-
-### P4-036: Add audit log for Balance.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/models/Balance.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/models/Balance.js`
-
-### P4-037: Review gas limits in Collateral.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/models/Collateral.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/models/Collateral.js`
-
-### P4-038: Add chaos test for Dispute.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/models/Dispute.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/models/Dispute.js`
-
-### P4-039: Document threat model for Liquidation.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/models/Liquidation.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/models/Liquidation.js`
-
-### P4-040: Security audit MarginAccount.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/models/MarginAccount.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/models/MarginAccount.js`
-
-### P4-041: Add rate limit to MarginCall.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/models/MarginCall.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/models/MarginCall.js`
-
-### P4-042: Fuzz test MarketSnapshot.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/models/MarketSnapshot.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/models/MarketSnapshot.js`
-
-### P4-043: Add reentrancy guard review for Notification.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/models/Notification.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/models/Notification.js`
-
-### P4-044: Expand unit tests in Order.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/models/Order.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/models/Order.js`
-
-### P4-045: Add e2e test for PriceHistory.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/models/PriceHistory.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/models/PriceHistory.js`
-
-### P4-046: Harden auth on Referral.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/models/Referral.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/models/Referral.js`
-
-### P4-047: Add input validation to RiskConfig.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/models/RiskConfig.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/models/RiskConfig.js`
-
-### P4-048: Review access control in RiskScore.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/models/RiskScore.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/models/RiskScore.js`
-
-### P4-049: Add monitoring metric for TradeReport.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/models/TradeReport.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/models/TradeReport.js`
-
-### P4-050: Add alert rule for nest-cli.json
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/nest-cli.json: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/nest-cli.json`
-
-### P4-051: Stress test package-lock.json
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/package-lock.json per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
 **Related:** `Backend/package-lock.json`
 
-### P4-052: Add circuit breaker to package.json
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/package.json.
+### P4-024: Expand negative tests in AuditLog.js
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/models/AuditLog.js` (oracles, multisig, beta access). _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/models/AuditLog.js`
+
+### P4-025: Add vitest coverage for ERROR_BOUNDARY_QUICKSTART.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/ERROR_BOUNDARY_QUICKSTART.md` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/ERROR_BOUNDARY_QUICKSTART.md`
+
+### P4-026: Document setup for DEPOSIT_SERVICE_README.md
+**Labels:** `phase-4`, `backend`
+**Description:** Backend foundations: ensure `Backend/DEPOSIT_SERVICE_README.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/DEPOSIT_SERVICE_README.md`
+
+### P4-027: Add Foundry test for CODE_REVIEW_REPORT.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/CODE_REVIEW_REPORT.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/CODE_REVIEW_REPORT.md`
+**Related:** `Contracts/CODE_REVIEW_REPORT.md`
+
+### P4-028: Cross-link ADR in CIRCUIT_BREAKER_VERIFICATION.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `CIRCUIT_BREAKER_VERIFICATION.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `CIRCUIT_BREAKER_VERIFICATION.md` verified on a clean checkout
+**Related:** `CIRCUIT_BREAKER_VERIFICATION.md`
+
+### P4-029: Configure env matrix in package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/package.json`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
 **Related:** `Backend/package.json`
 
-### P4-053: Review oracle trust in aggregatedTrades.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/aggregatedTrades.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/aggregatedTrades.js`
-
-### P4-054: Add slippage bounds to alerts.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/alerts.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/alerts.js`
-
-### P4-055: Pen-test endpoint aml.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/aml.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-030: Add circuit breaker test for beta.js
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/routes/beta.js`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/aml.js`
-
-### P4-056: Add audit log for api.example.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/api.example.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/api.example.js`
-
-### P4-057: Review gas limits in approvals.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/approvals.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/approvals.js`
-
-### P4-058: Add chaos test for beta.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/beta.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/beta.js`
 **Related:** `Backend/routes/beta.js`
 
-### P4-059: Document threat model for blacklist.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/blacklist.js.
+### P4-031: Validate env usage in ERROR_BOUNDARY_SUMMARY.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/ERROR_BOUNDARY_SUMMARY.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/blacklist.js`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ERROR_BOUNDARY_SUMMARY.md`
 
-### P4-060: Security audit bridge.js
+### P4-032: Add health check for IMPLEMENTATION.md
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/bridge.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Phase 4 stabilizes the repo; `Backend/IMPLEMENTATION.md` must match the canonical run path in README. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/bridge.js`
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/IMPLEMENTATION.md`
 
-### P4-061: Add rate limit to circuitBreaker.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/circuitBreaker.js per Phase 4 checklist.
+### P4-033: Add invariant test for FLASHBORROW_DOCUMENTATION.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/FLASHBORROW_DOCUMENTATION.md`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/circuitBreaker.js`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_DOCUMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_DOCUMENTATION.md`
+**Related:** `Contracts/FLASHBORROW_DOCUMENTATION.md`
 
-### P4-062: Fuzz test claims.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/claims.js.
+### P4-034: Add phase checklist to DELIVERY_SUMMARY.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `DELIVERY_SUMMARY.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/claims.js`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `DELIVERY_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `DELIVERY_SUMMARY.md`
 
-### P4-063: Add reentrancy guard review for collateral.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/collateral.js.
+### P4-035: Configure secrets mapping for deploy.js
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `Backend/scripts/deploy.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/collateral.js`
-
-### P4-064: Expand unit tests in compression.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/compression.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/compression.js`
-
-### P4-065: Add e2e test for disputes.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/disputes.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/disputes.js`
-
-### P4-066: Harden auth on escalation.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/escalation.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/escalation.js`
-
-### P4-067: Add input validation to experiments.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/experiments.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/experiments.js`
-
-### P4-068: Review access control in exports.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/exports.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/exports.js`
-
-### P4-069: Add monitoring metric for features.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/features.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/features.js`
-
-### P4-070: Add alert rule for freeze.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/freeze.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/freeze.js`
-
-### P4-071: Stress test gas.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/gas.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/gas.js`
-
-### P4-072: Add circuit breaker to governance.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/governance.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/governance.js`
-
-### P4-073: Review oracle trust in health.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/health.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/health.js`
-
-### P4-074: Add slippage bounds to heartbeat.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/heartbeat.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/heartbeat.js`
-
-### P4-075: Pen-test endpoint imports.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/imports.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/imports.js`
-
-### P4-076: Add audit log for insurance.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/insurance.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/insurance.js`
-
-### P4-077: Review gas limits in ipfs.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/ipfs.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/ipfs.js`
-
-### P4-078: Add chaos test for kyc.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/kyc.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/kyc.js`
-
-### P4-079: Document threat model for legacy.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/legacy.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/legacy.js`
-
-### P4-080: Security audit lending.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/lending.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/lending.js`
-
-### P4-081: Add rate limit to marketAnalytics.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/marketAnalytics.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/marketAnalytics.js`
-
-### P4-082: Fuzz test migration.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/migration.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/migration.js`
-
-### P4-083: Add reentrancy guard review for mining.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/mining.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/mining.js`
-
-### P4-084: Expand unit tests in multisig.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/multisig.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/multisig.js`
-
-### P4-085: Add e2e test for oncall.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/oncall.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/oncall.js`
-
-### P4-086: Harden auth on oracle.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/oracle.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/oracle.js`
-
-### P4-087: Add input validation to pause.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/pause.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/pause.js`
-
-### P4-088: Review access control in permissions.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/permissions.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/permissions.js`
-
-### P4-089: Add monitoring metric for referrals.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/referrals.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/referrals.js`
-
-### P4-090: Add alert rule for releases.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/releases.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/releases.js`
-
-### P4-091: Stress test risk.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/risk.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/risk.js`
-
-### P4-092: Add circuit breaker to rollback.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/rollback.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/rollback.js`
-
-### P4-093: Review oracle trust in runbooks.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/runbooks.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/runbooks.js`
-
-### P4-094: Add slippage bounds to shutdown.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/shutdown.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/shutdown.js`
-
-### P4-095: Pen-test endpoint sla.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/sla.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/sla.js`
-
-### P4-096: Add audit log for snapshots.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/snapshots.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/snapshots.js`
-
-### P4-097: Review gas limits in status.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/status.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/status.js`
-
-### P4-098: Add chaos test for swaps.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/swaps.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/swaps.js`
-
-### P4-099: Document threat model for tradeReports.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/tradeReports.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/tradeReports.js`
-
-### P4-100: Security audit trades.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/trades.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/trades.js`
-
-### P4-101: Add rate limit to uptime.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/uptime.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/uptime.js`
-
-### P4-102: Fuzz test index.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/routes/v1/index.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/routes/v1/index.js`
-
-### P4-103: Add reentrancy guard review for index.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/routes/v2/index.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/routes/v2/index.js`
-
-### P4-104: Expand unit tests in voting.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/routes/voting.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/routes/voting.js`
-
-### P4-105: Add e2e test for whitelist.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/routes/whitelist.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/routes/whitelist.js`
-
-### P4-106: Harden auth on yield.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/routes/yield.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/routes/yield.js`
-
-### P4-107: Add input validation to deploy.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/scripts/deploy.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
 **Related:** `Backend/scripts/deploy.js`
 
-### P4-108: Review access control in test.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/scripts/test.js.
+### P4-036: Harden auth flow in blacklist.js
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/routes/blacklist.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/scripts/test.js`
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/blacklist.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/routes/blacklist.js`
 
-### P4-109: Add monitoring metric for server.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/server.js.
+### P4-037: Add empty state to README.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/README.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/server.js`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/README.md`
 
-### P4-110: Add alert rule for abTesting.js
+### P4-038: Ensure package scripts cover LIQUIDATION.md
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/abTesting.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Contributors report friction around `Backend/LIQUIDATION.md`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/abTesting.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/LIQUIDATION.md`
+**Related:** `Backend/LIQUIDATION.md`
 
-### P4-111: Stress test alertRouting.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/alertRouting.js per Phase 4 checklist.
+### P4-039: Add event coverage test for FLASHBORROW_README.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/FLASHBORROW_README.md` in README or contract comments. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/alertRouting.js`
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_README.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/FLASHBORROW_README.md`
 
-### P4-112: Add circuit breaker to amlService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/amlService.js.
+### P4-040: Add glossary entry in DOES_IT_WORK_ANSWER.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `DOES_IT_WORK_ANSWER.md` that contradict the codebase. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/amlService.js`
+- [ ] Commands in `DOES_IT_WORK_ANSWER.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `DOES_IT_WORK_ANSWER.md`
 
-### P4-113: Review oracle trust in analyticsService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/analyticsService.js.
+### P4-041: Add CI job for deployService.js
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Backend/services/deployService.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/analyticsService.js`
-
-### P4-114: Add slippage bounds to approvalService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/approvalService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/approvalService.js`
-
-### P4-115: Pen-test endpoint arbitrageService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/arbitrageService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/arbitrageService.js`
-
-### P4-116: Add audit log for auditTrail.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/auditTrail.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/auditTrail.js`
-
-### P4-117: Review gas limits in batchProcessor.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/batchProcessor.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/batchProcessor.js`
-
-### P4-118: Add chaos test for betaAccess.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/betaAccess.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/betaAccess.js`
-
-### P4-119: Document threat model for blacklistService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/blacklistService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/blacklistService.js`
-
-### P4-120: Security audit breakerService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/breakerService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/breakerService.js`
-
-### P4-121: Add rate limit to bridgeService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/bridgeService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/bridgeService.js`
-
-### P4-122: Fuzz test claimService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/claimService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/claimService.js`
-
-### P4-123: Add reentrancy guard review for collateralService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/collateralService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/collateralService.js`
-
-### P4-124: Expand unit tests in complianceService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/complianceService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/complianceService.js`
-
-### P4-125: Add e2e test for compressionService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/compressionService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/compressionService.js`
-
-### P4-126: Harden auth on ddosProtection.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/ddosProtection.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/ddosProtection.js`
-
-### P4-127: Add input validation to deployService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/deployService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
 **Related:** `Backend/services/deployService.js`
 
-### P4-128: Review access control in deprecationService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/deprecationService.js.
+### P4-042: Review oracle trust in circuitBreaker.js
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/routes/circuitBreaker.js` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/deprecationService.js`
+- [ ] No secrets or private keys in `Backend/routes/circuitBreaker.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/routes/circuitBreaker.js`
 
-### P4-129: Add monitoring metric for disputeService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/disputeService.js.
+### P4-043: Wire wallet connect flow in SETTINGS_DOCUMENTATION.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/SETTINGS_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/disputeService.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/SETTINGS_DOCUMENTATION.md`
 
-### P4-130: Add alert rule for escalation.js
+### P4-044: Add smoke test for MARGIN.md
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/escalation.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/MARGIN.md`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/escalation.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/MARGIN.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/MARGIN.md`
 
-### P4-131: Stress test exportService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/exportService.js per Phase 4 checklist.
+### P4-045: Align ABI export for FlashLoanProtection.sol
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/FlashLoanProtection.sol`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/exportService.js`
+- [ ] `forge build` succeeds with `Contracts/FlashLoanProtection.sol`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/FlashLoanProtection.sol`
 
-### P4-132: Add circuit breaker to featureFlagService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/featureFlagService.js.
+### P4-046: Document env matrix in FEATURE_SUMMARY.md
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `FEATURE_SUMMARY.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/featureFlagService.js`
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `FEATURE_SUMMARY.md`
 
-### P4-133: Review oracle trust in freezeService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/freezeService.js.
+### P4-047: Add smoke test post-build for upgradeCoordinator.js
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Backend/services/upgradeCoordinator.js` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/freezeService.js`
-
-### P4-134: Add slippage bounds to gasOptimizer.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/gasOptimizer.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/gasOptimizer.js`
-
-### P4-135: Pen-test endpoint governanceService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/governanceService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/governanceService.js`
-
-### P4-136: Add audit log for healthCheck.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/healthCheck.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/healthCheck.js`
-
-### P4-137: Review gas limits in heartbeat.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/heartbeat.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/heartbeat.js`
-
-### P4-138: Add chaos test for importService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/importService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/importService.js`
-
-### P4-139: Document threat model for insuranceService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/insuranceService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/insuranceService.js`
-
-### P4-140: Security audit ipfsService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/ipfsService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/ipfsService.js`
-
-### P4-141: Add rate limit to kycService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/kycService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/kycService.js`
-
-### P4-142: Fuzz test lendingService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/lendingService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/lendingService.js`
-
-### P4-143: Add reentrancy guard review for liquidationService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/liquidationService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/liquidationService.js`
-
-### P4-144: Expand unit tests in marginEngine.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/marginEngine.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/marginEngine.js`
-
-### P4-145: Add e2e test for migrationService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/migrationService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/migrationService.js`
-
-### P4-146: Harden auth on miningService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/miningService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/miningService.js`
-
-### P4-147: Add input validation to multisigService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/multisigService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/multisigService.js`
-
-### P4-148: Review access control in oncallService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/oncallService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/oncallService.js`
-
-### P4-149: Add monitoring metric for oracleService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/oracleService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/oracleService.js`
-
-### P4-150: Add alert rule for pagerduty.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/pagerduty.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/pagerduty.js`
-
-### P4-151: Stress test pauseService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/pauseService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/pauseService.js`
-
-### P4-152: Add circuit breaker to permissionService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/permissionService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/permissionService.js`
-
-### P4-153: Review oracle trust in referralService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/referralService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/referralService.js`
-
-### P4-154: Add slippage bounds to releaseService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/releaseService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/releaseService.js`
-
-### P4-155: Pen-test endpoint riskService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/riskService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/riskService.js`
-
-### P4-156: Add audit log for rollbackService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/rollbackService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/rollbackService.js`
-
-### P4-157: Review gas limits in runbookService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/runbookService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/runbookService.js`
-
-### P4-158: Add chaos test for sanityChecker.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/sanityChecker.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/sanityChecker.js`
-
-### P4-159: Document threat model for schedulerService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/schedulerService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/schedulerService.js`
-
-### P4-160: Security audit shutdownService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/shutdownService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/shutdownService.js`
-
-### P4-161: Add rate limit to slaTracker.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/slaTracker.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/slaTracker.js`
-
-### P4-162: Fuzz test snapshotService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/snapshotService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/snapshotService.js`
-
-### P4-163: Add reentrancy guard review for statusService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/statusService.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/statusService.js`
-
-### P4-164: Expand unit tests in swapService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/swapService.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/swapService.js`
-
-### P4-165: Add e2e test for syncService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/syncService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/syncService.js`
-
-### P4-166: Harden auth on throttleService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/throttleService.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/throttleService.js`
-
-### P4-167: Add input validation to timeService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/timeService.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/services/timeService.js`
-
-### P4-168: Review access control in tradeAggregator.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/tradeAggregator.js.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/services/tradeAggregator.js`
-
-### P4-169: Add monitoring metric for tradeEngine.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/tradeEngine.js.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/tradeEngine.js`
-
-### P4-170: Add alert rule for tradeReportService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/tradeReportService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/services/tradeReportService.js`
-
-### P4-171: Stress test tradeValidator.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/tradeValidator.js per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/tradeValidator.js`
-
-### P4-172: Add circuit breaker to upgradeCoordinator.js
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/services/upgradeCoordinator.js.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
 **Related:** `Backend/services/upgradeCoordinator.js`
 
-### P4-173: Review oracle trust in uptimeService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/services/uptimeService.js.
+### P4-048: Stress test rate limiter in multisig.js
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/routes/multisig.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 - [ ] Security review completed with no critical findings
-**Related:** `Backend/services/uptimeService.js`
+**Related:** `Backend/routes/multisig.js`
 
-### P4-174: Add slippage bounds to votingService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/services/votingService.js.
+### P4-049: Fix TypeScript path alias in SETTINGS_QUICKSTART.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/SETTINGS_QUICKSTART.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/services/votingService.js`
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_QUICKSTART.md` fits the app shell
+**Related:** `Frontend/SETTINGS_QUICKSTART.md`
 
-### P4-175: Pen-test endpoint whitelistService.js
+### P4-050: Add missing module export in README.md
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/services/whitelistService.js: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/README.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/README.md`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/README.md`
+
+### P4-051: Verify remappings for GAS_OPTIMIZATION_REPORT.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/GAS_OPTIMIZATION_REPORT.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/GAS_OPTIMIZATION_REPORT.md`
+
+### P4-052: Fix broken links in FINAL_VERIFICATION_REPORT.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `FINAL_VERIFICATION_REPORT.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `FINAL_VERIFICATION_REPORT.md`
+
+### P4-053: Add parallel job for deploy.test.js
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Backend/tests/deploy.test.js` maps to staging vs production env vars. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/tests/deploy.test.js`
+
+### P4-054: Review multisig policy in whitelist.js
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/routes/whitelist.js` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/routes/whitelist.js`
+
+### P4-055: Add vitest coverage for SETTINGS_SUMMARY.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/SETTINGS_SUMMARY.md` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/SETTINGS_SUMMARY.md`
+
+### P4-056: Document setup for RISK.md
+**Labels:** `phase-4`, `backend`
+**Description:** Backend foundations: ensure `Backend/RISK.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/RISK.md`
+
+### P4-057: Add Foundry test for INTEGRATION_GUIDE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/INTEGRATION_GUIDE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/INTEGRATION_GUIDE.md`
+**Related:** `Contracts/INTEGRATION_GUIDE.md`
+
+### P4-058: Cross-link ADR in FLASHBORROW_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+**Related:** `FLASHBORROW_IMPLEMENTATION_SUMMARY.md`
+
+### P4-059: Configure env matrix in tsconfig.build.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/tsconfig.build.json`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/tsconfig.build.json`
+
+### P4-060: Review reentrancy surface in auditTrail.js
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/services/auditTrail.js`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/auditTrail.js`
+**Related:** `Backend/services/auditTrail.js`
+
+### P4-061: Validate env usage in TRADING_INTERFACE_DOCUMENTATION.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/TRADING_INTERFACE_DOCUMENTATION.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/TRADING_INTERFACE_DOCUMENTATION.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/TRADING_INTERFACE_DOCUMENTATION.md`
+
+### P4-062: Add health check for TRADE_REPORTS.md
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/TRADE_REPORTS.md` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/TRADE_REPORTS.md`
+
+### P4-063: Add invariant test for Liquidation.sol
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/Liquidation.sol`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/Liquidation.sol`
+- [ ] `forge build` succeeds with `Contracts/Liquidation.sol`
+**Related:** `Contracts/Liquidation.sol`
+
+### P4-064: Add phase checklist to FLASHBORROW_VERIFICATION.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `FLASHBORROW_VERIFICATION.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_VERIFICATION.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `FLASHBORROW_VERIFICATION.md`
+
+### P4-065: Configure secrets mapping for tsconfig.json
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `Backend/tsconfig.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/tsconfig.json`
+
+### P4-066: Fuzz abuse path in betaAccess.js
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/services/betaAccess.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/betaAccess.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/services/betaAccess.js`
+
+### P4-067: Add empty state to TRADING_INTERFACE_QUICKSTART.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/TRADING_INTERFACE_QUICKSTART.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/TRADING_INTERFACE_QUICKSTART.md`
+
+### P4-068: Ensure package scripts cover TRADE_REPORTS_SETUP.md
+**Labels:** `phase-4`, `backend`
+**Description:** Contributors report friction around `Backend/TRADE_REPORTS_SETUP.md`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/TRADE_REPORTS_SETUP.md`
+**Related:** `Backend/TRADE_REPORTS_SETUP.md`
+
+### P4-069: Add event coverage test for MARKET_CAP_IMPLEMENTATION.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_CAP_IMPLEMENTATION.md` in README or contract comments. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+
+### P4-070: Add glossary entry in README.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `Frontend/README.md` that contradict the codebase. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Commands in `Frontend/README.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `Frontend/README.md`
+
+### P4-071: Add CI job for test.yml
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Contracts/.github/workflows/test.yml` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/.github/workflows/test.yml`
+
+### P4-072: Add reentrancy review for blacklistService.js
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/services/blacklistService.js` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/services/blacklistService.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/services/blacklistService.js`
+
+### P4-073: Wire wallet connect flow in TRADING_INTERFACE_SUMMARY.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/TRADING_INTERFACE_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/TRADING_INTERFACE_SUMMARY.md`
+
+### P4-074: Add smoke test for UPTIME_MONITORING.md
+**Labels:** `phase-4`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/UPTIME_MONITORING.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/UPTIME_MONITORING.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/UPTIME_MONITORING.md`
+
+### P4-075: Align ABI export for MARKET_DELEGATION_API_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_DELEGATION_API_REFERENCE.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+
+### P4-076: Document env matrix in IMPLEMENTATION_CHECKLIST.md
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `IMPLEMENTATION_CHECKLIST.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_CHECKLIST.md`
+
+### P4-077: Add smoke test post-build for foundry.toml
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Contracts/foundry.toml` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/foundry.toml`
+
+### P4-078: Pen-test auth on multisigService.js
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/services/multisigService.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/services/multisigService.js`
+
+### P4-079: Fix TypeScript path alias in WEBSOCKET_IMPLEMENTATION.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/WEBSOCKET_IMPLEMENTATION.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_IMPLEMENTATION.md` fits the app shell
+**Related:** `Frontend/WEBSOCKET_IMPLEMENTATION.md`
+
+### P4-080: Add missing module export in pagerduty.js
+**Labels:** `phase-4`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/config/pagerduty.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/config/pagerduty.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/config/pagerduty.js`
+
+### P4-081: Verify remappings for MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md`
+
+### P4-082: Fix broken links in IMPLEMENTATION_COMPLETE.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `IMPLEMENTATION_COMPLETE.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `IMPLEMENTATION_COMPLETE.md`
+
+### P4-083: Add parallel job for package-lock.json
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Contracts/package-lock.json` maps to staging vs production env vars. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Contracts/package-lock.json`
+
+### P4-084: Document threat model for whitelistService.js
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/services/whitelistService.js` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/services/whitelistService.js`
 
-### P4-176: Add audit log for yieldService.js
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/services/yieldService.js per Phase 4 checklist.
+### P4-085: Add vitest coverage for WEBSOCKET_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md` before beta. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/services/yieldService.js`
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md`
 
-### P4-177: Review gas limits in ai.controller.ts
+### P4-086: Document setup for rateLimits.js
 **Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/ai/ai.controller.ts.
+**Description:** Backend foundations: ensure `Backend/config/rateLimits.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/ai/ai.controller.ts`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/config/rateLimits.js`
 
-### P4-178: Add chaos test for ai.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/ai/ai.module.ts.
+### P4-087: Add Foundry test for MARKET_DELEGATION_QUICK_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/ai/ai.module.ts`
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
+**Related:** `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
 
-### P4-179: Document threat model for ai.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/ai/ai.service.ts.
+### P4-088: Cross-link ADR in IMPLEMENTATION_REPORT.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `IMPLEMENTATION_REPORT.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/ai/ai.service.ts`
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_REPORT.md` verified on a clean checkout
+**Related:** `IMPLEMENTATION_REPORT.md`
 
-### P4-180: Security audit analysis.dto.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/ai/dto/analysis.dto.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-089: Configure env matrix in package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `Contracts/package.json`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/src/ai/dto/analysis.dto.ts`
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Contracts/package.json`
 
-### P4-181: Add rate limit to analytics.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/analytics/analytics.module.ts per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/src/analytics/analytics.module.ts`
-
-### P4-182: Fuzz test volume-analytics.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/analytics/volume-analytics.controller.ts.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/analytics/volume-analytics.controller.ts`
-
-### P4-183: Add reentrancy guard review for volume-analytics.entity.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/analytics/volume-analytics.entity.ts.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/analytics/volume-analytics.entity.ts`
-
-### P4-184: Expand unit tests in volume-analytics.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/analytics/volume-analytics.service.ts.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/analytics/volume-analytics.service.ts`
-
-### P4-185: Add e2e test for api-keys.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/api-keys/api-keys.controller.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
+### P4-090: Add audit log for auth.controller.ts
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/auth/auth.controller.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/src/api-keys/api-keys.controller.ts`
-
-### P4-186: Harden auth on api-keys.entity.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/api-keys/api-keys.entity.ts per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/src/api-keys/api-keys.entity.ts`
-
-### P4-187: Add input validation to api-keys.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/api-keys/api-keys.module.ts.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/api-keys/api-keys.module.ts`
-
-### P4-188: Review access control in api-keys.service.spec.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/api-keys/api-keys.service.spec.ts.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/api-keys/api-keys.service.spec.ts`
-
-### P4-189: Add monitoring metric for api-keys.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/api-keys/api-keys.service.ts.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/api-keys/api-keys.service.ts`
-
-### P4-190: Add alert rule for api-keys.dto.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/api-keys/dto/api-keys.dto.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/src/api-keys/dto/api-keys.dto.ts`
-
-### P4-191: Stress test app.controller.spec.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/app.controller.spec.ts per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/src/app.controller.spec.ts`
-
-### P4-192: Add circuit breaker to app.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/app.controller.ts.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/app.controller.ts`
-
-### P4-193: Review oracle trust in app.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/app.module.ts.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/app.module.ts`
-
-### P4-194: Add slippage bounds to app.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/app.service.ts.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/app.service.ts`
-
-### P4-195: Pen-test endpoint approval.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/approval/approval.controller.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/src/approval/approval.controller.ts`
-
-### P4-196: Add audit log for approval.entity.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/approval/approval.entity.ts per Phase 4 checklist.
-**Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-**Related:** `Backend/src/approval/approval.entity.ts`
-
-### P4-197: Review gas limits in approval.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/approval/approval.module.ts.
-**Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/approval/approval.module.ts`
-
-### P4-198: Add chaos test for approval.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/approval/approval.service.ts.
-**Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/approval/approval.service.ts`
-
-### P4-199: Document threat model for approval.dto.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/approval/dto/approval.dto.ts.
-**Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/approval/dto/approval.dto.ts`
-
-### P4-200: Security audit auth.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/auth/auth.controller.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
-**Acceptance criteria:**
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.controller.ts`
 **Related:** `Backend/src/auth/auth.controller.ts`
 
-### P4-201: Add rate limit to auth.module.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/auth/auth.module.ts per Phase 4 checklist.
+### P4-091: Validate env usage in WEBSOCKET_QUICKSTART.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/WEBSOCKET_QUICKSTART.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/WEBSOCKET_QUICKSTART.md`
+
+### P4-092: Add health check for eslint.config.mjs
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/eslint.config.mjs` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/eslint.config.mjs`
+
+### P4-093: Add invariant test for MARKET_DELEGATION_README.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_DELEGATION_README.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_README.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_README.md`
+**Related:** `Contracts/MARKET_DELEGATION_README.md`
+
+### P4-094: Add phase checklist to IMPLEMENTATION_SUCCESS.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `IMPLEMENTATION_SUCCESS.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_SUCCESS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `IMPLEMENTATION_SUCCESS.md`
+
+### P4-095: Configure secrets mapping for DeployMarketCap.s.sol
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `Contracts/script/DeployMarketCap.s.sol` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Contracts/script/DeployMarketCap.s.sol`
+
+### P4-096: Fuzz test auth.module.ts
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/src/auth/auth.module.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.module.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/auth.module.ts`
 
-### P4-202: Fuzz test auth.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/auth/auth.service.ts.
+### P4-097: Add empty state to WEBSOCKET_SUMMARY.md
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/WEBSOCKET_SUMMARY.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/WEBSOCKET_SUMMARY.md`
+
+### P4-098: Ensure package scripts cover heartbeatServer.js
+**Labels:** `phase-4`, `backend`
+**Description:** Contributors report friction around `Backend/heartbeatServer.js`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/heartbeatServer.js`
+**Related:** `Backend/heartbeatServer.js`
+
+### P4-099: Add event coverage test for MARKET_RELAY_IMPLEMENTATION.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_RELAY_IMPLEMENTATION.md` in README or contract comments. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+
+### P4-100: Add glossary entry in IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `IMPLEMENTATION_SUMMARY.md` that contradict the codebase. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Commands in `IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `IMPLEMENTATION_SUMMARY.md`
+
+### P4-101: Add CI job for DeployRevokeFunction.s.sol
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Contracts/script/DeployRevokeFunction.s.sol` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/script/DeployRevokeFunction.s.sol`
+
+### P4-102: Add monitoring alert for auth.service.ts
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/src/auth/auth.service.ts` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/auth/auth.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/src/auth/auth.service.ts`
 
-### P4-203: Add reentrancy guard review for auth.dto.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/auth/dto/auth.dto.ts.
+### P4-103: Wire wallet connect flow in page.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/analytics/page.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/analytics/page.tsx`
+
+### P4-104: Add smoke test for arbitrageMonitor.js
+**Labels:** `phase-4`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/arbitrageMonitor.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/arbitrageMonitor.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/arbitrageMonitor.js`
+
+### P4-105: Align ABI export for MARKET_RELAY_INTEGRATION_GUIDE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+
+### P4-106: Document env matrix in IMPLEMENTATION_VERIFIED.txt
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `IMPLEMENTATION_VERIFIED.txt` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_VERIFIED.txt`
+
+### P4-107: Add smoke test post-build for DeployVoteWeight.s.sol
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Contracts/script/DeployVoteWeight.s.sol` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/script/DeployVoteWeight.s.sol`
+
+### P4-108: Add input validation to auth.dto.ts
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/src/auth/dto/auth.dto.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 - [ ] Security review completed with no critical findings
 **Related:** `Backend/src/auth/dto/auth.dto.ts`
 
-### P4-204: Expand unit tests in user.entity.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/auth/entities/user.entity.ts.
+### P4-109: Fix TypeScript path alias in page.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api-keys/page.tsx` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api-keys/page.tsx` fits the app shell
+**Related:** `Frontend/app/api-keys/page.tsx`
+
+### P4-110: Add missing module export in batchExecutor.js
+**Labels:** `phase-4`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/jobs/batchExecutor.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/batchExecutor.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/batchExecutor.js`
+
+### P4-111: Verify remappings for MARKET_RELAY_QUICK_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_RELAY_QUICK_REFERENCE.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_RELAY_QUICK_REFERENCE.md`
+
+### P4-112: Fix broken links in LIQUIDATION_IMPLEMENTATION.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `LIQUIDATION_IMPLEMENTATION.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `LIQUIDATION_IMPLEMENTATION.md`
+
+### P4-113: Add parallel job for hardhat.config.js
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Frontend/localnet/hardhat.config.js` maps to staging vs production env vars. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/localnet/hardhat.config.js`
+
+### P4-114: Review secrets exposure in user.entity.ts
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/src/auth/entities/user.entity.ts` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/src/auth/entities/user.entity.ts`
 
-### P4-205: Add e2e test for jwt-auth.guard.ts
+### P4-115: Add vitest coverage for route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/api/ipfs/gateway/[hash]/route.ts` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/gateway/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/ipfs/gateway/[hash]/route.ts`
+
+### P4-116: Document setup for complianceChecker.js
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/auth/guards/jwt-auth.guard.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Backend foundations: ensure `Backend/jobs/complianceChecker.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/complianceChecker.js`
+
+### P4-117: Add Foundry test for MARKET_RELAY_README.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/MARKET_RELAY_README.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_README.md`
+**Related:** `Contracts/MARKET_RELAY_README.md`
+
+### P4-118: Cross-link ADR in LIQUIDATION_QUICK_START.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `LIQUIDATION_QUICK_START.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `LIQUIDATION_QUICK_START.md` verified on a clean checkout
+**Related:** `LIQUIDATION_QUICK_START.md`
+
+### P4-119: Configure env matrix in package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `Frontend/localnet/package.json`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Frontend/localnet/package.json`
+
+### P4-120: Add beta gate check in jwt-auth.guard.ts
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/auth/guards/jwt-auth.guard.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/guards/jwt-auth.guard.ts`
 **Related:** `Backend/src/auth/guards/jwt-auth.guard.ts`
 
-### P4-206: Harden auth on jwt.strategy.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Security and reliability requirement for Backend/src/auth/strategies/jwt.strategy.ts per Phase 4 checklist.
+### P4-121: Validate env usage in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api/ipfs/pin/[hash]/route.ts` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/pin/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ipfs/pin/[hash]/route.ts`
+
+### P4-122: Add health check for heartbeatMonitor.js
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/jobs/heartbeatMonitor.js` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/heartbeatMonitor.js`
+
+### P4-123: Add invariant test for MARKET_RELAY_SECURITY_ANALYSIS.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+**Related:** `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+
+### P4-124: Add phase checklist to MARKET_DELEGATION_CHECKLIST.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `MARKET_DELEGATION_CHECKLIST.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MARKET_DELEGATION_CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `MARKET_DELEGATION_CHECKLIST.md`
+
+### P4-125: Configure secrets mapping for deploy.js
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `Frontend/localnet/scripts/deploy.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Frontend/localnet/scripts/deploy.js`
+
+### P4-126: Review gas griefing in jwt.strategy.ts
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/src/auth/strategies/jwt.strategy.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/strategies/jwt.strategy.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/strategies/jwt.strategy.ts`
 
-### P4-207: Add input validation to blockchain.controller.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Expand test coverage and add negative-path cases for Backend/src/blockchain/blockchain.controller.ts.
+### P4-127: Add empty state to route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/app/api/ipfs/retrieve/[hash]/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Rate limits or guards verified under load
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-**Related:** `Backend/src/blockchain/blockchain.controller.ts`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/ipfs/retrieve/[hash]/route.ts`
 
-### P4-208: Review access control in blockchain.module.ts
+### P4-128: Ensure package scripts cover liquidationMonitor.js
 **Labels:** `phase-4`, `backend`
-**Description:** Rate limiter (`Backend/src/rate-limiter/`) and contract guards must cover flows involving Backend/src/blockchain/blockchain.module.ts.
+**Description:** Contributors report friction around `Backend/jobs/liquidationMonitor.js`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Monitoring/alerting configured
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-**Related:** `Backend/src/blockchain/blockchain.module.ts`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/liquidationMonitor.js`
+**Related:** `Backend/jobs/liquidationMonitor.js`
 
-### P4-209: Add monitoring metric for blockchain.service.ts
-**Labels:** `phase-4`, `backend`
-**Description:** Operational readiness: metrics, alerts, and runbooks for failures in Backend/src/blockchain/blockchain.service.ts.
+### P4-129: Add event coverage test for MarketMinter.sol
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MarketMinter.sol` in README or contract comments. _(Phase 4: hardening.)_
 **Acceptance criteria:**
-- [ ] Documented rollback procedure
-- [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-**Related:** `Backend/src/blockchain/blockchain.service.ts`
+- [ ] No critical compiler warnings in `Contracts/MarketMinter.sol`
+- [ ] `forge build` succeeds with `Contracts/MarketMinter.sol`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MarketMinter.sol`
 
-### P4-210: Add alert rule for nonce.dto.ts
+### P4-130: Add glossary entry in MARKET_DELEGATION_COMPLETE.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `MARKET_DELEGATION_COMPLETE.md` that contradict the codebase. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Commands in `MARKET_DELEGATION_COMPLETE.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `MARKET_DELEGATION_COMPLETE.md`
+
+### P4-131: Add CI job for package-lock.json
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Frontend/package-lock.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Frontend/package-lock.json`
+
+### P4-132: Review rate limits for market-audit.dto.ts
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/src/market-audit/dto/market-audit.dto.ts` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/dto/market-audit.dto.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/dto/market-audit.dto.ts`
+
+### P4-133: Wire wallet connect flow in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/upload-json/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/ipfs/upload-json/route.ts`
+
+### P4-134: Add smoke test for sanityCheck.js
 **Labels:** `phase-4`, `backend`
-**Description:** Hardening pass on Backend/src/blockchain/dto/nonce.dto.ts: identify abuse vectors, add limits, tests, and monitoring before public launch.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/sanityCheck.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/sanityCheck.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/sanityCheck.js`
+
+### P4-135: Align ABI export for QUICK_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/QUICK_REFERENCE.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/QUICK_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/QUICK_REFERENCE.md`
+
+### P4-136: Document env matrix in MARKET_RELAY_DELIVERY_SUMMARY.md
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `MARKET_RELAY_DELIVERY_SUMMARY.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `MARKET_RELAY_DELIVERY_SUMMARY.md`
+
+### P4-137: Add smoke test post-build for package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Frontend/package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Frontend/package.json`
+
+### P4-138: Pen-test endpoint behind market-audit.controller.ts
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/src/market-audit/market-audit.controller.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/market-audit/market-audit.controller.ts`
+
+### P4-139: Fix TypeScript path alias in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api/market-audit/route.ts` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-audit/route.ts` fits the app shell
+**Related:** `Frontend/app/api/market-audit/route.ts`
+
+### P4-140: Add missing module export in snapshotCapture.js
+**Labels:** `phase-4`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/jobs/snapshotCapture.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/snapshotCapture.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/snapshotCapture.js`
+
+### P4-141: Verify remappings for README.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/README.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/README.md`
+
+### P4-142: Fix broken links in MARKET_RELAY_FILES_CHECKLIST.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `MARKET_RELAY_FILES_CHECKLIST.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `MARKET_RELAY_FILES_CHECKLIST.md`
+
+### P4-143: Add parallel job for tsconfig.json
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Frontend/tsconfig.json` maps to staging vs production env vars. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/tsconfig.json`
+
+### P4-144: Review CORS policy for market-audit.entity.ts
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/src/market-audit/market-audit.entity.ts` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/market-audit/market-audit.entity.ts`
+
+### P4-145: Add vitest coverage for route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/api/market-sentiment/route.ts` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-sentiment/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/market-sentiment/route.ts`
+
+### P4-146: Document setup for tradeExecutor.js
+**Labels:** `phase-4`, `backend`
+**Description:** Backend foundations: ensure `Backend/jobs/tradeExecutor.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/tradeExecutor.js`
+
+### P4-147: Add Foundry test for README_MARKETCAP.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/README_MARKETCAP.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_MARKETCAP.md`
+**Related:** `Contracts/README_MARKETCAP.md`
+
+### P4-148: Cross-link ADR in MINTING_PAUSABLE_IMPLEMENTATION.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `MINTING_PAUSABLE_IMPLEMENTATION.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MINTING_PAUSABLE_IMPLEMENTATION.md` verified on a clean checkout
+**Related:** `MINTING_PAUSABLE_IMPLEMENTATION.md`
+
+### P4-149: Configure env matrix in package-lock.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `package-lock.json`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `package-lock.json`
+
+### P4-150: Add chaos scenario for market-audit.module.ts
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/market-audit/market-audit.module.ts`. _(Phase 4: hardening.)_
 **Acceptance criteria:**
 - [ ] Security review completed with no critical findings
-- [ ] Negative-path tests added and passing
-- [ ] Rate limits or guards verified under load
-**Related:** `Backend/src/blockchain/dto/nonce.dto.ts`
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.module.ts`
+**Related:** `Backend/src/market-audit/market-audit.module.ts`
+
+### P4-151: Validate env usage in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api/multisig/execute/route.ts` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/execute/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/multisig/execute/route.ts`
+
+### P4-152: Add health check for upgradeManager.js
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/jobs/upgradeManager.js` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P4-153: Add invariant test for README_VOTE_DELEGATION.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/README_VOTE_DELEGATION.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_VOTE_DELEGATION.md`
+- [ ] `forge build` succeeds with `Contracts/README_VOTE_DELEGATION.md`
+**Related:** `Contracts/README_VOTE_DELEGATION.md`
+
+### P4-154: Add phase checklist to PHASES.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `PHASES.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASES.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASES.md`
+
+### P4-155: Configure secrets mapping for package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `package.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `package.json`
+
+### P4-156: Audit access control in market-audit.service.spec.ts
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/src/market-audit/market-audit.service.spec.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.spec.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/market-audit/market-audit.service.spec.ts`
+
+### P4-157: Add empty state to route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/app/api/multisig/propose/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/multisig/propose/route.ts`
+
+### P4-158: Ensure package scripts cover backwardCompat.js
+**Labels:** `phase-4`, `backend`
+**Description:** Contributors report friction around `Backend/middleware/backwardCompat.js`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/backwardCompat.js`
+**Related:** `Backend/middleware/backwardCompat.js`
+
+### P4-159: Add event coverage test for REVOKE_FUNCTION_API_REFERENCE.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/REVOKE_FUNCTION_API_REFERENCE.md` in README or contract comments. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+
+### P4-160: Add glossary entry in PHASE_1.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `PHASE_1.md` that contradict the codebase. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Commands in `PHASE_1.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PHASE_1.md`
+
+### P4-161: Add CI job for ci.yml
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `.github/workflows/ci.yml` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `.github/workflows/ci.yml`
+
+### P4-162: Add circuit breaker check for market-audit.service.ts
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/src/market-audit/market-audit.service.ts` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/market-audit.service.ts`
+
+### P4-163: Wire wallet connect flow in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/sign/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/multisig/sign/route.ts`
+
+### P4-164: Add smoke test for ddosGuard.js
+**Labels:** `phase-4`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/middleware/ddosGuard.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/ddosGuard.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/ddosGuard.js`
+
+### P4-165: Align ABI export for REVOKE_FUNCTION_DOCUMENTATION.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+
+### P4-166: Document env matrix in PHASE_2.md
+**Labels:** `phase-4`, `docs`
+**Description:** Documentation: `PHASE_2.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `PHASE_2.md`
+
+### P4-167: Add smoke test post-build for .env.example
+**Labels:** `phase-4`, `infra`
+**Description:** Phase 4 CI — ensure `Backend/.env.example` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/.env.example`
+
+### P4-168: Add slippage bounds in rate-limiter.config.ts
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/src/rate-limiter/rate-limiter.config.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/rate-limiter/rate-limiter.config.ts`
+
+### P4-169: Fix TypeScript path alias in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api/multisig/status/[txId]/route.ts` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/status/[txId]/route.ts` fits the app shell
+**Related:** `Frontend/app/api/multisig/status/[txId]/route.ts`
+
+### P4-170: Add missing module export in deprecation.js
+**Labels:** `phase-4`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/middleware/deprecation.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/middleware/deprecation.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/middleware/deprecation.js`
+
+### P4-171: Verify remappings for REVOKE_FUNCTION_FEATURES.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Contracts foundations: `Contracts/REVOKE_FUNCTION_FEATURES.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/REVOKE_FUNCTION_FEATURES.md`
+
+### P4-172: Fix broken links in PHASE_3.md
+**Labels:** `phase-4`, `docs`
+**Description:** Phase 4 docs pass — verify `PHASE_3.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `PHASE_3.md`
+
+### P4-173: Add parallel job for upgradeManager.js
+**Labels:** `phase-4`, `infra`
+**Description:** Document how `Backend/jobs/upgradeManager.js` maps to staging vs production env vars. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P4-174: Expand negative tests in rate-limiter.decorator.ts
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/src/rate-limiter/rate-limiter.decorator.ts` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/rate-limiter/rate-limiter.decorator.ts`
+
+### P4-175: Add vitest coverage for route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/api/multisig/wallet/[walletId]/route.ts` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/wallet/[walletId]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/multisig/wallet/[walletId]/route.ts`
+
+### P4-176: Document setup for permissions.js
+**Labels:** `phase-4`, `backend`
+**Description:** Backend foundations: ensure `Backend/middleware/permissions.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/middleware/permissions.js`
+
+### P4-177: Add Foundry test for REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Phase 4 ensures `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+**Related:** `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+
+### P4-178: Cross-link ADR in PHASE_4.md
+**Labels:** `phase-4`, `docs`
+**Description:** Reduce onboarding time: `PHASE_4.md` should answer "how do I run wallet + trade flow locally?" _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_4.md` verified on a clean checkout
+**Related:** `PHASE_4.md`
+
+### P4-179: Configure env matrix in package-lock.json
+**Labels:** `phase-4`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/package-lock.json`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/package-lock.json`
+
+### P4-180: Add circuit breaker test for rate-limiter.guard.ts
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/rate-limiter/rate-limiter.guard.ts`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.guard.ts`
+**Related:** `Backend/src/rate-limiter/rate-limiter.guard.ts`
+
+### P4-181: Validate env usage in route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api/ping/route.ts` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ping/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ping/route.ts`
+
+### P4-182: Add health check for rateLimiter.js
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/middleware/rateLimiter.js` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/middleware/rateLimiter.js`
+
+### P4-183: Add invariant test for REVOKE_FUNCTION_QUICK_START.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/REVOKE_FUNCTION_QUICK_START.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+**Related:** `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+
+### P4-184: Add phase checklist to PHASE_5.md
+**Labels:** `phase-4`, `docs`
+**Description:** Link `PHASE_5.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_5.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASE_5.md`
+
+### P4-185: Configure secrets mapping for package.json
+**Labels:** `phase-4`, `infra`
+**Description:** Coordinate `Backend/package.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/package.json`
+
+### P4-186: Harden auth flow in rate-limiter.module.ts
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/src/rate-limiter/rate-limiter.module.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.module.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/rate-limiter/rate-limiter.module.ts`
+
+### P4-187: Add empty state to route.ts
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/app/api/trending-markets/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/trending-markets/route.ts`
+
+### P4-188: Ensure package scripts cover throttle.js
+**Labels:** `phase-4`, `backend`
+**Description:** Contributors report friction around `Backend/middleware/throttle.js`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/throttle.js`
+**Related:** `Backend/middleware/throttle.js`
+
+### P4-189: Add event coverage test for REVOKE_FUNCTION_README.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/REVOKE_FUNCTION_README.md` in README or contract comments. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_README.md`
+
+### P4-190: Add glossary entry in PR_INSTRUCTIONS.md
+**Labels:** `phase-4`, `docs`
+**Description:** Remove outdated implementation claims in `PR_INSTRUCTIONS.md` that contradict the codebase. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Commands in `PR_INSTRUCTIONS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PR_INSTRUCTIONS.md`
+
+### P4-191: Add CI job for deploy.js
+**Labels:** `phase-4`, `infra`
+**Description:** Infra: `Backend/scripts/deploy.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/scripts/deploy.js`
+
+### P4-192: Review oracle trust in rate-limiter.service.ts
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/src/rate-limiter/rate-limiter.service.ts` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/rate-limiter/rate-limiter.service.ts`
+
+### P4-193: Wire wallet connect flow in page.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/archive/page.tsx`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/archive/page.tsx`
+
+### P4-194: Add smoke test for tradeValidation.js
+**Labels:** `phase-4`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/middleware/tradeValidation.js`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/tradeValidation.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/tradeValidation.js`
+
+### P4-195: Align ABI export for RoleManager.sol
+**Labels:** `phase-4`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/RoleManager.sol`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/RoleManager.sol`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/RoleManager.sol`
+
+### P4-196: Fuzz test verification.dto.ts
+**Labels:** `phase-4`, `security`
+**Description:** Security: review `Backend/src/verification/dto/verification.dto.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/verification/dto/verification.dto.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/verification/dto/verification.dto.ts`
+
+### P4-197: Align route layout for page.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Phase 4 requires `Frontend/app/audit/page.tsx` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/audit/page.tsx`
+
+### P4-198: Stabilize boot sequence of version.js
+**Labels:** `phase-4`, `backend`
+**Description:** Contributors report friction around `Backend/middleware/version.js`; eliminate silent failures on `npm run start:dev`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/version.js`
+**Related:** `Backend/middleware/version.js`
+
+### P4-199: Resolve import path in VERIFICATION_REPORT.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/VERIFICATION_REPORT.md` in README or contract comments. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/VERIFICATION_REPORT.md`
+- [ ] `forge build` succeeds with `Contracts/VERIFICATION_REPORT.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/VERIFICATION_REPORT.md`
+
+### P4-200: Add chaos scenario for verification.controller.ts
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/verification/verification.controller.ts`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/verification/verification.controller.ts`
+**Related:** `Backend/src/verification/verification.controller.ts`
+
+### P4-201: Stabilize hydration in BridgeClient.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/bridge/BridgeClient.tsx` builds under `Frontend/` Next.js app without runtime errors. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/bridge/BridgeClient.tsx` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/bridge/BridgeClient.tsx`
+
+### P4-202: Fix lint violations in 001_init_markets.js
+**Labels:** `phase-4`, `backend`
+**Description:** Phase 4 stabilizes the repo; `Backend/migrations/001_init_markets.js` must match the canonical run path in README. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/migrations/001_init_markets.js`
+
+### P4-203: Cross-check LMSR/CLOB usage in VOTEWEIGHT_CHECKLIST.md
+**Labels:** `phase-4`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/VOTEWEIGHT_CHECKLIST.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/VOTEWEIGHT_CHECKLIST.md`
+- [ ] `forge build` succeeds with `Contracts/VOTEWEIGHT_CHECKLIST.md`
+**Related:** `Contracts/VOTEWEIGHT_CHECKLIST.md`
+
+### P4-204: Review multisig policy in verification.module.ts
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/src/verification/verification.module.ts` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/verification/verification.module.ts`
+
+### P4-205: Add vitest coverage for page.tsx
+**Labels:** `phase-4`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/bridge/page.tsx` before beta. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/bridge/page.tsx` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/bridge/page.tsx`
+
+### P4-206: Document setup for AuditLog.js
+**Labels:** `phase-4`, `backend`
+**Description:** Backend foundations: ensure `Backend/models/AuditLog.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/models/AuditLog.js`
+
+### P4-207: Review rate limits for verification.service.spec.ts
+**Labels:** `phase-4`, `security`
+**Description:** Phase 4 security baseline — `Backend/src/verification/verification.service.spec.ts` must not expose admin routes or keys without guards. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/verification/verification.service.spec.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/verification/verification.service.spec.ts`
+
+### P4-208: Add input validation to verification.service.ts
+**Labels:** `phase-4`, `security`
+**Description:** Align `Backend/src/verification/verification.service.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/verification/verification.service.ts`
+
+### P4-209: Document threat model for multisig.test.js
+**Labels:** `phase-4`, `security`
+**Description:** Document trust assumptions for `Backend/test/multisig.test.js` (oracles, multisig, beta access). _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/test/multisig.test.js`
+
+### P4-210: Review reentrancy surface in CIRCUIT_BREAKER_IMPLEMENTATION.md
+**Labels:** `phase-4`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `CIRCUIT_BREAKER_IMPLEMENTATION.md`. _(Phase 4: hardening.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `CIRCUIT_BREAKER_IMPLEMENTATION.md`
+**Related:** `CIRCUIT_BREAKER_IMPLEMENTATION.md`

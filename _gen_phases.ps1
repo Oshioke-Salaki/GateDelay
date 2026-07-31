@@ -1,6 +1,16 @@
 # Generates PHASES.md and PHASE_1.md … PHASE_5.md
+# Prefer: bun _gen_phases.js  (balanced area distribution)
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
+
+$bun = Get-Command bun -ErrorAction SilentlyContinue
+if ($bun) {
+    Write-Host "Delegating to bun _gen_phases.js"
+    & bun (Join-Path $Root "_gen_phases.js")
+    exit $LASTEXITCODE
+}
+
+Write-Warning "Bun not found; using legacy inline generator (backend-heavy). Install Bun and run: bun _gen_phases.js"
 $IssuesPerPhase = 210
 
 $PhaseMeta = @(

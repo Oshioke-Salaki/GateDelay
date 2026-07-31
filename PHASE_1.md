@@ -1,7 +1,9 @@
 # Phase 1: Stabilize foundations
 
 > **Theme:** Stabilize foundations
-> **Goal:** Docs, build/run reproducibility, unify Backend runtime paths, fix critical boot/blocker bugs, and establish contributor onboarding.
+> **Goal:** Docs, build/run reproducibility, unify Backend runtime paths, fix critical boot/blocker bugs, and establish contributor onboarding across all layers.
+
+> **Area distribution:** frontend 33, backend 37, contracts 32, docs 38, infra 38, security 32 (210 issues)
 
 Parent index: [PHASES.md](PHASES.md)
 
@@ -10,1893 +12,1894 @@ Parent index: [PHASES.md](PHASES.md)
 ## Issues (210 tracked)
 
 Copy any issue below into GitHub using the template in [PHASES.md](PHASES.md#filing-github-issues).
+Issues span frontend, backend, contracts, docs, infra, and security within this phase theme.
 
-### P1-001: Fix broken import in API_PROTECTION_README.md
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/API_PROTECTION_README.md must be verified against the canonical build/run path described in README.
+### P1-001: Wire wallet connect flow in ARBITRAGE_DEMO.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ARBITRAGE_DEMO.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/API_PROTECTION_README.md`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ARBITRAGE_DEMO.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ARBITRAGE_DEMO.md`
 
-### P1-002: Unify Express/Nest path for COLLATERAL.md
+### P1-002: Add smoke test for .env.example
 **Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/COLLATERAL.md; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/COLLATERAL.md`
-
-### P1-003: Add smoke test for DEPOSIT_SERVICE_DOCUMENTATION.md
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/DEPOSIT_SERVICE_DOCUMENTATION.md.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
-
-### P1-004: Validate env vars for DEPOSIT_SERVICE_README.md
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/DEPOSIT_SERVICE_README.md before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/DEPOSIT_SERVICE_README.md`
-
-### P1-005: Remove dead code in IMPLEMENTATION.md
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/IMPLEMENTATION.md is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/IMPLEMENTATION.md`
-
-### P1-006: Align README with LIQUIDATION.md
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/LIQUIDATION.md must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/LIQUIDATION.md`
-
-### P1-007: Add health check for MARGIN.md
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/MARGIN.md; reduce setup time and eliminate silent failures on first run.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/.env.example`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/MARGIN.md`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/.env.example`
 
-### P1-008: Stabilize boot sequence of README.md
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/README.md.
+### P1-003: Align ABI export for test.yml
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/.github/workflows/test.yml`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/README.md`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/.github/workflows/test.yml`
+- [ ] `forge build` succeeds with `Contracts/.github/workflows/test.yml`
+**Related:** `Contracts/.github/workflows/test.yml`
 
-### P1-009: Resolve TypeScript errors in RISK.md
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/RISK.md before Phase 2 market wiring begins.
+### P1-004: Document env matrix in BUG_ANALYSIS_REPORT.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `BUG_ANALYSIS_REPORT.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/RISK.md`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `BUG_ANALYSIS_REPORT.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `BUG_ANALYSIS_REPORT.md`
 
-### P1-010: Add missing module export in TRADE_REPORTS.md
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/TRADE_REPORTS.md is documented, buildable, and free of critical boot errors blocking local development.
+### P1-005: Add smoke test post-build for ci.yml
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `.github/workflows/ci.yml` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/TRADE_REPORTS.md`
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `.github/workflows/ci.yml`
 
-### P1-011: Consolidate duplicate logic in TRADE_REPORTS_SETUP.md
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/TRADE_REPORTS_SETUP.md must be verified against the canonical build/run path described in README.
+### P1-006: Pen-test endpoint behind rateLimits.js
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/config/rateLimits.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/TRADE_REPORTS_SETUP.md`
-
-### P1-012: Add CONTRIBUTING note for UPTIME_MONITORING.md
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/UPTIME_MONITORING.md; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/UPTIME_MONITORING.md`
-
-### P1-013: Fix lint violations in pagerduty.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/config/pagerduty.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/config/pagerduty.js`
-
-### P1-014: Ensure package scripts cover rateLimits.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/config/rateLimits.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/config/rateLimits.js`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/config/rateLimits.js`
 
-### P1-015: Add startup logging to eslint.config.mjs
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/eslint.config.mjs is documented, buildable, and free of critical boot errors blocking local development.
+### P1-007: Fix TypeScript path alias in ERROR_BOUNDARY_CHECKLIST.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/ERROR_BOUNDARY_CHECKLIST.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/eslint.config.mjs`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/ERROR_BOUNDARY_CHECKLIST.md`
 
-### P1-016: Verify dependency versions in heartbeatServer.js
+### P1-008: Add missing module export in API_PROTECTION_README.md
 **Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/heartbeatServer.js must be verified against the canonical build/run path described in README.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/API_PROTECTION_README.md`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/heartbeatServer.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/API_PROTECTION_README.md`
+**Related:** `Backend/API_PROTECTION_README.md`
 
-### P1-017: Add .env.example entry for arbitrageMonitor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/jobs/arbitrageMonitor.js; reduce setup time and eliminate silent failures on first run.
+### P1-009: Verify remappings for API_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/API_REFERENCE.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/jobs/arbitrageMonitor.js`
+- [ ] No critical compiler warnings in `Contracts/API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/API_REFERENCE.md`
 
-### P1-018: Fix path alias in batchExecutor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/jobs/batchExecutor.js.
+### P1-010: Fix broken links in CHECKLIST.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `CHECKLIST.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/jobs/batchExecutor.js`
+- [ ] Commands in `CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `CHECKLIST.md`
 
-### P1-019: Add basic integration test for complianceChecker.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/jobs/complianceChecker.js before Phase 2 market wiring begins.
+### P1-011: Add parallel job for .env.example
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Backend/.env.example` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/jobs/complianceChecker.js`
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/.env.example`
 
-### P1-020: Document setup for heartbeatMonitor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/jobs/heartbeatMonitor.js is documented, buildable, and free of critical boot errors blocking local development.
+### P1-012: Review CORS policy for ddosGuard.js
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/middleware/ddosGuard.js` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/jobs/heartbeatMonitor.js`
-
-### P1-021: Fix broken import in liquidationMonitor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/jobs/liquidationMonitor.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/jobs/liquidationMonitor.js`
-
-### P1-022: Unify Express/Nest path for sanityCheck.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/jobs/sanityCheck.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/jobs/sanityCheck.js`
-
-### P1-023: Add smoke test for snapshotCapture.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/jobs/snapshotCapture.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/jobs/snapshotCapture.js`
-
-### P1-024: Validate env vars for tradeExecutor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/jobs/tradeExecutor.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/jobs/tradeExecutor.js`
-
-### P1-025: Remove dead code in upgradeManager.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/jobs/upgradeManager.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/jobs/upgradeManager.js`
-
-### P1-026: Align README with backwardCompat.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/middleware/backwardCompat.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/middleware/backwardCompat.js`
-
-### P1-027: Add health check for ddosGuard.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/middleware/ddosGuard.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] No secrets or private keys in `Backend/middleware/ddosGuard.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/middleware/ddosGuard.js`
 
-### P1-028: Stabilize boot sequence of deprecation.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/middleware/deprecation.js.
+### P1-013: Add vitest coverage for ERROR_BOUNDARY_DOCUMENTATION.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md` before beta. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/middleware/deprecation.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/ERROR_BOUNDARY_DOCUMENTATION.md`
 
-### P1-029: Resolve TypeScript errors in permissions.js
+### P1-014: Document setup for COLLATERAL.md
 **Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/middleware/permissions.js before Phase 2 market wiring begins.
+**Description:** Backend foundations: ensure `Backend/COLLATERAL.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/middleware/permissions.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/COLLATERAL.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/COLLATERAL.md`
 
-### P1-030: Add missing module export in rateLimiter.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/middleware/rateLimiter.js is documented, buildable, and free of critical boot errors blocking local development.
+### P1-015: Add Foundry test for BUG_ANALYSIS_AND_FIXES.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/BUG_ANALYSIS_AND_FIXES.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
+- [ ] `forge build` succeeds with `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/BUG_ANALYSIS_AND_FIXES.md`
+
+### P1-016: Cross-link ADR in CIRCUIT_BREAKER_IMPLEMENTATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `CIRCUIT_BREAKER_IMPLEMENTATION.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `CIRCUIT_BREAKER_IMPLEMENTATION.md`
+
+### P1-017: Configure env matrix in upgradeManager.js
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/jobs/upgradeManager.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P1-018: Review reentrancy surface in rateLimiter.js
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/middleware/rateLimiter.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
 **Related:** `Backend/middleware/rateLimiter.js`
 
-### P1-031: Consolidate duplicate logic in throttle.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/middleware/throttle.js must be verified against the canonical build/run path described in README.
+### P1-019: Validate env usage in ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md` fits the app shell
+**Related:** `Frontend/ERROR_BOUNDARY_INTEGRATION_EXAMPLES.md`
+
+### P1-020: Add health check for DEPOSIT_SERVICE_DOCUMENTATION.md
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/middleware/throttle.js`
+**Related:** `Backend/DEPOSIT_SERVICE_DOCUMENTATION.md`
 
-### P1-032: Add CONTRIBUTING note for tradeValidation.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/middleware/tradeValidation.js; reduce setup time and eliminate silent failures on first run.
+### P1-021: Add invariant test for Burnable.sol
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/Burnable.sol`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/middleware/tradeValidation.js`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/Burnable.sol`
 
-### P1-033: Fix lint violations in version.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/middleware/version.js.
+### P1-022: Add phase checklist to CIRCUIT_BREAKER_QUICK_REFERENCE.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `CIRCUIT_BREAKER_QUICK_REFERENCE.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/middleware/version.js`
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `CIRCUIT_BREAKER_QUICK_REFERENCE.md`
 
-### P1-034: Ensure package scripts cover 001_init_markets.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/migrations/001_init_markets.js before Phase 2 market wiring begins.
+### P1-023: Configure secrets mapping for package-lock.json
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Backend/package-lock.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/migrations/001_init_markets.js`
-
-### P1-035: Add startup logging to AuditLog.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/models/AuditLog.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/models/AuditLog.js`
-
-### P1-036: Verify dependency versions in Balance.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/models/Balance.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/models/Balance.js`
-
-### P1-037: Add .env.example entry for Collateral.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/models/Collateral.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/models/Collateral.js`
-
-### P1-038: Fix path alias in Dispute.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/models/Dispute.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/models/Dispute.js`
-
-### P1-039: Add basic integration test for Liquidation.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/models/Liquidation.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/models/Liquidation.js`
-
-### P1-040: Document setup for MarginAccount.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/models/MarginAccount.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/models/MarginAccount.js`
-
-### P1-041: Fix broken import in MarginCall.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/models/MarginCall.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/models/MarginCall.js`
-
-### P1-042: Unify Express/Nest path for MarketSnapshot.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/models/MarketSnapshot.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/models/MarketSnapshot.js`
-
-### P1-043: Add smoke test for Notification.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/models/Notification.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/models/Notification.js`
-
-### P1-044: Validate env vars for Order.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/models/Order.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/models/Order.js`
-
-### P1-045: Remove dead code in PriceHistory.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/models/PriceHistory.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/models/PriceHistory.js`
-
-### P1-046: Align README with Referral.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/models/Referral.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/models/Referral.js`
-
-### P1-047: Add health check for RiskConfig.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/models/RiskConfig.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/models/RiskConfig.js`
-
-### P1-048: Stabilize boot sequence of RiskScore.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/models/RiskScore.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/models/RiskScore.js`
-
-### P1-049: Resolve TypeScript errors in TradeReport.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/models/TradeReport.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/models/TradeReport.js`
-
-### P1-050: Add missing module export in nest-cli.json
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/nest-cli.json is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/nest-cli.json`
-
-### P1-051: Consolidate duplicate logic in package-lock.json
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/package-lock.json must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
 **Related:** `Backend/package-lock.json`
 
-### P1-052: Add CONTRIBUTING note for package.json
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/package.json; reduce setup time and eliminate silent failures on first run.
+### P1-024: Fuzz abuse path in AuditLog.js
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/models/AuditLog.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/models/AuditLog.js`
+
+### P1-025: Add empty state to ERROR_BOUNDARY_QUICKSTART.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/ERROR_BOUNDARY_QUICKSTART.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/ERROR_BOUNDARY_QUICKSTART.md`
+
+### P1-026: Ensure package scripts cover DEPOSIT_SERVICE_README.md
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/DEPOSIT_SERVICE_README.md`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/DEPOSIT_SERVICE_README.md`
+
+### P1-027: Add event coverage test for CODE_REVIEW_REPORT.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/CODE_REVIEW_REPORT.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/CODE_REVIEW_REPORT.md`
+**Related:** `Contracts/CODE_REVIEW_REPORT.md`
+
+### P1-028: Add glossary entry in CIRCUIT_BREAKER_VERIFICATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `CIRCUIT_BREAKER_VERIFICATION.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `CIRCUIT_BREAKER_VERIFICATION.md` verified on a clean checkout
+**Related:** `CIRCUIT_BREAKER_VERIFICATION.md`
+
+### P1-029: Add CI job for package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Backend/package.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
 **Related:** `Backend/package.json`
 
-### P1-053: Fix lint violations in aggregatedTrades.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/aggregatedTrades.js.
+### P1-030: Review rate limits for beta.js
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/routes/beta.js` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/aggregatedTrades.js`
-
-### P1-054: Ensure package scripts cover alerts.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/alerts.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/alerts.js`
-
-### P1-055: Add startup logging to aml.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/aml.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/aml.js`
-
-### P1-056: Verify dependency versions in api.example.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/api.example.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/api.example.js`
-
-### P1-057: Add .env.example entry for approvals.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/approvals.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/approvals.js`
-
-### P1-058: Fix path alias in beta.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/beta.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/beta.js`
 **Related:** `Backend/routes/beta.js`
 
-### P1-059: Add basic integration test for blacklist.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/blacklist.js before Phase 2 market wiring begins.
+### P1-031: Wire wallet connect flow in ERROR_BOUNDARY_SUMMARY.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/ERROR_BOUNDARY_SUMMARY.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/blacklist.js`
+- [ ] README or `Frontend/README.md` documents how `Frontend/ERROR_BOUNDARY_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/ERROR_BOUNDARY_SUMMARY.md`
 
-### P1-060: Document setup for bridge.js
+### P1-032: Add smoke test for IMPLEMENTATION.md
 **Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/bridge.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/bridge.js`
-
-### P1-061: Fix broken import in circuitBreaker.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/circuitBreaker.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/circuitBreaker.js`
-
-### P1-062: Unify Express/Nest path for claims.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/claims.js; reduce setup time and eliminate silent failures on first run.
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/IMPLEMENTATION.md`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/claims.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/IMPLEMENTATION.md`
 
-### P1-063: Add smoke test for collateral.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/collateral.js.
+### P1-033: Align ABI export for FLASHBORROW_DOCUMENTATION.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/FLASHBORROW_DOCUMENTATION.md`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/collateral.js`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_DOCUMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_DOCUMENTATION.md`
+**Related:** `Contracts/FLASHBORROW_DOCUMENTATION.md`
 
-### P1-064: Validate env vars for compression.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/compression.js before Phase 2 market wiring begins.
+### P1-034: Document env matrix in DELIVERY_SUMMARY.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `DELIVERY_SUMMARY.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/compression.js`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `DELIVERY_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `DELIVERY_SUMMARY.md`
 
-### P1-065: Remove dead code in disputes.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/disputes.js is documented, buildable, and free of critical boot errors blocking local development.
+### P1-035: Add smoke test post-build for deploy.js
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Backend/scripts/deploy.js` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/disputes.js`
-
-### P1-066: Align README with escalation.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/escalation.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/escalation.js`
-
-### P1-067: Add health check for experiments.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/experiments.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/experiments.js`
-
-### P1-068: Stabilize boot sequence of exports.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/exports.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/exports.js`
-
-### P1-069: Resolve TypeScript errors in features.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/features.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/features.js`
-
-### P1-070: Add missing module export in freeze.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/freeze.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/freeze.js`
-
-### P1-071: Consolidate duplicate logic in gas.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/gas.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/gas.js`
-
-### P1-072: Add CONTRIBUTING note for governance.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/governance.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/governance.js`
-
-### P1-073: Fix lint violations in health.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/health.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/health.js`
-
-### P1-074: Ensure package scripts cover heartbeat.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/heartbeat.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/heartbeat.js`
-
-### P1-075: Add startup logging to imports.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/imports.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/imports.js`
-
-### P1-076: Verify dependency versions in insurance.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/insurance.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/insurance.js`
-
-### P1-077: Add .env.example entry for ipfs.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/ipfs.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/ipfs.js`
-
-### P1-078: Fix path alias in kyc.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/kyc.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/kyc.js`
-
-### P1-079: Add basic integration test for legacy.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/legacy.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/legacy.js`
-
-### P1-080: Document setup for lending.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/lending.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/lending.js`
-
-### P1-081: Fix broken import in marketAnalytics.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/marketAnalytics.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/marketAnalytics.js`
-
-### P1-082: Unify Express/Nest path for migration.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/migration.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/migration.js`
-
-### P1-083: Add smoke test for mining.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/mining.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/mining.js`
-
-### P1-084: Validate env vars for multisig.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/multisig.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/multisig.js`
-
-### P1-085: Remove dead code in oncall.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/oncall.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/oncall.js`
-
-### P1-086: Align README with oracle.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/oracle.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/oracle.js`
-
-### P1-087: Add health check for pause.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/pause.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/pause.js`
-
-### P1-088: Stabilize boot sequence of permissions.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/permissions.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/permissions.js`
-
-### P1-089: Resolve TypeScript errors in referrals.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/referrals.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/referrals.js`
-
-### P1-090: Add missing module export in releases.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/releases.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/releases.js`
-
-### P1-091: Consolidate duplicate logic in risk.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/risk.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/risk.js`
-
-### P1-092: Add CONTRIBUTING note for rollback.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/rollback.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/rollback.js`
-
-### P1-093: Fix lint violations in runbooks.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/runbooks.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/runbooks.js`
-
-### P1-094: Ensure package scripts cover shutdown.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/shutdown.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/shutdown.js`
-
-### P1-095: Add startup logging to sla.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/sla.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/sla.js`
-
-### P1-096: Verify dependency versions in snapshots.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/snapshots.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/snapshots.js`
-
-### P1-097: Add .env.example entry for status.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/status.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/status.js`
-
-### P1-098: Fix path alias in swaps.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/swaps.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/swaps.js`
-
-### P1-099: Add basic integration test for tradeReports.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/tradeReports.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/tradeReports.js`
-
-### P1-100: Document setup for trades.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/trades.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/trades.js`
-
-### P1-101: Fix broken import in uptime.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/uptime.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/uptime.js`
-
-### P1-102: Unify Express/Nest path for index.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/routes/v1/index.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/routes/v1/index.js`
-
-### P1-103: Add smoke test for index.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/routes/v2/index.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/routes/v2/index.js`
-
-### P1-104: Validate env vars for voting.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/routes/voting.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/routes/voting.js`
-
-### P1-105: Remove dead code in whitelist.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/routes/whitelist.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/routes/whitelist.js`
-
-### P1-106: Align README with yield.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/routes/yield.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/routes/yield.js`
-
-### P1-107: Add health check for deploy.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/scripts/deploy.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
 **Related:** `Backend/scripts/deploy.js`
 
-### P1-108: Stabilize boot sequence of test.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/scripts/test.js.
+### P1-036: Pen-test endpoint behind blacklist.js
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/routes/blacklist.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/scripts/test.js`
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/routes/blacklist.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/routes/blacklist.js`
 
-### P1-109: Resolve TypeScript errors in server.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/server.js before Phase 2 market wiring begins.
+### P1-037: Fix TypeScript path alias in README.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/README.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/server.js`
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/README.md`
 
-### P1-110: Add missing module export in abTesting.js
+### P1-038: Add missing module export in LIQUIDATION.md
 **Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/abTesting.js is documented, buildable, and free of critical boot errors blocking local development.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/LIQUIDATION.md`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/abTesting.js`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/LIQUIDATION.md`
+**Related:** `Backend/LIQUIDATION.md`
 
-### P1-111: Consolidate duplicate logic in alertRouting.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/alertRouting.js must be verified against the canonical build/run path described in README.
+### P1-039: Verify remappings for FLASHBORROW_README.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/FLASHBORROW_README.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/alertRouting.js`
+- [ ] No critical compiler warnings in `Contracts/FLASHBORROW_README.md`
+- [ ] `forge build` succeeds with `Contracts/FLASHBORROW_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/FLASHBORROW_README.md`
 
-### P1-112: Add CONTRIBUTING note for amlService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/amlService.js; reduce setup time and eliminate silent failures on first run.
+### P1-040: Fix broken links in DOES_IT_WORK_ANSWER.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `DOES_IT_WORK_ANSWER.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/amlService.js`
+- [ ] Commands in `DOES_IT_WORK_ANSWER.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `DOES_IT_WORK_ANSWER.md`
 
-### P1-113: Fix lint violations in analyticsService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/analyticsService.js.
+### P1-041: Add parallel job for deployService.js
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Backend/services/deployService.js` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/analyticsService.js`
-
-### P1-114: Ensure package scripts cover approvalService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/approvalService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/approvalService.js`
-
-### P1-115: Add startup logging to arbitrageService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/arbitrageService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/arbitrageService.js`
-
-### P1-116: Verify dependency versions in auditTrail.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/auditTrail.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/auditTrail.js`
-
-### P1-117: Add .env.example entry for batchProcessor.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/batchProcessor.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/batchProcessor.js`
-
-### P1-118: Fix path alias in betaAccess.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/betaAccess.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/betaAccess.js`
-
-### P1-119: Add basic integration test for blacklistService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/blacklistService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/blacklistService.js`
-
-### P1-120: Document setup for breakerService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/breakerService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/breakerService.js`
-
-### P1-121: Fix broken import in bridgeService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/bridgeService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/bridgeService.js`
-
-### P1-122: Unify Express/Nest path for claimService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/claimService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/claimService.js`
-
-### P1-123: Add smoke test for collateralService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/collateralService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/collateralService.js`
-
-### P1-124: Validate env vars for complianceService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/complianceService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/complianceService.js`
-
-### P1-125: Remove dead code in compressionService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/compressionService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/compressionService.js`
-
-### P1-126: Align README with ddosProtection.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/ddosProtection.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/ddosProtection.js`
-
-### P1-127: Add health check for deployService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/deployService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
 **Related:** `Backend/services/deployService.js`
 
-### P1-128: Stabilize boot sequence of deprecationService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/deprecationService.js.
+### P1-042: Review CORS policy for circuitBreaker.js
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/routes/circuitBreaker.js` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/deprecationService.js`
+- [ ] No secrets or private keys in `Backend/routes/circuitBreaker.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/routes/circuitBreaker.js`
 
-### P1-129: Resolve TypeScript errors in disputeService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/disputeService.js before Phase 2 market wiring begins.
+### P1-043: Add vitest coverage for SETTINGS_DOCUMENTATION.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/SETTINGS_DOCUMENTATION.md` before beta. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/disputeService.js`
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/SETTINGS_DOCUMENTATION.md`
 
-### P1-130: Add missing module export in escalation.js
+### P1-044: Document setup for MARGIN.md
 **Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/escalation.js is documented, buildable, and free of critical boot errors blocking local development.
+**Description:** Backend foundations: ensure `Backend/MARGIN.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/escalation.js`
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/MARGIN.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/MARGIN.md`
 
-### P1-131: Consolidate duplicate logic in exportService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/exportService.js must be verified against the canonical build/run path described in README.
+### P1-045: Add Foundry test for FlashLoanProtection.sol
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/FlashLoanProtection.sol` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/exportService.js`
+- [ ] `forge build` succeeds with `Contracts/FlashLoanProtection.sol`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/FlashLoanProtection.sol`
 
-### P1-132: Add CONTRIBUTING note for featureFlagService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/featureFlagService.js; reduce setup time and eliminate silent failures on first run.
+### P1-046: Cross-link ADR in FEATURE_SUMMARY.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `FEATURE_SUMMARY.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/featureFlagService.js`
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `FEATURE_SUMMARY.md`
 
-### P1-133: Fix lint violations in freezeService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/freezeService.js.
+### P1-047: Configure env matrix in upgradeCoordinator.js
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/services/upgradeCoordinator.js`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/freezeService.js`
-
-### P1-134: Ensure package scripts cover gasOptimizer.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/gasOptimizer.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/gasOptimizer.js`
-
-### P1-135: Add startup logging to governanceService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/governanceService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/governanceService.js`
-
-### P1-136: Verify dependency versions in healthCheck.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/healthCheck.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/healthCheck.js`
-
-### P1-137: Add .env.example entry for heartbeat.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/heartbeat.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/heartbeat.js`
-
-### P1-138: Fix path alias in importService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/importService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/importService.js`
-
-### P1-139: Add basic integration test for insuranceService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/insuranceService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/insuranceService.js`
-
-### P1-140: Document setup for ipfsService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/ipfsService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/ipfsService.js`
-
-### P1-141: Fix broken import in kycService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/kycService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/kycService.js`
-
-### P1-142: Unify Express/Nest path for lendingService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/lendingService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/lendingService.js`
-
-### P1-143: Add smoke test for liquidationService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/liquidationService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/liquidationService.js`
-
-### P1-144: Validate env vars for marginEngine.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/marginEngine.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/marginEngine.js`
-
-### P1-145: Remove dead code in migrationService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/migrationService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/migrationService.js`
-
-### P1-146: Align README with miningService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/miningService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/miningService.js`
-
-### P1-147: Add health check for multisigService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/multisigService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/multisigService.js`
-
-### P1-148: Stabilize boot sequence of oncallService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/oncallService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/oncallService.js`
-
-### P1-149: Resolve TypeScript errors in oracleService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/oracleService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/oracleService.js`
-
-### P1-150: Add missing module export in pagerduty.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/pagerduty.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/pagerduty.js`
-
-### P1-151: Consolidate duplicate logic in pauseService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/pauseService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/pauseService.js`
-
-### P1-152: Add CONTRIBUTING note for permissionService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/permissionService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/permissionService.js`
-
-### P1-153: Fix lint violations in referralService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/referralService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/referralService.js`
-
-### P1-154: Ensure package scripts cover releaseService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/releaseService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/releaseService.js`
-
-### P1-155: Add startup logging to riskService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/riskService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/riskService.js`
-
-### P1-156: Verify dependency versions in rollbackService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/rollbackService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/rollbackService.js`
-
-### P1-157: Add .env.example entry for runbookService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/runbookService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/runbookService.js`
-
-### P1-158: Fix path alias in sanityChecker.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/sanityChecker.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/sanityChecker.js`
-
-### P1-159: Add basic integration test for schedulerService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/schedulerService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/schedulerService.js`
-
-### P1-160: Document setup for shutdownService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/shutdownService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/shutdownService.js`
-
-### P1-161: Fix broken import in slaTracker.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/slaTracker.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/slaTracker.js`
-
-### P1-162: Unify Express/Nest path for snapshotService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/snapshotService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/snapshotService.js`
-
-### P1-163: Add smoke test for statusService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/statusService.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/statusService.js`
-
-### P1-164: Validate env vars for swapService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/swapService.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/swapService.js`
-
-### P1-165: Remove dead code in syncService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/syncService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/syncService.js`
-
-### P1-166: Align README with throttleService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/throttleService.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/throttleService.js`
-
-### P1-167: Add health check for timeService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/timeService.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/services/timeService.js`
-
-### P1-168: Stabilize boot sequence of tradeAggregator.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/tradeAggregator.js.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/tradeAggregator.js`
-
-### P1-169: Resolve TypeScript errors in tradeEngine.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/tradeEngine.js before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/tradeEngine.js`
-
-### P1-170: Add missing module export in tradeReportService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/tradeReportService.js is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/services/tradeReportService.js`
-
-### P1-171: Consolidate duplicate logic in tradeValidator.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/tradeValidator.js must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/tradeValidator.js`
-
-### P1-172: Add CONTRIBUTING note for upgradeCoordinator.js
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/services/upgradeCoordinator.js; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
 **Related:** `Backend/services/upgradeCoordinator.js`
 
-### P1-173: Fix lint violations in uptimeService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/services/uptimeService.js.
+### P1-048: Review reentrancy surface in multisig.js
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/routes/multisig.js`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/services/uptimeService.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/routes/multisig.js`
 
-### P1-174: Ensure package scripts cover votingService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/services/votingService.js before Phase 2 market wiring begins.
+### P1-049: Validate env usage in SETTINGS_QUICKSTART.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/SETTINGS_QUICKSTART.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/services/votingService.js`
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_QUICKSTART.md` fits the app shell
+**Related:** `Frontend/SETTINGS_QUICKSTART.md`
 
-### P1-175: Add startup logging to whitelistService.js
+### P1-050: Add health check for README.md
 **Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/services/whitelistService.js is documented, buildable, and free of critical boot errors blocking local development.
+**Description:** Phase 1 stabilizes the repo; `Backend/README.md` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
+- [ ] Local dev server starts without errors involving `Backend/README.md`
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
+**Related:** `Backend/README.md`
+
+### P1-051: Add invariant test for GAS_OPTIMIZATION_REPORT.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/GAS_OPTIMIZATION_REPORT.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/GAS_OPTIMIZATION_REPORT.md`
+
+### P1-052: Add phase checklist to FINAL_VERIFICATION_REPORT.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `FINAL_VERIFICATION_REPORT.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `FINAL_VERIFICATION_REPORT.md`
+
+### P1-053: Configure secrets mapping for deploy.test.js
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Backend/tests/deploy.test.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/tests/deploy.test.js`
+
+### P1-054: Fuzz abuse path in whitelist.js
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/routes/whitelist.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/routes/whitelist.js`
+
+### P1-055: Add empty state to SETTINGS_SUMMARY.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/SETTINGS_SUMMARY.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/SETTINGS_SUMMARY.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/SETTINGS_SUMMARY.md`
+
+### P1-056: Ensure package scripts cover RISK.md
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/RISK.md`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/RISK.md`
+
+### P1-057: Add event coverage test for INTEGRATION_GUIDE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/INTEGRATION_GUIDE.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/INTEGRATION_GUIDE.md`
+**Related:** `Contracts/INTEGRATION_GUIDE.md`
+
+### P1-058: Add glossary entry in FLASHBORROW_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+**Related:** `FLASHBORROW_IMPLEMENTATION_SUMMARY.md`
+
+### P1-059: Add CI job for tsconfig.build.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Backend/tsconfig.build.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/tsconfig.build.json`
+
+### P1-060: Review rate limits for auditTrail.js
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/services/auditTrail.js` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/auditTrail.js`
+**Related:** `Backend/services/auditTrail.js`
+
+### P1-061: Wire wallet connect flow in TRADING_INTERFACE_DOCUMENTATION.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/TRADING_INTERFACE_DOCUMENTATION.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/TRADING_INTERFACE_DOCUMENTATION.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/TRADING_INTERFACE_DOCUMENTATION.md`
+
+### P1-062: Add smoke test for TRADE_REPORTS.md
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/TRADE_REPORTS.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/TRADE_REPORTS.md`
+
+### P1-063: Align ABI export for Liquidation.sol
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/Liquidation.sol`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/Liquidation.sol`
+- [ ] `forge build` succeeds with `Contracts/Liquidation.sol`
+**Related:** `Contracts/Liquidation.sol`
+
+### P1-064: Document env matrix in FLASHBORROW_VERIFICATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `FLASHBORROW_VERIFICATION.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `FLASHBORROW_VERIFICATION.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `FLASHBORROW_VERIFICATION.md`
+
+### P1-065: Add smoke test post-build for tsconfig.json
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Backend/tsconfig.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/tsconfig.json`
+
+### P1-066: Pen-test endpoint behind betaAccess.js
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/services/betaAccess.js` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/services/betaAccess.js`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/services/betaAccess.js`
+
+### P1-067: Fix TypeScript path alias in TRADING_INTERFACE_QUICKSTART.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/TRADING_INTERFACE_QUICKSTART.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/TRADING_INTERFACE_QUICKSTART.md`
+
+### P1-068: Add missing module export in TRADE_REPORTS_SETUP.md
+**Labels:** `phase-1`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/TRADE_REPORTS_SETUP.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/TRADE_REPORTS_SETUP.md`
+**Related:** `Backend/TRADE_REPORTS_SETUP.md`
+
+### P1-069: Verify remappings for MARKET_CAP_IMPLEMENTATION.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_CAP_IMPLEMENTATION.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_CAP_IMPLEMENTATION.md`
+
+### P1-070: Fix broken links in README.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `Frontend/README.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `Frontend/README.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `Frontend/README.md`
+
+### P1-071: Add parallel job for test.yml
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Contracts/.github/workflows/test.yml` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/.github/workflows/test.yml`
+
+### P1-072: Review CORS policy for blacklistService.js
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/services/blacklistService.js` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/services/blacklistService.js`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/services/blacklistService.js`
+
+### P1-073: Add vitest coverage for TRADING_INTERFACE_SUMMARY.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/TRADING_INTERFACE_SUMMARY.md` before beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/TRADING_INTERFACE_SUMMARY.md`
+
+### P1-074: Document setup for UPTIME_MONITORING.md
+**Labels:** `phase-1`, `backend`
+**Description:** Backend foundations: ensure `Backend/UPTIME_MONITORING.md` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/UPTIME_MONITORING.md`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/UPTIME_MONITORING.md`
+
+### P1-075: Add Foundry test for MARKET_DELEGATION_API_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/MARKET_DELEGATION_API_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_DELEGATION_API_REFERENCE.md`
+
+### P1-076: Cross-link ADR in IMPLEMENTATION_CHECKLIST.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `IMPLEMENTATION_CHECKLIST.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_CHECKLIST.md`
+
+### P1-077: Configure env matrix in foundry.toml
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Contracts/foundry.toml`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/foundry.toml`
+
+### P1-078: Review reentrancy surface in multisigService.js
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/services/multisigService.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/services/multisigService.js`
+
+### P1-079: Validate env usage in WEBSOCKET_IMPLEMENTATION.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/WEBSOCKET_IMPLEMENTATION.md` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_IMPLEMENTATION.md` fits the app shell
+**Related:** `Frontend/WEBSOCKET_IMPLEMENTATION.md`
+
+### P1-080: Add health check for pagerduty.js
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/config/pagerduty.js` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/config/pagerduty.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/config/pagerduty.js`
+
+### P1-081: Add invariant test for MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_DELEGATION_IMPLEMENTATION_SUMMARY.md`
+
+### P1-082: Add phase checklist to IMPLEMENTATION_COMPLETE.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `IMPLEMENTATION_COMPLETE.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `IMPLEMENTATION_COMPLETE.md`
+
+### P1-083: Configure secrets mapping for package-lock.json
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Contracts/package-lock.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Contracts/package-lock.json`
+
+### P1-084: Fuzz abuse path in whitelistService.js
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/services/whitelistService.js` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/services/whitelistService.js`
 
-### P1-176: Verify dependency versions in yieldService.js
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/services/yieldService.js must be verified against the canonical build/run path described in README.
+### P1-085: Add empty state to WEBSOCKET_INTEGRATION_EXAMPLES.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/WEBSOCKET_INTEGRATION_EXAMPLES.md`
+
+### P1-086: Ensure package scripts cover rateLimits.js
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/config/rateLimits.js`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/services/yieldService.js`
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/config/rateLimits.js`
 
-### P1-177: Add .env.example entry for ai.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/ai/ai.controller.ts; reduce setup time and eliminate silent failures on first run.
+### P1-087: Add event coverage test for MARKET_DELEGATION_QUICK_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/ai/ai.controller.ts`
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
+**Related:** `Contracts/MARKET_DELEGATION_QUICK_REFERENCE.md`
 
-### P1-178: Fix path alias in ai.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/ai/ai.module.ts.
+### P1-088: Add glossary entry in IMPLEMENTATION_REPORT.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `IMPLEMENTATION_REPORT.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/ai/ai.module.ts`
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_REPORT.md` verified on a clean checkout
+**Related:** `IMPLEMENTATION_REPORT.md`
 
-### P1-179: Add basic integration test for ai.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/ai/ai.service.ts before Phase 2 market wiring begins.
+### P1-089: Add CI job for package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Contracts/package.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/ai/ai.service.ts`
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Contracts/package.json`
 
-### P1-180: Document setup for analysis.dto.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/ai/dto/analysis.dto.ts is documented, buildable, and free of critical boot errors blocking local development.
+### P1-090: Review rate limits for auth.controller.ts
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/src/auth/auth.controller.ts` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/src/ai/dto/analysis.dto.ts`
-
-### P1-181: Fix broken import in analytics.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/analytics/analytics.module.ts must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/src/analytics/analytics.module.ts`
-
-### P1-182: Unify Express/Nest path for volume-analytics.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/analytics/volume-analytics.controller.ts; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/analytics/volume-analytics.controller.ts`
-
-### P1-183: Add smoke test for volume-analytics.entity.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/analytics/volume-analytics.entity.ts.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/analytics/volume-analytics.entity.ts`
-
-### P1-184: Validate env vars for volume-analytics.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/analytics/volume-analytics.service.ts before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/analytics/volume-analytics.service.ts`
-
-### P1-185: Remove dead code in api-keys.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/api-keys/api-keys.controller.ts is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/src/api-keys/api-keys.controller.ts`
-
-### P1-186: Align README with api-keys.entity.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/api-keys/api-keys.entity.ts must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/src/api-keys/api-keys.entity.ts`
-
-### P1-187: Add health check for api-keys.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/api-keys/api-keys.module.ts; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/api-keys/api-keys.module.ts`
-
-### P1-188: Stabilize boot sequence of api-keys.service.spec.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/api-keys/api-keys.service.spec.ts.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/api-keys/api-keys.service.spec.ts`
-
-### P1-189: Resolve TypeScript errors in api-keys.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/api-keys/api-keys.service.ts before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/api-keys/api-keys.service.ts`
-
-### P1-190: Add missing module export in api-keys.dto.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/api-keys/dto/api-keys.dto.ts is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/src/api-keys/dto/api-keys.dto.ts`
-
-### P1-191: Consolidate duplicate logic in app.controller.spec.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/app.controller.spec.ts must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/src/app.controller.spec.ts`
-
-### P1-192: Add CONTRIBUTING note for app.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/app.controller.ts; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/app.controller.ts`
-
-### P1-193: Fix lint violations in app.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/app.module.ts.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/app.module.ts`
-
-### P1-194: Ensure package scripts cover app.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/app.service.ts before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/app.service.ts`
-
-### P1-195: Add startup logging to approval.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/approval/approval.controller.ts is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-**Related:** `Backend/src/approval/approval.controller.ts`
-
-### P1-196: Verify dependency versions in approval.entity.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/approval/approval.entity.ts must be verified against the canonical build/run path described in README.
-**Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-**Related:** `Backend/src/approval/approval.entity.ts`
-
-### P1-197: Add .env.example entry for approval.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/approval/approval.module.ts; reduce setup time and eliminate silent failures on first run.
-**Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/approval/approval.module.ts`
-
-### P1-198: Fix path alias in approval.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/approval/approval.service.ts.
-**Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/approval/approval.service.ts`
-
-### P1-199: Add basic integration test for approval.dto.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/approval/dto/approval.dto.ts before Phase 2 market wiring begins.
-**Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/approval/dto/approval.dto.ts`
-
-### P1-200: Document setup for auth.controller.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/auth/auth.controller.ts is documented, buildable, and free of critical boot errors blocking local development.
-**Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-- [ ] No critical console errors on boot
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.controller.ts`
 **Related:** `Backend/src/auth/auth.controller.ts`
 
-### P1-201: Fix broken import in auth.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/auth/auth.module.ts must be verified against the canonical build/run path described in README.
+### P1-091: Wire wallet connect flow in WEBSOCKET_QUICKSTART.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/WEBSOCKET_QUICKSTART.md`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
+- [ ] README or `Frontend/README.md` documents how `Frontend/WEBSOCKET_QUICKSTART.md` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/WEBSOCKET_QUICKSTART.md`
+
+### P1-092: Add smoke test for eslint.config.mjs
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/eslint.config.mjs`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/eslint.config.mjs`
+
+### P1-093: Align ABI export for MARKET_DELEGATION_README.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_DELEGATION_README.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_DELEGATION_README.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_DELEGATION_README.md`
+**Related:** `Contracts/MARKET_DELEGATION_README.md`
+
+### P1-094: Document env matrix in IMPLEMENTATION_SUCCESS.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `IMPLEMENTATION_SUCCESS.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `IMPLEMENTATION_SUCCESS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `IMPLEMENTATION_SUCCESS.md`
+
+### P1-095: Add smoke test post-build for DeployMarketCap.s.sol
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Contracts/script/DeployMarketCap.s.sol` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Contracts/script/DeployMarketCap.s.sol`
+
+### P1-096: Pen-test endpoint behind auth.module.ts
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/src/auth/auth.module.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/auth.module.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/auth.module.ts`
 
-### P1-202: Unify Express/Nest path for auth.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/auth/auth.service.ts; reduce setup time and eliminate silent failures on first run.
+### P1-097: Fix TypeScript path alias in WEBSOCKET_SUMMARY.md
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/WEBSOCKET_SUMMARY.md` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/WEBSOCKET_SUMMARY.md`
+
+### P1-098: Add missing module export in heartbeatServer.js
+**Labels:** `phase-1`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/heartbeatServer.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/heartbeatServer.js`
+**Related:** `Backend/heartbeatServer.js`
+
+### P1-099: Verify remappings for MARKET_RELAY_IMPLEMENTATION.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/MARKET_RELAY_IMPLEMENTATION.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MARKET_RELAY_IMPLEMENTATION.md`
+
+### P1-100: Fix broken links in IMPLEMENTATION_SUMMARY.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `IMPLEMENTATION_SUMMARY.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `IMPLEMENTATION_SUMMARY.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `IMPLEMENTATION_SUMMARY.md`
+
+### P1-101: Add parallel job for DeployRevokeFunction.s.sol
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Contracts/script/DeployRevokeFunction.s.sol` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Contracts/script/DeployRevokeFunction.s.sol`
+
+### P1-102: Review CORS policy for auth.service.ts
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/src/auth/auth.service.ts` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/auth/auth.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
 **Related:** `Backend/src/auth/auth.service.ts`
 
-### P1-203: Add smoke test for auth.dto.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/auth/dto/auth.dto.ts.
+### P1-103: Add vitest coverage for page.tsx
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/analytics/page.tsx` before beta. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/analytics/page.tsx`
+
+### P1-104: Document setup for arbitrageMonitor.js
+**Labels:** `phase-1`, `backend`
+**Description:** Backend foundations: ensure `Backend/jobs/arbitrageMonitor.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/arbitrageMonitor.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/arbitrageMonitor.js`
+
+### P1-105: Add Foundry test for MARKET_RELAY_INTEGRATION_GUIDE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/MARKET_RELAY_INTEGRATION_GUIDE.md`
+
+### P1-106: Cross-link ADR in IMPLEMENTATION_VERIFIED.txt
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `IMPLEMENTATION_VERIFIED.txt` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `IMPLEMENTATION_VERIFIED.txt`
+
+### P1-107: Configure env matrix in DeployVoteWeight.s.sol
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Contracts/script/DeployVoteWeight.s.sol`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Contracts/script/DeployVoteWeight.s.sol`
+
+### P1-108: Review reentrancy surface in auth.dto.ts
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/auth/dto/auth.dto.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
 **Related:** `Backend/src/auth/dto/auth.dto.ts`
 
-### P1-204: Validate env vars for user.entity.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/auth/entities/user.entity.ts before Phase 2 market wiring begins.
+### P1-109: Validate env usage in page.tsx
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api-keys/page.tsx` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api-keys/page.tsx` fits the app shell
+**Related:** `Frontend/app/api-keys/page.tsx`
+
+### P1-110: Add health check for batchExecutor.js
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/jobs/batchExecutor.js` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/batchExecutor.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/batchExecutor.js`
+
+### P1-111: Add invariant test for MARKET_RELAY_QUICK_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/MARKET_RELAY_QUICK_REFERENCE.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/MARKET_RELAY_QUICK_REFERENCE.md`
+
+### P1-112: Add phase checklist to LIQUIDATION_IMPLEMENTATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `LIQUIDATION_IMPLEMENTATION.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `LIQUIDATION_IMPLEMENTATION.md`
+
+### P1-113: Configure secrets mapping for hardhat.config.js
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Frontend/localnet/hardhat.config.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/localnet/hardhat.config.js`
+
+### P1-114: Fuzz abuse path in user.entity.ts
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/src/auth/entities/user.entity.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
 **Related:** `Backend/src/auth/entities/user.entity.ts`
 
-### P1-205: Remove dead code in jwt-auth.guard.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/auth/guards/jwt-auth.guard.ts is documented, buildable, and free of critical boot errors blocking local development.
+### P1-115: Add empty state to route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/app/api/ipfs/gateway/[hash]/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/gateway/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/ipfs/gateway/[hash]/route.ts`
+
+### P1-116: Ensure package scripts cover complianceChecker.js
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/jobs/complianceChecker.js`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/complianceChecker.js`
+
+### P1-117: Add event coverage test for MARKET_RELAY_README.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/MARKET_RELAY_README.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_README.md`
+**Related:** `Contracts/MARKET_RELAY_README.md`
+
+### P1-118: Add glossary entry in LIQUIDATION_QUICK_START.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `LIQUIDATION_QUICK_START.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `LIQUIDATION_QUICK_START.md` verified on a clean checkout
+**Related:** `LIQUIDATION_QUICK_START.md`
+
+### P1-119: Add CI job for package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Frontend/localnet/package.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Frontend/localnet/package.json`
+
+### P1-120: Review rate limits for jwt-auth.guard.ts
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/src/auth/guards/jwt-auth.guard.ts` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/guards/jwt-auth.guard.ts`
 **Related:** `Backend/src/auth/guards/jwt-auth.guard.ts`
 
-### P1-206: Align README with jwt.strategy.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Phase 1 stabilizes the repo; Backend/src/auth/strategies/jwt.strategy.ts must be verified against the canonical build/run path described in README.
+### P1-121: Wire wallet connect flow in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ipfs/pin/[hash]/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] README or inline docs reference this path accurately
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ipfs/pin/[hash]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ipfs/pin/[hash]/route.ts`
+
+### P1-122: Add smoke test for heartbeatMonitor.js
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/heartbeatMonitor.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/heartbeatMonitor.js`
+
+### P1-123: Align ABI export for MARKET_RELAY_SECURITY_ANALYSIS.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+- [ ] `forge build` succeeds with `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+**Related:** `Contracts/MARKET_RELAY_SECURITY_ANALYSIS.md`
+
+### P1-124: Document env matrix in MARKET_DELEGATION_CHECKLIST.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `MARKET_DELEGATION_CHECKLIST.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MARKET_DELEGATION_CHECKLIST.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `MARKET_DELEGATION_CHECKLIST.md`
+
+### P1-125: Add smoke test post-build for deploy.js
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Frontend/localnet/scripts/deploy.js` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Frontend/localnet/scripts/deploy.js`
+
+### P1-126: Pen-test endpoint behind jwt.strategy.ts
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/src/auth/strategies/jwt.strategy.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/auth/strategies/jwt.strategy.ts`
+- [ ] Negative-path test or checklist item added
 **Related:** `Backend/src/auth/strategies/jwt.strategy.ts`
 
-### P1-207: Add health check for blockchain.controller.ts
+### P1-127: Fix TypeScript path alias in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api/ipfs/retrieve/[hash]/route.ts` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/ipfs/retrieve/[hash]/route.ts`
+
+### P1-128: Add missing module export in liquidationMonitor.js
 **Labels:** `phase-1`, `backend`
-**Description:** Contributors report friction around Backend/src/blockchain/blockchain.controller.ts; reduce setup time and eliminate silent failures on first run.
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/jobs/liquidationMonitor.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/liquidationMonitor.js`
+**Related:** `Backend/jobs/liquidationMonitor.js`
+
+### P1-129: Verify remappings for MarketMinter.sol
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/MarketMinter.sol` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/MarketMinter.sol`
+- [ ] `forge build` succeeds with `Contracts/MarketMinter.sol`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/MarketMinter.sol`
+
+### P1-130: Fix broken links in MARKET_DELEGATION_COMPLETE.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `MARKET_DELEGATION_COMPLETE.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `MARKET_DELEGATION_COMPLETE.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `MARKET_DELEGATION_COMPLETE.md`
+
+### P1-131: Add parallel job for package-lock.json
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Frontend/package-lock.json` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Frontend/package-lock.json`
+
+### P1-132: Review CORS policy for market-audit.dto.ts
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/src/market-audit/dto/market-audit.dto.ts` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/dto/market-audit.dto.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/dto/market-audit.dto.ts`
+
+### P1-133: Add vitest coverage for route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/api/ipfs/upload-json/route.ts` before beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/ipfs/upload-json/route.ts`
+
+### P1-134: Document setup for sanityCheck.js
+**Labels:** `phase-1`, `backend`
+**Description:** Backend foundations: ensure `Backend/jobs/sanityCheck.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/jobs/sanityCheck.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/jobs/sanityCheck.js`
+
+### P1-135: Add Foundry test for QUICK_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/QUICK_REFERENCE.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/QUICK_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/QUICK_REFERENCE.md`
+
+### P1-136: Cross-link ADR in MARKET_RELAY_DELIVERY_SUMMARY.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `MARKET_RELAY_DELIVERY_SUMMARY.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `MARKET_RELAY_DELIVERY_SUMMARY.md`
+
+### P1-137: Configure env matrix in package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Frontend/package.json`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Frontend/package.json`
+
+### P1-138: Review reentrancy surface in market-audit.controller.ts
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/market-audit/market-audit.controller.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/market-audit/market-audit.controller.ts`
+
+### P1-139: Validate env usage in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api/market-audit/route.ts` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-audit/route.ts` fits the app shell
+**Related:** `Frontend/app/api/market-audit/route.ts`
+
+### P1-140: Add health check for snapshotCapture.js
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/jobs/snapshotCapture.js` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/jobs/snapshotCapture.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/jobs/snapshotCapture.js`
+
+### P1-141: Add invariant test for README.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/README.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/README.md`
+
+### P1-142: Add phase checklist to MARKET_RELAY_FILES_CHECKLIST.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `MARKET_RELAY_FILES_CHECKLIST.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `MARKET_RELAY_FILES_CHECKLIST.md`
+
+### P1-143: Configure secrets mapping for tsconfig.json
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Frontend/tsconfig.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Frontend/tsconfig.json`
+
+### P1-144: Fuzz abuse path in market-audit.entity.ts
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/src/market-audit/market-audit.entity.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/market-audit/market-audit.entity.ts`
+
+### P1-145: Add empty state to route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/app/api/market-sentiment/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/market-sentiment/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/market-sentiment/route.ts`
+
+### P1-146: Ensure package scripts cover tradeExecutor.js
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/jobs/tradeExecutor.js`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/jobs/tradeExecutor.js`
+
+### P1-147: Add event coverage test for README_MARKETCAP.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/README_MARKETCAP.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_MARKETCAP.md`
+**Related:** `Contracts/README_MARKETCAP.md`
+
+### P1-148: Add glossary entry in MINTING_PAUSABLE_IMPLEMENTATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `MINTING_PAUSABLE_IMPLEMENTATION.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `MINTING_PAUSABLE_IMPLEMENTATION.md` verified on a clean checkout
+**Related:** `MINTING_PAUSABLE_IMPLEMENTATION.md`
+
+### P1-149: Add CI job for package-lock.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `package-lock.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `package-lock.json`
+
+### P1-150: Review rate limits for market-audit.module.ts
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/src/market-audit/market-audit.module.ts` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.module.ts`
+**Related:** `Backend/src/market-audit/market-audit.module.ts`
+
+### P1-151: Wire wallet connect flow in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/multisig/execute/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/execute/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/multisig/execute/route.ts`
+
+### P1-152: Add smoke test for upgradeManager.js
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/jobs/upgradeManager.js`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
 - [ ] No critical console errors on boot
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-**Related:** `Backend/src/blockchain/blockchain.controller.ts`
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/jobs/upgradeManager.js`
 
-### P1-208: Stabilize boot sequence of blockchain.module.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Unify legacy Express (`Backend/server.js`) and NestJS (`Backend/src/`) concerns touching Backend/src/blockchain/blockchain.module.ts.
+### P1-153: Align ABI export for README_VOTE_DELEGATION.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/README_VOTE_DELEGATION.md`. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] npm/forge scripts succeed for this area
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-**Related:** `Backend/src/blockchain/blockchain.module.ts`
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/README_VOTE_DELEGATION.md`
+- [ ] `forge build` succeeds with `Contracts/README_VOTE_DELEGATION.md`
+**Related:** `Contracts/README_VOTE_DELEGATION.md`
 
-### P1-209: Resolve TypeScript errors in blockchain.service.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Add minimal verification so CI can detect regressions in Backend/src/blockchain/blockchain.service.ts before Phase 2 market wiring begins.
+### P1-154: Document env matrix in PHASES.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `PHASES.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Change is covered by at least a smoke test or manual checklist item
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
-**Related:** `Backend/src/blockchain/blockchain.service.ts`
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASES.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASES.md`
 
-### P1-210: Add missing module export in nonce.dto.ts
-**Labels:** `phase-1`, `backend`
-**Description:** Foundations work: ensure Backend/src/blockchain/dto/nonce.dto.ts is documented, buildable, and free of critical boot errors blocking local development.
+### P1-155: Add smoke test post-build for package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
 **Acceptance criteria:**
-- [ ] Local dev server starts without errors involving this path
-- [ ] README or inline docs reference this path accurately
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `package.json`
+
+### P1-156: Pen-test endpoint behind market-audit.service.spec.ts
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/src/market-audit/market-audit.service.spec.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.spec.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/market-audit/market-audit.service.spec.ts`
+
+### P1-157: Fix TypeScript path alias in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api/multisig/propose/route.ts` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/multisig/propose/route.ts`
+
+### P1-158: Add missing module export in backwardCompat.js
+**Labels:** `phase-1`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/middleware/backwardCompat.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/backwardCompat.js`
+**Related:** `Backend/middleware/backwardCompat.js`
+
+### P1-159: Verify remappings for REVOKE_FUNCTION_API_REFERENCE.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/REVOKE_FUNCTION_API_REFERENCE.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_API_REFERENCE.md`
+
+### P1-160: Fix broken links in PHASE_1.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `PHASE_1.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `PHASE_1.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PHASE_1.md`
+
+### P1-161: Add parallel job for ci.yml
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `.github/workflows/ci.yml` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `.github/workflows/ci.yml`
+
+### P1-162: Review CORS policy for market-audit.service.ts
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/src/market-audit/market-audit.service.ts` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/market-audit/market-audit.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/market-audit/market-audit.service.ts`
+
+### P1-163: Add vitest coverage for route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/api/multisig/sign/route.ts` before beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/api/multisig/sign/route.ts`
+
+### P1-164: Document setup for ddosGuard.js
+**Labels:** `phase-1`, `backend`
+**Description:** Backend foundations: ensure `Backend/middleware/ddosGuard.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/ddosGuard.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/ddosGuard.js`
+
+### P1-165: Add Foundry test for REVOKE_FUNCTION_DOCUMENTATION.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Phase 1 ensures `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md` is buildable; ADR 0001 (LMSR vs CLOB) may affect interfaces here. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+**Related:** `Contracts/REVOKE_FUNCTION_DOCUMENTATION.md`
+
+### P1-166: Cross-link ADR in PHASE_2.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `PHASE_2.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `PHASE_2.md`
+
+### P1-167: Configure env matrix in .env.example
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/.env.example`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/.env.example`
+
+### P1-168: Review reentrancy surface in rate-limiter.config.ts
+**Labels:** `phase-1`, `security`
+**Description:** Add negative-path tests for abuse scenarios involving `Backend/src/rate-limiter/rate-limiter.config.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+**Related:** `Backend/src/rate-limiter/rate-limiter.config.ts`
+
+### P1-169: Validate env usage in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Frontend foundations: ensure `Frontend/app/api/multisig/status/[txId]/route.ts` builds under `Frontend/` Next.js app without runtime errors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/status/[txId]/route.ts` fits the app shell
+**Related:** `Frontend/app/api/multisig/status/[txId]/route.ts`
+
+### P1-170: Add health check for deprecation.js
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/middleware/deprecation.js` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/middleware/deprecation.js`
+- [ ] README documents env vars and scripts for this module
 - [ ] No critical console errors on boot
-**Related:** `Backend/src/blockchain/dto/nonce.dto.ts`
+**Related:** `Backend/middleware/deprecation.js`
+
+### P1-171: Add invariant test for REVOKE_FUNCTION_FEATURES.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Foundry CI (`Contracts/.github/workflows/test.yml`) should gate changes to `Contracts/REVOKE_FUNCTION_FEATURES.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `forge test` passes for tests covering this contract
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+**Related:** `Contracts/REVOKE_FUNCTION_FEATURES.md`
+
+### P1-172: Add phase checklist to PHASE_3.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `PHASE_3.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `PHASE_3.md`
+
+### P1-173: Configure secrets mapping for upgradeManager.js
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Backend/jobs/upgradeManager.js` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/jobs/upgradeManager.js`
+
+### P1-174: Fuzz abuse path in rate-limiter.decorator.ts
+**Labels:** `phase-1`, `security`
+**Description:** Security: review `Backend/src/rate-limiter/rate-limiter.decorator.ts` for auth bypass, injection, rate-limit gaps, and secret leakage before public beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Threat notes recorded in docs or inline comments
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+**Related:** `Backend/src/rate-limiter/rate-limiter.decorator.ts`
+
+### P1-175: Add empty state to route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Phase 1 requires `Frontend/app/api/multisig/wallet/[walletId]/route.ts` to match README quickstart — wallet, routes, and API base URL must work on first run. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/multisig/wallet/[walletId]/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+**Related:** `Frontend/app/api/multisig/wallet/[walletId]/route.ts`
+
+### P1-176: Ensure package scripts cover permissions.js
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/middleware/permissions.js`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/middleware/permissions.js`
+
+### P1-177: Add event coverage test for REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Document deploy order and constructor args for `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md` in README or contract comments. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] NatSpec or README notes constructor/deploy requirements
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+**Related:** `Contracts/REVOKE_FUNCTION_INTEGRATION_CHECKLIST.md`
+
+### P1-178: Add glossary entry in PHASE_4.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `PHASE_4.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_4.md` verified on a clean checkout
+**Related:** `PHASE_4.md`
+
+### P1-179: Add CI job for package-lock.json
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Backend/package-lock.json` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/package-lock.json`
+
+### P1-180: Review rate limits for rate-limiter.guard.ts
+**Labels:** `phase-1`, `security`
+**Description:** Phase 1 security baseline — `Backend/src/rate-limiter/rate-limiter.guard.ts` must not expose admin routes or keys without guards. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Security review completed with no critical findings
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.guard.ts`
+**Related:** `Backend/src/rate-limiter/rate-limiter.guard.ts`
+
+### P1-181: Wire wallet connect flow in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Contributors hit friction in `Frontend/app/api/ping/route.ts`; reduce setup steps and surface clear errors instead of blank screens. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README or `Frontend/README.md` documents how `Frontend/app/api/ping/route.ts` fits the app shell
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+**Related:** `Frontend/app/api/ping/route.ts`
+
+### P1-182: Add smoke test for rateLimiter.js
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/middleware/rateLimiter.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/middleware/rateLimiter.js`
+
+### P1-183: Align ABI export for REVOKE_FUNCTION_QUICK_START.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Eliminate flaky or skipped tests involving `Contracts/REVOKE_FUNCTION_QUICK_START.md`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] ABI artifacts generated and referenced by Backend if applicable
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+**Related:** `Contracts/REVOKE_FUNCTION_QUICK_START.md`
+
+### P1-184: Document env matrix in PHASE_5.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `PHASE_5.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PHASE_5.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `PHASE_5.md`
+
+### P1-185: Add smoke test post-build for package.json
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Backend/package.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/package.json`
+
+### P1-186: Pen-test endpoint behind rate-limiter.module.ts
+**Labels:** `phase-1`, `security`
+**Description:** Align `Backend/src/rate-limiter/rate-limiter.module.ts` with `Backend/src/rate-limiter/` and `Contracts/src/RateLimiter.sol` policies. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rate limits or access guards verified
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.module.ts`
+- [ ] Negative-path test or checklist item added
+**Related:** `Backend/src/rate-limiter/rate-limiter.module.ts`
+
+### P1-187: Fix TypeScript path alias in route.ts
+**Labels:** `phase-1`, `frontend`
+**Description:** Unify mock vs live data paths touching `Frontend/app/api/trending-markets/route.ts` before Phase 2 market wiring replaces `Frontend/data/mockMarkets.ts`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Wallet connect and navigation work on first load
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+**Related:** `Frontend/app/api/trending-markets/route.ts`
+
+### P1-188: Add missing module export in throttle.js
+**Labels:** `phase-1`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/middleware/throttle.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/throttle.js`
+**Related:** `Backend/middleware/throttle.js`
+
+### P1-189: Verify remappings for REVOKE_FUNCTION_README.md
+**Labels:** `phase-1`, `contracts`
+**Description:** Contracts foundations: `Contracts/REVOKE_FUNCTION_README.md` must compile and pass `forge test` in `Contracts/` before market wiring. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical compiler warnings in `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge build` succeeds with `Contracts/REVOKE_FUNCTION_README.md`
+- [ ] `forge test` passes for tests covering this contract
+**Related:** `Contracts/REVOKE_FUNCTION_README.md`
+
+### P1-190: Fix broken links in PR_INSTRUCTIONS.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `PR_INSTRUCTIONS.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `PR_INSTRUCTIONS.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PR_INSTRUCTIONS.md`
+
+### P1-191: Add parallel job for deploy.js
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Backend/scripts/deploy.js` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/scripts/deploy.js`
+
+### P1-192: Review CORS policy for rate-limiter.service.ts
+**Labels:** `phase-1`, `security`
+**Description:** Document trust assumptions for `Backend/src/rate-limiter/rate-limiter.service.ts` (oracles, multisig, beta access). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No secrets or private keys in `Backend/src/rate-limiter/rate-limiter.service.ts`
+- [ ] Negative-path test or checklist item added
+- [ ] Threat notes recorded in docs or inline comments
+**Related:** `Backend/src/rate-limiter/rate-limiter.service.ts`
+
+### P1-193: Add vitest coverage for page.tsx
+**Labels:** `phase-1`, `frontend`
+**Description:** Add minimal UI verification so CI can catch regressions in `Frontend/app/archive/page.tsx` before beta. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Vitest or manual checklist covers the happy path
+- [ ] No hard-coded localhost URLs left in production path
+- [ ] `npm run dev` in `Frontend/` renders pages using this file without console errors
+**Related:** `Frontend/app/archive/page.tsx`
+
+### P1-194: Document setup for tradeValidation.js
+**Labels:** `phase-1`, `backend`
+**Description:** Backend foundations: ensure `Backend/middleware/tradeValidation.js` boots under both NestJS (`Backend/src/`) and legacy Express (`Backend/server.js`) where applicable. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/middleware/tradeValidation.js`
+- [ ] README documents env vars and scripts for this module
+**Related:** `Backend/middleware/tradeValidation.js`
+
+### P1-195: Add troubleshooting for PR_TEMPLATE.md
+**Labels:** `phase-1`, `docs`
+**Description:** Phase 1 docs pass — verify `PR_TEMPLATE.md` matches `Backend/`, `Frontend/`, and `Contracts/` reality. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Commands in `PR_TEMPLATE.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+**Related:** `PR_TEMPLATE.md`
+
+### P1-196: Add cache step for deployService.js
+**Labels:** `phase-1`, `infra`
+**Description:** Document how `Backend/services/deployService.js` maps to staging vs production env vars. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+**Related:** `Backend/services/deployService.js`
+
+### P1-197: Add smoke test for version.js
+**Labels:** `phase-1`, `backend`
+**Description:** Unify legacy Express routes and Nest modules touching `Backend/middleware/version.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+**Related:** `Backend/middleware/version.js`
+
+### P1-198: Add CONTRIBUTING note for PUSH_INSTRUCTIONS.md
+**Labels:** `phase-1`, `docs`
+**Description:** Remove outdated implementation claims in `PUSH_INSTRUCTIONS.md` that contradict the codebase. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `PUSH_INSTRUCTIONS.md` verified on a clean checkout
+**Related:** `PUSH_INSTRUCTIONS.md`
+
+### P1-199: Document deploy path for upgradeCoordinator.js
+**Labels:** `phase-1`, `infra`
+**Description:** Infra: `Backend/services/upgradeCoordinator.js` must be part of reproducible local and CI builds for GateDelay. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+**Related:** `Backend/services/upgradeCoordinator.js`
+
+### P1-200: Add health check for 001_init_markets.js
+**Labels:** `phase-1`, `backend`
+**Description:** Phase 1 stabilizes the repo; `Backend/migrations/001_init_markets.js` must match the canonical run path in README. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Local dev server starts without errors involving `Backend/migrations/001_init_markets.js`
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+**Related:** `Backend/migrations/001_init_markets.js`
+
+### P1-201: Refresh stale claims in RATE_LIMITER_IMPLEMENTATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Reduce onboarding time: `RATE_LIMITER_IMPLEMENTATION.md` should answer "how do I run wallet + trade flow locally?" _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Links resolve and point to existing files
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+**Related:** `RATE_LIMITER_IMPLEMENTATION.md`
+
+### P1-202: Add branch protection rule for deploy.test.js
+**Labels:** `phase-1`, `infra`
+**Description:** Add smoke verification after build steps involving `Backend/tests/deploy.test.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Secrets not committed; `.env.example` covers required keys
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+**Related:** `Backend/tests/deploy.test.js`
+
+### P1-203: Add missing module export in AuditLog.js
+**Labels:** `phase-1`, `backend`
+**Description:** Add minimal verification so CI (`/.github/workflows/ci.yml`) catches regressions in `Backend/models/AuditLog.js`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] `npm test` or smoke script succeeds for this area
+- [ ] Change covered by test or documented manual checklist
+- [ ] Local dev server starts without errors involving `Backend/models/AuditLog.js`
+**Related:** `Backend/models/AuditLog.js`
+
+### P1-204: Add onboarding step to README.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `README.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `README.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `README.md`
+
+### P1-205: Stabilize pipeline for tsconfig.build.json
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Backend/tsconfig.build.json` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Backend/tsconfig.build.json`
+
+### P1-206: Ensure package scripts cover Balance.js
+**Labels:** `phase-1`, `backend`
+**Description:** Contributors report friction around `Backend/models/Balance.js`; eliminate silent failures on `npm run start:dev`. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] README documents env vars and scripts for this module
+- [ ] No critical console errors on boot
+- [ ] `npm test` or smoke script succeeds for this area
+**Related:** `Backend/models/Balance.js`
+
+### P1-207: Summarize implementation status in README_IMPLEMENTATION.md
+**Labels:** `phase-1`, `docs`
+**Description:** Link `README_IMPLEMENTATION.md` to ADR 0001 and phase roadmap in `PHASES.md` where relevant. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Env vars and ports match `.env.example` files
+- [ ] Phase ownership noted where applicable
+- [ ] Reviewed by a contributor unfamiliar with the repo
+**Related:** `README_IMPLEMENTATION.md`
+
+### P1-208: Add monitoring hook for tsconfig.json
+**Labels:** `phase-1`, `infra`
+**Description:** Coordinate `Backend/tsconfig.json` with `Backend/services/upgradeCoordinator.js` for deploy sequencing. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Rollback or retry documented for deploy steps
+- [ ] Smoke test passes after build
+- [ ] CI workflow green on PR touching related code
+**Related:** `Backend/tsconfig.json`
+
+### P1-209: Update setup section in RELEASE_NOTES.md
+**Labels:** `phase-1`, `docs`
+**Description:** Documentation: `RELEASE_NOTES.md` must accurately describe current build/run steps for GateDelay contributors. _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] Reviewed by a contributor unfamiliar with the repo
+- [ ] Commands in `RELEASE_NOTES.md` verified on a clean checkout
+- [ ] Links resolve and point to existing files
+**Related:** `RELEASE_NOTES.md`
+
+### P1-210: Pin toolchain version in test.yml
+**Labels:** `phase-1`, `infra`
+**Description:** Phase 1 CI — ensure `Contracts/.github/workflows/test.yml` gates merges on lint/test for its area (Backend, Frontend, or Contracts). _(Phase 1: stabilize foundations.)_
+**Acceptance criteria:**
+- [ ] CI workflow green on PR touching related code
+- [ ] Toolchain versions documented and pinned
+- [ ] Secrets not committed; `.env.example` covers required keys
+**Related:** `Contracts/.github/workflows/test.yml`
