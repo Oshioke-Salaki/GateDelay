@@ -8,7 +8,7 @@
 # See docs/PATH_CONFIG.md for full details.
 
 [profile.default]
-src            = "Contracts/contracts"
+src            = "Contracts/src"
 out            = "Contracts/out"
 libs           = ["Contracts/lib"]
 test           = "test"
@@ -25,7 +25,7 @@ remappings = [
   "openzeppelin-contracts/=Contracts/lib/openzeppelin-contracts/",
   "@prb/math/=Contracts/lib/prb-math/",
   # Convenience aliases so test files can import by short path
-  "contracts/=Contracts/contracts/",
+  "contracts/=Contracts/src/",
   "src/=Contracts/src/",
 ]
 

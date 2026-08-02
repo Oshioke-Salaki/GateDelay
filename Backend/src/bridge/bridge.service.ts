@@ -491,7 +491,6 @@ export class BridgeService {
   /**
    * Get protocol information for the client.
    */
-  getProtocolInfo(): (ProtocolConfig & { protocol: BridgeProtocol })[] {
   getProtocolInfo(): Array<ProtocolConfig & { protocol: BridgeProtocol }> {
     return Object.entries(PROTOCOL_CONFIGS).map(([protocol, config]) => ({
       protocol: protocol as BridgeProtocol,
