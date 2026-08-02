@@ -34,7 +34,11 @@ export class RateLimiterGuard implements CanActivate {
     const config = RATE_LIMIT_TIERS[tier];
     const key = this.buildKey(req, tier);
 
-    const result = this.rateLimiterService.check(key, config.limit, config.windowMs);
+    const result = this.rateLimiterService.check(
+      key,
+      config.limit,
+      config.windowMs,
+    );
 
     this.setHeaders(res, result.limit, result.remaining, result.resetAt);
 
@@ -95,9 +99,6 @@ export class RateLimiterGuard implements CanActivate {
     res.setHeader('X-RateLimit-Limit', limit);
     res.setHeader('X-RateLimit-Remaining', Math.max(remaining, 0));
     res.setHeader('X-RateLimit-Reset', Math.ceil(resetAt / 1000));
-    res.setHeader(
-      'X-RateLimit-Reset-Human',
-      new Date(resetAt).toISOString(),
-    );
+    res.setHeader('X-RateLimit-Reset-Human', new Date(resetAt).toISOString());
   }
 }

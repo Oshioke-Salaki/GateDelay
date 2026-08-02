@@ -13,7 +13,13 @@ const { parseField, buildConfig } = require('../config/legacy.js');
 
 describe('parseField', () => {
   it('returns defaultValue when env var is missing and not required', () => {
-    expect(parseField('MISSING_VAR', undefined, { type: 'string', required: false, defaultValue: 'default' })).toBe('default');
+    expect(
+      parseField('MISSING_VAR', undefined, {
+        type: 'string',
+        required: false,
+        defaultValue: 'default',
+      }),
+    ).toBe('default');
   });
 
   it('throws when a required env var is missing', () => {
@@ -37,9 +43,9 @@ describe('parseField', () => {
   });
 
   it('throws on out-of-range port', () => {
-    expect(() =>
-      parseField('PORT_VAR', '99999', { type: 'port' }),
-    ).toThrow('must be a valid port');
+    expect(() => parseField('PORT_VAR', '99999', { type: 'port' })).toThrow(
+      'must be a valid port',
+    );
   });
 
   it('coerces boolean "true"', () => {
@@ -51,24 +57,28 @@ describe('parseField', () => {
   });
 
   it('throws on invalid boolean value', () => {
-    expect(() =>
-      parseField('BOOL_VAR', 'yes', { type: 'boolean' }),
-    ).toThrow('must be "true"/"false"/"1"/"0"');
+    expect(() => parseField('BOOL_VAR', 'yes', { type: 'boolean' })).toThrow(
+      'must be "true"/"false"/"1"/"0"',
+    );
   });
 
   it('accepts a valid URL string', () => {
-    const result = parseField('URL_VAR', 'https://example.com', { type: 'url' });
+    const result = parseField('URL_VAR', 'https://example.com', {
+      type: 'url',
+    });
     expect(result).toContain('https://example.com');
   });
 
   it('throws on invalid URL', () => {
-    expect(() =>
-      parseField('URL_VAR', 'not-a-url', { type: 'url' }),
-    ).toThrow('must be a valid URL');
+    expect(() => parseField('URL_VAR', 'not-a-url', { type: 'url' })).toThrow(
+      'must be a valid URL',
+    );
   });
 
   it('accepts a valid email string', () => {
-    expect(parseField('EMAIL_VAR', 'user@example.com', { type: 'email' })).toBe('user@example.com');
+    expect(parseField('EMAIL_VAR', 'user@example.com', { type: 'email' })).toBe(
+      'user@example.com',
+    );
   });
 
   it('throws on invalid email', () => {
@@ -82,7 +92,11 @@ describe('buildConfig', () => {
   it('returns validated values when all env vars are present', () => {
     const schema = {
       TEST_PORT: { type: 'port' as const, required: false, defaultValue: 8080 },
-      TEST_HOST: { type: 'string' as const, required: false, defaultValue: 'localhost' },
+      TEST_HOST: {
+        type: 'string' as const,
+        required: false,
+        defaultValue: 'localhost',
+      },
     };
     const result = buildConfig(schema);
     expect(result.TEST_PORT).toBe(8080);
@@ -96,10 +110,12 @@ describe('buildConfig', () => {
 
     const schema = {
       FORCE_INVALID_PORT: { type: 'port' as const, required: false },
-      FORCE_INVALID_NUM:  { type: 'number' as const, required: false },
+      FORCE_INVALID_NUM: { type: 'number' as const, required: false },
     };
 
-    expect(() => buildConfig(schema)).toThrow('Configuration validation failed');
+    expect(() => buildConfig(schema)).toThrow(
+      'Configuration validation failed',
+    );
 
     delete process.env.FORCE_INVALID_PORT;
     delete process.env.FORCE_INVALID_NUM;

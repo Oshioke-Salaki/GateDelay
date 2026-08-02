@@ -412,8 +412,8 @@ export class DepositService {
       balanceUpdated: deposit.balanceUpdated,
       notificationSent: deposit.notificationSent,
       confirmedAt: deposit.confirmedAt,
-      createdAt: doc.createdAt as Date,
-      updatedAt: doc.updatedAt as Date,
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
     };
   }
 

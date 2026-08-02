@@ -43,10 +43,9 @@ describe('NonceManagerService', () => {
     }).compile();
 
     service = module.get<NonceManagerService>(NonceManagerService);
-    (service as unknown as { providerCache: Map<string, unknown> }).providerCache.set(
-      'mantle',
-      mockProvider,
-    );
+    (
+      service as unknown as { providerCache: Map<string, unknown> }
+    ).providerCache.set('mantle', mockProvider);
   });
 
   it('reserves nonces sequentially and avoids conflicts', async () => {
@@ -75,7 +74,12 @@ describe('NonceManagerService', () => {
     await service.commitReservation(testAddress, r3.reservationId, 'mantle');
     await service.releaseReservation(testAddress, r2.reservationId, 'mantle');
 
-    const result = await service.fillNonceGaps(testAddress, 'mantle', true, 60_000);
+    const result = await service.fillNonceGaps(
+      testAddress,
+      'mantle',
+      true,
+      60_000,
+    );
 
     expect(result.reserved).toBeDefined();
     expect(result.reserved?.nonce).toBe(11);

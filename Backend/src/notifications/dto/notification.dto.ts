@@ -1,5 +1,15 @@
-import { IsString, IsEnum, IsOptional, IsObject, IsBoolean, IsArray } from 'class-validator';
-import type { NotificationChannel, NotificationType } from '../notification.entity';
+import {
+  IsString,
+  IsEnum,
+  IsOptional,
+  IsObject,
+  IsBoolean,
+  IsArray,
+} from 'class-validator';
+import type {
+  NotificationChannel,
+  NotificationType,
+} from '../notification.entity';
 import {
   IsString,
   IsEnum,
