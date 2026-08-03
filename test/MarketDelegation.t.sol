@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../Contracts/contracts/MarketDelegation.sol";
+import "../Contracts/src/MarketDelegation.sol";
 
 contract MarketDelegationTest is Test {
     MarketDelegation public delegation;

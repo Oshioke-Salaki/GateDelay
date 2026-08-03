@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
 import dynamic from "next/dynamic";
+import { useConnectKitBridge } from "./ConnectKitBridge";
 
 const ConnectModal = dynamic(
   () => import("../../components/wallet/ConnectModal"),
@@ -14,8 +14,7 @@ function truncate(addr: string) {
 }
 
 export default function WalletButton() {
-  const { isConnected, address, isConnecting } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { isConnected, address, isConnecting, disconnect } = useConnectKitBridge();
   const [modalOpen, setModalOpen] = useState(false);
 
   if (isConnecting) {

@@ -5,6 +5,7 @@ import { ClipStore } from './clip.store';
 import { IpfsUploadService } from './ipfs-upload.service';
 import { NftController } from './nft.controller';
 import { NftMintService } from './nft-mint.service';
+import { NftController } from './nft.controller';
 import { NftService } from './nft.service';
 import { SorobanNftClient } from './soroban/soroban-nft.client';
 
@@ -25,5 +26,7 @@ import { SorobanNftClient } from './soroban/soroban-nft.client';
     SorobanNftClient,
     ClipStore,
   ],
+  providers: [NftService, SorobanNftClient],
+  exports: [NftService, SorobanNftClient],
 })
 export class NftModule {}

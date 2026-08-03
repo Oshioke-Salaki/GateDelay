@@ -23,6 +23,10 @@ export interface PreparedMintTx {
  * Thin client for Soroban NFT royalty reads and mint transaction building.
  * Uses RPC simulation when configured; otherwise falls back to local helpers
  * suitable for development and unit tests.
+/**
+ * Thin client for Soroban NFT royalty reads.
+ * Uses RPC simulation when configured; otherwise falls back to an in-memory map
+ * suitable for local development and unit tests.
  */
 @Injectable()
 export class SorobanNftClient {

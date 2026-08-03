@@ -10,6 +10,9 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import {
+  ApiBearerAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -108,6 +111,7 @@ export class NftController {
   ): Promise<PrepareMintTxResponseDto> {
     return this.nftMintService.prepareMintTx(dto);
   }
+  constructor(private readonly nftService: NftService) {}
 
   @Get(':mintAddress/royalty')
   @ApiOperation({

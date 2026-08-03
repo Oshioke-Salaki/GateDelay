@@ -1,3 +1,4 @@
+console.log("[alerts.js] Initializing alerts route handler...");
 const express = require('express');
 const router = express.Router();
 const alertRouting = require('../services/alertRouting');
