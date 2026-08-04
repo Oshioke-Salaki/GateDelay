@@ -1,4 +1,5 @@
-const Big = require('big.js');
+// TODO: Quarantined - big.js not in package.json. Add dependency or implement alternative.
+// const Big = require('big.js');
 const Collateral = require('../models/Collateral');
 
 /**

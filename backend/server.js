@@ -1,10 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 
+// Local routes (services and routes co-located in backend/)
 const migrationRoutes = require('./routes/migration');
 const rollbackRoutes = require('./routes/rollback');
-const betaRoutes = require('./routes/beta');
-const oncallRoutes = require('./routes/oncall');
+
+// Aliased routes (canonical files live in Backend/routes/)
+const betaRoutes = require('../Backend/routes/beta');
+const oncallRoutes = require('../Backend/routes/oncall');
+const restoreRoutes = require('../Backend/routes/restore');
 const upgradeCoordinator = require('./services/upgradeCoordinator');
 const upgradeManager = require('./jobs/upgradeManager');
 
@@ -20,6 +24,7 @@ app.get('/health', (_req, res) => {
 
 app.use('/api/migrations', migrationRoutes);
 app.use('/api/rollback', rollbackRoutes);
+app.use('/api/restore', restoreRoutes);
 app.use('/api/beta', betaRoutes);
 app.use('/api/oncall', oncallRoutes);
 

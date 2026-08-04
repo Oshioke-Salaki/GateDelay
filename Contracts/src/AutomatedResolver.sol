@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "../src/Resolution.sol";
+import "./Resolution.sol";
 
 /// @title AutomatedResolver
 /// @notice Implements automated market resolution using Chainlink Automation (formerly Keepers)

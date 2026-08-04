@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/VoteDelegation.sol";
+import "../src/VoteDelegation.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 // ─── Mock governance token ─────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {MarketRelay, RelayClient, IRelayRouter} from "../contracts/MarketRelay.sol";
+import {MarketRelay, RelayClient, IRelayRouter} from "../src/MarketRelay.sol";
 
 // ---------------------------------------------------------------
 // Mock Relay Router

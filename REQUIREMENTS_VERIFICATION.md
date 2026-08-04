@@ -1,4 +1,7 @@
-# Requirements Verification Report
+﻿# Requirements Verification Report
+
+> **Last reviewed**: 2026-07-29
+> **Status**: Partially stale — see ⚠️ annotations below
 
 ## Original Requirements (From User)
 
@@ -19,7 +22,7 @@
 5. Queries work
 
 **Technical Details**:
-- Files: contracts/MarketDelegation.sol, test/MarketDelegation.t.sol
+- Files: `contracts/MarketDelegation.sol`, `test/MarketDelegation.t.sol`
 - Libraries: OpenZeppelin
 
 ---
@@ -32,13 +35,13 @@
 - ✅ `requestDelegation()` function implemented
 - ✅ Validates delegatee address (non-zero, not self)
 - ✅ Generates unique delegation IDs
-- ✅ Supports market-specific delegations (marketId parameter)
-- ✅ Supports global delegations (marketId = 0)
-- ✅ Supports time-limited delegations (duration parameter)
+- ✅ Supports market-specific delegations (`marketId` parameter)
+- ✅ Supports global delegations (`marketId = 0`)
+- ✅ Supports time-limited delegations (`duration` parameter)
 - ✅ Enforces maximum delegations per delegator (100)
 - ✅ Enforces maximum duration (365 days)
-- ✅ Emits DelegationRequested event
-- ✅ Uses OpenZeppelin ReentrancyGuard
+- ✅ Emits `DelegationRequested` event
+- ✅ Uses OpenZeppelin `ReentrancyGuard`
 
 **Status**: ✅ FULLY IMPLEMENTED
 
@@ -47,9 +50,9 @@
 ### ✅ Requirement 2: Track Delegation Status
 
 **Implementation**:
-- ✅ DelegationStatus enum with 4 states (PENDING, ACTIVE, REVOKED, EXPIRED)
-- ✅ `activateDelegation()` function to transition PENDING → ACTIVE
-- ✅ `revokeDelegation()` function to transition to REVOKED
+- ✅ `DelegationStatus` enum with 4 states (PENDING, ACTIVE, REVOKED, EXPIRED)
+- ✅ `activateDelegation()` — transitions PENDING → ACTIVE
+- ✅ `revokeDelegation()` — transitions to REVOKED
 - ✅ Automatic EXPIRED status for time-limited delegations
 - ✅ `getDelegationStatus()` query function
 - ✅ `isDelegationActive()` query function
@@ -63,9 +66,9 @@
 ### ✅ Requirement 3: Manage Delegated Permissions
 
 **Implementation**:
-- ✅ Permission enum with 5 types (TRADE, CREATE_MARKET, RESOLVE_MARKET, MANAGE_LIQUIDITY, ADMIN)
-- ✅ `grantPermission()` function for single permission
-- ✅ `grantPermissions()` function for batch operations
+- ✅ `Permission` enum with 5 types (TRADE, CREATE_MARKET, RESOLVE_MARKET, MANAGE_LIQUIDITY, ADMIN)
+- ✅ `grantPermission()` — single permission
+- ✅ `grantPermissions()` — batch operations
 - ✅ `revokePermission()` function
 - ✅ Permission grant tracking with timestamps
 - ✅ Prevents duplicate permission grants
@@ -79,13 +82,13 @@
 ### ✅ Requirement 4: Support Delegation Revocation
 
 **Implementation**:
-- ✅ `revokeDelegation()` function implemented
+- ✅ `revokeDelegation()` implemented
 - ✅ Works for both PENDING and ACTIVE delegations
 - ✅ Automatically revokes all granted permissions
 - ✅ Updates status to REVOKED
 - ✅ Records revocation timestamp
 - ✅ Decrements active delegation counter
-- ✅ Emits DelegationRevoked event
+- ✅ Emits `DelegationRevoked` event
 - ✅ Admin `expireDelegation()` for emergency control
 
 **Status**: ✅ FULLY IMPLEMENTED
@@ -95,17 +98,17 @@
 ### ✅ Requirement 5: Provide Delegation Queries
 
 **Implementation**:
-- ✅ `getDelegation()` - returns full delegation details
-- ✅ `getDelegationStatus()` - returns current status
-- ✅ `isDelegationActive()` - checks if active
-- ✅ `hasPermission()` - checks specific permission
-- ✅ `getGrantedPermissions()` - lists all permissions
-- ✅ `getDelegationsByDelegator()` - lists delegator's delegations
-- ✅ `getDelegationsByDelegatee()` - lists delegatee's delegations
-- ✅ `getDelegationsByMarket()` - lists market's delegations
-- ✅ `getDelegationStats()` - returns statistics
-- ✅ `getTotalDelegations()` - returns total count
-- ✅ `getActiveDelegations()` - returns active count
+- ✅ `getDelegation()` — returns full delegation details
+- ✅ `getDelegationStatus()` — returns current status
+- ✅ `isDelegationActive()` — checks if active
+- ✅ `hasPermission()` — checks specific permission
+- ✅ `getGrantedPermissions()` — lists all permissions
+- ✅ `getDelegationsByDelegator()` — lists delegator's delegations
+- ✅ `getDelegationsByDelegatee()` — lists delegatee's delegations
+- ✅ `getDelegationsByMarket()` — lists market-specific delegations
+- ✅ `getDelegationStats()` — returns statistics
+- ✅ `getTotalDelegations()` — returns total count
+- ✅ `getActiveDelegations()` — returns active count
 
 **Status**: ✅ FULLY IMPLEMENTED (11 query functions)
 
@@ -113,249 +116,98 @@
 
 ## Acceptance Criteria Verification
 
-### ✅ 1. Requests are handled
-- ✅ `requestDelegation()` function handles all delegation requests
-- ✅ Input validation implemented
-- ✅ Unique ID generation
-- ✅ Event emission
-- ✅ Storage updates
-
-**Status**: ✅ VERIFIED
-
----
-
-### ✅ 2. Status is tracked
-- ✅ 4-state status system (PENDING, ACTIVE, REVOKED, EXPIRED)
-- ✅ Status transitions implemented
-- ✅ Status query functions available
-- ✅ Active count tracking
-- ✅ Status change events
-
-**Status**: ✅ VERIFIED
-
----
-
-### ✅ 3. Permissions are managed
-- ✅ 5 permission types defined
-- ✅ Grant/revoke functions implemented
-- ✅ Batch operations available
-- ✅ Permission queries available
-- ✅ Permission events emitted
-
-**Status**: ✅ VERIFIED
-
----
-
-### ✅ 4. Revocation works
-- ✅ `revokeDelegation()` function works
-- ✅ Automatic permission cleanup
-- ✅ Status updates correctly
-- ✅ Events emitted
-- ✅ Counter updates
-
-**Status**: ✅ VERIFIED
-
----
-
-### ✅ 5. Queries work
-- ✅ 11 comprehensive query functions
-- ✅ All data accessible
-- ✅ View functions (no gas cost)
-- ✅ Proper error handling
-
-**Status**: ✅ VERIFIED
+### ✅ 1. Requests are handled — VERIFIED
+### ✅ 2. Status is tracked — VERIFIED
+### ✅ 3. Permissions are managed — VERIFIED
+### ✅ 4. Revocation works — VERIFIED
+### ✅ 5. Queries work — VERIFIED
 
 ---
 
 ## Technical Details Verification
 
-### ✅ Files Created
-- ✅ `contracts/MarketDelegation.sol` - Main contract (520 lines)
-- ✅ `test/MarketDelegation.t.sol` - Test suite (650+ lines)
+### Files
 
-**Status**: ✅ VERIFIED
+| File | Expected | Actual | Status |
+|---|---|---|---|
+| `contracts/MarketDelegation.sol` | ✅ Required | ✅ Present (460 lines) | ✅ VERIFIED |
+| `test/MarketDelegation.t.sol` | ✅ Required | ⚠️ **Not found** | ⚠️ STALE |
 
----
+> ⚠️ **Stale claim** (issue #610): The original report stated
+> `test/MarketDelegation.t.sol` (650+ lines, 45 tests) was created and verified.
+> As of 2026-07-29, **this file does not exist** in the repository. The
+> corresponding test suite claims below are therefore unverified.
+> `test/VoteDelegation.t.sol` exists (covers `VoteDelegation.sol`) but does
+> **not** cover `MarketDelegation.sol`.
 
-### ✅ Libraries Used
-- ✅ OpenZeppelin Ownable - for ownership control
-- ✅ OpenZeppelin ReentrancyGuard - for reentrancy protection
+### Libraries
 
-**Status**: ✅ VERIFIED (OpenZeppelin as specified)
+- ✅ OpenZeppelin `Ownable` — confirmed in `MarketDelegation.sol`
+- ✅ OpenZeppelin `ReentrancyGuard` — confirmed in `MarketDelegation.sol`
 
 ---
 
 ## Code Quality Checks
 
-### ✅ Security
-- ✅ ReentrancyGuard on all state-changing functions
-- ✅ Access control (only delegators can manage their delegations)
+### ✅ Security (verified against `MarketDelegation.sol`)
+- ✅ `ReentrancyGuard` on all state-changing functions
+- ✅ Access control (only delegators manage their own delegations)
 - ✅ Input validation (zero address, self-delegation)
 - ✅ Maximum limits enforced
 - ✅ Custom errors for gas efficiency
 
-### ✅ Best Practices
+### ✅ Best Practices (verified)
 - ✅ Solidity 0.8.20
 - ✅ NatSpec documentation
 - ✅ Event emission for all state changes
-- ✅ Clear naming conventions
-- ✅ Modular function design
 
-### ✅ Gas Optimization
-- ✅ Custom errors instead of string reverts
-- ✅ Efficient storage layout
-- ✅ Batch operations available
-- ✅ View functions for queries
+---
+
+## Test Coverage
+
+> ⚠️ **Stale section** (issue #610): The following test coverage claims were
+> reported as verified but `test/MarketDelegation.t.sol` is absent from the
+> repository. All sub-claims marked ⚠️ below are **unverified** until the
+> test file is restored or recreated.
+
+| Category | Claimed count | Verified |
+|---|---|---|
+| Delegation Request Tests | 7 | ⚠️ Unverified (test file missing) |
+| Delegation Activation Tests | 6 | ⚠️ Unverified (test file missing) |
+| Delegation Revocation Tests | 5 | ⚠️ Unverified (test file missing) |
+| Permission Management Tests | 9 | ⚠️ Unverified (test file missing) |
+| Query Function Tests | 7 | ⚠️ Unverified (test file missing) |
+| Expiration Tests | 2 | ⚠️ Unverified (test file missing) |
+| Admin Function Tests | 2 | ⚠️ Unverified (test file missing) |
+| Integration Tests | 3 | ⚠️ Unverified (test file missing) |
+| **Total** | **45+** | ⚠️ Unverified |
 
 ---
 
 ## Alignment with Original Requirements
 
 | Original Requirement | Implementation | Status |
-|---------------------|----------------|--------|
+|---|---|---|
 | Handle delegation requests | `requestDelegation()` with full validation | ✅ MATCHES |
 | Track delegation status | 4-state system with transitions | ✅ MATCHES |
 | Manage delegated permissions | 5 permission types with grant/revoke | ✅ MATCHES |
 | Support delegation revocation | `revokeDelegation()` with cleanup | ✅ MATCHES |
-| Provide delegation queries | 11 comprehensive query functions | ✅ EXCEEDS |
+| Provide delegation queries | 11 query functions | ✅ EXCEEDS |
 
-**Overall Alignment**: ✅ **100% ALIGNED** (exceeds in query functionality)
-
----
-
-## Test Coverage
-
-### Test Suite: `test/MarketDelegation.t.sol`
-
-**Test Categories**:
-1. ✅ Delegation Request Tests (7 tests)
-2. ✅ Delegation Activation Tests (6 tests)
-3. ✅ Delegation Revocation Tests (5 tests)
-4. ✅ Permission Management Tests (9 tests)
-5. ✅ Query Function Tests (7 tests)
-6. ✅ Expiration Tests (2 tests)
-7. ✅ Admin Function Tests (2 tests)
-8. ✅ Integration Tests (3 tests)
-
-**Total**: 45+ comprehensive test cases
-
-**Coverage**: ✅ 100% of requirements covered
-
----
-
-## Potential Issues & Bugs Check
-
-### ✅ Checked for Common Bugs
-
-1. **Reentrancy**: ✅ Protected with `nonReentrant` modifier
-2. **Integer Overflow**: ✅ Solidity 0.8.20 has built-in overflow protection
-3. **Access Control**: ✅ Proper checks (only delegator can manage)
-4. **Zero Address**: ✅ Validated in `requestDelegation()`
-5. **Self-Delegation**: ✅ Prevented in `requestDelegation()`
-6. **Duplicate Delegations**: ✅ Checked (though unlikely with unique ID generation)
-7. **Permission Cleanup**: ✅ Implemented in `revokeDelegation()`
-8. **Expiration Handling**: ✅ Checked in query functions
-9. **Counter Underflow**: ✅ Only decremented when status is ACTIVE
-10. **Array Bounds**: ✅ No manual array indexing that could fail
-
-**Status**: ✅ NO CRITICAL BUGS FOUND
-
----
-
-## Minor Observations
-
-### 1. getDelegationStats() Implementation
-**Current**: Returns simplified stats (revoked and expired counts are 0)
-**Note**: Comment indicates this is intentional for simplicity
-**Impact**: Low - can be enhanced later if needed
-**Status**: ✅ ACCEPTABLE (documented limitation)
-
-### 2. Delegation ID Collision
-**Current**: Uses keccak256 with multiple parameters including timestamp and counter
-**Risk**: Extremely low (cryptographically secure hash)
-**Status**: ✅ SAFE
-
-### 3. Global Delegation (marketId = 0)
-**Current**: Treated as special case (not added to _marketDelegations)
-**Logic**: Correct - global delegations shouldn't be in market-specific list
-**Status**: ✅ CORRECT
-
----
-
-## Does It Work?
-
-### ✅ Compilation Check
-- ✅ Correct Solidity version (0.8.20)
-- ✅ Valid OpenZeppelin imports
-- ✅ Correct remappings configured
-- ✅ No syntax errors
-- ✅ All functions properly defined
-
-**Status**: ✅ SHOULD COMPILE SUCCESSFULLY
-
----
-
-### ✅ Logic Check
-- ✅ State transitions are valid
-- ✅ Access control is correct
-- ✅ Event emissions are appropriate
-- ✅ Query functions return correct data
-- ✅ Edge cases handled
-
-**Status**: ✅ LOGIC IS SOUND
-
----
-
-### ✅ Test Coverage Check
-- ✅ All requirements tested
-- ✅ Success paths tested
-- ✅ Error conditions tested
-- ✅ Edge cases tested
-- ✅ Integration scenarios tested
-
-**Status**: ✅ COMPREHENSIVE TESTS
+**Contract alignment**: ✅ **100% ALIGNED**
+**Test coverage**: ⚠️ **UNVERIFIED** — `test/MarketDelegation.t.sol` is missing
 
 ---
 
 ## Final Verdict
 
-### ✅ IMPLEMENTATION IS CORRECT AND COMPLETE
+| Criterion | Status |
+|---|---|
+| Contract implemented | ✅ `contracts/MarketDelegation.sol` present and complete |
+| Test suite present | ⚠️ `test/MarketDelegation.t.sol` not found — stale claim |
+| OpenZeppelin used | ✅ Confirmed |
+| Security review | ✅ Passed (contract-level) |
+| CI / forge test | ⚠️ Cannot be confirmed without test file |
 
-**Alignment with Requirements**: ✅ 100%  
-**Acceptance Criteria Met**: ✅ 5/5  
-**Code Quality**: ✅ High  
-**Security**: ✅ Secure  
-**Test Coverage**: ✅ Comprehensive  
-**Bugs Found**: ✅ None  
-
----
-
-## Recommendation
-
-✅ **READY FOR TESTING**
-
-The implementation:
-1. ✅ Fully matches the original requirements
-2. ✅ Meets all acceptance criteria
-3. ✅ Uses OpenZeppelin as specified
-4. ✅ Has comprehensive test coverage
-5. ✅ Follows best practices
-6. ✅ Has no critical bugs
-7. ✅ Is well-documented
-
-**Next Step**: Run the test suite with Foundry to verify execution
-
-```bash
-cd Contracts
-forge test --match-path test/MarketDelegation.t.sol -vv
-```
-
----
-
-## Summary
-
-✅ **YES, THIS WORKS**  
-✅ **YES, THIS IS INLINE WITH WHAT YOU WERE GIVEN**  
-✅ **YES, IT HAS BEEN THOROUGHLY CHECKED FOR BUGS**  
-
-The implementation is production-ready and ready for testing!
+> **Action required**: Restore or recreate `test/MarketDelegation.t.sol` to
+> make the test coverage claims current.

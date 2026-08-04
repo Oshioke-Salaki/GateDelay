@@ -1,6 +1,81 @@
 const multer = require('multer');
 const path = require('path');
 
+/**
+ * Threat Assumptions for KYCService
+ * ===================================
+ * 
+ * This service handles sensitive Know Your Customer (KYC) data and documents.
+ * The following threat assumptions must be considered:
+ * 
+ * 1. File Upload Threats
+ *    - Assumption: File extension filtering (.pdf, .jpg, .jpeg, .png) prevents malicious uploads
+ *    - Risk: File type spoofing, embedded malware, polyglot files
+ *    - Mitigation: Current implementation uses extension filtering only (weak)
+ *    - Recommendation: Add magic number validation, virus scanning, content sanitization
+ * 
+ * 2. File Size Threats
+ *    - Assumption: 5MB file size limit prevents DoS attacks
+ *    - Risk: Memory exhaustion, storage exhaustion, slow upload attacks
+ *    - Mitigation: Current limit of 5MB with multer memory storage
+ *    - Recommendation: Consider streaming to disk for large files, add rate limiting
+ * 
+ * 3. Storage Provider Security
+ *    - Assumption: Storage provider (S3, GCS, etc.) is secure and properly configured
+ *    - Risk: Unauthorized access, data leakage, misconfigured buckets
+ *    - Mitigation: Assumes provider implements proper ACLs, encryption at rest
+ *    - Recommendation: Implement server-side encryption, signed URLs, access logging
+ * 
+ * 4. External KYC Provider Trust
+ *    - Assumption: Registered KYC providers are trusted and secure
+ *    - Risk: Provider compromise, data breach, API abuse
+ *    - Mitigation: Provider verification via registration system
+ *    - Recommendation: Add provider authentication, rate limiting, audit logging
+ * 
+ * 5. Database Security (PII)
+ *    - Assumption: Database queries are safe from SQL injection
+ *    - Risk: SQL injection via userId, docType, requestId parameters
+ *    - Mitigation: Uses parameterized queries (assumed by db.query syntax)
+ *    - Recommendation: Validate input types, implement query whitelisting
+ * 
+ * 6. Data Privacy & Compliance
+ *    - Assumption: KYC data storage complies with GDPR, CCPA, AML regulations
+ *    - Risk: Non-compliance, data retention violations, right to be forgotten
+ *    - Mitigation: Not implemented in current code
+ *    - Recommendation: Add data retention policies, encryption at rest, audit trails
+ * 
+ * 7. Document Tampering
+ *    - Assumption: Uploaded documents are authentic and unaltered
+ *    - Risk: Forged documents, photoshopped IDs deepfake content
+ *    - Mitigation: Relies on external KYC provider verification
+ *    - Recommendation: Add document integrity checks, metadata validation
+ * 
+ * 8. Authentication & Authorization
+ *    - Assumption: Calling code has validated user identity and permissions
+ *    - Risk: Unauthorized access to other users' KYC data
+ *    - Mitigation: Not implemented in this service (assumes middleware layer)
+ *    - Recommendation: Add user context validation, permission checks per operation
+ * 
+ * 9. Replay Attacks
+ *    - Assumption: requestId uniqueness prevents duplicate submissions
+ *    - Risk: Race conditions, duplicate verification requests
+ *    - Mitigation: Timestamp-based requestId generation
+ *    - Recommendation: Add request deduplication, idempotency keys
+ * 
+ * 10. Information Leakage
+ *     - Assumption: Error messages don't expose sensitive information
+ *     - Risk: Stack traces, internal paths, database schema exposure
+ *     - Mitigation: Generic error messages in current implementation
+ *     - Recommendation: Implement structured logging, sanitize error outputs
+ * 
+ * Phase 2+ Dependencies:
+ * - Implement proper file content validation (magic numbers, virus scanning)
+ * - Add comprehensive audit logging for all KYC operations
+ * - Implement data retention and deletion workflows
+ * - Add encryption at rest for sensitive PII data
+ * - Implement rate limiting and abuse detection
+ * - Add comprehensive input validation and sanitization
+ */
 class KYCService {
   constructor(db, storageProvider) {
     this.db = db;

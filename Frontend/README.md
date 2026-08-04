@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## SSR Notes
+
+- `Frontend/components/wallet/QRDisplay.tsx` is a client-only wallet QR component.
+- The QR rendering library (`qrcode`) is dynamically imported at runtime to avoid SSR bundling or server-side DOM access issues.
+- Clipboard access is guarded as a browser-only API.
+- QR session timers are cleaned up on unmount to keep client transition paths stable during hydration.
+- Phase 2+: if server-rendered QR previews are required, add a lightweight server-safe placeholder before hydration.

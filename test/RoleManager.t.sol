@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/RoleManager.sol";
+import "../Contracts/src/RoleManager.sol";
 
 contract RoleManagerTest is Test {
     RoleManager roleManager;

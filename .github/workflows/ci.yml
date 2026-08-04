@@ -11,6 +11,32 @@ on:
       - master
 
 jobs:
+  contracts:
+    name: Contracts — Foundry Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry (pinned version)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"   # keep in sync with foundry.toml [toolchain] forge
+
+      - name: Install solc 0.8.28
+        run: forge install
+        working-directory: Contracts
+
+      - name: Compile contracts
+        run: forge build --force
+        working-directory: Contracts
+
+      - name: Run Foundry tests
+        run: forge test -vvv
+        working-directory: Contracts
+
   lint:
     name: Lint & Code Quality
     runs-on: ubuntu-latest
@@ -56,10 +82,34 @@ jobs:
         run: npm run test
         working-directory: Backend
 
+  contracts:
+    name: Solidity Contracts (Forge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Run Forge fmt check
+        run: forge fmt --check
+
+      - name: Run Forge build
+        run: forge build --sizes
+
+      - name: Run Forge tests
+        run: forge test -vvv
+
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, contracts]
     # Only deploy when pushing/merging directly to main or master
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:

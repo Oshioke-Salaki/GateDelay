@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/EvidenceStorage.sol";
+import "../src/EvidenceStorage.sol";
 
 contract EvidenceStorageTest is Test {
     EvidenceStorage public storage_;

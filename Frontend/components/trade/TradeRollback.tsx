@@ -54,7 +54,7 @@ export default function TradeRollback({
   const [history, setHistory] = useState<RollbackHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { showToast } = useToast();
+  const toast = useToast();
 
   // Fetch history when component mounts or marketId changes
   useEffect(() => {
@@ -120,7 +120,7 @@ export default function TradeRollback({
         setStep('confirm');
       } else {
         setError(data.error || data.data?.reason || 'Validation failed');
-        showToast('Rollback validation failed', 'error');
+        toast.error('Rollback validation failed', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Validation failed');
@@ -153,10 +153,10 @@ export default function TradeRollback({
           status: 'pending',
         });
         setStep('status');
-        showToast('Rollback requested successfully', 'success');
+        toast.success('Rollback requested successfully', 'success');
       } else {
         setError(data.error || 'Failed to request rollback');
-        showToast('Failed to request rollback', 'error');
+        toast.error('Failed to request rollback', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to request rollback');
@@ -176,11 +176,11 @@ export default function TradeRollback({
       const data = await response.json();
       if (data.success) {
         setStatus(data.data);
-        showToast('Rollback executed successfully', 'success');
+        toast.success('Rollback executed successfully', 'success');
         if (onRollbackComplete) onRollbackComplete();
       } else {
         setError(data.error || 'Failed to execute rollback');
-        showToast('Failed to execute rollback', 'error');
+        toast.error('Failed to execute rollback', 'error');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to execute rollback');
