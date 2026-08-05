@@ -1,3 +1,12 @@
+# ------------------------------------------------------------
+# Toolchain pin — keep this in sync with rust-toolchain.toml
+# and the forge version used in CI (.github/workflows/ci.yml).
+# Bump deliberately; never let it float.
+# ------------------------------------------------------------
+[toolchain]
+channel = "stable"           # tracks the latest stable forge release
+forge   = "1.1.0"            # minimum forge version; bump when you need new features
+
 [profile.default]
 src            = "src"
 out            = "out"

@@ -1,16 +1,58 @@
 /**
- * APPROVALS ROUTES
- * API endpoints for the multi-step trade approval workflow.
+ * @file routes/approvals.js
+ * @description Multi-step trade approval workflow routes for GateDelay.
  *
- * Approver authorization via headers:
- *   x-approver-id: <approverId>
- *   x-approver-role: <role>
+ * Provides Express router middleware for:
+ *   - GET  /stages              — List all approval stages
+ *   - GET  /history              — Get approval workflow history
+ *   - GET  /notifications        — Get pending notification queue
+ *   - GET  /trade/:tradeId       — Get workflows for a trade
+ *   - GET  /:workflowId          — Get full workflow status
+ *   - POST /                     — Create a new approval workflow
+ *   - POST /:workflowId/approve  — Submit an approval decision
+ *   - POST /delegate             — Delegate approval authority
+ *   - DELETE /delegate           — Revoke a delegation
+ *
+ * ## Environment Variables
+ *
+ *   APPROVAL_CRON_ENABLED  — Set to "true" to enable the background cron
+ *                            job that expires stale workflows every minute.
+ *                            Default: disabled (false), suitable for local dev.
+ *
+ * ## Usage (mount in an Express app)
+ *
+ *   const approvalsRouter = require('./routes/approvals');
+ *   app.use('/approvals', approvalsRouter);
+ *
+ * This mounts the routes under the `/approvals` prefix (e.g.,
+ * `/approvals/stages`, `/approvals/trade/:tradeId`, etc.).
+ *
+ * ## Related Files
+ *
+ *   - Backend/services/approvalService.js  — Service layer
+ *   - Backend/.env.example                 — APPROVAL_CRON_ENABLED
  */
 
-const express = require('express');
-const approvalService = require('../services/approvalService');
+const MODULE_NAME = 'approvals.js';
 
+// ----- Boot-time dependency check -------------------------------------------
+let express;
+try {
+  express = require('express');
+} catch (err) {
+  console.error(
+    `[${MODULE_NAME}] FATAL: Failed to require 'express'. ` +
+    `Is it installed? Run: npm install express`
+  );
+  throw err;
+}
+
+const approvalService = require('../services/approvalService');
 const router = express.Router();
+
+// ----- Startup logging ------------------------------------------------------
+console.log(`[${MODULE_NAME}] Initializing approval workflow route handler...`);
+console.log(`[${MODULE_NAME}] Boot check passed — module loaded successfully`);
 
 // ─────────────────────────────────────────────────────────────── Middleware
 

@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:aml": "node -e \"require('./routes/aml')\"",
     "test:approvals": "node -e \"require('./routes/approvals'); console.log('APPROVALS_SMOKE_PASS')\"",
+    "test:beta": "node -e \"require('./routes/beta'); console.log('BETA_SMOKE_PASS')\""
     "test:beta": "node -e \"require('./routes/beta'); console.log('BETA_SMOKE_PASS')\"",
     "test:blacklist": "node -e \"require('./routes/blacklist'); console.log('BLACKLIST_SMOKE_PASS')\""
     "test:alerts": "node -e \"require('./routes/alerts')\"",

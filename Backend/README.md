@@ -94,6 +94,7 @@ npm run test:approvals
 
 See `Backend/routes/approvals.js` and `Backend/services/approvalService.js` for full inline documentation.
 
+
 ## Beta Access
 
 The backend includes a beta access management route handler at `Backend/routes/beta.js`.
