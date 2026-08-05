@@ -77,7 +77,7 @@ export class TradeEngineService {
       stopPrice: dto.stopPrice ?? '0',
       amount: dto.amount,
       filled: '0',
-      status: 'Pending' as OrderStatus,
+      status: 'Pending',
       timestamp: new Date(),
     });
 
@@ -91,10 +91,7 @@ export class TradeEngineService {
   /**
    * Cancel an open / partial order.
    */
-  async cancelOrder(
-    userId: string,
-    orderId: string,
-  ): Promise<OrderDocument> {
+  async cancelOrder(userId: string, orderId: string): Promise<OrderDocument> {
     const order = await this.orderModel.findById(orderId);
     if (!order) throw new NotFoundException('Order not found');
     if (order.userId !== userId)
@@ -205,18 +202,13 @@ export class TradeEngineService {
         async.waterfall(
           [
             // Step 1: compute fills
-            (
-              next: (err: Error | null, fills: MatchResult[]) => void,
-            ) => {
+            (next: (err: Error | null, fills: MatchResult[]) => void) => {
               const fills = this.computeFills(takerOrder, candidates);
               next(null, fills);
             },
 
             // Step 2: persist fills atomically
-            (
-              fills: MatchResult[],
-              next: (err: Error | null) => void,
-            ) => {
+            (fills: MatchResult[], next: (err: Error | null) => void) => {
               this.persistFills(takerOrder, fills, candidates, session)
                 .then(() => {
                   matches.push(...fills);
@@ -258,9 +250,7 @@ export class TradeEngineService {
    *  - Bids: Highest price → Earliest timestamp
    *  - Asks: Lowest price  → Earliest timestamp
    */
-  private async findCandidates(
-    taker: OrderDocument,
-  ): Promise<OrderDocument[]> {
+  private async findCandidates(taker: OrderDocument): Promise<OrderDocument[]> {
     const oppositeSide = taker.side === 'Buy' ? 'Sell' : 'Buy';
 
     const query: Record<string, unknown> = {
@@ -355,7 +345,7 @@ export class TradeEngineService {
         : 'Partial';
 
       await this.orderModel.findByIdAndUpdate(
-        (maker._id as unknown as string),
+        maker._id as unknown as string,
         { filled: newMakerFilled.toString(), status: makerStatus },
         opts,
       );

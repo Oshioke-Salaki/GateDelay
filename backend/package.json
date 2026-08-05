@@ -19,7 +19,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:aml": "node -e \"require('./routes/aml')\"",
+    "test:approvals": "node -e \"require('./routes/approvals'); console.log('APPROVALS_SMOKE_PASS')\"",
+    "test:beta": "node -e \"require('./routes/beta'); console.log('BETA_SMOKE_PASS')\"",
+    "test:blacklist": "node -e \"require('./routes/blacklist'); console.log('BLACKLIST_SMOKE_PASS')\"",
+    "test:alerts": "node -e \"require('./routes/alerts')\"",
+    "test:api-example": "node -e \"require('./routes/api.example')\""
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

@@ -11,7 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { BridgeService } from './bridge.service';
+import { BridgeService, ProtocolConfig } from './bridge.service';
 import {
   InitiateBridgeDto,
   UpdateBridgeTxDto,
@@ -106,10 +106,7 @@ export class BridgeController {
    * Update status, hashes, or confirmation counts on a bridge transaction.
    */
   @Patch('transactions/:id')
-  updateTransaction(
-    @Param('id') id: string,
-    @Body() dto: UpdateBridgeTxDto,
-  ) {
+  updateTransaction(@Param('id') id: string, @Body() dto: UpdateBridgeTxDto) {
     return this.bridgeService.updateTransaction(id, dto);
   }
 

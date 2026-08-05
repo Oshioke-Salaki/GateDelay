@@ -1,248 +1,219 @@
-# GateDelay Backend - Migrations
+# Backend
 
-## Overview
+The backend mixes a lightweight Express API (`server.js`), background services, and a newer Nest-based `src/` app. Start by copying `.env.example` to `.env` and filling in the placeholders for the services you plan to run.
 
-This backend uses a custom migration service that supports both SQLite (via Sequelize) and MongoDB databases. Migrations are executed via REST API endpoints.
+## Required environment variables
 
-## Prerequisites
+These values should always be reviewed before local development or deployment:
 
-### Required Software
-- Node.js (v14 or higher)
-- npm
+- `JWT_SECRET` and `JWT_REFRESH_SECRET`: authentication secrets
+- `MONGODB_URI`: primary application database
+- `AVIATION_STACK_API_KEY`: live flight data provider
+- `RPC_URL` or `BLOCKCHAIN_RPC_URL`: chain access for rollback and oracle flows
+- `PRIVATE_KEY`: signer used by contract-facing backend jobs
 
-### Required Database
-- **SQLite** - Used for migration tracking and the `markets` table
-  - No installation required (embedded database)
-  - Database file location: `backend/data/migrations.sqlite`
+Redis-backed workers also require either `REDIS_URL` or `REDIS_HOST`/`REDIS_PORT`.
 
-### Optional Database
-- **MongoDB** - Required for other features, but NOT for the `001_init_markets` migration
-  - Default URI: `mongodb://127.0.0.1:27017/gatedelay`
-  - Can be configured via `MONGODB_URI` environment variable
-
-## Installation
+## Setup
 
 ```bash
-cd backend
 npm install
 ```
 
-## Environment Variables
-
-All environment variables are optional and have defaults:
-
-- `PORT` - Server port (default: `4000`)
-- `MONGODB_URI` - MongoDB connection string (default: `mongodb://127.0.0.1:27017/gatedelay`)
-
-## Running the Server
+## Run
 
 ```bash
-npm start
-```
+npm run dev
+## GateDelay Backend Setup
 
-The server will start on port 4000 (or the port specified in `PORT` environment variable).
+**For complete setup instructions, prerequisites, and troubleshooting, see [SETUP.md](./SETUP.md)**
 
-## Migration Commands
+### Quick Start
 
-### Check Migration Status
-
-```bash
-curl http://localhost:4000/api/migrations/status
-```
-
-**Expected output:**
-```json
-{
-  "success": true,
-  "data": {
-    "active": null,
-    "total": 1,
-    "applied": 0,
-    "pending": 1,
-    "scripts": [
-      {
-        "name": "001_init_markets",
-        "filename": "001_init_markets.js",
-        "path": "/path/to/backend/migrations/001_init_markets.js",
-        "checksum": "...",
-        "applied": false
-      }
-    ],
-    "history": []
-  }
-}
-```
-
-### List Available Migrations
+**Prerequisites**: Node.js >= 20.11, MongoDB, Redis
 
 ```bash
-curl http://localhost:4000/api/migrations/scripts
+# 1. Install dependencies
+$ npm install
+
+# 2. Configure environment
+$ cp .env.example .env
+# Edit .env with your configuration
+
+# 3. Start external services (MongoDB, Redis)
+
+# 4. Build (⚠️ currently has build errors - see SETUP.md)
+$ npm run build
 ```
 
-### Execute a Specific Migration
+## Project setup
 
 ```bash
-curl -X POST http://localhost:4000/api/migrations/execute \
-  -H "Content-Type: application/json" \
-  -d '{"name": "001_init_markets"}'
+$ npm install
 ```
 
-**Expected successful output:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "mig_1234567890",
-    "status": "completed",
-    "progress": 100,
-    "currentStep": 3,
-    "totalSteps": 3,
-    "error": null
-  }
-}
+## AML Compliance Endpoint
+
+The backend includes an AML (Anti-Money Laundering) compliance route handler at `Backend/routes/aml.js`.
+
+**Routes:**
+- `POST /screen` — Screen a user against AML watchlists (requires auth)
+- `POST /flag` — Record suspicious-activity flags (requires auth)
+- `GET /report/:userId` — Generate a screening report for a date range (requires auth)
+- `POST /file-report` — Submit regulatory filings (requires auth)
+
+**Quick smoke test:**
+```bash
+npm run test:aml
 ```
 
-### Execute All Pending Migrations
+See `Backend/routes/aml.js` and `Backend/services/amlService.js` for full inline documentation including the threat model and security assumptions.
+
+## Approval Workflows
+
+The backend includes a multi-step trade approval workflow handler at `Backend/routes/approvals.js`.
+
+**Environment variable:**
+- `APPROVAL_CRON_ENABLED` — Set to `"true"` to enable the background cron job that expires stale workflows every minute. Defaults to `false` (cron disabled), suitable for local development.
+
+**Routes (9 endpoints, mount at `/approvals`):**
+- `GET /approvals/stages` — List all approval stages with configuration
+- `GET /approvals/history` — Get approval workflow history (optional filters)
+- `GET /approvals/notifications` — Get pending notification queue
+- `GET /approvals/trade/:tradeId` — Get workflows associated with a trade
+- `GET /approvals/:workflowId` — Get full status of a specific workflow
+- `POST /approvals` — Create a new approval workflow (requires `x-user-id` header)
+- `POST /approvals/:workflowId/approve` — Submit an approval decision (requires `x-approver-id`, `x-approver-role` headers)
+- `POST /approvals/delegate` — Delegate approval authority
+- `DELETE /approvals/delegate` — Revoke a delegation
+
+**Quick smoke test:**
+```bash
+npm run test:approvals
+```
+
+See `Backend/routes/approvals.js` and `Backend/services/approvalService.js` for full inline documentation.
+
+## Beta Access
+
+The backend includes a beta access management route handler at `Backend/routes/beta.js`.
+
+**Routes (8 endpoints):**
+- `GET /beta/features` — List available beta features
+- `GET /beta/users` — List beta users (optional `?status=`, `?limit=`)
+- `POST /beta/users` — Add a user to the beta list
+- `DELETE /beta/users/:walletAddress` — Remove a user from the beta list
+- `POST /beta/invite/accept` — Accept a beta invitation
+- `GET /beta/access/:walletAddress` — Check beta access for a wallet
+- `POST /beta/activity` — Track a beta activity event
+- `GET /beta/activity/:walletAddress` — Get activity log for a wallet
+
+**Quick smoke test:**
+```bash
+npm run test:beta
+```
+
+See `Backend/routes/beta.js` and `backend/services/betaAccess.js` for full inline documentation.
+
+## Blacklist Management
+
+The backend includes a blacklist management route handler at `Backend/routes/blacklist.js`.
+
+**Routes (7 endpoints):**
+- `POST /blacklist/add` — Add an identifier to the blacklist
+- `POST /blacklist/remove` — Remove an identifier from the blacklist
+- `GET /blacklist/check/:identifier` — Check if an identifier is blacklisted (no auth)
+- `POST /blacklist/batch-add` — Batch add identifiers
+- `POST /blacklist/batch-remove` — Batch remove identifiers
+- `GET /blacklist/count` — Get total blacklisted entries
+- `GET /blacklist/report` — Generate a report for a date range
+
+**Quick smoke test:**
+```bash
+npm run test:blacklist
+```
+
+See `Backend/routes/blacklist.js` and `Backend/services/blacklistService.js` for full inline documentation.
+
+## Health endpoints
+
+The backend exposes health check endpoints for monitoring and CI/CD probes:
+
+**Express server (port 4000):**
+- `GET /health` - Basic health check with status and timestamp
+- `GET /health/details` - Comprehensive health report including database, blockchain, Redis, and system components
+
+**NestJS (port 3000):**
+- `GET /api/health` - Basic health check with service info
+- `GET /api/health/details` - Detailed health with uptime, memory, and environment info
+
+## Compile and run the project
 
 ```bash
-curl -X POST http://localhost:4000/api/migrations/execute-all
+# NestJS development
+$ npm run start
+
+# NestJS watch mode
+$ npm run start:dev
+
+# NestJS debug mode
+$ npm run start:debug
+
+# NestJS production
+$ npm run start:prod
 ```
 
-### Validate Migration Integrity
+## Route module verification (`Backend/routes/api.example.js`)
+
+Use this canonical path from repo root:
 
 ```bash
-curl -X POST http://localhost:4000/api/migrations/validate/001_init_markets
+cd Backend
+npm install
+npm run test:api-example
 ```
 
-## Rollback Commands
+Expected console output includes:
 
-### Rollback a Migration
+```text
+[api.example.js] Initializing API example routes...
+```
 
-After executing a migration, you can roll it back using the migration ID from the execution response:
+## Build the project
 
 ```bash
-curl -X POST http://localhost:4000/api/migrations/rollback/mig_1234567890
+$ npm run build
 ```
 
-**Expected output:**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "mig_1234567890",
-    "status": "rolled_back",
-    "name": "001_init_markets"
-  }
-}
+## Run tests
+
+```bash
+# unit tests
+$ npm run test
+
+# watch mode
+$ npm run test:watch
+
+# e2e tests
+$ npm run test:e2e
+
+# test coverage
+$ npm run test:cov
+
+# debug tests
+$ npm run test:debug
 ```
 
-**Note:** The rollback for `001_init_markets` will drop the `markets` table.
+The default Express entrypoint listens on `PORT` and serves:
 
-## Migration: 001_init_markets
+- `/health`
+- `/api/migrations`
+- `/api/rollback`
+- `/api/beta`
+- `/api/oncall`
+- `/api/upgrades`
 
-### What It Does
+## Notes
 
-Creates the `markets` table with the following schema:
-
-```sql
-CREATE TABLE IF NOT EXISTS markets (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-```
-
-### Steps
-
-The migration executes in 3 steps:
-1. `schema` - Creates the table structure
-2. `indexes` - Applies any necessary indexes
-3. `seed` - Seeds initial data (if applicable)
-
-### Database
-
-- **Engine**: SQLite
-- **File**: `backend/data/migrations.sqlite`
-- **Created automatically** when the migration runs
-
-### Rollback Behavior
-
-Rolling back this migration will:
-- Drop the `markets` table completely
-- Remove all data in the table
-
-## Migration State Tracking
-
-Migration state is tracked in two places:
-
-1. **File-based state**: `backend/data/migration-state.json`
-   - Tracks which migrations have been applied
-   - Maintains migration history with timestamps and checksums
-
-2. **Database log**: `migration_log` table in SQLite
-   - Contains execution history with status
-   - Used for auditing and debugging
-
-## Troubleshooting
-
-### Server won't start
-- Ensure port 4000 is not in use, or set a different `PORT` environment variable
-- Check that all dependencies are installed: `npm install`
-
-### Migration fails with "already in progress"
-- Only one migration can run at a time
-- Check status endpoint to see if another migration is running
-- Wait for the current migration to complete or fail
-
-### Migration shows as "applied" but table doesn't exist
-- Check `backend/data/migration-state.json` for state inconsistencies
-- Verify the SQLite database file exists at `backend/data/migrations.sqlite`
-- Use a SQLite client to inspect the database directly
-
-## Development
-
-### Adding New Migrations
-
-1. Create a new file in `backend/migrations/` following the naming pattern: `00X_description.js`
-2. Implement `up()` and `down()` functions
-3. Use the provided context: `{ mongoose, sequelize }`
-
-Example:
-```javascript
-module.exports = {
-  steps: ['schema', 'indexes', 'seed'],
-  async up(context) {
-    const { sequelize } = context;
-    // Your migration logic here
-  },
-  async down(context) {
-    const { sequelize } = context;
-    // Your rollback logic here
-  },
-};
-```
-
-## API Reference
-
-### GET /api/migrations/status
-Returns overall migration status and list of all migrations.
-
-### GET /api/migrations/scripts
-Returns list of discovered migration scripts.
-
-### GET /api/migrations/progress/:id
-Returns progress of a specific migration execution.
-
-### POST /api/migrations/execute
-Executes a single migration by name.
-
-**Body:** `{"name": "migration_name"}`
-
-### POST /api/migrations/execute-all
-Executes all pending migrations in order.
-
-### POST /api/migrations/rollback/:id
-Rolls back a specific migration by execution ID.
-
-### POST /api/migrations/validate/:name
-Validates a migration's integrity (checksum and structure).
+- `.env.example` intentionally contains placeholders only; do not commit real secrets.
+- Several advanced integrations such as PagerDuty, Twilio, IPFS, Polygon/Mainnet/Testnet addresses, and Firebase are optional unless you enable those workflows.
