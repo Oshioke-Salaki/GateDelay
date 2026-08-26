@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarketFactory.sol";
-import "../src/PositionToken.sol";
+import "market-foundation/MarketFactory.sol";
+import "market-foundation/PositionToken.sol";
 
 contract MarketFactoryTest is Test {
     event MarketCreated(
