@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/Governance.sol";
-import "../contracts/Voting.sol";
+import "../src/Governance.sol";
+import "../src/Voting.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockGovToken is ERC20 {

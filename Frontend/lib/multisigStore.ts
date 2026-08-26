@@ -1,6 +1,12 @@
 /**
  * In-memory multisig store for Next.js API routes.
  * Mirrors Backend/services/multisigService.js for frontend integration.
+ *
+ * Contract events are taken from `Contracts/src/MultiSigWallet.sol`:
+ *   event TransactionExecuted(uint256 indexed txId, address indexed executor);
+ *   event TransactionApproved(uint256 indexed txId, address indexed signer);
+ *   event TransactionCreated(uint256 indexed txId, address indexed creator, address indexed target);
+ *   event TransactionRejected(uint256 indexed txId);
  */
 
 export interface MultisigWallet {
@@ -16,6 +22,25 @@ export interface MultisigSignature {
   timestamp: string;
 }
 
+/** On-chain event shapes the UI can render without guessing field names. */
+export type MultisigContractEvent =
+  | {
+      name: "TransactionCreated";
+      args: { txId: string; creator: string; target: string };
+    }
+  | {
+      name: "TransactionApproved";
+      args: { txId: string; signer: string };
+    }
+  | {
+      name: "TransactionExecuted";
+      args: { txId: string; executor: string };
+    }
+  | {
+      name: "TransactionRejected";
+      args: { txId: string };
+    };
+
 export interface MultisigTransaction {
   id: string;
   walletId: string;
@@ -26,6 +51,8 @@ export interface MultisigTransaction {
   createdAt: string;
   executedAt?: string;
   txHash?: string;
+  /** Events emitted during the mock lifecycle (mapped 1:1 from MultiSigWallet.sol). */
+  events: MultisigContractEvent[];
 }
 
 const MULTISIG_WALLETS: Record<string, MultisigWallet> = {
@@ -73,6 +100,10 @@ export async function proposeTransaction(
   }
 
   const txId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  const target =
+    typeof txData.target === "string" && txData.target.length > 0
+      ? txData.target
+      : wallet.address;
 
   pendingTransactions.set(txId, {
     id: txId,
@@ -82,6 +113,12 @@ export async function proposeTransaction(
     signatures: [],
     status: "Pending",
     createdAt: new Date().toISOString(),
+    events: [
+      {
+        name: "TransactionCreated",
+        args: { txId, creator: proposer, target },
+      },
+    ],
   });
 
   return txId;
@@ -110,6 +147,11 @@ export async function collectSignature(
     timestamp: new Date().toISOString(),
   });
 
+  tx.events.push({
+    name: "TransactionApproved",
+    args: { txId, signer: owner },
+  });
+
   if (tx.signatures.length >= wallet.threshold) {
     tx.status = "Ready";
   }
@@ -117,9 +159,16 @@ export async function collectSignature(
   return tx;
 }
 
-export async function processTransaction(txId: string): Promise<MultisigTransaction> {
+export async function processTransaction(
+  txId: string,
+  executor?: string
+): Promise<MultisigTransaction> {
   const tx = pendingTransactions.get(txId);
   if (!tx) throw new Error("Transaction not found");
+
+  if (tx.status === "Executed") {
+    throw new Error("Transaction already executed");
+  }
 
   const wallet = getWallet(tx.walletId);
 
@@ -129,9 +178,21 @@ export async function processTransaction(txId: string): Promise<MultisigTransact
     );
   }
 
+  const resolvedExecutor = executor?.trim() || tx.proposer;
+  if (!wallet.owners.includes(resolvedExecutor)) {
+    throw new Error("Executor is not an owner of this multisig");
+  }
+
   tx.status = "Executed";
   tx.executedAt = new Date().toISOString();
-  tx.txHash = "0x" + Math.random().toString(16).slice(2, 66);
+  // Do not invent a chain transaction hash. This store is an in-memory mock of
+  // MultiSigWallet; the UI should rely on `events` (TransactionExecuted) until a
+  // real broadcast path supplies txHash.
+  delete tx.txHash;
+  tx.events.push({
+    name: "TransactionExecuted",
+    args: { txId, executor: resolvedExecutor },
+  });
 
   return tx;
 }
@@ -140,4 +201,9 @@ export function getTransactionStatus(txId: string): MultisigTransaction {
   const tx = pendingTransactions.get(txId);
   if (!tx) throw new Error("Transaction not found");
   return tx;
+}
+
+/** Test helper — clears in-memory state between Vitest cases. */
+export function __resetMultisigStoreForTests(): void {
+  pendingTransactions.clear();
 }

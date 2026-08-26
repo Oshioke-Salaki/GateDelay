@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../Contracts/contracts/HarvestFunction.sol";
+import "../Contracts/src/HarvestFunction.sol";
 import "../Contracts/src/ERC20Token.sol";
 
 contract HarvestFunctionTest is Test {

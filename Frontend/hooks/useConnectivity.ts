@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export type ConnectivityStatus = "online" | "offline" | "syncing";
+export type ConnectivityStatus = "online" | "offline" | "syncing" | "loading";
 
 export interface QueuedAction {
   /** Unique identifier for deduplication */
@@ -22,19 +22,45 @@ export interface QueuedAction {
 export type SyncHandler = (action: QueuedAction) => Promise<void>;
 
 export interface ConnectivityState {
-  /** Current high-level connectivity status */
+  /**
+   * Current high-level connectivity status.
+   * `"loading"` is the initial value during SSR / before the browser APIs have
+   * been read on the client.  Consumers should treat it the same as `"online"`
+   * for rendering purposes and only show loading UI when they need to gate on
+   * a confirmed status.
+   */
   status: ConnectivityStatus;
-  /** True when navigator.onLine is false */
+  /**
+   * True when navigator.onLine is false.
+   * Always `false` during the `"loading"` phase so consumers can safely render
+   * without a flash of offline UI on first paint.
+   */
   isOffline: boolean;
   /** True while the sync pass is running */
   isSyncing: boolean;
+  /**
+   * True during the initial SSR / hydration window before browser connectivity
+   * APIs have been queried.  Use this to suppress connectivity-dependent UI
+   * until the real status is known.
+   */
+  isLoading: boolean;
+  /**
+   * True once the hook has read `navigator.onLine` and the offline queue from
+   * `localStorage` on the client.  Equivalent to `!isLoading`.
+   */
+  isReady: boolean;
   /** Snapshot of actions waiting to be synced */
   queue: QueuedAction[];
+  /**
+   * True when `queue` is empty.  Convenience flag that avoids `queue.length === 0`
+   * checks in render code.
+   */
+  hasNoQueue: boolean;
   /** Add an action to the persistent queue */
   enqueue: (label: string, payload: unknown) => string;
   /** Remove a specific action from the queue by id */
   dequeue: (id: string) => void;
-  /** Manually trigger a sync pass (no-op when offline) */
+  /** Manually trigger a sync pass (no-op when offline or loading) */
   syncNow: () => Promise<void>;
   /** Register a handler that will be called for each queued action on reconnect */
   registerSyncHandler: (handler: SyncHandler) => () => void;
@@ -88,26 +114,62 @@ function isConnectionDegraded(): boolean {
  * useConnectivity
  *
  * Monitors browser connectivity using:
- *  - `navigator.onLine` (initial value)
+ *  - `navigator.onLine` (initial value, read after hydration)
  *  - window `online` / `offline` events (instant change detection)
  *  - Network Information API `change` events (degraded connection awareness)
  *
  * Actions queued while offline are persisted to localStorage and automatically
  * retried when connectivity is restored.
+ *
+ * ## Loading / Empty States
+ *
+ * On the server (SSR) and during the React hydration window, the browser APIs
+ * (`navigator`, `localStorage`) are unavailable or unsafe to read.  The hook
+ * therefore starts with `isLoading: true` / `status: "loading"` and resolves
+ * to the real connectivity status in a `useEffect` once the component has
+ * mounted on the client.
+ *
+ * Consumers should:
+ *  - Gate connectivity-dependent UI on `isReady` (or check `!isLoading`)
+ *  - Use `hasNoQueue` instead of `queue.length === 0` for empty-state rendering
+ *  - Treat `status === "loading"` the same as `"online"` for optimistic renders
  */
 export function useConnectivity(): ConnectivityState {
-  const [isOnline, setIsOnline] = useState<boolean>(() => {
-    if (typeof navigator === "undefined") return true;
-    return navigator.onLine && !isConnectionDegraded();
-  });
+  // ── isLoading / isReady ───────────────────────────────────────────────────
+  // Start as `true` on both server and client; flipped to `false` in the first
+  // useEffect so the first client render never diverges from the SSR render.
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ── Online state ──────────────────────────────────────────────────────────
+  // Default to `true` (optimistic) so SSR HTML matches the most common case.
+  // The real navigator.onLine value is read inside useEffect below.
+  const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [queue, setQueue] = useState<QueuedAction[]>(() => loadQueue());
+
+  // ── Queue ─────────────────────────────────────────────────────────────────
+  // Start empty on both server and client; populated from localStorage inside
+  // useEffect to avoid SSR/client hydration mismatch.
+  const [queue, setQueue] = useState<QueuedAction[]>([]);
 
   // Handlers registered by consumers (stable refs via a Set)
   const handlersRef = useRef<Set<SyncHandler>>(new Set());
 
+  // ── Bootstrap on client mount ──────────────────────────────────────────────
+  // Runs once after hydration to read the real navigator.onLine and the
+  // persisted queue from localStorage.  Setting isLoading to false here (after
+  // the first paint) prevents an SSR/client HTML mismatch.
+  useEffect(() => {
+    const realOnline = navigator.onLine && !isConnectionDegraded();
+    setIsOnline(realOnline);
+    setQueue(loadQueue());
+    setIsLoading(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Status derivation ──────────────────────────────────────────────────────
-  const status: ConnectivityStatus = isSyncing
+  const status: ConnectivityStatus = isLoading
+    ? "loading"
+    : isSyncing
     ? "syncing"
     : isOnline
     ? "online"
@@ -148,7 +210,8 @@ export function useConnectivity(): ConnectivityState {
   // ── Sync logic ─────────────────────────────────────────────────────────────
 
   const syncNow = useCallback(async () => {
-    if (!navigator.onLine) return;
+    // No-op while loading (navigator not yet queried) or offline
+    if (isLoading || !navigator.onLine) return;
     const currentQueue = loadQueue();
     if (currentQueue.length === 0) return;
 
@@ -180,7 +243,7 @@ export function useConnectivity(): ConnectivityState {
     setQueue(remaining);
     saveQueue(remaining);
     setIsSyncing(false);
-  }, []);
+  }, [isLoading]);
 
   // ── Event listeners ────────────────────────────────────────────────────────
 
@@ -232,9 +295,14 @@ export function useConnectivity(): ConnectivityState {
 
   return {
     status,
-    isOffline: !isOnline,
+    // isOffline is always false while loading to prevent flash of offline UI
+    isOffline: !isLoading && !isOnline,
     isSyncing,
+    isLoading,
+    isReady: !isLoading,
     queue,
+    // Convenience flag: true when there are no pending queued actions
+    hasNoQueue: queue.length === 0,
     enqueue,
     dequeue,
     syncNow,

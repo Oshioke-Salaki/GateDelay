@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/CoverageCalculation.sol";
+import "../src/CoverageCalculation.sol";
 
 contract CoverageCalculationTest is Test {
     CoverageCalculation coverage;

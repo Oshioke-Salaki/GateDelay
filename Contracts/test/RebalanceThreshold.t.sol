@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/RebalanceThreshold.sol";
+import "../src/RebalanceThreshold.sol";
 
 contract MockThresholdExecutor is IThresholdActionExecutor {
     bool public called;

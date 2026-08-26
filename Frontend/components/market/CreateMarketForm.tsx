@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 
 // ── ABI (only the createMarket function) ─────────────────────────────────────
@@ -315,7 +315,7 @@ function StepPreview({ values }: { values: FormValues }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function CreateMarketForm() {
   const router = useRouter();
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
   const [step, setStep] = useState<Step>(0);
   const [txError, setTxError] = useState<string | null>(null);
 
