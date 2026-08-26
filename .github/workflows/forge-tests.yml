@@ -45,6 +45,17 @@ jobs:
       - name: Build Contracts
         run: forge build --sizes
 
+      - name: Verify MarketFactory ABI artifact
+        run: test -s out/MarketFactory.sol/MarketFactory.json && test -s out/PositionToken.sol/PositionToken.json
+
+      - name: Upload market foundation ABIs
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-foundation-abis
+          path: |
+            Contracts/out/MarketFactory.sol/MarketFactory.json
+            Contracts/out/PositionToken.sol/PositionToken.json
+
       - name: List test suites (Contracts/test/)
         run: forge test --list
 
