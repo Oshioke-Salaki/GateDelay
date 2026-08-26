@@ -1,6 +1,6 @@
 [profile.default]
-src            = "marketfactory/src"
-out            = "../../out/marketfactory-tests"
+src            = "src"
+out            = "../out/marketfactory-tests"
 libs           = ["../lib"]
 test           = "marketfactory"
 script         = "../script"
