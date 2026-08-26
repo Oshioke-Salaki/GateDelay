@@ -17,7 +17,6 @@ runs = 256
 
 [profile.ci]
 fuzz = { runs = 512 }
-test = "test/marketfactory"
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
