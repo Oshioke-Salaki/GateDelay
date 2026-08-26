@@ -59,7 +59,4 @@ jobs:
             Contracts/out/PositionToken.sol/PositionToken.json
 
       - name: Run MarketFactory verification tests
-        run: forge test -vvv
-        env:
-          FOUNDRY_PROFILE: ci
-          FOUNDRY_TEST: test/marketfactory
+        run: forge test --root test/marketfactory --profile ci -vvv
