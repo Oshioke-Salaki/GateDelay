@@ -13,6 +13,8 @@ contract MarketFactory {
     error InvalidDeadline();
     error ZeroMinLiquidity();
     error EmptyMetadataURI();
+    error ZeroPositionToken();
+    error InvalidPositionToken();
 
     // -------------------------------------------------------------------------
     // Types
@@ -53,6 +55,8 @@ contract MarketFactory {
     // Constructor
     // -------------------------------------------------------------------------
     constructor(address _positionToken) {
+        if (_positionToken == address(0)) revert ZeroPositionToken();
+        if (_positionToken.code.length == 0) revert InvalidPositionToken();
         positionToken = PositionToken(_positionToken);
     }
 
@@ -103,6 +107,26 @@ contract MarketFactory {
         positionToken.authorise(market);
 
         emit MarketCreated(market, msg.sender, collateralToken, resolutionDeadline);
+    }
+
+    /// @notice Returns the number of registered markets.
+    function getMarketCount() external view returns (uint256) {
+        return _marketList.length;
+    }
+
+    /// @notice Returns all registered market addresses.
+    function getMarkets() external view returns (address[] memory) {
+        return _marketList;
+    }
+
+    /// @notice Returns a registered market address by index.
+    function getMarketAt(uint256 index) external view returns (address) {
+        return _marketList[index];
+    }
+
+    /// @notice Returns whether an address is a registered market.
+    function isRegisteredMarket(address market) external view returns (bool) {
+        return _markets[market].creator != address(0);
     }
 
     /// @notice Returns the creator of a registered market, or address(0) if unregistered.
