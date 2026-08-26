@@ -78,10 +78,10 @@ Run from the repository root:
 ```bash
 cd Contracts
 forge build --sizes src/MarketFactory.sol
-FOUNDRY_PROFILE=ci forge test --root test -vvv
+FOUNDRY_PROFILE=ci forge test --root test/marketfactory -vvv
 ```
 
-The same scoped commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The workflow runs the isolated Foundry project rooted at `test/`; its `marketfactory/` scope imports the canonical `test/MarketFactory.t.sol`, so unrelated legacy tests are not compiled for this phase-gated verification. The CI profile uses 512 fuzz runs.
+The same scoped commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The workflow runs the isolated Foundry project rooted at `test/marketfactory/`; its wrapper imports the canonical `test/MarketFactory.t.sol`, and the `market-foundation/` remapping resolves the source-of-truth contracts without compiling unrelated legacy sources. The CI profile uses 512 fuzz runs.
 
 ## Compiler warnings
 
