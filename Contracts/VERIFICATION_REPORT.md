@@ -19,7 +19,7 @@ This report verifies the Phase 2 market-foundation wiring described by issue #79
 | Foundry configuration | `Contracts/foundry.toml` |
 | CI workflow | `.github/workflows/forge-tests.yml` |
 
-The `Contracts/` Foundry profile uses `src/` as its source directory. The legacy `Contracts/contracts/` directory remains available for the unrelated contracts and tests that still import it.
+The `Contracts/` Foundry profile retains `contracts/` as its legacy source root. MarketFactory verification is explicitly scoped to `src/MarketFactory.sol` and `test/MarketFactory.t.sol`, which compile the `src/` foundation without pulling unrelated legacy contracts into this phase-gated check.
 
 ## MarketFactory wiring
 
@@ -57,7 +57,7 @@ The public registry queries are:
 | Registry enumeration is stable | `test_createMarket_registersAndAuthorisesMarket` and `getMarketAt` | ✅ |
 | Creation event contains the expected values | `test_createMarket_emitsMarketCreated` | ✅ |
 | Valid input property holds across fuzzed values | `testFuzz_createMarket_validParams` | ✅ |
-| Zero PositionToken configuration is rejected | `test_constructor_revertsWithZeroPositionToken` | ✅ |
+| Zero PositionToken configuration is rejected | `test_constructor_revertsWithZeroPositionToken`, `test_constructor_revertsWithInvalidPositionToken` | ✅ |
 
 ## ABI artifacts and application consumers
 
@@ -67,7 +67,7 @@ Running `forge build` from `Contracts/` generates the ABI artifact at:
 Contracts/out/MarketFactory.sol/MarketFactory.json
 ```
 
-The `Contracts` CI job asserts that this artifact exists after building. `PositionToken` is generated alongside it at `Contracts/out/PositionToken.sol/PositionToken.json`.
+The `Contracts` CI job asserts that this artifact exists after the scoped build. `PositionToken` is generated alongside it at `Contracts/out/PositionToken.sol/PositionToken.json`.
 
 There is currently no Backend service that instantiates or calls `MarketFactory`; no Backend ABI reference is therefore applicable. The frontend create-market form has a deliberately minimal ABI for `createMarket` in `Frontend/components/market/CreateMarketForm.tsx`, matching the verified Solidity signature. A future application integration should consume the generated artifact rather than duplicate an expanded ABI.
 
@@ -77,15 +77,15 @@ Run from the repository root:
 
 ```bash
 cd Contracts
-forge build --sizes
-forge test -vvv
+forge build --sizes src/MarketFactory.sol
+forge test test/MarketFactory.t.sol -vvv
 ```
 
-The same commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The CI profile uses 512 fuzz runs.
+The same scoped commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The workflow passes the MarketFactory test file directly so unrelated legacy tests are not compiled for this phase-gated verification. The CI profile uses 512 fuzz runs.
 
 ## Compiler warnings
 
-No critical compiler warnings are accepted for this report. Non-critical warnings from unrelated legacy contracts must not prevent the MarketFactory source and test suite from compiling; CI fails on compiler errors and test failures.
+No critical compiler warnings are accepted for this report. The scoped MarketFactory build and test commands must compile without errors; unrelated legacy source files are intentionally excluded from this phase-gated check.
 
 ## Verification result
 
