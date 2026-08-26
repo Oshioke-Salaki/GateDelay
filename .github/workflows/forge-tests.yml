@@ -44,6 +44,8 @@ jobs:
 
       - name: Build MarketFactory foundation
         run: forge build --sizes src/MarketFactory.sol
+        env:
+          FOUNDRY_PROFILE: ci
 
       - name: Verify MarketFactory ABI artifact
         run: test -s out/MarketFactory.sol/MarketFactory.json && test -s out/PositionToken.sol/PositionToken.json
@@ -57,6 +59,6 @@ jobs:
             Contracts/out/PositionToken.sol/PositionToken.json
 
       - name: Run MarketFactory verification tests
-        run: forge test test/MarketFactory.t.sol -vvv
+        run: forge test -vvv
         env:
           FOUNDRY_PROFILE: ci
