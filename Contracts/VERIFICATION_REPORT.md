@@ -81,7 +81,7 @@ forge build --sizes src/MarketFactory.sol
 FOUNDRY_PROFILE=ci forge test -vvv
 ```
 
-The same scoped commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The CI profile points Foundry's test root directly at `test/MarketFactory.t.sol`, so unrelated legacy tests are not compiled for this phase-gated verification. The CI profile uses 512 fuzz runs.
+The same scoped commands are executed by `.github/workflows/forge-tests.yml` for the `Contracts/` suite. The CI profile points Foundry's test root at the isolated `test/marketfactory/` directory, whose wrapper imports the canonical `test/MarketFactory.t.sol`, so unrelated legacy tests are not compiled for this phase-gated verification. The CI profile uses 512 fuzz runs.
 
 ## Compiler warnings
 
