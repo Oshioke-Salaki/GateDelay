@@ -69,7 +69,9 @@ describe('DepositMonitorService', () => {
       await service.monitorDeposits();
 
       expect(mockDepositService.getPendingDeposits).toHaveBeenCalled();
-      expect(mockDepositService.getTransactionDetails).toHaveBeenCalledWith(mockDeposit.txHash);
+      expect(mockDepositService.getTransactionDetails).toHaveBeenCalledWith(
+        mockDeposit.txHash,
+      );
       expect(mockDepositService.updateConfirmations).toHaveBeenCalledWith(
         mockDeposit.id,
         1,
@@ -93,7 +95,9 @@ describe('DepositMonitorService', () => {
         requiredConfirmations: ConfirmationLevel.STANDARD,
       };
 
-      mockDepositService.getPendingDeposits.mockResolvedValue([confirmedDeposit]);
+      mockDepositService.getPendingDeposits.mockResolvedValue([
+        confirmedDeposit,
+      ]);
       mockDepositService.getTransactionDetails.mockResolvedValue({
         confirmations: 3,
         blockNumber: 12345,
@@ -103,9 +107,15 @@ describe('DepositMonitorService', () => {
 
       await service.monitorDeposits();
 
-      expect(mockDepositService.confirmDeposit).toHaveBeenCalledWith(confirmedDeposit.id);
-      expect(mockDepositService.markBalanceUpdated).toHaveBeenCalledWith(confirmedDeposit.id);
-      expect(mockDepositService.markNotificationSent).toHaveBeenCalledWith(confirmedDeposit.id);
+      expect(mockDepositService.confirmDeposit).toHaveBeenCalledWith(
+        confirmedDeposit.id,
+      );
+      expect(mockDepositService.markBalanceUpdated).toHaveBeenCalledWith(
+        confirmedDeposit.id,
+      );
+      expect(mockDepositService.markNotificationSent).toHaveBeenCalledWith(
+        confirmedDeposit.id,
+      );
     });
 
     it('should handle failed transactions', async () => {
@@ -140,11 +150,15 @@ describe('DepositMonitorService', () => {
 
       await service.monitorDeposits();
 
-      expect(mockDepositService.getTransactionDetails).toHaveBeenCalledTimes(25);
+      expect(mockDepositService.getTransactionDetails).toHaveBeenCalledTimes(
+        25,
+      );
     });
 
     it('should handle errors gracefully', async () => {
-      mockDepositService.getPendingDeposits.mockRejectedValue(new Error('Database error'));
+      mockDepositService.getPendingDeposits.mockRejectedValue(
+        new Error('Database error'),
+      );
 
       await expect(service.monitorDeposits()).resolves.not.toThrow();
     });
@@ -160,7 +174,9 @@ describe('DepositMonitorService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockDepositService.expireOldDeposits.mockRejectedValue(new Error('Database error'));
+      mockDepositService.expireOldDeposits.mockRejectedValue(
+        new Error('Database error'),
+      );
 
       await expect(service.expireOldDeposits()).resolves.not.toThrow();
     });

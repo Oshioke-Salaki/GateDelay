@@ -62,7 +62,9 @@ describe('LiquidityService', () => {
     const removal = await service.removeLiquidity('user-1', 'market-1', 3);
     expect(Number.parseFloat(removal.withdrawnEth)).toBeGreaterThan(0);
     expect(Number.parseFloat(removal.claimedFeesEth)).toBeGreaterThanOrEqual(0);
-    expect(Number.parseFloat(removal.claimedRewardsEth)).toBeGreaterThanOrEqual(0);
+    expect(Number.parseFloat(removal.claimedRewardsEth)).toBeGreaterThanOrEqual(
+      0,
+    );
   });
 
   it('accrues rewards and fees for open LP positions', async () => {
@@ -86,7 +88,9 @@ describe('LiquidityService', () => {
 
     const positions = await service.getUserPositions('user-2');
     expect(positions).toHaveLength(1);
-    expect(Number.parseFloat(positions[0].rewardsAccruedEth)).toBeGreaterThan(0);
+    expect(Number.parseFloat(positions[0].rewardsAccruedEth)).toBeGreaterThan(
+      0,
+    );
     expect(Number.parseFloat(positions[0].feesAccruedEth)).toBeGreaterThan(0);
   });
 

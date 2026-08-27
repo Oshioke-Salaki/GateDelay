@@ -12,8 +12,8 @@ on:
 
 # ---------------------------------------------------------------------------
 # Toolchain versions (pin these; do not let them float)
-#   Node.js  : 20  (actions/setup-node)
-#   Foundry  : 1.1.0  (foundry-rs/foundry-toolchain, kept in sync with
+#   Node.js  : 20.19.0  (package.json/package-lock.json engines/toolchain)
+#   Foundry  : 1.1.0  (foundry-rs/foundry-toolchain, package-lock.json toolchain,
 #                       Contracts/foundry.toml [toolchain] forge = "1.1.0")
 #   Solidity : 0.8.28  (foundry.toml solc, Contracts/foundry.toml solc)
 #
@@ -73,7 +73,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
@@ -96,7 +96,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
@@ -121,7 +121,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 

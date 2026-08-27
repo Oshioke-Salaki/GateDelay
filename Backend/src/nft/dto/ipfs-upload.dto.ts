@@ -69,7 +69,8 @@ export class UploadClipMetadataDto {
 export class UploadClipMetadataResponseDto {
   @ApiProperty({
     description: 'Metadata URI stored on IPFS (ipfs://CID)',
-    example: 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    example:
+      'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
   })
   metadataUri: string;
 

@@ -73,9 +73,7 @@ export class IpfsUploadService {
     // Persist the metadata URI back so subsequent mint calls can read it.
     this.clips.upsertMetadata(dto.clipId, metadataUri);
 
-    this.logger.log(
-      `Uploaded metadata for clip=${dto.clipId} cid=${cid}`,
-    );
+    this.logger.log(`Uploaded metadata for clip=${dto.clipId} cid=${cid}`);
 
     return {
       metadataUri,

@@ -9,7 +9,9 @@ describe('TradeReconciliationService', () => {
       providers: [TradeReconciliationService],
     }).compile();
 
-    service = module.get<TradeReconciliationService>(TradeReconciliationService);
+    service = module.get<TradeReconciliationService>(
+      TradeReconciliationService,
+    );
   });
 
   it('detects discrepancies across trade sources', () => {

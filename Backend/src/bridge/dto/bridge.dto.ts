@@ -9,7 +9,10 @@ import {
   IsPositive,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { BridgeProtocol, BridgeStatus } from '../schemas/bridge-transaction.schema';
+import {
+  BridgeProtocol,
+  BridgeStatus,
+} from '../schemas/bridge-transaction.schema';
 
 export class InitiateBridgeDto {
   @IsEnum(BridgeProtocol)

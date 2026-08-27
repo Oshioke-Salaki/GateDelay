@@ -39,7 +39,7 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
 
       - name: Show Forge version
         run: forge --version
@@ -69,7 +69,7 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
 
       - name: Show Forge version
         run: forge --version

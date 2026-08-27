@@ -65,7 +65,9 @@ export class AiService {
   }
 
   async getCachedAnalysis(marketId: string): Promise<MarketAnalysis | null> {
-    return (await this.cache.get<MarketAnalysis>(`ai:analysis:${marketId}`)) ?? null;
+    return (
+      (await this.cache.get<MarketAnalysis>(`ai:analysis:${marketId}`)) ?? null
+    );
   }
 
   private async fetchFromGroq(
@@ -131,7 +133,6 @@ Rules:
 - If inputs are N/A or weak, prefer "neutral" with lower confidence.
 - Risk score should reflect disagreement between sources and volatility/uncertainty in the inputs.`;
   }
-
 
   private parseGroqResponse(
     dto: AnalysisRequestDto,
