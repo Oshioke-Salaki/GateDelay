@@ -341,8 +341,6 @@ describe('RetentionPolicyDto', () => {
 
 describe('the DTO module itself carries no credentials', () => {
   // Acceptance criterion: "No secrets or private keys in market-audit.dto.ts".
-  it('has no secret-shaped literal in the source file', async () => {
-    const { readFileSync } = await import('node:fs');
   it('has no secret-shaped literal in the source file', () => {
     const source = readFileSync(`${__dirname}/market-audit.dto.ts`, 'utf8');
     // The scanner's own regexes live in no-secrets.validator.ts, so a hit here

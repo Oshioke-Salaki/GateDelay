@@ -135,14 +135,6 @@ describe('MarketAuditService', () => {
     expect(logs.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('no secrets or private keys appear in the spec file', async () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    const specPath = path.default.resolve(
-      __dirname,
-      'market-audit.service.spec.ts',
-    );
-    const content = fs.default.readFileSync(specPath, 'utf8');
   it('no secrets or private keys appear in the service source file', () => {
     const servicePath = resolve(__dirname, 'market-audit.service.ts');
     const content = readFileSync(servicePath, 'utf8');

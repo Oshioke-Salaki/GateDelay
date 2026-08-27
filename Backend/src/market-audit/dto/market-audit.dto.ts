@@ -74,10 +74,8 @@ const OPERATION_PATTERN = /^[A-Z][A-Z0-9_]*$/;
  * *begin* with a spreadsheet formula sigil (threat #4) - Excel and Sheets
  * execute `=`, `+`, `-` and `@` prefixed cells straight out of the CSV export.
  */
-// eslint-disable-next-line no-control-regex
-const NO_CONTROL_CHARS = /^[^\x00-\x1F\x7F]*$/u;
 // eslint-disable-next-line no-control-regex -- intentionally rejects ASCII control chars in audit payloads
-const NO_CONTROL_CHARS = /^[^\u0000-\u001F\u007F]*$/;
+const NO_CONTROL_CHARS = /^[^\x00-\x1F\x7F]*$/u;
 const NOT_A_FORMULA = /^[^=+\-@]/;
 
 export class CreateAuditLogDto {
