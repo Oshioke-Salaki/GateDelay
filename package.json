@@ -1,4 +1,10 @@
 {
+  "private": true,
+  "engines": {
+    "node": "20.11.1",
+    "npm": "10.2.4"
+  },
+  "packageManager": "npm@10.2.4",
   "dependencies": {
     "@prb/math": "^4.1.2"
   }
