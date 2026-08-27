@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {PRBMathUD60x18} from "prb-math/PRBMathUD60x18.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title YieldGenerator
 /// @notice Generates, tracks, and compounds yield from registered assets

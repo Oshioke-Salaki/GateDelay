@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./PositionToken.sol";
+import {PositionToken} from "./PositionToken.sol";
 
 /// @title MarketFactory
 /// @notice Deploys and registers prediction market instances.
@@ -13,6 +13,7 @@ contract MarketFactory {
     error InvalidDeadline();
     error ZeroMinLiquidity();
     error EmptyMetadataURI();
+    error ZeroPositionToken();
 
     // -------------------------------------------------------------------------
     // Types
@@ -53,6 +54,7 @@ contract MarketFactory {
     // Constructor
     // -------------------------------------------------------------------------
     constructor(address _positionToken) {
+        if (_positionToken == address(0)) revert ZeroPositionToken();
         positionToken = PositionToken(_positionToken);
     }
 
@@ -103,6 +105,16 @@ contract MarketFactory {
         positionToken.authorise(market);
 
         emit MarketCreated(market, msg.sender, collateralToken, resolutionDeadline);
+    }
+
+    /// @notice Returns the number of registered markets.
+    function marketCount() external view returns (uint256) {
+        return _marketList.length;
+    }
+
+    /// @notice Returns a registered market address by index.
+    function marketAt(uint256 index) external view returns (address) {
+        return _marketList[index];
     }
 
     /// @notice Returns the creator of a registered market, or address(0) if unregistered.
