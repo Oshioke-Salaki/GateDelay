@@ -12,6 +12,6 @@ export class AppCacheModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(CacheMiddleware)
-      .forRoutes({ path: 'market-data*', method: RequestMethod.GET });
+      .forRoutes({ path: 'market-data/*path', method: RequestMethod.GET });
   }
 }
