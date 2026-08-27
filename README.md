@@ -27,7 +27,8 @@ Outcome is a decentralized flight prediction market built on the Stellar network
 
 ## 📋 Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [Node.js](https://nodejs.org/) 20.11.1 (see `.nvmrc`)
+- npm 10.2.4
 - [Foundry](https://getfoundry.sh/) (Forge, Cast, Anvil)
 - [Git](https://git-scm.com/)
 
@@ -56,7 +57,7 @@ forge test
 
 ```bash
 cd Backend
-npm install
+npm ci
 cp .env.example .env
 npm run start:dev
 ```
@@ -65,7 +66,7 @@ npm run start:dev
 
 ```bash
 cd Frontend
-npm install
+npm ci
 # create .env.local — see CONTRIBUTING.md
 npm run dev
 ```

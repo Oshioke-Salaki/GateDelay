@@ -9,11 +9,7 @@ async function bootstrap() {
   app.enableCors({ origin: process.env.FRONTEND_URL || '*' });
 
   app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: true,
-    }),
+    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );
 
   app.setGlobalPrefix('api');
@@ -31,7 +27,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-void bootstrap().catch((error: unknown) => {
-  console.error('Failed to start backend', error);
-  process.exitCode = 1;
-});
+bootstrap();

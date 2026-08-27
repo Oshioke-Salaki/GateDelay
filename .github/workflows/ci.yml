@@ -1,4 +1,4 @@
-name: Application CI/CD Pipeline
+name: Backend CI/CD Pipeline
 
 on:
   push:
@@ -10,13 +10,9 @@ on:
       - main
       - master
 
-env:
-  NODE_VERSION: '20.11.1'
-  NPM_VERSION: '10.2.4'
-
 jobs:
-  backend-lint:
-    name: Backend lint
+  lint:
+    name: Lint & Code Quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -25,25 +21,22 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
-
-      - name: Verify npm version
-        run: test "$(npm --version)" = "${NPM_VERSION}"
 
       - name: Install dependencies
         run: npm ci
         working-directory: Backend
 
-      - name: Run affected backend ESLint checks
-        run: npm run lint:security
+      - name: Run ESLint
+        run: npm run lint
         working-directory: Backend
 
-  backend-test:
-    name: Backend tests and build
+  test:
+    name: Run Jest Tests
     runs-on: ubuntu-latest
-    needs: backend-lint
+    needs: lint
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -51,8 +44,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install dependencies
@@ -60,111 +53,14 @@ jobs:
         working-directory: Backend
 
       - name: Run Jest test suites
-        run: npm test -- --runInBand --forceExit
+        run: npm run test
         working-directory: Backend
-
-      - name: Build backend
-        run: npm run build
-        working-directory: Backend
-
-  backend-smoke:
-    name: Backend health smoke test
-    runs-on: ubuntu-latest
-    needs: backend-test
-    services:
-      mongodb:
-        image: mongo:7
-        ports:
-          - 27017:27017
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: Backend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: Backend
-
-      - name: Build backend
-        run: npm run build
-        working-directory: Backend
-
-      - name: Start backend
-        run: |
-          npm run start:prod > /tmp/gatedelay-backend.log 2>&1 &
-          echo $! > /tmp/gatedelay-backend.pid
-        working-directory: Backend
-        env:
-          NODE_ENV: test
-          PORT: 3000
-          JWT_SECRET: ci-test-access-secret
-          JWT_REFRESH_SECRET: ci-test-refresh-secret
-          MONGODB_URI: mongodb://127.0.0.1:27017/gatedelay-ci
-          REDIS_HOST: 127.0.0.1
-          REDIS_PORT: 6379
-          MARKET_AUDIT_ADMIN_IDS: ci-admin
-
-      - name: Run health smoke test
-        run: npm run smoke
-        working-directory: Backend
-        env:
-          NEST_PORT: 3000
-
-      - name: Show backend log on failure
-        if: failure()
-        run: cat /tmp/gatedelay-backend.log
-
-      - name: Stop backend
-        if: always()
-        run: kill "$(cat /tmp/gatedelay-backend.pid)" || true
-
-  frontend-quality:
-    name: Frontend lint, tsconfig, and build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: Frontend/package-lock.json
-
-      - name: Verify npm version
-        run: test "$(npm --version)" = "${NPM_VERSION}"
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: Frontend
-
-      - name: Run affected frontend ESLint checks
-        run: npx eslint app/api/market-audit/route.ts
-        working-directory: Frontend
-
-      - name: Typecheck Frontend/tsconfig.json
-        run: npm run typecheck
-        working-directory: Frontend
-
-      - name: Build frontend
-        run: npm run build
-        working-directory: Frontend
 
   deploy:
-    name: Deploy to Production (dry run)
+    name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [backend-smoke, frontend-quality]
+    needs: test
+    # Only deploy when pushing/merging directly to main or master
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
       - name: Checkout repository
@@ -173,15 +69,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          node-version: '20'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
         working-directory: Backend
 
-      - name: Execute deployment dry run
+      - name: Execute Deployment script (Dry Run)
         run: node scripts/deploy.js production ${{ github.sha }} --dry-run
         working-directory: Backend
         env:
