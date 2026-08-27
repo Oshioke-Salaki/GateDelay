@@ -61,6 +61,7 @@ Health check: `GET http://localhost:3000/api` (global prefix is `api` — see `B
 ### Lint & test
 
 ```bash
+npm ci
 npm run lint
 npm run test
 ```
