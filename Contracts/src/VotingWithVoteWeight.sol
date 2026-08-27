@@ -23,44 +23,36 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
 
     // ── Types ──────────────────────────────────────────────────────────────────
 
-    enum VoteChoice { NONE, FOR, AGAINST, ABSTAIN }
+    enum VoteChoice {
+        NONE,
+        FOR,
+        AGAINST,
+        ABSTAIN
+    }
 
     struct Proposal {
         uint256 id;
-        string  description;
+        string description;
         uint256 startTime;
         uint256 endTime;
-        uint256 snapshotId;      // VoteWeight snapshot for this proposal
+        uint256 snapshotId; // VoteWeight snapshot for this proposal
         uint256 forVotes;
         uint256 againstVotes;
         uint256 abstainVotes;
-        bool    active;
+        bool active;
     }
 
     struct VoteRecord {
         VoteChoice choice;
-        uint256    weight;
+        uint256 weight;
     }
 
     // ── Events ─────────────────────────────────────────────────────────────────
     event ProposalCreated(
-        uint256 indexed proposalId,
-        string description,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 snapshotId
+        uint256 indexed proposalId, string description, uint256 startTime, uint256 endTime, uint256 snapshotId
     );
-    event VoteCast(
-        uint256 indexed proposalId,
-        address indexed voter,
-        VoteChoice choice,
-        uint256 weight
-    );
-    event DelegateChanged(
-        address indexed delegator,
-        address indexed fromDelegate,
-        address indexed toDelegate
-    );
+    event VoteCast(uint256 indexed proposalId, address indexed voter, VoteChoice choice, uint256 weight);
+    event DelegateChanged(address indexed delegator, address indexed fromDelegate, address indexed toDelegate);
     event ProposalClosed(uint256 indexed proposalId);
     event VoteWeightUpdated(address indexed newVoteWeight);
 
@@ -87,7 +79,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     constructor(address _governanceToken, address _voteWeight) Ownable(msg.sender) {
         if (_governanceToken == address(0)) revert ZeroAddress();
         if (_voteWeight == address(0)) revert ZeroAddress();
-        
+
         governanceToken = IERC20(_governanceToken);
         voteWeight = VoteWeight(_voteWeight);
     }
@@ -104,9 +96,12 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
         returns (uint256 proposalId)
     {
         // Update weights for all tracked accounts before snapshot
+        // `syncWeight` is a no-op for accounts already in sync, so this no longer
+        // needs a `try/catch {}` around it. That catch was there to absorb
+        // `NoWeightChange`, but it also silently swallowed real failures.
         address[] memory trackedAccounts = voteWeight.getTrackedAccounts();
         for (uint256 i = 0; i < trackedAccounts.length; i++) {
-            try voteWeight.updateWeight(trackedAccounts[i]) {} catch {}
+            voteWeight.syncWeight(trackedAccounts[i]);
         }
 
         // Create snapshot for this proposal
@@ -125,19 +120,16 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
             active: true
         });
 
-        emit ProposalCreated(
-            proposalId,
-            description,
-            block.timestamp,
-            block.timestamp + duration,
-            snapshotId
-        );
+        emit ProposalCreated(proposalId, description, block.timestamp, block.timestamp + duration, snapshotId);
     }
 
     /// @notice Close a proposal after voting ends
     function closeProposal(uint256 proposalId) external onlyOwner {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert InvalidProposal();
+        // Voting windows are measured in days, so the ~12s a validator can shift
+        // `block.timestamp` by cannot change the outcome of this comparison.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp < p.endTime) revert VotingNotEnded();
         p.active = false;
         emit ProposalClosed(proposalId);
@@ -151,6 +143,9 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     function castVote(uint256 proposalId, VoteChoice choice) external nonReentrant {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert ProposalNotActive();
+        // Same bounded-drift argument as `closeProposal`: a multi-day window is
+        // not meaningfully movable by validator timestamp manipulation.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp > p.endTime) revert VotingEnded();
         if (votes[proposalId][msg.sender].choice != VoteChoice.NONE) revert AlreadyVoted();
 
@@ -179,15 +174,20 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
         if (delegatee == msg.sender) revert SelfDelegation();
         if (delegatee == address(0)) revert ZeroAddress();
 
-        // Update weights before delegation
-        voteWeight.updateWeight(msg.sender);
-        voteWeight.updateWeight(delegatee);
+        // Update weights before delegation. These use `syncWeight`, not
+        // `updateWeight`: an account whose balance has not moved since its last
+        // sync is the common case, and `updateWeight` would revert on it —
+        // which made delegation fail for exactly the accounts most likely to
+        // delegate.
+        voteWeight.syncWeight(msg.sender);
+        voteWeight.syncWeight(delegatee);
 
         // Get old delegatee
         address oldDelegatee = voteWeight.getDelegatee(msg.sender);
 
-        // Delegate through VoteWeight
-        voteWeight.delegate(delegatee);
+        // Delegate through VoteWeight on the caller's behalf. `delegate()` would
+        // key off msg.sender — this contract — and move its own weight instead.
+        voteWeight.delegateFor(msg.sender, delegatee);
 
         emit DelegateChanged(msg.sender, oldDelegatee, delegatee);
     }
@@ -197,7 +197,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
         address oldDelegatee = voteWeight.getDelegatee(msg.sender);
         if (oldDelegatee == address(0)) revert ZeroAddress();
 
-        voteWeight.undelegate();
+        voteWeight.undelegateFor(msg.sender);
 
         emit DelegateChanged(msg.sender, oldDelegatee, address(0));
     }
@@ -215,21 +215,13 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     /// @param proposalId Proposal ID
     /// @param account Address to query
     /// @return uint256 Voting power at proposal snapshot
-    function getVotingPowerAtProposal(uint256 proposalId, address account)
-        external
-        view
-        returns (uint256)
-    {
+    function getVotingPowerAtProposal(uint256 proposalId, address account) external view returns (uint256) {
         Proposal storage p = proposals[proposalId];
         return voteWeight.getWeightAtSnapshot(p.snapshotId, account);
     }
 
     /// @notice Returns the vote record of a voter for a proposal
-    function getVote(uint256 proposalId, address voter)
-        external
-        view
-        returns (VoteRecord memory)
-    {
+    function getVote(uint256 proposalId, address voter) external view returns (VoteRecord memory) {
         return votes[proposalId][voter];
     }
 
@@ -258,11 +250,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns delegation info for an account
-    function getDelegationInfo(address account)
-        external
-        view
-        returns (VoteWeight.DelegationInfo memory)
-    {
+    function getDelegationInfo(address account) external view returns (VoteWeight.DelegationInfo memory) {
         return voteWeight.getDelegationInfo(account);
     }
 
@@ -272,11 +260,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns weight change history for an account
-    function getWeightChangeHistory(address account)
-        external
-        view
-        returns (VoteWeight.WeightChange[] memory)
-    {
+    function getWeightChangeHistory(address account) external view returns (VoteWeight.WeightChange[] memory) {
         return voteWeight.getWeightChangeHistory(account);
     }
 

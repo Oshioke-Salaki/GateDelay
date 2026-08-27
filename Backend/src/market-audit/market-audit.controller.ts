@@ -39,11 +39,13 @@ export class MarketAuditController {
     });
   }
 
+  // `AuditQueryDto` already coerced and bounded `limit`, so no re-parsing here.
   @Get('logs')
   getLogs(@Query() query: AuditQueryDto) {
     return this.marketAuditService.queryLogs({
       ...query,
     });
+    return this.marketAuditService.queryLogs(query);
   }
 
   @Post('retention')

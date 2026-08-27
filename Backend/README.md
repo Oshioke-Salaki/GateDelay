@@ -1,29 +1,58 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The backend mixes a lightweight Express layer (`routes/`, `services/`, `models/`, all CommonJS), background services, and a newer Nest-based `src/` app.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> **Note on entrypoints.** There is no `Backend/server.js`; the Express *server* lives in the sibling lowercase `backend/` package. What sits under `Backend/` is the Express route and model layer, which the Nest app and the smoke scripts load directly. `npm run start:dev` (`nest start --watch`) is the canonical dev server for this package. `DUAL_ENTRYPOINTS.md` predates that split and still describes a `Backend/server.js` boot path that no longer exists. Start by copying `.env.example` to `.env` and filling in the placeholders for the services you plan to run.
 
-## Description
+## Required environment variables
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+These values should always be reviewed before local development or deployment:
+
+- `JWT_SECRET` and `JWT_REFRESH_SECRET`: authentication secrets
+- `MONGODB_URI`: primary application database
+- `AVIATION_STACK_API_KEY`: live flight data provider
+- `RPC_URL` or `BLOCKCHAIN_RPC_URL`: chain access for rollback and oracle flows
+- `PRIVATE_KEY`: signer used by contract-facing backend jobs
+
+Redis-backed workers also require either `REDIS_URL` or `REDIS_HOST`/`REDIS_PORT`.
+
+## Setup
+
+```bash
+npm install
+```
+
+## Run
+
+```bash
+npm run dev
+```
+
+Use `npm run start:dev` for the NestJS development API. The migration REST API is owned by the Express entrypoint:
+
+```bash
+npm run express:dev
+```
+
+## Market migration API
+
+The market migration is discovered from `backend/migrations/001_init_markets.js` and exposed under `/api/migrations` by Express:
+
+- `GET /api/migrations/status` - show pending and applied migrations
+- `POST /api/migrations/execute` with `{ "name": "001_init_markets" }` - create the markets table
+- `POST /api/migrations/validate/001_init_markets` - verify migration integrity
+
+Run its smoke check with:
+
+```bash
+npm run test:migration
+```
+
+Migration environment variables:
+
+- `PORT` - Express port, default `4000`
+- `MONGODB_URI` - optional MongoDB URI; SQLite-only migrations continue if MongoDB is unavailable
+- `MIGRATIONS_DB_PATH` - optional SQLite file path, default `backend/data/migrations.sqlite`
 
 ## GateDelay Backend Setup
 
@@ -53,6 +82,166 @@ $ npm run build
 $ npm install
 ```
 
+## AML Compliance Endpoint
+
+The backend includes an AML (Anti-Money Laundering) compliance route handler at `Backend/routes/aml.js`.
+
+**Routes:**
+- `POST /screen` — Screen a user against AML watchlists (requires auth)
+- `POST /flag` — Record suspicious-activity flags (requires auth)
+- `GET /report/:userId` — Generate a screening report for a date range (requires auth)
+- `POST /file-report` — Submit regulatory filings (requires auth)
+
+**Quick smoke test:**
+```bash
+npm run test:aml
+```
+
+See `Backend/routes/aml.js` and `Backend/services/amlService.js` for full inline documentation including the threat model and security assumptions.
+
+## Approval Workflows
+
+The backend includes a multi-step trade approval workflow handler at `Backend/routes/approvals.js`.
+
+**Environment variable:**
+- `APPROVAL_CRON_ENABLED` — Set to `"true"` to enable the background cron job that expires stale workflows every minute. Defaults to `false` (cron disabled), suitable for local development.
+
+**Routes (9 endpoints, mount at `/approvals`):**
+- `GET /approvals/stages` — List all approval stages with configuration
+- `GET /approvals/history` — Get approval workflow history (optional filters)
+- `GET /approvals/notifications` — Get pending notification queue
+- `GET /approvals/trade/:tradeId` — Get workflows associated with a trade
+- `GET /approvals/:workflowId` — Get full status of a specific workflow
+- `POST /approvals` — Create a new approval workflow (requires `x-user-id` header)
+- `POST /approvals/:workflowId/approve` — Submit an approval decision (requires `x-approver-id`, `x-approver-role` headers)
+- `POST /approvals/delegate` — Delegate approval authority
+- `DELETE /approvals/delegate` — Revoke a delegation
+
+**Quick smoke test:**
+```bash
+npm run test:approvals
+```
+
+See `Backend/routes/approvals.js` and `Backend/services/approvalService.js` for full inline documentation.
+
+
+## Beta Access
+
+The backend includes a beta access management route handler at `Backend/routes/beta.js`.
+
+**Routes (8 endpoints):**
+- `GET /beta/features` — List available beta features
+- `GET /beta/users` — List beta users (optional `?status=`, `?limit=`)
+- `POST /beta/users` — Add a user to the beta list
+- `DELETE /beta/users/:walletAddress` — Remove a user from the beta list
+- `POST /beta/invite/accept` — Accept a beta invitation
+- `GET /beta/access/:walletAddress` — Check beta access for a wallet
+- `POST /beta/activity` — Track a beta activity event
+- `GET /beta/activity/:walletAddress` — Get activity log for a wallet
+
+**Quick smoke test:**
+```bash
+npm run test:beta
+```
+
+See `Backend/routes/beta.js` and `backend/services/betaAccess.js` for full inline documentation.
+
+## Blacklist Management
+
+The backend includes a blacklist management route handler at `Backend/routes/blacklist.js`.
+
+**Routes (7 endpoints):**
+- `POST /blacklist/add` — Add an identifier to the blacklist
+- `POST /blacklist/remove` — Remove an identifier from the blacklist
+- `GET /blacklist/check/:identifier` — Check if an identifier is blacklisted (no auth)
+- `POST /blacklist/batch-add` — Batch add identifiers
+- `POST /blacklist/batch-remove` — Batch remove identifiers
+- `GET /blacklist/count` — Get total blacklisted entries
+- `GET /blacklist/report` — Generate a report for a date range
+
+**Quick smoke test:**
+```bash
+npm run test:blacklist
+```
+
+See `Backend/routes/blacklist.js` and `Backend/services/blacklistService.js` for full inline documentation.
+
+## Disputes
+
+Dispute lifecycle handling: `Backend/models/Dispute.js` (Mongoose schema),
+`Backend/services/disputeService.js`, `Backend/routes/disputes.js`.
+
+**Environment variables**
+
+- `MONGODB_URI` — required. The model itself loads without a connection (the
+  schema is declared eagerly), but every read/write through `disputeService`
+  needs it.
+
+No other variables are specific to this module.
+
+**Status machine**
+
+`DISPUTE_STATUSES` and `VALID_TRANSITIONS` are exported from the model and are
+the single source of truth:
+
+```
+OPEN ──► UNDER_REVIEW ──► RESOLVED   (terminal)
+  │            └────────► REJECTED   (terminal)
+  └─────────────────────► REJECTED
+```
+
+`OPEN → RESOLVED` is deliberately not allowed: resolution must pass through
+review, which is where `reviewStartedAt` is recorded.
+
+**Scripts**
+
+```bash
+npm run test:disputes   # smoke: the route module loads and exits cleanly
+npm run test:cjs        # schema, status-machine and validation tests
+```
+
+**Hot reload.** The model is exported as
+`mongoose.models.Dispute || mongoose.model('Dispute', schema)`. Keep that guard:
+`nest start --watch` re-requires the module on every change, and a bare
+`mongoose.model(...)` throws `OverwriteModelError` on the second load, killing
+the watcher mid-session. `test/disputeModel.test.js` pins this.
+
+## Trade validation middleware
+
+Express middleware guarding trade requests:
+`Backend/middleware/tradeValidation.js`, backed by
+`Backend/services/tradeValidator.js`.
+
+**Exports** — `validateTradeRequest`, `validateTradeParameters`,
+`validateTradeLimits`, `validateTradeBalance`, `validateMarketStatus`, and
+`validateTrade(...validators)` to compose them.
+
+**Environment variables**
+
+None directly. The backing service reaches `Backend/models/Balance.js`, so
+`MONGODB_URI` is required for `validateTradeBalance` and `validateTradeRequest`.
+Limits are compile-time constants in `tradeValidator.TRADE_LIMITS`, not env
+vars.
+
+**Scripts**
+
+```bash
+npm run test:trade-validation   # smoke: the middleware module loads
+npm run test:cjs                # limit, balance and combinator tests
+npm run lint                    # see note below
+```
+
+**Linting.** `eslint.config.mjs` now carries a trailing `**/*.js` block that
+turns off type-aware rules for the CommonJS half of the package. Without it
+every `.js` file failed with *"was not found by the project service"* — they
+were unlintable, not clean. Note that the `lint` script itself still only globs
+`{src,apps,libs,test}/**/*.ts`, so `middleware/` is linted only when passed
+explicitly:
+
+```bash
+npx eslint middleware/tradeValidation.js
+```
+
 ## Health endpoints
 
 The backend exposes health check endpoints for monitoring and CI/CD probes:
@@ -68,23 +257,33 @@ The backend exposes health check endpoints for monitoring and CI/CD probes:
 ## Compile and run the project
 
 ```bash
-# Express server
-$ npm run start:express
-
-# Express server with watch mode
-$ npm run start:express:dev
-
 # NestJS development
-$ npm run start:nest
+$ npm run start
 
 # NestJS watch mode
-$ npm run start:nest:dev
+$ npm run start:dev
 
 # NestJS debug mode
-$ npm run start:nest:debug
+$ npm run start:debug
 
 # NestJS production
-$ npm run start:nest:prod
+$ npm run start:prod
+```
+
+## Route module verification (`Backend/routes/api.example.js`)
+
+Use this canonical path from repo root:
+
+```bash
+cd Backend
+npm install
+npm run test:api-example
+```
+
+Expected console output includes:
+
+```text
+[api.example.js] Initializing API example routes...
 ```
 
 ## Build the project
@@ -112,42 +311,16 @@ $ npm run test:cov
 $ npm run test:debug
 ```
 
-## Deployment
+The default Express entrypoint listens on `PORT` and serves:
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+- `/health`
+- `/api/migrations`
+- `/api/rollback`
+- `/api/beta`
+- `/api/oncall`
+- `/api/upgrades`
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Notes
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- `.env.example` intentionally contains placeholders only; do not commit real secrets.
+- Several advanced integrations such as PagerDuty, Twilio, IPFS, Polygon/Mainnet/Testnet addresses, and Firebase are optional unless you enable those workflows.

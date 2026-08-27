@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { useWebSocket, PriceUpdate, WebSocketState } from "@/hooks/useWebSocket";
 import { useToast } from "@/hooks/useToast";
+import { resolveBackendUrl, MissingBackendUrlError } from "@/lib/apiBase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -15,11 +16,27 @@ export interface WebSocketContextValue extends WebSocketState {
     off: (event: string, callback: (data: any) => void) => void;
     prices: Map<string, PriceUpdate>;
     getPrice: (marketId: string) => PriceUpdate | undefined;
+    /** Explicit config fault (e.g. missing NEXT_PUBLIC_BACKEND_URL in production). */
+    configError: string | null;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
+
+function readBackendUrl(override?: string): { url: string | null; configError: string | null } {
+    if (override?.trim()) {
+        return { url: override.replace(/\/+$/, ""), configError: null };
+    }
+    try {
+        return { url: resolveBackendUrl(), configError: null };
+    } catch (error) {
+        if (error instanceof MissingBackendUrlError) {
+            return { url: null, configError: error.message };
+        }
+        throw error;
+    }
+}
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -32,25 +49,29 @@ interface WebSocketProviderProps {
 
 export function WebSocketProvider({
     children,
-    backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000",
+    backendUrl: backendUrlProp,
     authToken,
     enablePollingFallback = true,
 }: WebSocketProviderProps) {
+    const { url: backendUrl, configError } = useMemo(
+        () => readBackendUrl(backendUrlProp),
+        [backendUrlProp],
+    );
     const [prices, setPrices] = useState<Map<string, PriceUpdate>>(new Map());
     const [hasShownConnectionError, setHasShownConnectionError] = useState(false);
     const toast = useToast();
 
     const websocket = useWebSocket({
-        url: backendUrl,
+        // Empty string keeps the hook inert when config is missing in production.
+        url: backendUrl ?? "",
         namespace: "/prices",
         auth: authToken ? { token: authToken } : undefined,
-        autoConnect: true,
+        autoConnect: Boolean(backendUrl),
         reconnectionAttempts: 5,
         reconnectionDelay: 2000,
-        fallbackToPolling: enablePollingFallback,
+        fallbackToPolling: enablePollingFallback && Boolean(backendUrl),
         pollingInterval: 30000,
     });
-
     // ─── Handle Price Updates ─────────────────────────────────────────────────
 
     useEffect(() => {
@@ -79,6 +100,8 @@ export function WebSocketProvider({
     // ─── Handle Polling Fallback ──────────────────────────────────────────────
 
     useEffect(() => {
+        if (!backendUrl) return;
+
         const unsubscribe = websocket.on("polling", async (data: { marketIds: string[] }) => {
             console.log("[WebSocket] Polling fallback triggered for:", data.marketIds);
 
@@ -114,29 +137,37 @@ export function WebSocketProvider({
     // ─── Connection Status Notifications ──────────────────────────────────────
 
     useEffect(() => {
+        if (configError && !hasShownConnectionError) {
+            toast.error("WebSocket misconfigured", configError, { duration: 0 });
+            setHasShownConnectionError(true);
+            return;
+        }
+
         if (websocket.status === "connected") {
             if (hasShownConnectionError) {
                 toast.success("Connected", "Real-time updates restored");
                 setHasShownConnectionError(false);
             }
         } else if (websocket.status === "error" && !hasShownConnectionError) {
+            const detail =
+                websocket.error?.message ||
+                `Unable to reach ${backendUrl} (namespace /prices). Check NEXT_PUBLIC_BACKEND_URL and Backend PORT.`;
             if (enablePollingFallback) {
                 toast.warning(
-                    "Connection Issue",
-                    "Using fallback mode. Some features may be delayed.",
-                    { duration: 7000 }
+                    "WebSocket connection failed",
+                    `${detail} Falling back to REST polling; live prices may be delayed.`,
+                    { duration: 10000 }
                 );
             } else {
                 toast.error(
-                    "Connection Lost",
-                    "Unable to connect to real-time updates. Please refresh the page.",
+                    "WebSocket connection failed",
+                    detail,
                     { duration: 0 }
                 );
             }
             setHasShownConnectionError(true);
         }
-    }, [websocket.status, hasShownConnectionError, enablePollingFallback, toast]);
-
+    }, [websocket.status, hasShownConnectionError, enablePollingFallback, toast, configError]);
     // ─── Helper Functions ─────────────────────────────────────────────────────
 
     const getPrice = (marketId: string): PriceUpdate | undefined => {
@@ -146,9 +177,9 @@ export function WebSocketProvider({
     // ─── Context Value ────────────────────────────────────────────────────────
 
     const value: WebSocketContextValue = {
-        status: websocket.status,
-        error: websocket.error,
-        isConnected: websocket.isConnected,
+        status: configError ? "error" : websocket.status,
+        error: configError ? new Error(configError) : websocket.error,
+        isConnected: Boolean(backendUrl) && websocket.isConnected,
         lastUpdate: websocket.lastUpdate,
         subscribe: websocket.subscribe,
         unsubscribe: websocket.unsubscribe,
@@ -158,6 +189,7 @@ export function WebSocketProvider({
         off: websocket.off,
         prices,
         getPrice,
+        configError,
     };
 
     return (

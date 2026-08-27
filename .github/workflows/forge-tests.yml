@@ -36,8 +36,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
+      - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
 
       - name: Show Forge version
         run: forge --version
@@ -64,8 +66,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
+      - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
 
       - name: Show Forge version
         run: forge --version

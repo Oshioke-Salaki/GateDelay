@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../Contracts/contracts/MarketCompound.sol";
+import "../Contracts/src/MarketCompound.sol";
 
 contract MarketCompoundTest is Test {
     MarketCompound public compounder;

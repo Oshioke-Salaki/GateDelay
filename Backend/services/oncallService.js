@@ -5,7 +5,8 @@
  * notifications, and history for market incident response.
  */
 
-const cron = require('node-cron');
+// TODO: Quarantined - node-cron not in package.json. Add dependency or implement alternative.
+// const cron = require('node-cron');
 
 // ── In-memory stores (replace with DB models as needed) ─────────────────────
 const schedules = new Map();   // scheduleId -> schedule object

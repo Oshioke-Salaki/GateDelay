@@ -1,11 +1,13 @@
 const express = require('express');
 const oracleService = require('../services/oracleService');
-const { ethers } = require('ethers');
+// TODO: Quarantined - ethers not in package.json. Add dependency or implement alternative.
+// const { ethers } = require('ethers');
 
 const router = express.Router();
 
+// TODO: Quarantined - ethers not available, provider disabled
 // Initialize provider (in production, use RPC from env)
-const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'https://rpc.mantle.xyz');
+// const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'https://rpc.mantle.xyz');
 
 /**
  * Error handling middleware

@@ -1,3 +1,14 @@
+/**
+ * MarketAuditService unit tests.
+ *
+ * Trust assumptions (P2-156):
+ * - This service is in-memory only; no external secrets, private keys, or
+ *   credential literals are present. All inputs are plain strings.
+ * - Oracles, multisig signers, and beta-access gates are NOT enforced here;
+ *   those concerns live in the controller / gateway layer.
+ * - Retention policy bounds are clamped by the DTO validator (1–3650 days).
+ * - The hash chain (SHA-256) is for tamper-evidence, not cryptographic auth.
+ */
 import { Test, TestingModule } from '@nestjs/testing';
 import { MarketAuditService } from './market-audit.service';
 
@@ -76,5 +87,88 @@ describe('MarketAuditService', () => {
 
     const integrity = service.verifyIntegrity();
     expect(integrity.valid).toBe(true);
+  });
+
+  // --- Negative-path tests (P2-156) ---
+
+  it('returns empty results for unmatched query filters', () => {
+    service.createLog({
+      marketId: 'm1',
+      operation: 'CREATE_MARKET',
+      actor: 'a',
+      details: 'd',
+    });
+
+    const logs = service.queryLogs({ marketId: 'nonexistent' });
+    expect(logs).toHaveLength(0);
+  });
+
+  it('returns empty report when no logs exist', () => {
+    const report = service.generateReport();
+    expect(report.totalLogs).toBe(0);
+    expect(report.marketsTouched).toBe(0);
+    expect(report.actors).toBe(0);
+  });
+
+  it('verifyIntegrity returns valid on empty log chain', () => {
+    const result = service.verifyIntegrity();
+    expect(result.valid).toBe(true);
+    expect(result.brokenAt).toBeUndefined();
+  });
+
+  it('enforceRetention removes old entries and respects floor', () => {
+    service.setRetentionPolicy(0);
+    const result = service.enforceRetention();
+    expect(result.retentionDays).toBe(0);
+  });
+
+  it('queryLogs respects limit parameter', () => {
+    for (let i = 0; i < 5; i++) {
+      service.createLog({
+        marketId: `m${i}`,
+        operation: 'CREATE_MARKET',
+        actor: 'a',
+        details: 'd',
+      });
+    }
+
+    const limited = service.queryLogs({ limit: 2 });
+    expect(limited).toHaveLength(2);
+  });
+
+  it('queryLogs supports date range filters', () => {
+    service.createLog({
+      marketId: 'm1',
+      operation: 'CREATE_MARKET',
+      actor: 'a',
+      details: 'd',
+    });
+
+    const now = new Date();
+    const logs = service.queryLogs({
+      from: new Date(now.getTime() - 60_000).toISOString(),
+      to: new Date(now.getTime() + 60_000).toISOString(),
+    });
+    expect(logs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('no secrets or private keys appear in the spec file', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const specPath = path.default.resolve(__dirname, 'market-audit.service.spec.ts');
+    const content = fs.default.readFileSync(specPath, 'utf8');
+
+    const secretPatterns = [
+      /0x[0-9a-fA-F]{64}/,        // Ethereum private key
+      /-----BEGIN.*PRIVATE KEY/,    // PEM key
+      /password\s*[:=]\s*["']/i,   // password assignment
+      /secret\s*[:=]\s*["']/i,     // secret assignment
+      /api[_-]?key\s*[:=]\s*["']/i,
+      /mnemonic/i,
+    ];
+
+    for (const pattern of secretPatterns) {
+      expect(content).not.toMatch(pattern);
+    }
   });
 });

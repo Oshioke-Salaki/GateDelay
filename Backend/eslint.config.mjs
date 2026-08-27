@@ -49,4 +49,26 @@ export default tseslint.config(
       'prettier/prettier': ['error', { endOfLine: 'auto' }],
     },
   },
+  {
+    // Must stay LAST. The CommonJS half of this package — models/, middleware/,
+    // services/, routes/, jobs/ — is plain JavaScript that tsconfig.json does
+    // not cover, so type-aware rules cannot resolve it: every such file failed
+    // with "was not found by the project service", i.e. they were silently
+    // unlintable rather than clean. This turns the typed rules back off for
+    // them, and it has to come after the `rules` block above, which would
+    // otherwise re-enable typed rules like no-floating-promises for .js too.
+    files: ['**/*.js', '**/*.cjs', '**/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.jest,
+      },
+      sourceType: 'commonjs',
+    },
+    rules: {
+      // These files ARE CommonJS; `require()` is the module system, not a lapse.
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );

@@ -252,7 +252,7 @@ export default function OfflineDetection({
   onlineDismissDelay = 3000,
   showQueue = true,
 }: OfflineDetectionProps) {
-  const { status, isOffline, isSyncing, queue, dequeue } = useConnectivity();
+  const { status, isOffline, isSyncing, isLoading, queue, dequeue } = useConnectivity();
 
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -268,6 +268,8 @@ export default function OfflineDetection({
   // Drive visibility / phase from connectivity status
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Don't react to connectivity changes while the hook is still loading
+    if (isLoading) return;
 
     // Clear any pending auto-dismiss
     if (dismissTimerRef.current) {
@@ -301,7 +303,7 @@ export default function OfflineDetection({
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOffline, isSyncing]);
+  }, [isOffline, isSyncing, isLoading]);
 
   if (!mounted || !visible) return null;
 
