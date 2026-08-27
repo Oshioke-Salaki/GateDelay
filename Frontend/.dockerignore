@@ -1,0 +1,39 @@
+# Build context hygiene. Anything listed here never enters the image layer
+# cache, which keeps the build fast and — for the env files — keeps local
+# secrets out of the image entirely.
+
+node_modules
+.next
+out
+build
+coverage
+
+# Env files. `.env.example` is excluded too: the image is configured through
+# build args (see Dockerfile), never by copying an env file in.
+.env
+.env.*
+
+.git
+.gitignore
+.dockerignore
+Dockerfile
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+*.md
+.vscode
+.idea
+.DS_Store
+*.tsbuildinfo
+
+# Tests and fixtures are not needed at runtime; they run in CI before the build.
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+vitest.config.mts
+vitest.setup.ts
+localnet

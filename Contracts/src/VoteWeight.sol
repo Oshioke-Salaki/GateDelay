@@ -4,10 +4,41 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title VoteWeight
 /// @notice Advanced vote weight tracking system with delegation, snapshots, and historical queries
-/// @dev Tracks voting weights, changes, delegations, and provides point-in-time snapshots
+/// @dev Tracks voting weights, changes, delegations, and provides point-in-time snapshots.
+///
+/// ## Deployment
+///
+/// `constructor(address _governanceToken)` takes the ERC-20 whose balances back
+/// voting weight; it reverts with {ZeroAddress} on `address(0)`. The deployer
+/// becomes owner via `Ownable(msg.sender)`.
+///
+/// Ownership gates {createSnapshot}, {delegateFor} and {undelegateFor}. The
+/// intended topology is that a governance front-end — see
+/// `VotingWithVoteWeight` — owns this contract:
+///
+/// ```solidity
+/// VoteWeight weights = new VoteWeight(address(token));
+/// VotingWithVoteWeight voting = new VotingWithVoteWeight(address(token), address(weights));
+/// weights.transferOwnership(address(voting));   // required before voting.delegate() works
+/// ```
+///
+/// Weight is **not** tracked automatically: this contract cannot observe ERC-20
+/// transfers. Something must call {syncWeight} / {batchUpdateWeights} after
+/// balances move, or reported weight goes stale. `VotingWithVoteWeight.createProposal`
+/// syncs every tracked account before snapshotting for exactly this reason.
+///
+/// ## Delegation is not transitive
+///
+/// {_createDelegation} delegates `balanceOf(delegator)` — the delegator's **own**
+/// tokens only. If A delegates to B and B delegates to C, C receives B's balance
+/// and B keeps what A gave them; A's weight does not flow through to C. This is
+/// deliberate: forwarding delegated weight would require re-walking every
+/// delegation chain on each balance change, at unbounded gas. {_wouldCreateLoop}
+/// still rejects cycles, which keeps `getDelegatee` chains finite.
 contract VoteWeight is Ownable, ReentrancyGuard {
     // ── Errors ─────────────────────────────────────────────────────────────────
     error ZeroAddress();
@@ -66,29 +97,12 @@ contract VoteWeight is Ownable, ReentrancyGuard {
 
     // ── Events ─────────────────────────────────────────────────────────────────
     event WeightUpdated(
-        address indexed account,
-        uint256 oldWeight,
-        uint256 newWeight,
-        int256 delta,
-        ChangeReason reason
+        address indexed account, uint256 oldWeight, uint256 newWeight, int256 delta, ChangeReason reason
     );
-    event DelegationCreated(
-        address indexed delegator,
-        address indexed delegatee,
-        uint256 amount,
-        uint256 timestamp
-    );
-    event DelegationRemoved(
-        address indexed delegator,
-        address indexed delegatee,
-        uint256 amount,
-        uint256 timestamp
-    );
+    event DelegationCreated(address indexed delegator, address indexed delegatee, uint256 amount, uint256 timestamp);
+    event DelegationRemoved(address indexed delegator, address indexed delegatee, uint256 amount, uint256 timestamp);
     event DelegationChanged(
-        address indexed delegator,
-        address indexed oldDelegatee,
-        address indexed newDelegatee,
-        uint256 amount
+        address indexed delegator, address indexed oldDelegatee, address indexed newDelegatee, uint256 amount
     );
     event SnapshotCreated(uint256 indexed snapshotId, uint256 blockNumber, uint256 timestamp);
     event CheckpointCreated(address indexed account, uint256 blockNumber, uint256 weight);
@@ -152,13 +166,35 @@ contract VoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Update the weight for an account based on current token balance
     /// @param account The account to update
+    /// @dev Reverts with {NoWeightChange} when the account is already in sync.
+    ///      Callers that legitimately do not know whether a change is pending —
+    ///      batch jobs, delegation flows — should use {syncWeight} instead of
+    ///      swallowing this revert.
     function updateWeight(address account) public {
+        if (!syncWeight(account)) revert NoWeightChange();
+    }
+
+    /// @notice Idempotent form of {updateWeight}.
+    /// @param account The account to synchronise with its token balance.
+    /// @return changed True when the weight was written, false when already current.
+    /// @dev Exists because {updateWeight} reverting on a no-op makes it
+    ///      uncomposable: any caller updating several accounts, or updating
+    ///      before another action, has to guess which ones are already current.
+    ///      The alternative that grew up around it — wrapping the call in
+    ///      `try/catch {}` — also swallows genuine failures.
+    function syncWeight(address account) public returns (bool changed) {
         if (account == address(0)) revert ZeroAddress();
 
         uint256 tokenBalance = governanceToken.balanceOf(account);
         uint256 oldBaseWeight = baseWeight[account];
-        
-        if (tokenBalance == oldBaseWeight) revert NoWeightChange();
+
+        // A first sync always registers the account, even at zero weight.
+        // Comparing balances alone would make a zero-balance holder permanently
+        // untrackable: 0 == 0 on every call, so it could never be delegated to,
+        // enumerated, or captured in a snapshot.
+        if (isTracked[account] && tokenBalance == oldBaseWeight) {
+            return false;
+        }
 
         // Update base weight
         baseWeight[account] = tokenBalance;
@@ -166,7 +202,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         // Calculate new total weight (base + delegated received - delegated given)
         uint256 oldWeight = currentWeight[account];
         uint256 newWeight = tokenBalance + delegatedWeightReceived[account] - delegatedWeightGiven[account];
-        
+
         currentWeight[account] = newWeight;
 
         // Track account if not already tracked
@@ -188,14 +224,21 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         // Create checkpoint
         _createCheckpoint(account, newWeight);
 
-        emit WeightUpdated(account, oldWeight, newWeight, int256(newWeight) - int256(oldWeight), ChangeReason.BALANCE_CHANGE);
+        emit WeightUpdated(
+            account, oldWeight, newWeight, _weightDelta(newWeight, oldWeight), ChangeReason.BALANCE_CHANGE
+        );
+
+        return true;
     }
 
     /// @notice Batch update weights for multiple accounts
     /// @param accounts Array of accounts to update
+    /// @dev Accounts already in sync are skipped rather than reverting the whole
+    ///      batch. Reverting would make this function unusable in practice: the
+    ///      caller cannot know which accounts changed without reading each one.
     function batchUpdateWeights(address[] calldata accounts) external {
         for (uint256 i = 0; i < accounts.length; i++) {
-            updateWeight(accounts[i]);
+            syncWeight(accounts[i]);
         }
     }
 
@@ -204,29 +247,61 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Delegate voting weight to another address
     /// @param delegatee Address to delegate to
     function delegate(address delegatee) external nonReentrant {
-        if (delegatee == address(0)) revert ZeroAddress();
-        if (delegatee == msg.sender) revert SelfDelegation();
-        
-        // Check for delegation loops
-        if (_wouldCreateLoop(msg.sender, delegatee)) revert DelegationLoop();
+        _delegate(msg.sender, delegatee);
+    }
 
-        address currentDelegatee = currentDelegation[msg.sender];
-        
-        // Remove old delegation if exists
-        if (currentDelegatee != address(0)) {
-            _removeDelegation(msg.sender, currentDelegatee);
-        }
-
-        // Create new delegation
-        _createDelegation(msg.sender, delegatee);
+    /// @notice Delegate `delegator`'s weight on their behalf.
+    /// @param delegator Account whose weight is delegated.
+    /// @param delegatee Address to delegate to.
+    /// @dev For governance front-ends that hold ownership of this contract (see
+    ///      {VotingWithVoteWeight}). Such a contract cannot use {delegate}:
+    ///      that keys off `msg.sender`, so an intermediary would delegate its
+    ///      own — usually zero — weight and the user's delegation would silently
+    ///      never happen. Restricted to the owner, since it moves someone
+    ///      else's voting power.
+    function delegateFor(address delegator, address delegatee) external onlyOwner nonReentrant {
+        if (delegator == address(0)) revert ZeroAddress();
+        _delegate(delegator, delegatee);
     }
 
     /// @notice Remove current delegation
     function undelegate() external nonReentrant {
-        address currentDelegatee = currentDelegation[msg.sender];
+        _undelegate(msg.sender);
+    }
+
+    /// @notice Remove `delegator`'s delegation on their behalf.
+    /// @param delegator Account whose delegation is removed.
+    /// @dev Owner-only counterpart to {undelegate}; see {delegateFor}.
+    function undelegateFor(address delegator) external onlyOwner nonReentrant {
+        if (delegator == address(0)) revert ZeroAddress();
+        _undelegate(delegator);
+    }
+
+    /// @dev Shared delegation logic for {delegate} and {delegateFor}.
+    function _delegate(address delegator, address delegatee) internal {
+        if (delegatee == address(0)) revert ZeroAddress();
+        if (delegatee == delegator) revert SelfDelegation();
+
+        // Check for delegation loops
+        if (_wouldCreateLoop(delegator, delegatee)) revert DelegationLoop();
+
+        address currentDelegatee = currentDelegation[delegator];
+
+        // Remove old delegation if exists
+        if (currentDelegatee != address(0)) {
+            _removeDelegation(delegator, currentDelegatee);
+        }
+
+        // Create new delegation
+        _createDelegation(delegator, delegatee);
+    }
+
+    /// @dev Shared undelegation logic for {undelegate} and {undelegateFor}.
+    function _undelegate(address delegator) internal {
+        address currentDelegatee = currentDelegation[delegator];
         if (currentDelegatee == address(0)) revert ZeroAddress();
 
-        _removeDelegation(msg.sender, currentDelegatee);
+        _removeDelegation(delegator, currentDelegatee);
     }
 
     /// @notice Internal function to create a delegation
@@ -234,25 +309,22 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param delegatee Address receiving delegated weight
     function _createDelegation(address delegator, address delegatee) internal {
         uint256 amount = governanceToken.balanceOf(delegator);
-        
+
         // Update delegator's weights
         uint256 oldDelegatorWeight = currentWeight[delegator];
         delegatedWeightGiven[delegator] = amount;
         currentWeight[delegator] = baseWeight[delegator] + delegatedWeightReceived[delegator] - amount;
-        
+
         // Update delegatee's weights
         uint256 oldDelegateeWeight = currentWeight[delegatee];
         delegatedWeightReceived[delegatee] += amount;
-        currentWeight[delegatee] = baseWeight[delegatee] + delegatedWeightReceived[delegatee] - delegatedWeightGiven[delegatee];
+        currentWeight[delegatee] =
+            baseWeight[delegatee] + delegatedWeightReceived[delegatee] - delegatedWeightGiven[delegatee];
 
         // Update delegation tracking
         currentDelegation[delegator] = delegatee;
-        delegationInfo[delegator] = DelegationInfo({
-            delegatee: delegatee,
-            amount: amount,
-            timestamp: block.timestamp,
-            active: true
-        });
+        delegationInfo[delegator] =
+            DelegationInfo({delegatee: delegatee, amount: amount, timestamp: block.timestamp, active: true});
         delegators[delegatee].push(delegator);
 
         // Track accounts
@@ -274,8 +346,20 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         _createCheckpoint(delegatee, currentWeight[delegatee]);
 
         emit DelegationCreated(delegator, delegatee, amount, block.timestamp);
-        emit WeightUpdated(delegator, oldDelegatorWeight, currentWeight[delegator], int256(currentWeight[delegator]) - int256(oldDelegatorWeight), ChangeReason.DELEGATION_GIVEN);
-        emit WeightUpdated(delegatee, oldDelegateeWeight, currentWeight[delegatee], int256(currentWeight[delegatee]) - int256(oldDelegateeWeight), ChangeReason.DELEGATION_RECEIVED);
+        emit WeightUpdated(
+            delegator,
+            oldDelegatorWeight,
+            currentWeight[delegator],
+            _weightDelta(currentWeight[delegator], oldDelegatorWeight),
+            ChangeReason.DELEGATION_GIVEN
+        );
+        emit WeightUpdated(
+            delegatee,
+            oldDelegateeWeight,
+            currentWeight[delegatee],
+            _weightDelta(currentWeight[delegatee], oldDelegateeWeight),
+            ChangeReason.DELEGATION_RECEIVED
+        );
     }
 
     /// @notice Internal function to remove a delegation
@@ -295,7 +379,8 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         if (delegatedWeightReceived[delegatee] >= amount) {
             delegatedWeightReceived[delegatee] -= amount;
         }
-        currentWeight[delegatee] = baseWeight[delegatee] + delegatedWeightReceived[delegatee] - delegatedWeightGiven[delegatee];
+        currentWeight[delegatee] =
+            baseWeight[delegatee] + delegatedWeightReceived[delegatee] - delegatedWeightGiven[delegatee];
 
         // Update delegation tracking
         currentDelegation[delegator] = address(0);
@@ -313,8 +398,35 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         _createCheckpoint(delegatee, currentWeight[delegatee]);
 
         emit DelegationRemoved(delegator, delegatee, amount, block.timestamp);
-        emit WeightUpdated(delegator, oldDelegatorWeight, currentWeight[delegator], int256(currentWeight[delegator]) - int256(oldDelegatorWeight), ChangeReason.DELEGATION_REVOKED);
-        emit WeightUpdated(delegatee, oldDelegateeWeight, currentWeight[delegatee], int256(currentWeight[delegatee]) - int256(oldDelegateeWeight), ChangeReason.DELEGATION_REMOVED);
+        emit WeightUpdated(
+            delegator,
+            oldDelegatorWeight,
+            currentWeight[delegator],
+            _weightDelta(currentWeight[delegator], oldDelegatorWeight),
+            ChangeReason.DELEGATION_REVOKED
+        );
+        emit WeightUpdated(
+            delegatee,
+            oldDelegateeWeight,
+            currentWeight[delegatee],
+            _weightDelta(currentWeight[delegatee], oldDelegateeWeight),
+            ChangeReason.DELEGATION_REMOVED
+        );
+    }
+
+    /// @dev Signed difference between two weights.
+    /// @param newWeight_ The weight after the change.
+    /// @param oldWeight_ The weight before the change.
+    /// @return The delta, negative when weight decreased.
+    ///
+    /// A raw `int256(x)` cast of a `uint256` above `type(int256).max` wraps to a
+    /// negative number without reverting, which would silently corrupt both the
+    /// `WeightUpdated` event and the stored `WeightChange.delta` that
+    /// `getWeightChangeInPeriod` sums. `SafeCast.toInt256` reverts instead.
+    /// Casting both operands first also bounds the subtraction to
+    /// [-(2**255 - 1), 2**255 - 1], so it cannot overflow.
+    function _weightDelta(uint256 newWeight_, uint256 oldWeight_) private pure returns (int256) {
+        return SafeCast.toInt256(newWeight_) - SafeCast.toInt256(oldWeight_);
     }
 
     /// @notice Check if delegation would create a loop
@@ -358,20 +470,17 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param oldWeight Previous weight
     /// @param newWeight New weight
     /// @param reason Reason for the change
-    function _recordWeightChange(
-        address account,
-        uint256 oldWeight,
-        uint256 newWeight,
-        ChangeReason reason
-    ) internal {
-        weightChangeHistory[account].push(WeightChange({
-            timestamp: block.timestamp,
-            blockNumber: block.number,
-            oldWeight: oldWeight,
-            newWeight: newWeight,
-            delta: int256(newWeight) - int256(oldWeight),
-            reason: reason
-        }));
+    function _recordWeightChange(address account, uint256 oldWeight, uint256 newWeight, ChangeReason reason) internal {
+        weightChangeHistory[account].push(
+            WeightChange({
+                timestamp: block.timestamp,
+                blockNumber: block.number,
+                oldWeight: oldWeight,
+                newWeight: newWeight,
+                delta: _weightDelta(newWeight, oldWeight),
+                reason: reason
+            })
+        );
     }
 
     /// @notice Get weight change history for an account
@@ -388,18 +497,18 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     function getRecentWeightChanges(address account, uint256 count) external view returns (WeightChange[] memory) {
         WeightChange[] storage history = weightChangeHistory[account];
         uint256 length = history.length;
-        
+
         if (length == 0) {
             return new WeightChange[](0);
         }
 
         uint256 returnCount = count > length ? length : count;
         WeightChange[] memory recent = new WeightChange[](returnCount);
-        
+
         for (uint256 i = 0; i < returnCount; i++) {
             recent[i] = history[length - returnCount + i];
         }
-        
+
         return recent;
     }
 
@@ -408,18 +517,19 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param fromBlock Starting block number
     /// @param toBlock Ending block number
     /// @return int256 Total weight change (can be negative)
-    function calculateWeightChange(
-        address account,
-        uint256 fromBlock,
-        uint256 toBlock
-    ) external view returns (int256) {
+    function calculateWeightChange(address account, uint256 fromBlock, uint256 toBlock) external view returns (int256) {
         if (toBlock < fromBlock) revert InvalidBlockNumber();
 
         WeightChange[] storage history = weightChangeHistory[account];
         int256 totalChange = 0;
 
+        // The lower bound is exclusive. `fromBlock` names a state, not an event:
+        // the weight *at* fromBlock already includes any change recorded in that
+        // block, so counting it again would report the step into fromBlock as
+        // part of the period. With `>`, this returns exactly
+        // `getWeightAt(toBlock) - getWeightAt(fromBlock)`.
         for (uint256 i = 0; i < history.length; i++) {
-            if (history[i].blockNumber >= fromBlock && history[i].blockNumber <= toBlock) {
+            if (history[i].blockNumber > fromBlock && history[i].blockNumber <= toBlock) {
                 totalChange += history[i].delta;
             }
         }
@@ -434,15 +544,11 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param weight Current weight
     function _createCheckpoint(address account, uint256 weight) internal {
         Checkpoint[] storage accountCheckpoints = checkpoints[account];
-        
+
         // Only create checkpoint if weight changed or first checkpoint
-        if (accountCheckpoints.length == 0 || 
-            accountCheckpoints[accountCheckpoints.length - 1].weight != weight) {
-            accountCheckpoints.push(Checkpoint({
-                blockNumber: block.number,
-                weight: weight
-            }));
-            
+        if (accountCheckpoints.length == 0 || accountCheckpoints[accountCheckpoints.length - 1].weight != weight) {
+            accountCheckpoints.push(Checkpoint({blockNumber: block.number, weight: weight}));
+
             emit CheckpointCreated(account, block.number, weight);
         }
     }
@@ -455,7 +561,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         if (blockNumber > block.number) revert InvalidBlockNumber();
 
         Checkpoint[] storage accountCheckpoints = checkpoints[account];
-        
+
         if (accountCheckpoints.length == 0) {
             return 0;
         }
@@ -472,7 +578,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         while (upper > lower) {
             uint256 center = upper - (upper - lower) / 2;
             Checkpoint memory cp = accountCheckpoints[center];
-            
+
             if (cp.blockNumber == blockNumber) {
                 return cp.weight;
             } else if (cp.blockNumber < blockNumber) {
@@ -490,7 +596,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     function createSnapshot() external onlyOwner returns (uint256) {
         uint256 snapshotId = ++currentSnapshotId;
         Snapshot storage snapshot = snapshots[snapshotId];
-        
+
         snapshot.id = snapshotId;
         snapshot.blockNumber = block.number;
         snapshot.timestamp = block.timestamp;
@@ -503,7 +609,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
         }
 
         emit SnapshotCreated(snapshotId, block.number, block.timestamp);
-        
+
         return snapshotId;
     }
 
@@ -522,12 +628,11 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @return blockNumber Block number of snapshot
     /// @return timestamp Timestamp of snapshot
     /// @return accountCount Number of accounts in snapshot
-    function getSnapshotInfo(uint256 snapshotId) external view returns (
-        uint256 id,
-        uint256 blockNumber,
-        uint256 timestamp,
-        uint256 accountCount
-    ) {
+    function getSnapshotInfo(uint256 snapshotId)
+        external
+        view
+        returns (uint256 id, uint256 blockNumber, uint256 timestamp, uint256 accountCount)
+    {
         if (snapshotId == 0 || snapshotId > currentSnapshotId) revert InvalidSnapshotId();
         Snapshot storage snapshot = snapshots[snapshotId];
         return (snapshot.id, snapshot.blockNumber, snapshot.timestamp, snapshot.accounts.length);
@@ -548,17 +653,13 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @return received Delegated weight received
     /// @return given Delegated weight given away
     /// @return total Total effective voting weight
-    function getWeightBreakdown(address account) external view returns (
-        uint256 base,
-        uint256 received,
-        uint256 given,
-        uint256 total
-    ) {
+    function getWeightBreakdown(address account)
+        external
+        view
+        returns (uint256 base, uint256 received, uint256 given, uint256 total)
+    {
         return (
-            baseWeight[account],
-            delegatedWeightReceived[account],
-            delegatedWeightGiven[account],
-            currentWeight[account]
+            baseWeight[account], delegatedWeightReceived[account], delegatedWeightGiven[account], currentWeight[account]
         );
     }
 

@@ -3,15 +3,15 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
+/// @dev Simple ERC20 mint interface used by the MarketMinter controller
+interface IERC20Mint {
+    function mint(address to, uint256 amount) external;
+}
+
 /// @title MarketMinter
 /// @notice Controls minting permissions and forwards mint requests to an ERC20 token.
 contract MarketMinter is AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
-
-    /// @dev Simple ERC20 mint interface used by this controller
-    interface IERC20Mint {
-        function mint(address to, uint256 amount) external;
-    }
 
     IERC20Mint public immutable token;
 

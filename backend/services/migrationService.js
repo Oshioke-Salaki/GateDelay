@@ -6,6 +6,9 @@ const { Sequelize } = require('sequelize');
 
 const MIGRATIONS_DIR = path.join(__dirname, '../migrations');
 const STATE_FILE = path.join(__dirname, '../data/migration-state.json');
+const DATABASE_FILE = path.resolve(
+  process.env.MIGRATIONS_DB_PATH || path.join(__dirname, '../data/migrations.sqlite'),
+);
 
 class MigrationService {
   constructor() {
@@ -54,7 +57,7 @@ class MigrationService {
     if (!this.sequelize) {
       this.sequelize = new Sequelize({
         dialect: 'sqlite',
-        storage: path.join(__dirname, '../data/migrations.sqlite'),
+        storage: DATABASE_FILE,
         logging: false,
       });
       await this.sequelize.authenticate();

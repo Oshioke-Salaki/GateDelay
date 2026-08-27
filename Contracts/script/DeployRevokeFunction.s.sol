@@ -2,8 +2,8 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../contracts/RevokeFunction.sol";
-import "../contracts/RevokeFunctionExample.sol";
+import "../src/RevokeFunction.sol";
+import "../src/RevokeFunctionExample.sol";
 
 /// @title DeployRevokeFunction
 /// @notice Deployment script for RevokeFunction and RevokeFunctionExample contracts
@@ -109,9 +109,9 @@ contract DeployRevokeFunctionWithSetup is Script {
         // Verification commands
         console.log("=== Verification Commands ===");
         console.log("Verify RevokeFunction:");
-        console.log("forge verify-contract", address(revokeFunction), "contracts/RevokeFunction.sol:RevokeFunction");
+        console.log("forge verify-contract", address(revokeFunction), "src/RevokeFunction.sol:RevokeFunction");
         console.log("\nVerify RevokeFunctionExample:");
-        console.log("forge verify-contract", address(example), "contracts/RevokeFunctionExample.sol:RevokeFunctionExample --constructor-args $(cast abi-encode 'constructor(address)' ", address(revokeFunction), ")");
+        console.log("forge verify-contract", address(example), "src/RevokeFunctionExample.sol:RevokeFunctionExample --constructor-args $(cast abi-encode 'constructor(address)' ", address(revokeFunction), ")");
         console.log("============================\n");
     }
 }
