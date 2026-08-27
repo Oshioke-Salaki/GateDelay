@@ -5,6 +5,11 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "20.11.1",
+    "npm": "10.2.4"
+  },
+  "packageManager": "npm@10.2.4",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -13,12 +18,15 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint:security": "eslint src/main.ts src/app.module.ts src/market-audit/*.ts src/market-audit/dto/*.ts src/auth/guards/jwt-auth.guard.ts src/rate-limiter/*.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "test:aml": "node -e \"require('./routes/aml')\""
+    "test:aml": "node -e \"require('./routes/aml')\"",
+    "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

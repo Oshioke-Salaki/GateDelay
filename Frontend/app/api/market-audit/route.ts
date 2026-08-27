@@ -23,21 +23,28 @@ export async function GET(req: Request) {
   const backendUrl = `${apiBase.replace(/\/$/, "")}/market-audit/logs?${queryParams.toString()}`;
 
   try {
+    const authorization = req.headers.get("authorization");
     const res = await fetch(backendUrl, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        ...(authorization ? { Authorization: authorization } : {}),
       },
     });
 
     if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText);
-      return NextResponse.json({ error: text || "Failed to load audit logs" }, { status: res.status });
+      return NextResponse.json(
+        { error: "Failed to load audit logs" },
+        { status: res.status },
+      );
     }
 
     const data = await res.json();
     return NextResponse.json(data, { status: 200 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to connect to backend" }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to connect to backend" },
+      { status: 500 },
+    );
   }
 }

@@ -33,6 +33,25 @@ describe('MarketAuditService', () => {
     expect(logs[0].operation).toBe('RESOLVE_MARKET');
   });
 
+  it('redacts credential-like values before storing audit details', () => {
+    const log = service.createLog({
+      marketId: 'market-4',
+      operation: 'SECURITY_EVENT',
+      actor: 'admin',
+      details:
+        'authorization: Bearer top-secret-token api_key=abc123 private_key=0x' +
+        'a'.repeat(64),
+    });
+
+    expect(log.details).toContain('authorization: Bearer [REDACTED]');
+    expect(log.details).toContain('api_key=[REDACTED]');
+    expect(log.details).toContain('private_key=[REDACTED]');
+    expect(log.details).not.toContain('top-secret-token');
+    expect(log.details).not.toContain('abc123');
+
+    expect(service.verifyIntegrity().valid).toBe(true);
+  });
+
   it('produces summary report and validates integrity chain', () => {
     service.createLog({
       marketId: 'market-3',

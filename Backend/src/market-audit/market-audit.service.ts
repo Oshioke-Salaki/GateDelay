@@ -14,6 +14,7 @@ export class MarketAuditService {
     details: string;
     severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   }): AuditLog {
+    const details = this.redactSecrets(input.details);
     const previousHash = this.logs.length
       ? this.logs[this.logs.length - 1].hash
       : 'GENESIS';
@@ -24,12 +25,12 @@ export class MarketAuditService {
       marketId: input.marketId,
       operation: input.operation,
       actor: input.actor,
-      details: input.details,
+      details,
       severity: input.severity ?? 'LOW',
       createdAt,
       previousHash,
       hash: this.hashRecord(
-        `${input.marketId}|${input.operation}|${input.actor}|${input.details}|${createdAt}|${previousHash}`,
+        `${input.marketId}|${input.operation}|${input.actor}|${details}|${createdAt}|${previousHash}`,
       ),
     };
 
@@ -50,8 +51,9 @@ export class MarketAuditService {
 
     const result = this.logs.filter((entry) => {
       if (filters.marketId && entry.marketId !== filters.marketId) return false;
-      if (filters.operation && entry.operation !== filters.operation)
+      if (filters.operation && entry.operation !== filters.operation) {
         return false;
+      }
       if (filters.actor && entry.actor !== filters.actor) return false;
 
       const ts = new Date(entry.createdAt).getTime();
@@ -69,7 +71,11 @@ export class MarketAuditService {
     this.retentionDays = retentionDays;
   }
 
-  enforceRetention(): { removed: number; retained: number; retentionDays: number } {
+  enforceRetention(): {
+    removed: number;
+    retained: number;
+    retentionDays: number;
+  } {
     const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000;
     const originalCount = this.logs.length;
 
@@ -91,13 +97,15 @@ export class MarketAuditService {
       limit: Number.MAX_SAFE_INTEGER,
     });
 
-    const severityTemplate: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', number> =
-      {
-        LOW: 0,
-        MEDIUM: 0,
-        HIGH: 0,
-        CRITICAL: 0,
-      };
+    const severityTemplate: Record<
+      'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+      number
+    > = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      CRITICAL: 0,
+    };
 
     const byOperation: Record<string, number> = {};
     const marketSet = new Set<string>();
@@ -137,6 +145,17 @@ export class MarketAuditService {
     }
 
     return { valid: true };
+  }
+
+  private redactSecrets(value: string): string {
+    return value
+      .replace(/(authorization\s*:\s*bearer\s+)[^\s,;]+/gi, '$1[REDACTED]')
+      .replace(/(bearer\s+)[A-Za-z0-9._~+/=-]+/gi, '$1[REDACTED]')
+      .replace(/(0x[a-f0-9]{64})/gi, '[REDACTED_HEX_SECRET]')
+      .replace(
+        /((?:api[_-]?key|access[_-]?token|refresh[_-]?token|private[_-]?key|password|secret)\s*[=:]\s*)[^\s,;]+/gi,
+        '$1[REDACTED]',
+      );
   }
 
   private hashRecord(raw: string): string {

@@ -9,7 +9,7 @@
 
 // We test the JS module via require() since it lives outside src/
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { parseField, buildConfig } = require('../../config/legacy');
+const { parseField, buildConfig } = require('../config/legacy');
 
 describe('parseField', () => {
   it('returns defaultValue when env var is missing and not required', () => {

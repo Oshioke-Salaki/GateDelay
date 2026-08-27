@@ -6,8 +6,9 @@ Quickstart for new collaborators: install dependencies, configure environment va
 
 | Tool | Version | Used for |
 |------|---------|----------|
-| [Node.js](https://nodejs.org/) | 18+ (CI uses 20) | Backend, Frontend |
-| [Foundry](https://getfoundry.sh/) (`forge`, `cast`) | latest stable | Smart contracts under `Contracts/` |
+| [Node.js](https://nodejs.org/) | 20.11.1 (see `.nvmrc`) | Backend, Frontend |
+| npm | 10.2.4 (`packageManager` in package manifests) | Backend, Frontend |
+| [Foundry](https://getfoundry.sh/) (`forge`, `cast`) | CI toolchain action / current stable | Smart contracts under `Contracts/` |
 | [Git](https://git-scm.com/) | any recent | clone / branch workflow |
 
 Optional but commonly needed for full backend features:
@@ -31,7 +32,7 @@ Optional but commonly needed for full backend features:
 
 ```bash
 cd Backend
-npm install
+npm ci
 cp .env.example .env   # Windows: copy .env.example .env
 ```
 
@@ -69,7 +70,7 @@ CI runs these from `Backend/` on every pull request (see `.github/workflows/ci.y
 
 ```bash
 cd Frontend
-npm install
+npm ci
 ```
 
 Create `Frontend/.env.local` (not committed). Start from this template:
@@ -143,7 +144,7 @@ Sources live in `Contracts/src/` (e.g. `LMSR`, `MarketMaker`, `Trading`) and `Co
 | `forge build` import errors | Wrong working directory | `cd Contracts` before `forge build` |
 | Wallet modal empty / connection errors | Missing Particle env vars | Fill `NEXT_PUBLIC_PROJECT_ID`, `NEXT_PUBLIC_CLIENT_KEY`, `NEXT_PUBLIC_APP_ID` in `.env.local` |
 | Frontend API 404 / CORS | Backend not running or wrong URL | Start `npm run start:dev` in `Backend/`; set `NEXT_PUBLIC_API_URL` |
-| `npm ci` fails | Lockfile out of sync | Run `npm install` in the affected package and commit lockfile updates separately |
+| `npm ci` fails | Lockfile out of sync | Run `npm ci` in the affected package and commit lockfile updates separately |
 
 ---
 
