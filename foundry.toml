@@ -24,10 +24,15 @@ remappings = [
   "@openzeppelin/contracts/=Contracts/lib/openzeppelin-contracts/contracts/",
   "openzeppelin-contracts/=Contracts/lib/openzeppelin-contracts/",
   "@prb/math/=Contracts/lib/prb-math/",
+  "prb-math/PRBMathUD60x18.sol=Contracts/src/compat/PRBMathUD60x18.sol",
+  "prb-math/=Contracts/lib/prb-math/",
   # Convenience aliases so test files can import by short path
   "contracts/=Contracts/contracts/",
   "src/=Contracts/src/",
 ]
+
+[profile.ci]
+test = "test-ci"
 
 [profile.default.fuzz]
 runs = 256

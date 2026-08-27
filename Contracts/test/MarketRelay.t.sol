@@ -310,7 +310,7 @@ contract MarketRelayTest is Test {
         assertEq(uint256(relay.getRelayStatus(opId)), uint256(MarketRelay.RelayStatus.Completed));
     }
 
-    function test_FailRelay_WithRetriesAvailable_ReturnsToP pending() public {
+    function test_FailRelay_WithRetriesAvailable_ReturnsToPending() public {
         vm.prank(owner);
         relay.configureChain(CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50);
         router.setChainSupported(CHAIN_BASE, true);

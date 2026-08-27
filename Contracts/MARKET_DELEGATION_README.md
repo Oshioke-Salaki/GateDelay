@@ -323,13 +323,16 @@ The contract includes comprehensive tests covering:
 ## Running Tests
 
 ```bash
-# Navigate to Contracts directory
+# From the repository root
 cd Contracts
 
-# Run all MarketDelegation tests
-forge test --match-path test/MarketDelegation.t.sol -vv
+# Verify remappings, compile the contract, and generate the ABI
+forge build --contracts src/MarketDelegation.sol
 
-# Run specific test
+# Run the available test suite
+forge test -vv
+
+# Run a specific test when the delegation test file is present
 forge test --match-test test_requestDelegation_success -vv
 
 # Run with gas reporting
@@ -382,10 +385,17 @@ The contract implements several gas optimization techniques:
 
 ## Deployment
 
-```solidity
-// Deploy the contract
-MarketDelegation marketDelegation = new MarketDelegation();
+```bash
+# Foundry writes the ABI to Contracts/out/MarketDelegation.sol/MarketDelegation.json
+forge create src/MarketDelegation.sol:MarketDelegation \
+    --rpc-url "$RPC_URL" \
+    --private-key "$PRIVATE_KEY"
+```
 
+The constructor takes no arguments:
+
+```solidity
+MarketDelegation marketDelegation = new MarketDelegation();
 // The deployer becomes the owner
 // Owner can expire delegations in emergencies
 ```

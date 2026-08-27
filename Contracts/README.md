@@ -27,16 +27,47 @@ $ forge build
 
 ### FeeHandler build notes
 
-The `FeeHandler` contract at `contracts/FeeHandler.sol` was verified with the current Foundry toolchain in this repository:
+The `FeeHandler` contract at `src/FeeHandler.sol` was verified with the current Foundry toolchain in this repository:
 
-- Verified Foundry version: `forge 1.7.1`
+- Verified Foundry version: `forge 1.1.0` (pinned in `foundry.toml` and CI)
 - Compiler configuration: `solc = "0.8.28"` in `foundry.toml`
-- Contract target: `contracts/FeeHandler.sol`
+- Contract target: `src/FeeHandler.sol`
 - Verified build command from the `Contracts/` directory:
 
 ```shell
-$ forge build contracts/FeeHandler.sol
+$ forge build src/FeeHandler.sol
 ```
+
+**Constructor and deploy requirements**
+
+- Constructor takes **no arguments**; `Ownable(msg.sender)` makes the deployer the owner.
+- Register fee structures with `setFeeStructure(bytes32 id, uint256 feeBps, FeeRecipient[] recipients)` after deployment. Recipients must sum to 10_000 bps.
+- Requires `PRIVATE_KEY` when deploying via Foundry script. No Backend ABI wiring exists yet (Phase 2).
+
+### Deploy order (Phase 2 core market wiring)
+
+Production contracts live under `src/`. Deploy in dependency order when wiring a fresh stack:
+
+| Order | Contract | Script | Constructor args | Env vars |
+|-------|----------|--------|------------------|----------|
+| 1 | `RoleManager` | manual / custom | none — admin is `msg.sender` | `PRIVATE_KEY` |
+| 2 | `FeeHandler` | manual / custom | none — owner is `msg.sender` | `PRIVATE_KEY` |
+| 3 | `MarketCap` | `script/DeployMarketCap.s.sol` | none — owner is `msg.sender` | `PRIVATE_KEY` |
+| 4 | `MarketMinter` | `script/DeployMarketMinter.s.sol` | `address tokenAddress` | `PRIVATE_KEY`, `TOKEN_ADDRESS` |
+| 5 | `CircuitBreaker` | manual / custom | none — admin/breaker/monitor granted to `msg.sender` | `PRIVATE_KEY` |
+
+Run from `Contracts/`:
+
+```shell
+$ export PRIVATE_KEY=0x...
+$ export TOKEN_ADDRESS=0x...   # MarketMinter only
+$ forge script script/DeployMarketCap.s.sol:DeployMarketCap --rpc-url $RPC_URL --broadcast
+$ forge script script/DeployMarketMinter.s.sol:DeployMarketMinter --rpc-url $RPC_URL --broadcast
+```
+
+ABI artifacts land in `Contracts/out/<Contract>.sol/<Contract>.json`. The Backend reads deployed addresses from `Backend/.env.example` keys such as `MARKET_CONTRACT_ADDRESS` and chain-specific `*_MARKET_ADDRESS` entries — wire those after broadcast, not before.
+
+> **Import paths:** all production sources import via Foundry remappings (`@openzeppelin/contracts`, `@prb/math`, `forge-std`). Do not add new contracts outside `src/`; legacy `contracts/` paths in older docs are stale.
 
 Dependencies are pulled from the repository's Foundry library remappings (`@openzeppelin/contracts`, `forge-std`, and `@prb/math`). When they are missing, `forge build` will prompt to install them; no additional contract behavior changes were required.
 

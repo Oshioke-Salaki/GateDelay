@@ -143,7 +143,7 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
      * @notice Check if a position is eligible for compounding
      * Used by Chainlink Keepers to determine if compound should be executed
      */
-    function checkCompoundEligibility(uint256 positionId) external view returns (bool) {
+    function checkCompoundEligibility(uint256 positionId) public view returns (bool) {
         AutoCompoundPosition memory pos = positions[positionId];
         if (!pos.isActive || pos.positionId == 0) return false;
 

@@ -244,6 +244,20 @@ npx eslint middleware/tradeValidation.js
 
 ## Health endpoints
 
+## Deprecation middleware
+
+`Backend/middleware/deprecation.js` is a CommonJS Express middleware. It uses the in-memory
+`Backend/services/deprecationService.js` registry and requires no environment variables.
+Endpoints are registered with `markDeprecated(endpoint, config)`; `config` must include
+`deprecationDate`, `sunsetDate`, `alternative`, and `migrationGuide`. Sunset endpoints return
+HTTP 410, while active deprecations receive `Warning`, `Deprecation`, and `Link` headers.
+
+Verify that the module loads cleanly with:
+
+```bash
+npm run test:deprecation
+```
+
 The backend exposes health check endpoints for monitoring and CI/CD probes:
 
 **Express server (port 4000):**

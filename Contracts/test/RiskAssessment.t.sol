@@ -11,7 +11,7 @@ contract RiskAssessmentTest is Test {
     PositionToken positionToken;
     MarketFactory factory;
 
-    address admin = address(0xADM1N);
+    address admin = address(0xAD0111);
     address alice = address(0xA11CE);
     address market = address(0xDEAD);
 

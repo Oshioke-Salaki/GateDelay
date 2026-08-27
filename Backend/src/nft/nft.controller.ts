@@ -172,6 +172,7 @@ export class NftController {
   ): Promise<PrepareMintTxResponseDto> {
     return this.nftMintService.prepareMintTx(dto);
   }
+
   @Get(':mintAddress/royalty')
   @ApiOperation({
     summary: 'Query on-chain NFT royalty from Soroban',

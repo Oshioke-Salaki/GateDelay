@@ -10,6 +10,8 @@
  * - The hash chain (SHA-256) is for tamper-evidence, not cryptographic auth.
  */
 import { Test, TestingModule } from '@nestjs/testing';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import { MarketAuditService } from './market-audit.service';
 
 describe('MarketAuditService', () => {
@@ -141,6 +143,9 @@ describe('MarketAuditService', () => {
       'market-audit.service.spec.ts',
     );
     const content = fs.default.readFileSync(specPath, 'utf8');
+  it('no secrets or private keys appear in the service source file', () => {
+    const servicePath = resolve(__dirname, 'market-audit.service.ts');
+    const content = readFileSync(servicePath, 'utf8');
 
     const secretPatterns = [
       /0x[0-9a-fA-F]{64}/, // Ethereum private key

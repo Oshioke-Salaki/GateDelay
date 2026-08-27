@@ -158,6 +158,9 @@ contract PriceOracle is Ownable {
             FeedData storage fallbackFeed = feeds[fb];
             if (_isFresh(fallbackFeed)) {
                 return (fallbackFeed.price, fallbackFeed.updatedAt);
+            FeedData storage fallbackData = feeds[fb];
+            if (_isFresh(fallbackData)) {
+                return (fallbackData.price, fallbackData.updatedAt);
             }
         }
 

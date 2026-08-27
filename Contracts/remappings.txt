@@ -3,3 +3,5 @@
 openzeppelin-contracts/=lib/openzeppelin-contracts/
 forge-std/=lib/forge-std/src/
 @prb/math/=lib/prb-math/
+prb-math/PRBMathUD60x18.sol=src/compat/PRBMathUD60x18.sol
+prb-math/=lib/prb-math/

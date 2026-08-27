@@ -366,6 +366,7 @@ contract MintingPausableTest is Test {
         vm.prank(pauser);
         token.pauseMinting("Pause");
 
+        uint256 totalTimePaused;
         (isCurrentlyPaused, totalTimePaused, pauseCountLifetime) =
             token.getPausedReason();
 

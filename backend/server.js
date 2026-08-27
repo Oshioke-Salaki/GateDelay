@@ -80,4 +80,18 @@ app.listen(PORT, () => {
   console.log(`GateDelay backend running on port ${PORT}`);
 });
 
+// Boot the standalone heartbeat server (default HEARTBEAT_PORT=4001) in the
+// same process so MarketFactory events stay wired into the heartbeat system
+// when running the legacy Express entrypoint.
+try {
+  const { startHeartbeatServer } = require('../Backend/heartbeatServer');
+  if (typeof startHeartbeatServer === 'function') {
+    startHeartbeatServer().catch((err) => {
+      console.warn('[server] heartbeat boot failed:', err.message);
+    });
+  }
+} catch (err) {
+  console.warn('[server] heartbeat server unavailable:', err.message);
+}
+
 module.exports = app;

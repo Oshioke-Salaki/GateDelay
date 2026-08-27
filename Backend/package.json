@@ -29,7 +29,9 @@
     "express:start": "node ../backend/server.js",
     "express:dev": "node --watch ../backend/server.js",
     "test:disputes": "node -e \"require('./routes/disputes'); console.log('DISPUTES_SMOKE_PASS')\"",
-    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\""
+    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\"",
+    "test:deprecation": "node -e \"const middleware = require('./middleware/deprecation'); if (typeof middleware.deprecationMiddleware !== 'function' || typeof middleware.markDeprecated !== 'function') process.exit(1); console.log('DEPRECATION_SMOKE_PASS')\"",
+    "test:heartbeat": "node scripts/smoke/heartbeat-marketfactory.smoke.js"
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

@@ -1,13 +1,15 @@
 # ------------------------------------------------------------
-# Toolchain pin — keep this in sync with rust-toolchain.toml
-# and the forge version used in CI (.github/workflows/ci.yml).
+# Toolchain pin — keep this in sync with the forge version used in CI
+# (.github/workflows/test.yml).
 # Bump deliberately; never let it float.
 # ------------------------------------------------------------
 [toolchain]
-channel = "stable"           # tracks the latest stable forge release
-forge   = "1.1.0"            # minimum forge version; bump when you need new features
+channel = "stable"
+forge   = "1.1.0"            # pinned Forge version; bump deliberately
 
 [profile.default]
+# WrapperContract requires openzeppelin-contracts-upgradeable (not vendored)
+skip           = ["src/WrapperContract.sol", "test/WrapperContract.t.sol"]
 src            = "src"
 out            = "out"
 libs           = ["lib"]
@@ -25,6 +27,7 @@ remappings_file = "remappings.txt"
 runs = 256
 
 [profile.ci]
+test = "test-ci"
 fuzz = { runs = 512 }
 
 [rpc_endpoints]

@@ -1,5 +1,36 @@
 # Market Relay - Quick Reference Guide
 
+## Deployment Order and Constructor
+
+Deploy or configure dependencies in this order:
+
+1. Deploy the CCIP-compatible relay router (or a test mock implementing `IRelayRouter`).
+2. Choose the relayer and fee-recipient addresses.
+3. Deploy `MarketRelay` with the router, relayer, fee recipient, and owner addresses.
+4. As the owner, configure each supported destination chain before calling `initiateRelay`.
+
+The constructor arguments are:
+
+```solidity
+constructor(
+        address _relayRouter,
+        address _relayer,
+        address _feeRecipient,
+        address _owner
+)
+```
+
+All four addresses must be non-zero. The deployment command is:
+
+```bash
+forge create src/MarketRelay.sol:MarketRelay \
+    --rpc-url "$RPC_URL" \
+    --private-key "$PRIVATE_KEY" \
+    --constructor-args "$ROUTER_ADDRESS" "$RELAYER_ADDRESS" "$FEE_RECIPIENT" "$OWNER_ADDRESS"
+```
+
+Foundry generates the ABI at `Contracts/out/MarketRelay.sol/MarketRelay.json` for consumers such as the Backend.
+
 ## Core Functions
 
 ### Chain Management
@@ -378,7 +409,7 @@ calculateRelayFee               ~5,000
 
 ```bash
 # Deploy on Arbitrum
-forge create Contracts/contracts/MarketRelay.sol:MarketRelay \
+forge create src/MarketRelay.sol:MarketRelay \
   --rpc-url https://arbitrum-mainnet.infura.io/v3/$INFURA_KEY \
   --private-key $PRIVATE_KEY \
   --constructor-args $ROUTER_ADDRESS $RELAYER_ADDRESS $FEE_RECIPIENT $OWNER_ADDRESS

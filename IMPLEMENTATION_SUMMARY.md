@@ -352,6 +352,129 @@ This implementation delivers a **world-class position liquidation system** that:
 
 ---
 
+## 🧭 Runbook: Run the Wallet + Trade Flow Locally
+
+This section answers "how do I run wallet + trade flow locally?" from a clean
+checkout. Ports and variables below are taken from
+[`Backend/.env.example`](Backend/.env.example) and
+[`Frontend/.env.example`](Frontend/.env.example) — keep them in sync.
+
+### 1. Prerequisites
+
+- Node.js 20+ and npm (the backend pins Node 20 in CI).
+- Optional services used by the backend: Redis (`REDIS_HOST=127.0.0.1`,
+  `REDIS_PORT=6379`) and MongoDB (`MONGODB_URI=mongodb://127.0.0.1:27017/gatedelay`).
+  The frontend and localnet run without them.
+
+### 2. Environment setup
+
+```bash
+# Backend (NestJS API + heartbeat + chain config)
+cp Backend/.env.example Backend/.env
+
+# Frontend (Next.js app shell + wallet)
+cp Frontend/.env.example Frontend/.env.local
+```
+
+Ports and endpoints that matter (from the `.env.example` files above):
+
+| Variable | Default | Used by |
+|---|---|---|
+| `PORT` | `4000` | Backend API (`Backend/src/main.ts`, legacy `Backend/server.js`) |
+| `HEARTBEAT_PORT` | `4001` | `Backend/heartbeatServer.js` |
+| `FRONTEND_URL` | `http://localhost:3000` | Backend CORS |
+| `RPC_URL` | `http://127.0.0.1:8545` | Chain access (local Hardhat node) |
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4000/api` | Frontend route handlers |
+| `NEXT_PUBLIC_BACKEND_URL` | `http://localhost:4000` | Frontend WebSocket / direct calls |
+| `NEXT_PUBLIC_PROJECT_ID` / `NEXT_PUBLIC_CLIENT_KEY` / `NEXT_PUBLIC_APP_ID` | empty | Particle ConnectKit wallet connect |
+
+### 3. Start the local chain (Terminal 1)
+
+```bash
+cd Frontend/localnet
+npm install
+npm run node          # Hardhat node on http://127.0.0.1:8545
+```
+
+Verify the node is up before deploying:
+
+```bash
+npm run health        # probes the RPC URL from Frontend/localnet/hardhat.config.js
+```
+
+### 4. Deploy the mock contracts (Terminal 2)
+
+```bash
+cd Frontend/localnet
+npm run deploy        # deploys MockERC20 / MockRouter and prints a markets.json snippet
+npm run test:smoke    # post-build smoke tests (also exercised by CI's `npm test`)
+```
+
+### 5. Start the backend (Terminal 3)
+
+```bash
+cd Backend
+npm install
+npm run start:dev     # NestJS API on PORT 4000
+```
+
+Two optional companion processes match the dual entrypoint layout:
+
+```bash
+node Backend/heartbeatServer.js   # heartbeat + MarketFactory event wiring on HEARTBEAT_PORT (4001)
+npm run express:start             # legacy Express server (Backend/server.js) on PORT 4000
+```
+
+Verify the heartbeat area without a live chain:
+
+```bash
+npm run test:heartbeat            # smoke test for MarketFactory → heartbeat wiring
+```
+
+### 6. Start the frontend (Terminal 4)
+
+```bash
+cd Frontend
+npm install
+npm run dev           # Next.js on http://localhost:3000
+```
+
+### 7. Wallet + trade flow
+
+1. Open http://localhost:3000 — the app shell (`Frontend/app/layout.tsx`)
+   renders navbar, wallet mount, and pages immediately; the navbar is driven by
+   `Frontend/components/layout/Navigation.tsx`.
+2. **Wallet connect**: add Particle ConnectKit keys
+   (`NEXT_PUBLIC_PROJECT_ID`, `NEXT_PUBLIC_CLIENT_KEY`,
+   `NEXT_PUBLIC_APP_ID`) to `Frontend/.env.local` and restart `npm run dev`.
+   Without them the app still runs (wallet button mounts, connect is disabled).
+3. **IPFS metadata**: upload market JSON via `/api/ipfs/upload-json`, then read
+   it back through `/api/ipfs/gateway/[hash]` (documented in
+   [`Frontend/README.md`](Frontend/README.md)).
+4. **Trade**: use the `/markets`, `/trade`, and `/wallet` routes; live market
+   data flows through `NEXT_PUBLIC_API_URL` → `http://localhost:4000/api`.
+
+### 8. Frontend smoke checks
+
+```bash
+cd Frontend
+npm test              # Vitest suites incl. app/api/ipfs/gateway/[hash]/route.test.ts
+```
+
+Manual checklist (`Frontend/README.md#local-verification`): `/` and navbar
+render, wallet button mounts, `/audit` loads, market detail shows the WebSocket
+"Live" state, and a `/markets/create` upload returns a non-localhost gateway URL.
+
+### 9. Where docs live
+
+- Local dev / ports: [`Backend/.env.example`](Backend/.env.example), [`Frontend/.env.example`](Frontend/.env.example)
+- Frontend app shell and IPFS routes: [`Frontend/README.md`](Frontend/README.md)
+- Localnet runbook (deploy retry/rollback): [`Frontend/localnet/README.md`](Frontend/localnet/README.md)
+- Contribution quickstart: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Phase roadmap: [`PHASES.md`](PHASES.md), [`PHASE_2.md`](PHASE_2.md)
+
+---
+
 **Implementation Date**: June 1, 2026
 **Developer**: AI Assistant
 **Status**: ✅ COMPLETE AND READY FOR PRODUCTION

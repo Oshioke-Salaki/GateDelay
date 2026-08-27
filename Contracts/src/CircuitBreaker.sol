@@ -85,12 +85,16 @@ contract CircuitBreaker is AccessControl {
 
         // Check if threshold exceeded
         if (shouldBreak()) {
-            triggerBreak("Failure threshold exceeded");
+            _openCircuit("Failure threshold exceeded");
         }
     }
 
     // Trigger Break
     function triggerBreak(string calldata reason) public onlyBreaker {
+        _openCircuit(reason);
+    }
+
+    function _openCircuit(string memory reason) internal {
         require(currentState != State.Open, "CircuitBreaker: already open");
 
         State previousState = currentState;
@@ -269,7 +273,7 @@ contract CircuitBreaker is AccessControl {
         return false;
     }
 
-    function transitionToState(State newState, string calldata reason) internal {
+    function transitionToState(State newState, string memory reason) internal {
         State oldState = currentState;
         currentState = newState;
         emit StateChanged(oldState, newState, reason);

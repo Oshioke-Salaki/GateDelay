@@ -12,11 +12,13 @@ describe('ESLint configuration', () => {
   });
 
   it('eslint --print-config succeeds (config is parseable by ESLint)', () => {
-    const result = execSync('npx eslint --print-config src/main.ts 2>&1', {
+    const raw = execSync('npx eslint --print-config src/main.ts 2>&1', {
       cwd: resolve(__dirname, '..'),
       encoding: 'utf-8',
     });
-    const config = JSON.parse(result);
+    const jsonStart = raw.indexOf('{');
+    expect(jsonStart).toBeGreaterThanOrEqual(0);
+    const config = JSON.parse(raw.slice(jsonStart));
     expect(config).toBeDefined();
     expect(config.rules).toBeDefined();
   });

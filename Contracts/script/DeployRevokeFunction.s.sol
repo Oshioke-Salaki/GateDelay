@@ -111,7 +111,9 @@ contract DeployRevokeFunctionWithSetup is Script {
         console.log("Verify RevokeFunction:");
         console.log("forge verify-contract", address(revokeFunction), "src/RevokeFunction.sol:RevokeFunction");
         console.log("\nVerify RevokeFunctionExample:");
-        console.log("forge verify-contract", address(example), "src/RevokeFunctionExample.sol:RevokeFunctionExample --constructor-args $(cast abi-encode 'constructor(address)' ", address(revokeFunction), ")");
+        console.log("forge verify-contract", address(example));
+        console.log("  src/RevokeFunctionExample.sol:RevokeFunctionExample");
+        console.log("  --constructor-args $(cast abi-encode \"constructor(address)\"", address(revokeFunction), ")");
         console.log("============================\n");
     }
 }

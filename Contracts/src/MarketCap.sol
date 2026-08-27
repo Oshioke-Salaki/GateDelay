@@ -273,7 +273,13 @@ contract MarketCap is Ownable, ReentrancyGuard {
 
     function _checkThresholds(uint256 marketId, UD60x18 cap) internal {
         uint256 capValue = cap.unwrap();
-        uint256[5] memory common = [1000e18, 10000e18, 100000e18, 1_000_000e18, 10_000_000e18];
+        uint256[5] memory common = [
+            uint256(1000e18),
+            uint256(10000e18),
+            uint256(100000e18),
+            uint256(1_000_000e18),
+            uint256(10_000_000e18)
+        ];
 
         for (uint256 i = 0; i < common.length; i++) {
             if (_thresholds[marketId][common[i]]) {
