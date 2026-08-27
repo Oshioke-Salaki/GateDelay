@@ -3,11 +3,29 @@
  * Mirrors Backend/services/ipfsService.js for frontend integration.
  */
 
-const DEFAULT_GATEWAY =
-  process.env.NEXT_PUBLIC_IPFS_GATEWAY || "https://gateway.pinata.cloud/ipfs/";
+/** Public Pinata gateway — never a localhost production default. */
+const FALLBACK_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
 const storage = new Map<string, unknown>();
 const pinnedHashes = new Set<string>();
+
+function resolveGatewayBase(): string {
+  const configured = process.env.NEXT_PUBLIC_IPFS_GATEWAY?.trim();
+  if (configured) {
+    const base = configured.endsWith("/") ? configured : `${configured}/`;
+    if (
+      process.env.NODE_ENV === "production" &&
+      /localhost|127\.0\.0\.1/i.test(base)
+    ) {
+      throw new Error(
+        "NEXT_PUBLIC_IPFS_GATEWAY points at localhost in a production build. " +
+          "Set it to a public gateway (see Frontend/.env.example).",
+      );
+    }
+    return base;
+  }
+  return FALLBACK_GATEWAY;
+}
 
 function generateHash(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz234567";
@@ -60,7 +78,10 @@ export async function pinHash(hash: string, name?: string): Promise<boolean> {
 }
 
 export function getGatewayUrl(hash: string): string {
-  return `${DEFAULT_GATEWAY}${hash}`;
+  if (!hash || typeof hash !== "string") {
+    throw new Error("IPFS hash is required to build a gateway URL");
+  }
+  return `${resolveGatewayBase()}${hash}`;
 }
 
 export function getStorageStatus(hash: string): {

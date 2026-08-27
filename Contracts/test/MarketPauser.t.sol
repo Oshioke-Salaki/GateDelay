@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/MarketPauser.sol";
+import "../src/MarketPauser.sol";
 
 contract MarketPauserTest is Test {
     MarketPauser pauser;

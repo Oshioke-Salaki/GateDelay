@@ -1,6 +1,12 @@
 const liquidationService = require('../services/liquidationService');
 const Collateral = require('../models/Collateral');
-const logger = require('../utils/logger'); // Assumes logger exists
+// TODO: Quarantined - utils/logger not found. Add dependency or implement alternative.
+// const logger = require('../utils/logger'); // Assumes logger exists
+const logger = { info: console.log, error: console.error, warn: console.warn };
+
+// TODO: Quarantined - big.js not in package.json. Add dependency or implement alternative.
+// const Big = require('big.js');
+const Big = null; // Fallback placeholder
 
 /**
  * LIQUIDATION MONITOR JOB
@@ -59,9 +65,10 @@ function logEvent(level, message, data = {}) {
  */
 async function evaluatePosition(collateral) {
   try {
-    const isUndercollateralized = new (require('big.js'))(
-      collateral.collateralizationRatio,
-    ).lte(new (require('big.js'))(collateral.liquidationThreshold));
+    // TODO: Quarantined - big.js not available, using simple comparison
+    const isUndercollateralized = Big 
+      ? new Big(collateral.collateralizationRatio).lte(new Big(collateral.liquidationThreshold))
+      : collateral.collateralizationRatio <= collateral.liquidationThreshold;
 
     return {
       collateralId: collateral._id,

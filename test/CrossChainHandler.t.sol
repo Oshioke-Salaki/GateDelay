@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Test} from "forge-std/Test.sol";
-import {CrossChainHandler} from "../contracts/CrossChainHandler.sol";
+import {CrossChainHandler} from "../Contracts/src/CrossChainHandler.sol";
 
 contract CrossChainHandlerTest is Test {
     CrossChainHandler internal handler;
@@ -68,3 +68,4 @@ contract CrossChainHandlerTest is Test {
         assertEq(handler.totalValidated(), 1);
     }
 }
+

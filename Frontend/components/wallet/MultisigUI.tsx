@@ -80,11 +80,14 @@ async function signTx(payload: {
   return json.data;
 }
 
-async function executeTx(txId: string): Promise<MultisigTransaction> {
+async function executeTx(payload: {
+  txId: string;
+  executor: string;
+}): Promise<MultisigTransaction> {
   const res = await fetch("/api/multisig/execute", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ txId }),
+    body: JSON.stringify(payload),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || "Failed to execute transaction");
@@ -167,7 +170,17 @@ export default function MultisigUI({
   const executeMutation = useMutation({
     mutationFn: executeTx,
     onSuccess: (tx) => {
-      toast.success("Transaction Executed", `Hash: ${tx.txHash?.slice(0, 14)}…`);
+      const executed = [...(tx.events ?? [])]
+        .reverse()
+        .find((event) => event.name === "TransactionExecuted");
+      const executorLabel =
+        executed && executed.name === "TransactionExecuted"
+          ? executed.args.executor
+          : currentOwner;
+      toast.success(
+        "Transaction Executed",
+        `TransactionExecuted(${tx.id.slice(0, 10)}…, ${executorLabel.slice(0, 10)}…)`,
+      );
       queryClient.invalidateQueries({ queryKey: ["multisig-tx", tx.id] });
     },
     onError: (err: Error) => toast.error("Execution Failed", err.message),
@@ -475,7 +488,9 @@ export default function MultisigUI({
               {txStatus.status === "Ready" && (
                 <button
                   type="button"
-                  onClick={() => executeMutation.mutate(activeTxId)}
+                  onClick={() =>
+                    executeMutation.mutate({ txId: activeTxId, executor: currentOwner })
+                  }
                   disabled={executeMutation.isPending}
                   className="w-full py-2.5 rounded-lg text-sm font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                 >
@@ -488,10 +503,34 @@ export default function MultisigUI({
                 </button>
               )}
 
-              {txStatus.status === "Executed" && txStatus.txHash && (
-                <div className="flex items-center gap-2 text-xs p-2 rounded-lg" style={{ background: "rgba(34, 197, 94, 0.08)", color: "#22c55e" }}>
-                  <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                  <span className="font-mono truncate">Executed: {txStatus.txHash}</span>
+              {txStatus.status === "Executed" && (
+                <div className="space-y-2">
+                  {(txStatus.events ?? [])
+                    .filter((event) => event.name === "TransactionExecuted")
+                    .map((event, index) => (
+                      <div
+                        key={`${event.name}-${index}`}
+                        data-testid="multisig-executed-event"
+                        className="text-xs p-2 rounded-lg font-mono"
+                        style={{
+                          background: "rgba(59, 130, 246, 0.08)",
+                          color: "var(--foreground)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        {event.name}(txId={event.args.txId}, executor={event.args.executor})
+                      </div>
+                    ))}
+                  {txStatus.txHash ? (
+                    <div
+                      className="flex items-center gap-2 text-xs p-2 rounded-lg"
+                      style={{ background: "rgba(34, 197, 94, 0.08)", color: "#22c55e" }}
+                      data-testid="multisig-tx-hash"
+                    >
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-mono truncate">On-chain: {txStatus.txHash}</span>
+                    </div>
+                  ) : null}
                 </div>
               )}
             </>

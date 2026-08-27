@@ -1,6 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWebSocketContext } from "@/app/components/WebSocketProvider";
+import type { PriceUpdate } from "@/hooks/useWebSocket";
 
 type SignalDirection = "bullish" | "bearish" | "neutral";
 type RiskLevel = "low" | "medium" | "high";
@@ -103,10 +106,40 @@ export default function MarketSentiment({
   accessToken,
   refreshInterval,
 }: MarketSentimentProps) {
-  const queryKey = ["market-sentiment", marketId];
+  const queryClient = useQueryClient();
+  const { subscribe, unsubscribe, on, isConnected, status } = useWebSocketContext();
 
-  const { data, isLoading, isError, error } = useQuery<MarketSentiment, Error>({
-    queryKey,
+  // Keep sentiment in sync with the app-shell WebSocket: subscribe to the market
+  // and invalidate the REST query when price/market payloads arrive for it.
+  useEffect(() => {
+    if (!marketId) return;
+
+    subscribe([marketId]);
+
+    const matchesMarket = (payload: { marketId?: unknown } | null | undefined) =>
+      Boolean(payload && typeof payload.marketId === "string" && payload.marketId === marketId);
+
+    const unsubPrice = on("priceUpdate", (data: PriceUpdate) => {
+      if (matchesMarket(data)) {
+        void queryClient.invalidateQueries({ queryKey: ["market-sentiment", marketId] });
+      }
+    });
+
+    const unsubMarket = on("marketData", (data: Record<string, unknown>) => {
+      if (matchesMarket(data)) {
+        void queryClient.invalidateQueries({ queryKey: ["market-sentiment", marketId] });
+      }
+    });
+
+    return () => {
+      unsubscribe([marketId]);
+      unsubPrice();
+      unsubMarket();
+    };
+  }, [marketId, subscribe, unsubscribe, on, queryClient]);
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery<MarketSentiment, Error>({
+    queryKey: ["market-sentiment", marketId],
     queryFn: async () => {
       const res = await fetch(
         `/api/market-sentiment?marketId=${encodeURIComponent(marketId)}`,
@@ -119,8 +152,14 @@ export default function MarketSentiment({
       );
 
       if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        throw new Error(`Market sentiment failed (${res.status}): ${text}`);
+        let detail = res.statusText;
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body?.error) detail = body.error;
+        } catch {
+          detail = await res.text().catch(() => res.statusText);
+        }
+        throw new Error(`Market sentiment failed (${res.status}): ${detail}`);
       }
 
       return (await res.json()) as MarketSentiment;
@@ -136,6 +175,7 @@ export default function MarketSentiment({
       <div
         className="rounded-xl p-4"
         style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+        aria-busy="true"
       >
         <div className="animate-pulse space-y-3">
           <div className="h-4 w-1/2" style={{ background: "var(--border)", borderRadius: 8 }} />
@@ -151,6 +191,7 @@ export default function MarketSentiment({
       <div
         className="rounded-xl p-4"
         style={{ border: "1px solid #ef444444", background: "#ef444418" }}
+        role="alert"
       >
         <div className="text-sm font-semibold" style={{ color: "#ef4444" }}>
           Sentiment unavailable
@@ -158,6 +199,21 @@ export default function MarketSentiment({
         <div className="text-xs mt-1" style={{ color: "#ef4444aa" }}>
           {(error as Error)?.message ?? "Unknown error"}
         </div>
+        {marketTitle ? (
+          <div className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            Market: {marketTitle}
+            {marketDescription ? ` — ${marketDescription}` : ""}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          className="mt-3 text-xs font-semibold underline"
+          style={{ color: "#ef4444" }}
+        >
+          {isFetching ? "Retrying…" : "Retry"}
+        </button>
       </div>
     );
   }
@@ -168,6 +224,7 @@ export default function MarketSentiment({
     <section
       className="rounded-xl overflow-hidden"
       style={{ border: "1px solid var(--border)", background: "var(--card)" }}
+      data-ws-status={status}
     >
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3">
@@ -184,13 +241,20 @@ export default function MarketSentiment({
               </span>
             </div>
           </div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>
-            {data.generatedAt
-              ? new Date(data.generatedAt).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "—"}
+          <div className="text-xs text-right" style={{ color: "var(--muted)" }}>
+            <div>
+              {data.generatedAt
+                ? new Date(data.generatedAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—"}
+            </div>
+            {isConnected ? (
+              <div className="mt-0.5" style={{ color: "#22c55e" }}>
+                Live
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -210,4 +274,3 @@ export default function MarketSentiment({
     </section>
   );
 }
-

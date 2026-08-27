@@ -1,14 +1,28 @@
 # Rate Limiter Implementation - #262
 
-## ✅ Implementation Complete
+> **Document status (2026-07-29):** This file mixes an original implementation report with claims that are **no longer accurate** for the current tree. Sections marked **⚠️ STALE** describe aspirational or outdated state. See **Current implementation snapshot** below before relying on setup or integration guidance.
 
-Comprehensive rate limiting system for market operations with configurable limits, multiple independent rate limits, user exemptions, and detailed status queries.
+## Current implementation snapshot
 
-## Files Created
+| Item | Actual state |
+|------|----------------|
+| Contract | `Contracts/src/RateLimiter.sol` — standalone `AccessControl` contract with per-limit windows, operator-gated `recordOperation`, and admin configuration |
+| Forge tests in CI | `Contracts/test/*.sol` run via `cd Contracts && forge test` (see `Contracts/.github/workflows/test.yml`) |
+| RateLimiter tests | **⚠️ STALE path:** `test/RateLimiter.t.sol` at repo root imports `../src/RateLimiter.sol` and is **not** part of the `Contracts/` Foundry project; treat as legacy/orphaned until moved to `Contracts/test/` |
+| Trading / MarketMaker integration | **Not wired** — `Trading.sol` and `MarketMaker.sol` do not call `RateLimiter` |
+| Backend rate limiting | Separate stack: Nest `Backend/src/rate-limiter/` and Express `Backend/middleware/rateLimiter.js` — not the on-chain contract |
+| Production readiness | Contract code exists and is unit-testable in isolation; **end-to-end enforcement is a Phase 4+ dependency** (see [Blocked / Phase dependencies](#blocked--phase-dependencies)) |
 
-### 1. RateLimiter.sol (11 KB)
+---
+
+## ✅ Implementation Complete (contract module)
+
+The `RateLimiter` **library contract** was implemented with configurable limits, exemptions, and status queries. The bullets below remain accurate **for the contract in isolation**.
+
+## Files
+
+### 1. RateLimiter.sol
 - **Location:** `Contracts/src/RateLimiter.sol`
-- **Lines:** 360+
 - **Features:**
   - Multiple independent rate limits with unique IDs
   - Configurable max operations and time windows
@@ -18,70 +32,53 @@ Comprehensive rate limiting system for market operations with configurable limit
   - Separate tracking per user per limit
   - Detailed status and metrics queries
 
-### 2. RateLimiter.t.sol (16.4 KB)
-- **Location:** `test/RateLimiter.t.sol`
-- **Lines:** 530+
-- **Tests:** 35+ comprehensive test cases
-- **Coverage:**
-  - Configuration (6 tests)
-  - Rate limiting logic (6 tests)
-  - Permission overrides (3 tests)
-  - Status queries (8 tests)
-  - Management functions (2 tests)
-  - Edge cases (5 tests)
+### 2. RateLimiter.t.sol — ⚠️ STALE location / CI path
+- **Documented location:** `test/RateLimiter.t.sol` (repository root)
+- **CI / Foundry project:** tests under `Contracts/test/` are what `forge test` runs from `Contracts/`
+- **Action for contributors:** move or recreate coverage at `Contracts/test/RateLimiter.t.sol` before treating test counts below as CI-gated
+- **Historical claim:** 35+ test cases — applies to the root `test/RateLimiter.t.sol` file if compiled in a compatible Foundry layout (not verified in `Contracts/` CI today)
 
 ---
 
-## ✅ Acceptance Criteria Met
+## Acceptance criteria (contract-only)
 
-### 1. Limit Operation Frequency ✅
+The following held for the original contract delivery. **On-chain enforcement in Trading/MarketMaker is still outstanding.**
+
+### 1. Limit Operation Frequency ✅ (contract API)
 - `configureRateLimit(limitId, maxOps, timeWindow, enabled)` - Set limits
 - Automatic window reset after timeout
-- Operations blocked when limit exceeded
-- **Test Proof:** 6 tests validating frequency limiting
+- Operations blocked when limit exceeded (via `recordOperation`)
 
 ### 2. Track Operation Counts ✅
 - `getOperationCount(limitId, user)` - Current count in active window
 - `getOperationStatus(limitId, user)` - Full status object
 - Per-user, per-limit tracking
 - Automatic reset on window expiration
-- **Test Proof:** 8 tests validating count tracking
 
-### 3. Enforce Rate Limits ✅
+### 3. Enforce Rate Limits ✅ (when called)
 - `checkRateLimit(limitId, user)` - Returns boolean (allowed/blocked)
-- `recordOperation(limitId, user)` - Reverts if limit exceeded
-- `recordOperationIfAllowed(limitId, user)` - Returns boolean
-- Prevents operations exceeding configured limits
-- **Test Proof:** 6 tests validating enforcement
+- `recordOperation(limitId, user)` - Reverts if limit exceeded (**`OPERATOR_ROLE` only**)
+- `recordOperationIfAllowed(limitId, user)` - Returns boolean (**`OPERATOR_ROLE` only**)
 
 ### 4. Support Different Limits ✅
-- Multiple independent limits per system (LIMIT_TRADES, LIMIT_WITHDRAWALS, etc.)
+- Multiple independent limits per system (e.g. `LIMIT_TRADES`, `LIMIT_WITHDRAWALS`)
 - Each limit has own max operations and time window
-- Different limits don't interfere with each other
-- User limits independent across different limit IDs
-- **Test Proof:** 5+ tests validating multiple limits
 
 ### 5. Provide Limit Queries ✅
-- `getOperationCount()` - Current operations in active window
-- `getOperationStatus()` - Comprehensive status (count, max, remaining, time until reset, limited flag)
-- `getTimeToNextWindow()` - Seconds until window resets
-- `isRateLimited()` - Boolean rate limit status
-- `limitsExist()` - Check if limit is configured
-- `getRateLimitConfig()` - Get limit configuration
-- **Test Proof:** 8 tests validating all query functions
+- `getOperationCount()`, `getOperationStatus()`, `getTimeToNextWindow()`, `isRateLimited()`, `limitsExist()`, `getRateLimitConfig()`
 
 ---
 
 ## Core API
 
-### Configuration (Admin Only)
+### Configuration (Admin Only — `ADMIN_ROLE` / `DEFAULT_ADMIN_ROLE`)
 ```solidity
 configureRateLimit(bytes32 limitId, uint256 maxOps, uint256 timeWindow, bool enabled)
 enableRateLimit(bytes32 limitId)
 disableRateLimit(bytes32 limitId)
 ```
 
-### Rate Limiting (Operator)
+### Rate Limiting (Operator — `OPERATOR_ROLE`)
 ```solidity
 checkRateLimit(bytes32 limitId, address user) → bool allowed
 recordOperation(bytes32 limitId, address user) // reverts if limited
@@ -94,7 +91,7 @@ setLimitOverride(bytes32 limitId, address user, bool overridden)
 isUserExempt(bytes32 limitId, address user) → bool
 ```
 
-### Status Queries (Anyone)
+### Status Queries (Anyone — public `view` functions)
 ```solidity
 getRateLimitConfig(bytes32 limitId) → (maxOps, timeWindow, enabled)
 getOperationCount(bytes32 limitId, address user) → uint256 count
@@ -113,6 +110,8 @@ resetUserLimits(bytes32 limitId, address user)
 
 ## Key Features
 
+(Documentation below describes contract behaviour — still accurate.)
+
 ### Multiple Independent Limits
 ```solidity
 rateLimiter.configureRateLimit(LIMIT_TRADES, 100, 1 hours, true);
@@ -120,42 +119,20 @@ rateLimiter.configureRateLimit(LIMIT_WITHDRAWALS, 10, 24 hours, true);
 ```
 
 ### Per-User Tracking
-Each user has independent counters for each limit ID:
-- Allows tracking user1's trades separately from user2's trades
-- Tracks same user's trades separately from withdrawals
+Each user has independent counters for each limit ID.
 
 ### Automatic Window Reset
-- Windows expire after configured `timeWindow`
-- Counter resets automatically on next operation after expiration
-- No manual cleanup required
+Windows expire after configured `timeWindow`; counters reset on the next qualifying operation.
 
 ### User Exemptions
 ```solidity
-// Admin can exempt users from specific limits
 rateLimiter.setLimitOverride(LIMIT_TRADES, admin, true);
-// Now admin bypasses LIMIT_TRADES entirely
 ```
 
 ### Enable/Disable Without Reconfiguration
 ```solidity
-// Disable enforcement temporarily
 rateLimiter.disableRateLimit(LIMIT_TRADES);
-// All operations allowed
-
-// Re-enable enforcement
 rateLimiter.enableRateLimit(LIMIT_TRADES);
-// Back to enforcement
-```
-
-### Detailed Status Reporting
-```solidity
-(
-    uint256 currentCount,
-    uint256 maxAllowed,
-    uint256 remainingOperations,
-    uint256 timeUntilReset,
-    bool isLimited
-) = rateLimiter.getOperationStatus(LIMIT_TRADES, user1);
 ```
 
 ---
@@ -173,36 +150,17 @@ event WindowRolled(bytes32 indexed limitId, address indexed user, uint256 newWin
 
 ---
 
-## Test Coverage
+## Test coverage — ⚠️ STALE CI claims
 
-### Total: 35+ Comprehensive Tests
-
-| Category | Tests | Status |
-|----------|-------|--------|
-| Configuration | 6 | ✅ |
-| Rate Limiting | 6 | ✅ |
-| Overrides | 3 | ✅ |
-| Status Queries | 8 | ✅ |
-| Management | 2 | ✅ |
-| Edge Cases | 5 | ✅ |
-| **TOTAL** | **35** | **✅** |
-
-### Test Scenarios Covered
-- ✅ Configure single and multiple limits
-- ✅ Enable/disable limits
-- ✅ Allow operations within limit
-- ✅ Block operations exceeding limit
-- ✅ Reset window after timeout
-- ✅ Independent user tracking
-- ✅ Independent limit tracking
-- ✅ User exemptions bypass limits
-- ✅ Get operation counts
-- ✅ Get full operation status
-- ✅ Get time to window reset
-- ✅ Query rate limit status
-- ✅ Reset user limits
-- ✅ Multiple operations methods
-- ✅ Different time windows
+| Category | Historical claim | Current note |
+|----------|------------------|--------------|
+| Configuration | 6 tests | In root `test/RateLimiter.t.sol` only |
+| Rate Limiting | 6 tests | Not run by `Contracts/` CI until relocated |
+| Overrides | 3 tests | |
+| Status Queries | 8 tests | |
+| Management | 2 tests | |
+| Edge Cases | 5 tests | |
+| **TOTAL** | **35** | **⚠️ Not gating `Contracts` CI today** |
 
 ---
 
@@ -213,18 +171,18 @@ event WindowRolled(bytes32 indexed limitId, address indexed user, uint256 newWin
 **RateLimitConfig** - Per-limit configuration:
 ```solidity
 struct RateLimitConfig {
-    uint256 maxOperations;  // Max ops per window
-    uint256 timeWindow;     // Window duration
-    bool enabled;           // Is enforcement active?
+    uint256 maxOperations;
+    uint256 timeWindow;
+    bool enabled;
 }
 ```
 
 **OperationTracker** - Per-user-per-limit tracking:
 ```solidity
 struct OperationTracker {
-    uint256 operationCount;   // Current operations
-    uint256 windowStartTime;  // Window start timestamp
-    uint256 lastOperationTime; // Last operation timestamp
+    uint256 operationCount;
+    uint256 windowStartTime;
+    uint256 lastOperationTime;
 }
 ```
 
@@ -237,144 +195,76 @@ userLimitOverrides[user][limitId] → Override flag
 
 ---
 
-## Usage Examples
+## Usage examples (deploy + configure)
 
-### Basic Setup
 ```solidity
-// Deploy
 RateLimiter limiter = new RateLimiter();
 
-// Configure trades: max 100 per hour
 limiter.configureRateLimit(
     keccak256("TRADES"),
-    100,      // max operations
-    1 hours,  // time window
-    true      // enabled
-);
-
-// Configure withdrawals: max 10 per day
-limiter.configureRateLimit(
-    keccak256("WITHDRAWALS"),
-    10,
-    24 hours,
+    100,
+    1 hours,
     true
 );
 ```
 
-### Enforce Rate Limiting
-```solidity
-// Check before executing operation
-bool allowed = limiter.checkRateLimit(
-    keccak256("TRADES"),
-    msg.sender
-);
-require(allowed, "Rate limit exceeded");
-// Execute operation...
+---
 
-// Or use record methods
-limiter.recordOperation(keccak256("TRADES"), msg.sender);
-// Operation recorded and limit enforced
-```
+## Security features (contract)
 
-### Exempt Admin
-```solidity
-// Exempt admin from rate limits
-limiter.setLimitOverride(keccak256("TRADES"), admin, true);
+✅ **Role-Based Access Control** — OpenZeppelin `AccessControl` (`ADMIN_ROLE`, `OPERATOR_ROLE`)
 
-// Now admin can perform unlimited trades
-// checkRateLimit will return true regardless of count
-```
+✅ **Input Validation** — positive `maxOperations` / `timeWindow`, non-zero `limitId`
 
-### Monitor Status
-```solidity
-(
-    uint256 count,
-    uint256 max,
-    uint256 remaining,
-    uint256 timeLeft,
-    bool limited
-) = limiter.getOperationStatus(keccak256("TRADES"), user);
+✅ **Safe Math** — Solidity 0.8.20+ overflow checks
 
-if (limited) {
-    // User is rate limited
-    // Can show remaining time until reset
-}
-```
+✅ **No Reentrancy Risk** — no external calls in limit updates
+
+⚠️ **STALE claim removed:** “Users: Can only query their own status” — `getOperationStatus` and related getters are **public** and readable for any `(limitId, user)` pair (standard for on-chain counters).
 
 ---
 
-## Security Features
+## Integration recommendations — ⚠️ STALE / not implemented
 
-✅ **Role-Based Access Control**
-- Admin: Configuration, overrides, resets
-- Operator: Can call rate limit functions
-- Users: Can only query their own status
+> **The snippets below are design targets, not current behaviour.** `Trading.sol`, `MarketMaker.sol`, and withdrawal flows **do not** invoke `RateLimiter` yet.
 
-✅ **Input Validation**
-- Max operations must be > 0
-- Time window must be > 0
-- Invalid limit IDs rejected
-
-✅ **Safe Math**
-- Solidity 0.8.20+ built-in overflow checks
-- Safe division (checks before divide)
-
-✅ **No Reentrancy Risk**
-- No external calls
-- Pure state management
-
-✅ **Window Expiration Handling**
-- Automatic reset on window expiration
-- No stale state issues
-- Safe for long-term operation
-
----
-
-## Integration Recommendations
-
-### Market Operations
+### Market Operations (planned)
 ```solidity
-// In trading contract
+// ⚠️ NOT WIRED — Phase 4 target (e.g. P4 on-chain RateLimiter in Trading)
 function executeTrade(bytes calldata tradeData) external {
     rateLimiter.recordOperation(LIMIT_TRADES, msg.sender);
     // Execute trade...
 }
-
-// In withdrawal contract
-function withdraw(uint256 amount) external {
-    rateLimiter.recordOperation(LIMIT_WITHDRAWALS, msg.sender);
-    // Execute withdrawal...
-}
 ```
 
-### Monitoring Dashboards
-```solidity
-// Query rate limit status for UI
-function getUserRateLimitStatus(address user) external view returns (
-    uint256 tradesCount,
-    uint256 tradesMax,
-    uint256 tradesRemaining,
-    bool tradesLimited,
-    uint256 withdrawalsCount,
-    uint256 withdrawalsMax
-) {
-    (tradesCount, tradesMax, tradesRemaining, , tradesLimited) = 
-        rateLimiter.getOperationStatus(LIMIT_TRADES, user);
-    (withdrawalsCount, withdrawalsMax, , , ) = 
-        rateLimiter.getOperationStatus(LIMIT_WITHDRAWALS, user);
-}
-```
+### Monitoring Dashboards (planned)
+Off-chain indexers may call `getOperationStatus` today; product UI wiring is Phase 4+.
 
 ---
 
-## Notes
+## Blocked / Phase dependencies
 
-- Each limit is completely independent
-- Window resets are automatic (no manual trigger needed)
-- Operations are atomic (transaction either succeeds or fails)
-- No gas optimization tricks that compromise security
-- Production-ready code with comprehensive test coverage
+| Capability | Blocker | Phase |
+|------------|---------|-------|
+| On-chain trade rate limits in `Trading` / `MarketMaker` | Contract not composed into trading path | **Phase 4** (hardening) |
+| CI-gated RateLimiter forge tests | Tests live under repo-root `test/`, outside `Contracts/` Foundry project | **Phase 1 / 4** — relocate to `Contracts/test/` |
+| Unified backend + on-chain limit story | Nest rate-limiter module ≠ Solidity `RateLimiter` | **Phase 4** |
+| “Production ready” end-to-end | Requires deployment, role holders, and caller integration | **Phase 4+** |
 
 ---
 
-**Status: ✅ PRODUCTION READY**
+## Local build / run
+
+Green path for collaborators (see [CONTRIBUTING.md](CONTRIBUTING.md)):
+
+```bash
+cd Contracts && forge build && forge test
+cd Backend && npm install && npm run start:dev
+cd Frontend && npm install && npm run dev
+```
+
+No changes to contract logic are required for this documentation update.
+
+---
+
+**Status: Contract implemented ✅ — product integration and CI test path ⚠️ incomplete (Phase 4+)**

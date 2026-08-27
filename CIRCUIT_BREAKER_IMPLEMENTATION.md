@@ -1,5 +1,7 @@
 # Circuit Breaker Pattern Implementation
 
+> **Status:** Stale — this document reflects the initial design and may not accurately represent the current implementation. Refer to `Contracts/src/CircuitBreaker.sol` and `test/CircuitBreaker.t.sol` for the ground truth.
+
 ## Overview
 Successfully implemented a comprehensive circuit breaker pattern contract for the GateDelay protocol with full health monitoring, break triggering, recovery handling, permission control, and status reporting capabilities.
 
