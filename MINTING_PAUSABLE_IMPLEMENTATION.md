@@ -31,6 +31,79 @@ Pausable minting token with role-based pause control, emergency pause capability
 
 ---
 
+## Setup and Development
+
+> **Phase 2 — Core Market Wiring**
+
+### Prerequisites
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| [Foundry](https://getfoundry.sh/) | latest stable | Provides `forge`, `cast` |
+| [Git](https://git-scm.com/) | any recent | Submodule checkout |
+
+### Install dependencies
+
+```bash
+# From the repo root
+git submodule update --init --recursive
+```
+
+The contract depends on OpenZeppelin v5.6.1 (git submodule at `Contracts/lib/openzeppelin-contracts/`).
+
+### Build
+
+From the **repo root**:
+
+```bash
+forge build
+```
+
+Or from `Contracts/`:
+
+```bash
+cd Contracts
+forge build
+```
+
+The contract compiles with Solidity 0.8.28, optimizer enabled (200 runs), via-IR.
+
+### Test
+
+Run all tests including MintingPausable:
+
+```bash
+# From repo root — runs test/ (includes MintingPausable.t.sol)
+forge test
+
+# Run only MintingPausable tests
+forge test --match-path test/MintingPausable.t.sol -vv
+
+# From Contracts/ — runs Contracts/test/ (90+ test files)
+cd Contracts
+forge test
+```
+
+### Format check
+
+```bash
+forge fmt --check
+```
+
+### Environment variables
+
+No environment variables are required to build or test `MintingPausable.sol` locally. The contract is self-contained with no external dependencies beyond OpenZeppelin.
+
+For deployment scripts that interact with a live network, set:
+
+| Variable | Purpose |
+|----------|---------|
+| `PRIVATE_KEY` | Deployer private key |
+| `ETHERSCAN_API_KEY` | Contract verification (optional) |
+| `MAINNET_RPC_URL` | Target network RPC (optional) |
+
+---
+
 ## ✅ Acceptance Criteria Met
 
 ### 1. Pauses are Controlled ✅

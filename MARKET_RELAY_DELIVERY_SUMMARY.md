@@ -13,7 +13,7 @@
 ### 1. Smart Contracts ✅
 
 #### MarketRelay.sol (630 lines)
-**Location**: `Contracts/contracts/MarketRelay.sol`
+**Location**: `Contracts/src/MarketRelay.sol`
 
 **Core Features**:
 - 7-state operation lifecycle management
@@ -457,8 +457,8 @@ Complete integration & operations guide with:
 5. MARKET_RELAY_INTEGRATION_GUIDE.md - Deployment & operations
 
 ### Code Files
-1. contracts/MarketRelay.sol - Main contract
-2. test/MarketRelay.t.sol - Test suite
+1. Contracts/src/MarketRelay.sol - Main contract
+2. Contracts/test/MarketRelay.t.sol - Test suite
 
 ### External Resources
 - Chainlink CCIP: https://docs.chain.link/ccip

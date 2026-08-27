@@ -1,4 +1,5 @@
-const { ethers } = require('ethers');
+// TODO: Quarantined - ethers not in package.json. Add dependency or implement alternative.
+// const { ethers } = require('ethers');
 const PriceHistory = require('../models/PriceHistory');
 
 /**

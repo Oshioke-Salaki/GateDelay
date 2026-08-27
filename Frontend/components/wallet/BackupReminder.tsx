@@ -1,44 +1,91 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount } from "@particle-network/connectkit";
 import { motion, AnimatePresence } from "framer-motion";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 
 const STORAGE_KEY = "wallet_backup_status";
 
 type BackupStatus = "pending" | "dismissed" | "completed";
 
-function getStatus(): BackupStatus {
-  if (typeof window === "undefined") return "pending";
+/**
+ * Reads the backup status from localStorage.
+ * Safe to call only on the client (inside useEffect or event handlers).
+ */
+function readStatus(): BackupStatus {
   return (localStorage.getItem(STORAGE_KEY) as BackupStatus) ?? "pending";
 }
 
-function setStatus(status: BackupStatus) {
+function writeStatus(status: BackupStatus): void {
   localStorage.setItem(STORAGE_KEY, status);
 }
 
+/**
+ * BackupReminder
+ *
+ * SSR notes
+ * ---------
+ * This component is a Client Component ("use client") rendered inside Next.js
+ * App Router. Two SSR hazards are guarded against here:
+ *
+ * 1. localStorage is not available on the server.  We never access it outside
+ *    of useEffect / event handlers, so there is no server-side reference.
+ *
+ * 2. Hydration mismatch from wallet state.  The ConnectKit bridge returns
+ *    `isConnected: false` when Particle is absent / during the initial
+ *    hydration render; the real value is only known after the client hydrates.
+ *    If we initialised `visible` from `isConnected` synchronously we would get
+ *    a server/client mismatch warning.
+ *
+ *    Solution: use a `mounted` flag.  The component renders nothing (null) on
+ *    the first pass — matching the server output — and only reads
+ *    localStorage + wallet state after `useEffect` confirms we are on the
+ *    client.  This eliminates both the hydration warning and the brief flicker
+ *    where a dismissed banner re-appears before the effect runs.
+ *
+ * Uses `useConnectKitBridge` (not ConnectKit `useAccount`) so the app shell
+ * still boots when Particle credentials are absent.
+ */
 export default function BackupReminder() {
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
+
+  // `mounted` is false on the server and on the very first client render,
+  // ensuring the hydrated markup matches the server-rendered markup (both
+  // produce null / nothing visible).
+  const [mounted, setMounted] = useState(false);
   const [status, setLocalStatus] = useState<BackupStatus>("pending");
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const s = getStatus();
+    // Runs only on the client, after hydration is complete.
+    setMounted(true);
+    const s = readStatus();
     setLocalStatus(s);
     setVisible(isConnected && s === "pending");
   }, [isConnected]);
 
+  // Re-evaluate visibility whenever the connection state changes after mount.
+  useEffect(() => {
+    if (!mounted) return;
+    setVisible(isConnected && status === "pending");
+  }, [isConnected, mounted, status]);
+
   const dismiss = () => {
-    setStatus("dismissed");
+    writeStatus("dismissed");
     setLocalStatus("dismissed");
     setVisible(false);
   };
 
   const markCompleted = () => {
-    setStatus("completed");
+    writeStatus("completed");
     setLocalStatus("completed");
     setVisible(false);
   };
+
+  // Render nothing until the client has hydrated.  This guarantees the
+  // server-rendered HTML and the initial client render are identical, avoiding
+  // React hydration warnings.
+  if (!mounted) return null;
 
   return (
     <AnimatePresence>
@@ -64,7 +111,8 @@ export default function BackupReminder() {
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Back up your wallet</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-              Save your seed phrase somewhere safe. Without it you cannot recover your wallet.{" "}
+              Save your seed phrase somewhere safe. Without it you cannot
+              recover your wallet.{" "}
               <a
                 href="https://support.metamask.io/managing-my-wallet/secret-recovery-phrase-and-private-keys/how-to-reveal-your-secret-recovery-phrase/"
                 target="_blank"
@@ -92,7 +140,16 @@ export default function BackupReminder() {
               className="rounded-lg p-1.5 transition-colors hover:opacity-70"
               style={{ color: "var(--muted)" }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
                 <line x1="1" y1="1" x2="13" y2="13" />
                 <line x1="13" y1="1" x2="1" y2="13" />
               </svg>

@@ -3,14 +3,14 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {VoteWeight} from "../contracts/VoteWeight.sol";
+import {VoteWeight} from "../src/VoteWeight.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @notice Mock ERC20 token for testing
 contract MockGovernanceToken is ERC20 {
     constructor() ERC20("Governance Token", "GOV") {
-        _mint(msg.sender, 1_000_000 * 10**18);
+        _mint(msg.sender, 1_000_000 * 10 ** 18);
     }
 
     function mint(address to, uint256 amount) external {
@@ -34,27 +34,13 @@ contract VoteWeightTest is Test {
     address public charlie;
     address public dave;
 
-    uint256 constant INITIAL_BALANCE = 1000 * 10**18;
+    uint256 constant INITIAL_BALANCE = 1000 * 10 ** 18;
 
     event WeightUpdated(
-        address indexed account,
-        uint256 oldWeight,
-        uint256 newWeight,
-        int256 delta,
-        VoteWeight.ChangeReason reason
+        address indexed account, uint256 oldWeight, uint256 newWeight, int256 delta, VoteWeight.ChangeReason reason
     );
-    event DelegationCreated(
-        address indexed delegator,
-        address indexed delegatee,
-        uint256 amount,
-        uint256 timestamp
-    );
-    event DelegationRemoved(
-        address indexed delegator,
-        address indexed delegatee,
-        uint256 amount,
-        uint256 timestamp
-    );
+    event DelegationCreated(address indexed delegator, address indexed delegatee, uint256 amount, uint256 timestamp);
+    event DelegationRemoved(address indexed delegator, address indexed delegatee, uint256 amount, uint256 timestamp);
     event SnapshotCreated(uint256 indexed snapshotId, uint256 blockNumber, uint256 timestamp);
     event CheckpointCreated(address indexed account, uint256 blockNumber, uint256 weight);
 
@@ -81,7 +67,7 @@ contract VoteWeightTest is Test {
     function test_UpdateWeight_Success() public {
         vm.expectEmit(true, true, true, true);
         emit WeightUpdated(alice, 0, INITIAL_BALANCE, int256(INITIAL_BALANCE), VoteWeight.ChangeReason.BALANCE_CHANGE);
-        
+
         voteWeight.updateWeight(alice);
 
         assertEq(voteWeight.currentWeight(alice), INITIAL_BALANCE);
@@ -106,10 +92,10 @@ contract VoteWeightTest is Test {
 
         // Transfer tokens
         vm.prank(alice);
-        token.transfer(bob, 500 * 10**18);
+        token.transfer(bob, 500 * 10 ** 18);
 
         voteWeight.updateWeight(alice);
-        assertEq(voteWeight.currentWeight(alice), 500 * 10**18);
+        assertEq(voteWeight.currentWeight(alice), 500 * 10 ** 18);
     }
 
     function test_UpdateWeight_RevertZeroAddress() public {
@@ -119,7 +105,7 @@ contract VoteWeightTest is Test {
 
     function test_UpdateWeight_RevertNoChange() public {
         voteWeight.updateWeight(alice);
-        
+
         vm.expectRevert(VoteWeight.NoWeightChange.selector);
         voteWeight.updateWeight(alice);
     }
@@ -306,13 +292,13 @@ contract VoteWeightTest is Test {
 
     function test_GetRecentWeightChanges() public {
         voteWeight.updateWeight(alice);
-        
+
         vm.prank(alice);
-        token.transfer(bob, 100 * 10**18);
+        token.transfer(bob, 100 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         vm.prank(alice);
-        token.transfer(charlie, 100 * 10**18);
+        token.transfer(charlie, 100 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         VoteWeight.WeightChange[] memory recent = voteWeight.getRecentWeightChanges(alice, 2);
@@ -320,16 +306,28 @@ contract VoteWeightTest is Test {
     }
 
     function test_CalculateWeightChange() public {
+        // Uses `vm.getBlockNumber()` rather than `block.number`.
+        //
+        // `block.number` compiles to the NUMBER opcode, which the optimizer
+        // treats as constant within a call — legal, since it cannot change
+        // mid-transaction on a real chain. Under `via_ir` it is therefore
+        // rematerialised at each use site instead of being held in a local, so a
+        // value captured before `vm.roll` reads back as the post-roll number and
+        // the assertion silently compares the wrong blocks. This suite passed or
+        // failed purely on the build profile because of it.
+        //
+        // `vm.getBlockNumber()` is an external cheatcode call, so it cannot be
+        // folded away.
+        uint256 startBlock = vm.getBlockNumber();
         voteWeight.updateWeight(alice);
-        uint256 startBlock = block.number;
 
-        vm.roll(block.number + 1);
+        vm.roll(startBlock + 1);
         vm.prank(alice);
-        token.transfer(bob, 500 * 10**18);
+        token.transfer(bob, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
-        int256 change = voteWeight.calculateWeightChange(alice, startBlock, block.number);
-        assertEq(change, -500 * 10**18);
+        int256 change = voteWeight.calculateWeightChange(alice, startBlock, startBlock + 1);
+        assertEq(change, -500 * 10 ** 18);
     }
 
     // ── Checkpoint Tests ───────────────────────────────────────────────────────
@@ -338,19 +336,20 @@ contract VoteWeightTest is Test {
         voteWeight.updateWeight(alice);
 
         assertEq(voteWeight.getCheckpointCount(alice), 1);
-        
+
         VoteWeight.Checkpoint memory cp = voteWeight.getCheckpoint(alice, 0);
         assertEq(cp.blockNumber, block.number);
         assertEq(cp.weight, INITIAL_BALANCE);
     }
 
     function test_GetWeightAt() public {
+        // `vm.getBlockNumber()`, not `block.number` — see test_CalculateWeightChange.
+        uint256 block1 = vm.getBlockNumber();
         voteWeight.updateWeight(alice);
-        uint256 block1 = block.number;
 
-        vm.roll(block.number + 10);
+        vm.roll(block1 + 10);
         vm.prank(alice);
-        token.transfer(bob, 500 * 10**18);
+        token.transfer(bob, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         // Check weight at first block
@@ -358,7 +357,7 @@ contract VoteWeightTest is Test {
         assertEq(weightAtBlock1, INITIAL_BALANCE);
 
         // Check current weight
-        assertEq(voteWeight.currentWeight(alice), 500 * 10**18);
+        assertEq(voteWeight.currentWeight(alice), 500 * 10 ** 18);
     }
 
     function test_GetWeightAt_RevertInvalidBlock() public {
@@ -395,7 +394,7 @@ contract VoteWeightTest is Test {
 
         // Change weights after snapshot
         vm.prank(alice);
-        token.transfer(charlie, 500 * 10**18);
+        token.transfer(charlie, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         // Check snapshot weight (should be original)
@@ -403,7 +402,7 @@ contract VoteWeightTest is Test {
         assertEq(snapshotWeight, INITIAL_BALANCE);
 
         // Check current weight (should be reduced)
-        assertEq(voteWeight.currentWeight(alice), 500 * 10**18);
+        assertEq(voteWeight.currentWeight(alice), 500 * 10 ** 18);
     }
 
     function test_GetSnapshotInfo() public {
@@ -412,7 +411,7 @@ contract VoteWeightTest is Test {
 
         uint256 snapshotId = voteWeight.createSnapshot();
 
-        (uint256 id, uint256 blockNumber, uint256 timestamp, uint256 accountCount) = 
+        (uint256 id, uint256 blockNumber, uint256 timestamp, uint256 accountCount) =
             voteWeight.getSnapshotInfo(snapshotId);
 
         assertEq(id, 1);
@@ -434,17 +433,17 @@ contract VoteWeightTest is Test {
 
     function test_MultipleSnapshots() public {
         voteWeight.updateWeight(alice);
-        
+
         uint256 snapshot1 = voteWeight.createSnapshot();
-        
+
         vm.prank(alice);
-        token.transfer(bob, 500 * 10**18);
+        token.transfer(bob, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
-        
+
         uint256 snapshot2 = voteWeight.createSnapshot();
 
         assertEq(voteWeight.getWeightAtSnapshot(snapshot1, alice), INITIAL_BALANCE);
-        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, alice), 500 * 10**18);
+        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, alice), 500 * 10 ** 18);
     }
 
     // ── Query Function Tests ───────────────────────────────────────────────────
@@ -461,8 +460,7 @@ contract VoteWeightTest is Test {
         vm.prank(alice);
         voteWeight.delegate(bob);
 
-        (uint256 base, uint256 received, uint256 given, uint256 total) = 
-            voteWeight.getWeightBreakdown(alice);
+        (uint256 base, uint256 received, uint256 given, uint256 total) = voteWeight.getWeightBreakdown(alice);
 
         assertEq(base, INITIAL_BALANCE);
         assertEq(received, 0);
@@ -528,7 +526,7 @@ contract VoteWeightTest is Test {
 
         // Transfer tokens
         vm.prank(alice);
-        token.transfer(bob, 300 * 10**18);
+        token.transfer(bob, 300 * 10 ** 18);
 
         voteWeight.updateWeight(alice);
         voteWeight.updateWeight(bob);
@@ -540,8 +538,8 @@ contract VoteWeightTest is Test {
         assertEq(voteWeight.getWeightAtSnapshot(snapshot1, bob), INITIAL_BALANCE);
 
         // Verify snapshot 2
-        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, alice), 700 * 10**18);
-        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, bob), 1300 * 10**18);
+        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, alice), 700 * 10 ** 18);
+        assertEq(voteWeight.getWeightAtSnapshot(snapshot2, bob), 1300 * 10 ** 18);
     }
 
     function test_DelegationWithBalanceChanges() public {
@@ -554,7 +552,7 @@ contract VoteWeightTest is Test {
         assertEq(voteWeight.currentWeight(bob), INITIAL_BALANCE * 2);
 
         // Alice receives more tokens
-        token.mint(alice, 500 * 10**18);
+        token.mint(alice, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         // Bob's delegated weight should NOT automatically update
@@ -564,19 +562,19 @@ contract VoteWeightTest is Test {
         // Alice needs to re-delegate to update
         vm.prank(alice);
         voteWeight.undelegate();
-        
+
         vm.prank(alice);
         voteWeight.delegate(bob);
-        
+
         // Now Bob should have the updated weight
-        assertEq(voteWeight.currentWeight(bob), INITIAL_BALANCE + (INITIAL_BALANCE + 500 * 10**18));
+        assertEq(voteWeight.currentWeight(bob), INITIAL_BALANCE + (INITIAL_BALANCE + 500 * 10 ** 18));
     }
 
     // ── Fuzz Tests ─────────────────────────────────────────────────────────────
 
     function testFuzz_UpdateWeight(uint256 amount) public {
-        vm.assume(amount > 0 && amount < 1_000_000_000 * 10**18);
-        
+        vm.assume(amount > 0 && amount < 1_000_000_000 * 10 ** 18);
+
         token.mint(alice, amount);
         voteWeight.updateWeight(alice);
 

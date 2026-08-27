@@ -121,4 +121,17 @@ function strictDDoSGuard(options = {}) {
   });
 }
 
-module.exports = { ddosGuard, strictDDoSGuard };
+/**
+ * Health check — pings the underlying ddosProtection service.
+ * @returns {Promise<boolean>} true when the service responds
+ */
+async function healthCheck() {
+  try {
+    await ddosProtection.isBlacklisted('__healthcheck__');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { ddosGuard, strictDDoSGuard, healthCheck };

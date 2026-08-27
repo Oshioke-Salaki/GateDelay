@@ -368,9 +368,9 @@ export default function AuditLogViewer() {
   const pageCount = table.getPageCount();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           className="rounded-2xl p-5 flex items-center justify-between"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
@@ -460,7 +460,7 @@ export default function AuditLogViewer() {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => refetch()}
               title="Refresh logs from API"
@@ -574,8 +574,8 @@ export default function AuditLogViewer() {
       </div>
 
       {/* Main Table Grid */}
-      <div className="overflow-x-auto rounded-2xl border" style={{ borderColor: "var(--border)" }}>
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="w-full max-w-full overflow-x-auto rounded-2xl border" style={{ borderColor: "var(--border)" }}>
+        <table className="w-full min-w-[880px] text-left text-xs border-collapse">
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} style={{ background: "var(--card)", borderBottom: "1px solid var(--border)" }}>

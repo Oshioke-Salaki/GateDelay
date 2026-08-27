@@ -36,8 +36,10 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Foundry
+      - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
 
       - name: Show Forge version
         run: forge --version
@@ -57,6 +59,18 @@ jobs:
           path: |
             Contracts/out/MarketFactory.sol/MarketFactory.json
             Contracts/out/PositionToken.sol/PositionToken.json
+          submodules: recursive
+
+      - name: Install Foundry (pinned version)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Build (root profile)
+        run: forge build --sizes
 
       - name: Prepare isolated MarketFactory test root
         run: cp test/MarketFactory.t.sol test/marketfactory/MarketFactory.t.sol

@@ -1,8 +1,10 @@
 "use client";
+
 import { ConnectKitProvider, createConfig } from "@particle-network/connectkit";
 import { authWalletConnectors } from "@particle-network/connectkit/auth";
 import { evmWalletConnectors } from "@particle-network/connectkit/evm";
 import { mantle } from "viem/chains";
+import { ConnectKitBridge } from "./ConnectKitBridge";
 
 // Config is created lazily to avoid SSR crashes when env vars are absent
 let config: ReturnType<typeof createConfig> | null = null;
@@ -26,6 +28,14 @@ function getConfig() {
   return config;
 }
 
+/**
+ * Only loaded when Particle credentials are configured
+ * (`ParticleClientWrapper` gates the dynamic import).
+ */
 export function ParticleProvider({ children }: { children: React.ReactNode }) {
-  return <ConnectKitProvider config={getConfig()}>{children}</ConnectKitProvider>;
+  return (
+    <ConnectKitProvider config={getConfig()}>
+      <ConnectKitBridge>{children}</ConnectKitBridge>
+    </ConnectKitProvider>
+  );
 }
