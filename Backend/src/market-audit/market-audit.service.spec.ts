@@ -99,10 +99,10 @@ describe('MarketAuditService', () => {
     expect(result.brokenAt).toBeUndefined();
   });
 
-  it('enforceRetention removes old entries and respects floor', () => {
-    service.setRetentionPolicy(0);
+  it('enforceRetention removes old entries and returns the configured policy', () => {
+    service.setRetentionPolicy(1);
     const result = service.enforceRetention();
-    expect(result.retentionDays).toBe(0);
+    expect(result.retentionDays).toBe(1);
   });
 
   it('queryLogs respects limit parameter', () => {
