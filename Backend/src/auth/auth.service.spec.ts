@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as nodemailer from 'nodemailer';
 import { AuthService } from './auth.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 jest.mock('nodemailer', () => ({
   createTransport: jest.fn(),
@@ -137,6 +138,16 @@ describe('AuthService abuse paths', () => {
     await service.logout(userId);
     await expect(
       service.refreshTokens(rotated.refreshToken),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('JwtStrategy validate method throws UnauthorizedException when sub is missing', async () => {
+    const mockConfig = {
+      get: jest.fn(() => 'jwtsecret'),
+    } as unknown as ConfigService;
+    const strategy = new JwtStrategy(mockConfig);
+    await expect(
+      strategy.validate({ sub: '', email: 'test@example.com' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

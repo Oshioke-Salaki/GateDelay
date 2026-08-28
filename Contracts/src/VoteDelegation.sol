@@ -118,7 +118,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
 
         Delegation storage currentDelegation = delegations[msg.sender];
         address previousDelegatee = currentDelegation.delegatee;
-        uint256 delegatorPower = governanceToken.balanceOf(msg.sender);
+        uint256 delegatorPower = getVotingPower(msg.sender);
         bool isChangingDelegation = currentDelegation.active;
 
         // Remove previous delegation if exists

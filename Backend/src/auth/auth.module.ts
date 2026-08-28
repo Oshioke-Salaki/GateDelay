@@ -7,6 +7,22 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
+/**
+ * ============================================================================
+ * SECURITY TRUST ASSUMPTIONS (Phase 2):
+ *
+ * 1. Oracles: Oracle responses are parsed/used downstream in prediction pricing.
+ *    AuthModule does not trust oracle signatures directly; oracle validation and
+ *    trust boundaries are verified in oracle routes and services.
+ * 2. Multisig: Access controls for privileged system mutations require
+ *    multisig signing guards rather than single-sig bearer JWTs. Privileged
+ *    actions must verify multi-signature proof independent of AuthModule.
+ * 3. Beta Access: Access to the beta endpoints is gated by check-in logic
+ *    leveraging HMAC validation (via BETA_INVITE_SECRET) outside this module.
+ * 4. Key Management: No secrets, passwords, or private keys are hardcoded in
+ *    AuthModule. All JWT/SMTP secrets are injected dynamically via ConfigService.
+ * ============================================================================
+ */
 @Module({
   imports: [
     PassportModule,

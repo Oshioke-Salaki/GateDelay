@@ -14,6 +14,8 @@ contract MarketPauser is Pausable, AccessControl {
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant EMERGENCY_PAUSER_ROLE = keccak256("EMERGENCY_PAUSER_ROLE");
 
+    error AccessDenied();
+
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
@@ -59,14 +61,14 @@ contract MarketPauser is Pausable, AccessControl {
     // -------------------------------------------------------------------------
     modifier onlyPauser() {
         if (!hasRole(PAUSER_ROLE, msg.sender) && !hasRole(EMERGENCY_PAUSER_ROLE, msg.sender)) {
-            revert AccessControl.AccessDenied();
+            revert AccessDenied();
         }
         _;
     }
 
     modifier onlyEmergencyPauser() {
         if (!hasRole(EMERGENCY_PAUSER_ROLE, msg.sender)) {
-            revert AccessControl.AccessDenied();
+            revert AccessDenied();
         }
         _;
     }

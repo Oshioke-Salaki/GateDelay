@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {MarketRelay, RelayClient, IRelayRouter} from "../src/MarketRelay.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 // ---------------------------------------------------------------
 // Mock Relay Router
@@ -264,7 +265,6 @@ contract MarketRelayTest is Test {
 
         assertEq(relay.totalFeesCollected(), 1.1 ether);
     }
-}
 
     // ---------------------------------------------------------------
     // Status Transition Tests

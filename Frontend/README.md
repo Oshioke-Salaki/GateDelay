@@ -39,6 +39,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 [WEBSOCKET_QUICKSTART.md](WEBSOCKET_QUICKSTART.md) is the contributor guide for that WebSocket layer: TypeScript `@/*` aliases, env/ports, `/test-websocket`, and JWT requirements. Follow it from `Frontend/`; you do not add another `WebSocketProvider` unless you are writing an isolated test.
 
+For how the pieces above `WebSocketProvider` fit together — the `useWebSocket` connection hook, the `usePriceUpdates` subscription layer, and `PriceDisplay`'s flash-on-change rendering, plus the polling fallback when a socket can't connect — see [WEBSOCKET_IMPLEMENTATION.md](WEBSOCKET_IMPLEMENTATION.md). `WebSocketProvider` is already mounted once in `app/layout.tsx` (item 3 above); that doc covers what runs underneath it, while WEBSOCKET_QUICKSTART.md covers getting a local environment talking to it.
+
 TypeScript aliases (`tsconfig.json`): `@/*` → `./*` (this package root). Example: `@/hooks/usePriceUpdates` → `Frontend/hooks/usePriceUpdates.ts`.
 
 Wallet env vars and Backend port details: [CONTRIBUTING.md](../CONTRIBUTING.md), [`Backend/.env.example`](../Backend/.env.example) (`PORT=4000`).

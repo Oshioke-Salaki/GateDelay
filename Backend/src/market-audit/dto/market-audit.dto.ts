@@ -75,6 +75,7 @@ const OPERATION_PATTERN = /^[A-Z][A-Z0-9_]*$/;
  * execute `=`, `+`, `-` and `@` prefixed cells straight out of the CSV export.
  */
 // eslint-disable-next-line no-control-regex -- intentionally rejects ASCII control chars in audit payloads
+// eslint-disable-next-line no-control-regex
 const NO_CONTROL_CHARS = /^[^\x00-\x1F\x7F]*$/u;
 const NOT_A_FORMULA = /^[^=+\-@]/;
 

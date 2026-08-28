@@ -29,7 +29,8 @@
     "express:start": "node ../backend/server.js",
     "express:dev": "node --watch ../backend/server.js",
     "test:disputes": "node -e \"require('./routes/disputes'); console.log('DISPUTES_SMOKE_PASS')\"",
-    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\""
+    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\"",
+    "test:upgrade-manager": "node -e \"const um = require('./jobs/upgradeManager'); if (typeof um.start !== 'function' || typeof um.stop !== 'function') { console.error('FAIL: Missing required methods'); process.exit(1); } console.log('UPGRADE_MANAGER_SMOKE_PASS'); process.exit(0);\""
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

@@ -30,6 +30,10 @@ runs = 256
 test = "test-ci"
 fuzz = { runs = 512 }
 
+[profile.integration]
+src = "src/integration"
+test = "test/integration"
+
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 

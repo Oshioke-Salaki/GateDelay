@@ -1,5 +1,6 @@
 const express = require('express');
 const multisigService = require('../services/multisigService');
+const { strictDDoSGuard } = require('../middleware/ddosGuard');
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.get('/wallet/:walletId', handleErrors(async (req, res) => {
  * POST /api/multisig/propose
  * Propose a new multisig transaction
  */
-router.post('/propose', handleErrors(async (req, res) => {
+router.post('/propose', strictDDoSGuard(), handleErrors(async (req, res) => {
   const { walletId, txData, proposer } = req.body;
   
   if (!walletId || !txData || !proposer) {
@@ -51,7 +52,7 @@ router.post('/propose', handleErrors(async (req, res) => {
  * POST /api/multisig/sign
  * Collect a signature for a transaction
  */
-router.post('/sign', handleErrors(async (req, res) => {
+router.post('/sign', strictDDoSGuard(), handleErrors(async (req, res) => {
   const { txId, owner, signature } = req.body;
 
   if (!txId || !owner || !signature) {
@@ -69,7 +70,7 @@ router.post('/sign', handleErrors(async (req, res) => {
  * POST /api/multisig/execute
  * Execute a transaction that has reached threshold
  */
-router.post('/execute', handleErrors(async (req, res) => {
+router.post('/execute', strictDDoSGuard(), handleErrors(async (req, res) => {
   const { txId } = req.body;
 
   if (!txId) {

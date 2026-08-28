@@ -26,7 +26,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     error NotBeneficiaryOrOwner();
     error NotGuardian();
     error InvalidTimelockDelay();
-    error VestingRevoked();
+    error VestingIsRevoked();
     error NotRevocable();
     error AlreadyRevoked();
 
@@ -183,7 +183,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
         VestingSchedule storage schedule = _schedules[vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert VestingIsRevoked();
         if (msg.sender != schedule.beneficiary && msg.sender != owner()) revert NotBeneficiaryOrOwner();
         if (_hasPendingRelease[vestingId]) revert ReleaseAlreadyQueued();
 
@@ -218,7 +218,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (block.timestamp < rel.executeAfter) revert TimelockNotExpired();
 
         VestingSchedule storage schedule = _schedules[rel.vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert VestingIsRevoked();
 
         rel.status = ReleaseStatus.Executed;
         _hasPendingRelease[rel.vestingId] = false;
@@ -257,7 +257,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
         if (amount == 0) revert ZeroAmount();
 
         VestingSchedule storage schedule = _schedules[vestingId];
-        if (schedule.revoked) revert VestingRevoked();
+        if (schedule.revoked) revert VestingIsRevoked();
         if (_hasPendingRelease[vestingId]) revert ReleaseAlreadyQueued();
 
         uint256 remaining = schedule.totalAmount - schedule.releasedAmount;
