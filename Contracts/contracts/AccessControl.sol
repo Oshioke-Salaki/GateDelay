@@ -1,8 +1,48 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+// -----------------------------------------------------------------------------
+// Build verification (issue #585)
+// -----------------------------------------------------------------------------
+// Confirmed forge build path (run from the repo root Contracts/ directory):
+//
+//   $ forge build
+//
+// Requirements:
+//   - Foundry installed (https://getfoundry.sh)  — `foundryup` to update
+//   - solc 0.8.20+ (auto-detected via foundry.toml `auto_detect_solc = true`)
+//   - No external dependencies; contract is self-contained
+//
+// Expected output:
+//   Compiling 1 files with solc 0.8.x
+//   Compiler run successful!
+//   Artifacts written to Contracts/out/AccessControl.sol/
+//
+// Phase 2 dependency note:
+//   Integration tests that deploy AccessControl alongside Market contracts
+//   require MAINNET_RPC_URL to be set in the environment (see foundry.toml
+//   [rpc_endpoints] section).  Local-only unit tests have no network deps.
+// -----------------------------------------------------------------------------
+
 /// @title AccessControl
-/// @notice Comprehensive access control system with role-based permissions.
+/// @notice Comprehensive role-based access control (RBAC) system for GateDelay.
+/// @dev    Roles are identified by their keccak256 hash.  The deployer is
+///         automatically granted ADMIN_ROLE at construction time.
+///
+///         Role hierarchy
+///         --------------
+///         ADMIN_ROLE    — full administrative permissions (grant/revoke roles,
+///                         set descriptions)
+///         MANAGER_ROLE  — elevated operational permissions
+///         OPERATOR_ROLE — day-to-day operational permissions
+///         USER_ROLE     — basic end-user permissions
+///
+///         All mutating role-management calls emit the corresponding
+///         {RoleGranted} or {RoleRevoked} event so off-chain indexers can
+///         maintain an accurate permission map.
+///
+/// @custom:build  forge build  (from Contracts/ directory)
+/// @custom:test   forge test   (from Contracts/ directory)
 contract AccessControl {
     // -------------------------------------------------------------------------
     // Custom errors

@@ -2,9 +2,13 @@
   "name": "gatedelay-localnet",
   "version": "0.1.0",
   "private": true,
+  "description": "Hardhat localnet environment for GateDelay. Cache strategy: npm ci uses the npm cache (~/.npm) keyed on package-lock.json; Hardhat compilation artefacts are cached in cache/ and artifacts/ — both are git-ignored. See LOCALNET.md for the full caching strategy (issue #587).",
   "scripts": {
     "node": "hardhat node",
-    "deploy": "hardhat run --network localhost scripts/deploy.js"
+    "deploy": "hardhat run --network localhost scripts/deploy.js",
+    "compile": "hardhat compile",
+    "clean": "hardhat clean",
+    "clean:cache": "hardhat clean && rm -rf cache artifacts"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^3.0.0",
