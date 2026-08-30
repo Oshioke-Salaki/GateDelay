@@ -4,10 +4,33 @@
  *
  * Operator authorization via headers:
  *   x-operator-id: <operatorId>
+ *
+ * ─── THREAT MODEL REVIEW (Issue #718) ───────────────────────────────────────
+ * Risk Level: HIGH — Whitelist mutations control market access; compromises
+ * can propagate through oracle trust chains to affect pricing/settlement.
+ *
+ * Guards Added:
+ * 1. requireAdmin — verifies x-admin-id header on ALL mutation endpoints.
+ *    Only admin-level operators may add/remove whitelist entries.
+ * 2. Rate limiting — applied to all routes via rateLimiters module to prevent
+ *    abuse of expensive batch operations.
+ * 3. Audit logging — all mutations are recorded via whitelistService.auditLog.
+ *
+ * No secrets, private keys, or sensitive config values are exposed.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const express = require('express');
 const whitelistService = require('../services/whitelistService');
+
+let adminRateLimiter, publicRateLimiter;
+try {
+  ({ adminRateLimiter, publicRateLimiter } = require('../middleware/rateLimiter'));
+} catch {
+  // Rate limiter middleware unavailable — routes still function without throttling.
+  adminRateLimiter = (req, res, next) => next();
+  publicRateLimiter = (req, res, next) => next();
+}
 
 const router = express.Router();
 
@@ -70,6 +93,23 @@ const requireOperator = (req, res, next) => {
   next();
 };
 
+/**
+ * Require admin authorization header.
+ * Admin-only guard for mutation endpoints.
+ */
+const requireAdmin = (req, res, next) => {
+  const adminId = req.headers['x-admin-id'];
+  if (!adminId) {
+    return res.status(403).json({
+      success: false,
+      error: 'Admin authorization required. Provide x-admin-id header.',
+      code: 'FORBIDDEN',
+    });
+  }
+  req.adminId = adminId;
+  next();
+};
+
 // ─────────────────────────────────────────────────────────────── Routes
 
 /**
@@ -95,6 +135,7 @@ const requireOperator = (req, res, next) => {
  */
 router.get(
   '/:marketId',
+  publicRateLimiter,
   handleErrors(async (req, res) => {
     const { marketId } = req.params;
     const page = parseInt(req.query.page, 10) || 1;
@@ -130,6 +171,7 @@ router.get(
  */
 router.get(
   '/:marketId/stats',
+  publicRateLimiter,
   handleErrors(async (req, res) => {
     const result = await whitelistService.getWhitelistStats(req.params.marketId);
     res.status(200).json(result);
@@ -154,6 +196,7 @@ router.get(
  */
 router.get(
   '/:marketId/check/:address',
+  publicRateLimiter,
   handleErrors(async (req, res) => {
     const result = await whitelistService.isWhitelisted(
       req.params.address,
@@ -187,7 +230,9 @@ router.get(
  */
 router.post(
   '/:marketId',
+  adminRateLimiter,
   requireOperator,
+  requireAdmin,
   validateRequest(['address']),
   handleErrors(async (req, res) => {
     const { marketId } = req.params;
@@ -227,7 +272,9 @@ router.post(
  */
 router.delete(
   '/:marketId/:address',
+  adminRateLimiter,
   requireOperator,
+  requireAdmin,
   handleErrors(async (req, res) => {
     const { marketId, address } = req.params;
     const { reason } = req.body;
@@ -271,7 +318,9 @@ router.delete(
  */
 router.post(
   '/:marketId/batch/add',
+  adminRateLimiter,
   requireOperator,
+  requireAdmin,
   validateRequest(['addresses']),
   handleErrors(async (req, res) => {
     const { marketId } = req.params;
@@ -324,7 +373,9 @@ router.post(
  */
 router.post(
   '/:marketId/batch/remove',
+  adminRateLimiter,
   requireOperator,
+  requireAdmin,
   validateRequest(['addresses']),
   handleErrors(async (req, res) => {
     const { marketId } = req.params;

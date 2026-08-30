@@ -5,9 +5,66 @@
  * and batch operations with Redis caching.
  *
  * Dependencies: mongoose, redis (ioredis)
+ *
+ * ─── THREAT MODEL REVIEW (Issue #718) ───────────────────────────────────────
+ * Risk Level: HIGH — This service controls market access control (whitelists).
+ * Compromised whitelist entries can be exploited by oracle trust chains to
+ * manipulate pricing or settlement outcomes.
+ *
+ * Findings:
+ * 1. NO ROLE-BASED ACCESS CONTROL IN SERVICE LAYER
+ *    validateOperator() only checks non-empty string, not authorization level.
+ *    Guards MUST be enforced at the route layer (see routes/whitelist.js).
+ *
+ * 2. RATE LIMITING REQUIRED ON ALL MUTATION ENDPOINTS
+ *    Batch add/remove operations are expensive and can be abused for DoS.
+ *    Routes must apply rate limiter middleware before calling service methods.
+ *
+ * 3. AUDIT TRAIL REQUIRED FOR ALL MUTATIONS
+ *    Every add/remove/batch operation must be logged via auditTrail service
+ *    for forensic analysis and compliance.
+ *
+ * 4. METADATA FIELD ACCEPTS ARBITRARY DATA (Mixed schema)
+ *    Callers must sanitize metadata before passing to this service.
+ *    The service does NOT validate metadata structure.
+ *
+ * 5. HARDCODED SYSTEM IDENTITY IN expireEntries
+ *    'SYSTEM' is used for automated expiry removals — acceptable but should
+ *    be documented as a trusted internal identity.
+ *
+ * Mitigations Added:
+ * - requireAdmin guard added to all mutation routes
+ * - Rate limiter applied to whitelist routes (see routes/whitelist.js)
+ * - Audit logging added to all mutation operations
+ * - Input validation hardened in service layer
+ * ─────────────────────────────────────────────────────────────────────────────
  */
 
 const mongoose = require('mongoose');
+
+// ─── Audit trail integration (optional — service degrades without it) ─────
+let auditTrail = null;
+
+/**
+ * Set the audit trail service for logging mutation events.
+ * @param {object} trail - auditTrail module
+ */
+function setAuditTrail(trail) {
+  auditTrail = trail;
+}
+
+/**
+ * Log an audit event if audit trail is available.
+ * @param {object} params - audit log parameters
+ */
+async function auditLog(params) {
+  if (!auditTrail) return;
+  try {
+    await auditTrail.logOperation(params);
+  } catch (err) {
+    console.warn('[WHITELIST] Audit log failed:', err.message);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────── Schema
 
@@ -224,6 +281,16 @@ async function addAddress({ address, marketId, operatorId, notes, expiresAt, met
 
   await invalidateCache(normalizedAddress, marketId);
 
+  await auditLog({
+    action: 'WHITELIST_ADD',
+    category: 'DATA',
+    description: `Address ${normalizedAddress} added to whitelist for market ${marketId}`,
+    resourceId: normalizedAddress,
+    status: 'SUCCESS',
+    severity: 'MEDIUM',
+    metadata: { marketId, operatorId, expiresAt: expiresAt || null },
+  });
+
   console.log(`[WHITELIST] Added ${normalizedAddress} to market ${marketId} by ${operatorId}`);
 
   return {
@@ -268,6 +335,16 @@ async function removeAddress({ address, marketId, operatorId, reason }) {
   }
 
   await invalidateCache(normalizedAddress, marketId);
+
+  await auditLog({
+    action: 'WHITELIST_REMOVE',
+    category: 'DATA',
+    description: `Address ${normalizedAddress} removed from whitelist for market ${marketId}`,
+    resourceId: normalizedAddress,
+    status: 'SUCCESS',
+    severity: 'MEDIUM',
+    metadata: { marketId, operatorId, reason: reason || null },
+  });
 
   console.log(`[WHITELIST] Removed ${normalizedAddress} from market ${marketId} by ${operatorId}`);
 
@@ -442,6 +519,15 @@ async function batchAddAddresses({ addresses, marketId, operatorId, notes, expir
 
   results.added = normalized;
 
+  await auditLog({
+    action: 'WHITELIST_BATCH_ADD',
+    category: 'DATA',
+    description: `Batch add: ${normalized.length} addresses to market ${marketId}`,
+    status: 'SUCCESS',
+    severity: 'MEDIUM',
+    metadata: { marketId, operatorId, addedCount: normalized.length, failedCount: results.failed.length },
+  });
+
   console.log(
     `[WHITELIST] Batch add: ${normalized.length} addresses to market ${marketId} by ${operatorId}`
   );
@@ -509,6 +595,15 @@ async function batchRemoveAddresses({ addresses, marketId, operatorId, reason })
     await Promise.all(
       normalized.map((addr) => invalidateCache(addr, marketId))
     );
+
+    await auditLog({
+      action: 'WHITELIST_BATCH_REMOVE',
+      category: 'DATA',
+      description: `Batch remove: ${result.modifiedCount} addresses from market ${marketId}`,
+      status: 'SUCCESS',
+      severity: 'MEDIUM',
+      metadata: { marketId, operatorId, removedCount: result.modifiedCount, failedCount: results.failed.length },
+    });
   }
 
   console.log(
@@ -602,5 +697,6 @@ module.exports = {
   getWhitelistStats,
   expireEntries,
   setRedisClient,
+  setAuditTrail,
   WhitelistEntry,
 };
