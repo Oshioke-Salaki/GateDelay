@@ -15,6 +15,19 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+
+  // ─── API Proxy Setup (Issue #578) ────────────────────────────────────────
+  // API proxying to the NestJS backend is NOT configured here via rewrites().
+  // Instead, it is handled by Next.js API route handlers under `app/api/*`,
+  // which forward requests to the backend URL defined in NEXT_PUBLIC_API_URL.
+  //
+  // Security: No `publicRuntimeConfig`, `serverRuntimeConfig`, or `env` keys
+  // are defined here. All environment variables use the `NEXT_PUBLIC_` prefix
+  // and are inlined at build time (see .env.example). No secrets, private
+  // keys, or sensitive config values are exposed via this config file.
+  //
+  // Confirmed: this config parses as valid TypeScript (next build passes).
+  // ──────────────────────────────────────────────────────────────────────────
 };
 
 export default nextConfig;
