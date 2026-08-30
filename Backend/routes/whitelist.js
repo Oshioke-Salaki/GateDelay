@@ -25,7 +25,10 @@ const whitelistService = require('../services/whitelistService');
 
 let adminRateLimiter, publicRateLimiter;
 try {
-  ({ adminRateLimiter, publicRateLimiter } = require('../middleware/rateLimiter'));
+  ({
+    adminRateLimiter,
+    publicRateLimiter,
+  } = require('../middleware/rateLimiter'));
 } catch {
   // Rate limiter middleware unavailable — routes still function without throttling.
   adminRateLimiter = (req, res, next) => next();
@@ -46,11 +49,12 @@ const handleErrors = (fn) => async (req, res, next) => {
     console.error('Whitelist Route Error:', error.message);
 
     // Address validation errors are 400
-    const status = error.message.includes('Invalid Ethereum address') ||
+    const status =
+      error.message.includes('Invalid Ethereum address') ||
       error.message.includes('required') ||
       error.message.includes('Batch size')
-      ? 400
-      : 400;
+        ? 400
+        : 400;
 
     res.status(status).json({
       success: false,
@@ -65,7 +69,8 @@ const handleErrors = (fn) => async (req, res, next) => {
  */
 const validateRequest = (requiredFields) => (req, res, next) => {
   const missing = requiredFields.filter(
-    (f) => req.body[f] === undefined || req.body[f] === null || req.body[f] === ''
+    (f) =>
+      req.body[f] === undefined || req.body[f] === null || req.body[f] === '',
   );
   if (missing.length > 0) {
     return res.status(400).json({
@@ -150,7 +155,7 @@ router.get(
     });
 
     res.status(200).json(result);
-  })
+  }),
 );
 
 /**
@@ -173,9 +178,11 @@ router.get(
   '/:marketId/stats',
   publicRateLimiter,
   handleErrors(async (req, res) => {
-    const result = await whitelistService.getWhitelistStats(req.params.marketId);
+    const result = await whitelistService.getWhitelistStats(
+      req.params.marketId,
+    );
     res.status(200).json(result);
-  })
+  }),
 );
 
 /**
@@ -200,10 +207,10 @@ router.get(
   handleErrors(async (req, res) => {
     const result = await whitelistService.isWhitelisted(
       req.params.address,
-      req.params.marketId
+      req.params.marketId,
     );
     res.status(200).json(result);
-  })
+  }),
 );
 
 /**
@@ -248,7 +255,7 @@ router.post(
     });
 
     res.status(201).json(result);
-  })
+  }),
 );
 
 /**
@@ -287,7 +294,7 @@ router.delete(
     });
 
     res.status(200).json(result);
-  })
+  }),
 );
 
 /**
@@ -343,7 +350,7 @@ router.post(
     });
 
     res.status(200).json(result);
-  })
+  }),
 );
 
 /**
@@ -397,7 +404,7 @@ router.post(
     });
 
     res.status(200).json(result);
-  })
+  }),
 );
 
 module.exports = router;

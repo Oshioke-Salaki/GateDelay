@@ -121,7 +121,7 @@ const WhitelistEntrySchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Compound unique index: one active entry per address+market
@@ -168,7 +168,7 @@ async function cacheResult(address, marketId, isMember) {
     await redisClient.setex(
       cacheKey(address, marketId),
       CACHE_TTL,
-      isMember ? '1' : '0'
+      isMember ? '1' : '0',
     );
   } catch (err) {
     console.warn('[WHITELIST] Redis cache write failed:', err.message);
@@ -233,7 +233,11 @@ function normalizeAddress(address) {
  * @throws {Error}
  */
 function validateOperator(operatorId) {
-  if (!operatorId || typeof operatorId !== 'string' || operatorId.trim() === '') {
+  if (
+    !operatorId ||
+    typeof operatorId !== 'string' ||
+    operatorId.trim() === ''
+  ) {
     throw new Error('operatorId is required');
   }
 }
@@ -252,7 +256,14 @@ function validateOperator(operatorId) {
  * @param {object} [params.metadata] - Optional extra data
  * @returns {Promise<object>}
  */
-async function addAddress({ address, marketId, operatorId, notes, expiresAt, metadata }) {
+async function addAddress({
+  address,
+  marketId,
+  operatorId,
+  notes,
+  expiresAt,
+  metadata,
+}) {
   validateOperator(operatorId);
 
   if (!marketId || typeof marketId !== 'string') {
@@ -276,7 +287,7 @@ async function addAddress({ address, marketId, operatorId, notes, expiresAt, met
         removedBy: null,
       },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
   await invalidateCache(normalizedAddress, marketId);
@@ -291,7 +302,9 @@ async function addAddress({ address, marketId, operatorId, notes, expiresAt, met
     metadata: { marketId, operatorId, expiresAt: expiresAt || null },
   });
 
-  console.log(`[WHITELIST] Added ${normalizedAddress} to market ${marketId} by ${operatorId}`);
+  console.log(
+    `[WHITELIST] Added ${normalizedAddress} to market ${marketId} by ${operatorId}`,
+  );
 
   return {
     success: true,
@@ -325,12 +338,12 @@ async function removeAddress({ address, marketId, operatorId, reason }) {
         notes: reason || null,
       },
     },
-    { new: true }
+    { new: true },
   );
 
   if (!entry) {
     throw new Error(
-      `Address ${normalizedAddress} is not on the whitelist for market ${marketId}`
+      `Address ${normalizedAddress} is not on the whitelist for market ${marketId}`,
     );
   }
 
@@ -346,7 +359,9 @@ async function removeAddress({ address, marketId, operatorId, reason }) {
     metadata: { marketId, operatorId, reason: reason || null },
   });
 
-  console.log(`[WHITELIST] Removed ${normalizedAddress} from market ${marketId} by ${operatorId}`);
+  console.log(
+    `[WHITELIST] Removed ${normalizedAddress} from market ${marketId} by ${operatorId}`,
+  );
 
   return {
     success: true,
@@ -413,7 +428,12 @@ async function isWhitelisted(address, marketId) {
  * @param {number} [params.limit]
  * @returns {Promise<object>}
  */
-async function getWhitelistForMarket({ marketId, includeExpired = false, page = 1, limit = 50 }) {
+async function getWhitelistForMarket({
+  marketId,
+  includeExpired = false,
+  page = 1,
+  limit = 50,
+}) {
   if (!marketId) throw new Error('marketId is required');
 
   const filter = { marketId, active: true };
@@ -455,7 +475,13 @@ async function getWhitelistForMarket({ marketId, includeExpired = false, page = 
  * @param {Date|string} [params.expiresAt]
  * @returns {Promise<object>}
  */
-async function batchAddAddresses({ addresses, marketId, operatorId, notes, expiresAt }) {
+async function batchAddAddresses({
+  addresses,
+  marketId,
+  operatorId,
+  notes,
+  expiresAt,
+}) {
   validateOperator(operatorId);
 
   if (!Array.isArray(addresses) || addresses.length === 0) {
@@ -513,9 +539,7 @@ async function batchAddAddresses({ addresses, marketId, operatorId, notes, expir
   await WhitelistEntry.bulkWrite(bulkOps, { ordered: false });
 
   // Invalidate cache for all added addresses
-  await Promise.all(
-    normalized.map((addr) => invalidateCache(addr, marketId))
-  );
+  await Promise.all(normalized.map((addr) => invalidateCache(addr, marketId)));
 
   results.added = normalized;
 
@@ -525,11 +549,16 @@ async function batchAddAddresses({ addresses, marketId, operatorId, notes, expir
     description: `Batch add: ${normalized.length} addresses to market ${marketId}`,
     status: 'SUCCESS',
     severity: 'MEDIUM',
-    metadata: { marketId, operatorId, addedCount: normalized.length, failedCount: results.failed.length },
+    metadata: {
+      marketId,
+      operatorId,
+      addedCount: normalized.length,
+      failedCount: results.failed.length,
+    },
   });
 
   console.log(
-    `[WHITELIST] Batch add: ${normalized.length} addresses to market ${marketId} by ${operatorId}`
+    `[WHITELIST] Batch add: ${normalized.length} addresses to market ${marketId} by ${operatorId}`,
   );
 
   return {
@@ -554,7 +583,12 @@ async function batchAddAddresses({ addresses, marketId, operatorId, notes, expir
  * @param {string} [params.reason]
  * @returns {Promise<object>}
  */
-async function batchRemoveAddresses({ addresses, marketId, operatorId, reason }) {
+async function batchRemoveAddresses({
+  addresses,
+  marketId,
+  operatorId,
+  reason,
+}) {
   validateOperator(operatorId);
 
   if (!Array.isArray(addresses) || addresses.length === 0) {
@@ -586,14 +620,14 @@ async function batchRemoveAddresses({ addresses, marketId, operatorId, reason })
           removedBy: operatorId,
           notes: reason || null,
         },
-      }
+      },
     );
 
     results.removed = normalized;
     results.removedCount = result.modifiedCount;
 
     await Promise.all(
-      normalized.map((addr) => invalidateCache(addr, marketId))
+      normalized.map((addr) => invalidateCache(addr, marketId)),
     );
 
     await auditLog({
@@ -602,12 +636,17 @@ async function batchRemoveAddresses({ addresses, marketId, operatorId, reason })
       description: `Batch remove: ${result.modifiedCount} addresses from market ${marketId}`,
       status: 'SUCCESS',
       severity: 'MEDIUM',
-      metadata: { marketId, operatorId, removedCount: result.modifiedCount, failedCount: results.failed.length },
+      metadata: {
+        marketId,
+        operatorId,
+        removedCount: result.modifiedCount,
+        failedCount: results.failed.length,
+      },
     });
   }
 
   console.log(
-    `[WHITELIST] Batch remove: ${results.removedCount || 0} addresses from market ${marketId} by ${operatorId}`
+    `[WHITELIST] Batch remove: ${results.removedCount || 0} addresses from market ${marketId} by ${operatorId}`,
   );
 
   return {
@@ -675,7 +714,7 @@ async function expireEntries() {
         removedBy: 'SYSTEM',
         notes: 'Expired automatically',
       },
-    }
+    },
   );
 
   const count = result.modifiedCount || 0;
