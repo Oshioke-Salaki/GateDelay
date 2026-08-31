@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MarketFactory.sol";
-import "../src/PositionToken.sol";
+import "market-foundation/MarketFactory.sol";
+import "market-foundation/PositionToken.sol";
 
 contract MarketFactoryTest is Test {
-event MarketCreated(
-    address indexed market,
-    address indexed creator,
-    address indexed collateralToken,
-    uint256 resolutionDeadline
-);
+    event MarketCreated(
+        address indexed market,
+        address indexed creator,
+        address indexed collateralToken,
+        uint256 resolutionDeadline
+    );
 
     PositionToken internal positionToken;
     MarketFactory internal factory;
@@ -20,6 +20,22 @@ event MarketCreated(
     address internal validToken = address(0xC011A7);
 
     function setUp() public {
+        // Predict the factory deployment address so PositionToken can restrict
+        // authorisation calls to the MarketFactory instance.
+        uint256 factoryNonce = vm.getNonce(address(this)) + 1;
+        address predictedFactory = vm.computeCreateAddress(address(this), factoryNonce);
+        positionToken = new PositionToken(predictedFactory);
+        factory = new MarketFactory(address(positionToken));
+    }
+
+    function test_constructor_revertsWithZeroPositionToken() public {
+        vm.expectRevert(MarketFactory.ZeroPositionToken.selector);
+        new MarketFactory(address(0));
+    }
+
+    function test_constructor_revertsWithInvalidPositionToken() public {
+        vm.expectRevert(MarketFactory.InvalidPositionToken.selector);
+        new MarketFactory(address(1));
         // Predict the factory address so PositionToken can restrict authorisation
         // to the factory before either contract is deployed.
         uint256 nonce = vm.getNonce(address(this));
@@ -75,6 +91,18 @@ event MarketCreated(
     function test_constructor_revertsForZeroPositionToken() public {
         vm.expectRevert(MarketFactory.ZeroPositionToken.selector);
         new MarketFactory(address(0));
+    }
+
+    function test_createMarket_registersAndAuthorisesMarket() public {
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
+        address[] memory markets = factory.getMarkets();
+
+        assertEq(factory.getMarketCount(), 1);
+        assertEq(factory.getMarketAt(0), market);
+        assertEq(markets.length, 1);
+        assertEq(markets[0], market);
+        assertTrue(factory.isRegisteredMarket(market));
+        assertTrue(positionToken.isAuthorised(market));
     }
 
     // --- Registry: getCreator returns caller (Req 1.7, 1.9) ---

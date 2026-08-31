@@ -44,6 +44,8 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
+      - name: Build MarketFactory foundation
+        run: forge build --sizes src/MarketFactory.sol
       - name: Build Contracts
         run: forge build --contracts src/MarketCap.sol src/RoleManager.sol
 
@@ -61,15 +63,16 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
 
-  # ─── root test/ suite (uses root foundry.toml) ───────────────────────────
-  root-tests:
-    name: root test/ suite
-    runs-on: ubuntu-latest
+      - name: Verify MarketFactory ABI artifact
+        run: test -s out/MarketFactory.sol/MarketFactory.json && test -s out/PositionToken.sol/PositionToken.json
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Upload market foundation ABIs
+        uses: actions/upload-artifact@v4
         with:
+          name: market-foundation-abis
+          path: |
+            Contracts/out/MarketFactory.sol/MarketFactory.json
+            Contracts/out/PositionToken.sol/PositionToken.json
           submodules: recursive
 
       - name: Install Foundry (pinned version)
@@ -85,6 +88,11 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
 
+      - name: Prepare isolated MarketFactory test root
+        run: cp test/MarketFactory.t.sol test/marketfactory/MarketFactory.t.sol
+
+      - name: Run MarketFactory verification tests
+        run: forge test --root test/marketfactory -vvv
       - name: List test suites (root test-ci/)
         run: forge test --list --contracts Contracts/src/CircuitBreaker.sol
         env:
