@@ -1,6 +1,103 @@
 ﻿const winston = require('winston');
 const AuditLog = require('../models/AuditLog');
 
+// ─── THREAT MODEL REVIEW (Issue #705) ───────────────────────────────────────
+// Risk Level: HIGH — Audit trail is a security-critical subsystem.
+// Compromised audit logs can mask attacks or be used for denial of service.
+//
+// Findings:
+// 1. REGEX INJECTION (ReDoS) — queryAuditLogs() creates RegExp directly from
+//    user-supplied `action`, `search` params without sanitization. An attacker
+//    could craft a malicious regex to cause catastrophic backtracking.
+//    MITIGATION: escapeRegExp() helper applied to all regex inputs.
+//
+// 2. NO INPUT VALIDATION ON logOperation — category, status, severity params
+//    accept arbitrary strings. Invalid values would be persisted to DB and
+//    could poison analytics queries.
+//    MITIGATION: Allowlist validation added for category, status, severity.
+//
+// 3. NO RATE LIMITING ON QUERY/EXPORT — expensive aggregation queries (especially
+//    getAuditAnalytics and exportAuditLogs with limit=10000) have no throttling.
+//    Aligned with Backend/src/rate-limiter/ tiers: query endpoints should use
+//    'standard' tier (100/min), export should use 'elevated' tier (300/min).
+//    NOTE: Rate limiting must be applied at the route layer.
+//
+// 4. EXPORT CAP — exportAuditLogs caps at 10,000 records. This is documented
+//    but should be enforced at the route layer with query param validation.
+//
+// 5. NO SECRETS/PRIVATE KEYS — Confirmed: no secrets, keys, or .env values
+//    are present in this file.
+//
+// Alignment with rate-limiter policies:
+// - Backend/src/rate-limiter/rate-limiter.config.ts: standard=100/min, elevated=300/min
+// - Contracts/src/RateLimiter.sol: operator-protected recordOperation()
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Input validation constants ──────────────────────────────────────────────
+
+const VALID_CATEGORIES = [
+  'AUTH',
+  'USER',
+  'SYSTEM',
+  'DATA',
+  'SECURITY',
+  'EXPORT',
+];
+const VALID_STATUSES = ['SUCCESS', 'FAILURE', 'WARNING'];
+const VALID_SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+
+/**
+ * Escape special regex characters to prevent ReDoS attacks.
+ * @param {string} str - Raw user input
+ * @returns {string} Safely escaped string for use in RegExp constructor
+ */
+function escapeRegExp(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Validate and sanitize a logOperation params object.
+ * Throws on invalid required fields; sanitizes optional fields.
+ * @param {object} params
+ * @returns {object} Validated params
+ */
+function validateLogParams(params) {
+  const { action, category, description, status, severity } = params;
+
+  if (!action || typeof action !== 'string' || action.trim() === '') {
+    throw new Error(
+      'auditTrail: action is required and must be a non-empty string',
+    );
+  }
+  if (!category || !VALID_CATEGORIES.includes(category)) {
+    throw new Error(
+      `auditTrail: category must be one of: ${VALID_CATEGORIES.join(', ')}`,
+    );
+  }
+  if (
+    !description ||
+    typeof description !== 'string' ||
+    description.trim() === ''
+  ) {
+    throw new Error(
+      'auditTrail: description is required and must be a non-empty string',
+    );
+  }
+  if (status && !VALID_STATUSES.includes(status)) {
+    throw new Error(
+      `auditTrail: status must be one of: ${VALID_STATUSES.join(', ')}`,
+    );
+  }
+  if (severity && !VALID_SEVERITIES.includes(severity)) {
+    throw new Error(
+      `auditTrail: severity must be one of: ${VALID_SEVERITIES.join(', ')}`,
+    );
+  }
+
+  return params;
+}
+
 // ─── Winston logger setup ────────────────────────────────────────────────────
 
 const { combine, timestamp, json, errors } = winston.format;
@@ -46,6 +143,8 @@ const logger = winston.createLogger({
  * @returns {Promise<AuditLog>}
  */
 async function logOperation(params) {
+  validateLogParams(params);
+
   const {
     action,
     category,
@@ -81,7 +180,8 @@ async function logOperation(params) {
   };
 
   // Always write to Winston (even if DB is down)
-  const logLevel = severity === 'CRITICAL' || severity === 'HIGH' ? 'warn' : 'info';
+  const logLevel =
+    severity === 'CRITICAL' || severity === 'HIGH' ? 'warn' : 'info';
   logger[logLevel]('AUDIT', entry);
 
   // Persist to MongoDB
@@ -140,43 +240,56 @@ async function queryAuditLogs(filters = {}, options = {}) {
     sortOrder = 'desc',
   } = options;
 
+  const safePage = Math.max(1, Math.floor(Number(page) || 1));
+  const safeLimit = Math.min(Math.max(1, Math.floor(Number(limit) || 50)), 200);
+  const validSortFields = [
+    'createdAt',
+    'action',
+    'category',
+    'status',
+    'severity',
+  ];
+  const safeSortBy = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+  const safeSortOrder = sortOrder === 'asc' ? 1 : -1;
+
   const query = {};
 
-  if (userId)       query.userId       = userId;
-  if (category)     query.category     = category;
-  if (action)       query.action       = new RegExp(action, 'i');
-  if (status)       query.status       = status;
-  if (severity)     query.severity     = severity;
+  if (userId) query.userId = userId;
+  if (category) query.category = category;
+  if (action) query.action = new RegExp(escapeRegExp(action), 'i');
+  if (status) query.status = status;
+  if (severity) query.severity = severity;
   if (resourceType) query.resourceType = resourceType;
-  if (resourceId)   query.resourceId   = resourceId;
+  if (resourceId) query.resourceId = resourceId;
 
   if (startDate || endDate) {
     query.createdAt = {};
     if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate)   query.createdAt.$lte = new Date(endDate);
+    if (endDate) query.createdAt.$lte = new Date(endDate);
   }
 
   if (search) {
+    const safeSearch = escapeRegExp(search);
     query.$or = [
-      { description: new RegExp(search, 'i') },
-      { userEmail:   new RegExp(search, 'i') },
-      { action:      new RegExp(search, 'i') },
+      { description: new RegExp(safeSearch, 'i') },
+      { userEmail: new RegExp(safeSearch, 'i') },
+      { action: new RegExp(safeSearch, 'i') },
     ];
   }
 
-  const skip  = (page - 1) * limit;
-  const sort  = { [sortBy]: sortOrder === 'asc' ? 1 : -1 };
+  const skip = (safePage - 1) * safeLimit;
+  const sort = { [safeSortBy]: safeSortOrder };
 
   const [logs, total] = await Promise.all([
-    AuditLog.find(query).sort(sort).skip(skip).limit(limit).lean(),
+    AuditLog.find(query).sort(sort).skip(skip).limit(safeLimit).lean(),
     AuditLog.countDocuments(query),
   ]);
 
   return {
     logs,
     total,
-    page: Number(page),
-    pages: Math.ceil(total / limit),
+    page: safePage,
+    pages: Math.ceil(total / safeLimit),
   };
 }
 
@@ -191,10 +304,7 @@ async function getAuditLogById(id) {
  * Fetch recent activity for a specific user.
  */
 async function getUserActivity(userId, limit = 20) {
-  return AuditLog.find({ userId })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+  return AuditLog.find({ userId }).sort({ createdAt: -1 }).limit(limit).lean();
 }
 
 // ─── Analytics ───────────────────────────────────────────────────────────────
@@ -214,7 +324,7 @@ async function getAuditAnalytics(options = {}) {
   if (startDate || endDate) {
     matchStage.createdAt = {};
     if (startDate) matchStage.createdAt.$gte = new Date(startDate);
-    if (endDate)   matchStage.createdAt.$lte = new Date(endDate);
+    if (endDate) matchStage.createdAt.$lte = new Date(endDate);
   }
 
   const [
@@ -261,16 +371,18 @@ async function getAuditAnalytics(options = {}) {
         $match: {
           ...matchStage,
           createdAt: {
-            $gte: startDate ? new Date(startDate) : new Date(Date.now() - 30 * 86400000),
+            $gte: startDate
+              ? new Date(startDate)
+              : new Date(Date.now() - 30 * 86400000),
           },
         },
       },
       {
         $group: {
           _id: {
-            year:  { $year: '$createdAt' },
+            year: { $year: '$createdAt' },
             month: { $month: '$createdAt' },
-            day:   { $dayOfMonth: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' },
           },
           count: { $sum: 1 },
         },
@@ -279,22 +391,26 @@ async function getAuditAnalytics(options = {}) {
     ]),
   ]);
 
-  const successCount = (byStatus.find((s) => s._id === 'SUCCESS') || {}).count || 0;
-  const failureCount = (byStatus.find((s) => s._id === 'FAILURE') || {}).count || 0;
+  const successCount =
+    (byStatus.find((s) => s._id === 'SUCCESS') || {}).count || 0;
+  const failureCount =
+    (byStatus.find((s) => s._id === 'FAILURE') || {}).count || 0;
 
   return {
     summary: {
-      totalEvents:    totalCount,
+      totalEvents: totalCount,
       successCount,
       failureCount,
-      successRate:    totalCount ? ((successCount / totalCount) * 100).toFixed(2) : '0.00',
+      successRate: totalCount
+        ? ((successCount / totalCount) * 100).toFixed(2)
+        : '0.00',
     },
-    byCategory:    byCategory.map((i) => ({ category: i._id, count: i.count })),
-    byStatus:      byStatus.map((i) => ({ status: i._id, count: i.count })),
-    bySeverity:    bySeverity.map((i) => ({ severity: i._id, count: i.count })),
-    topActions:    topActions.map((i) => ({ action: i._id, count: i.count })),
+    byCategory: byCategory.map((i) => ({ category: i._id, count: i.count })),
+    byStatus: byStatus.map((i) => ({ status: i._id, count: i.count })),
+    bySeverity: bySeverity.map((i) => ({ severity: i._id, count: i.count })),
+    topActions: topActions.map((i) => ({ action: i._id, count: i.count })),
     dailyActivity: dailyActivity.map((i) => ({
-      date:  `${i._id.year}-${String(i._id.month).padStart(2, '0')}-${String(i._id.day).padStart(2, '0')}`,
+      date: `${i._id.year}-${String(i._id.month).padStart(2, '0')}-${String(i._id.day).padStart(2, '0')}`,
       count: i.count,
     })),
   };
@@ -325,13 +441,23 @@ async function exportAuditLogs(filters = {}, format = 'json') {
 
   if (format === 'csv') {
     const headers = [
-      'id', 'action', 'category', 'userId', 'userEmail',
-      'resourceType', 'resourceId', 'description',
-      'status', 'severity', 'ipAddress', 'createdAt',
+      'id',
+      'action',
+      'category',
+      'userId',
+      'userEmail',
+      'resourceType',
+      'resourceId',
+      'description',
+      'status',
+      'severity',
+      'ipAddress',
+      'createdAt',
     ];
-    const escape = (v) => (v == null ? '' : `"${String(v).replace(/"/g, '""')}"`);
+    const escape = (v) =>
+      v == null ? '' : `"${String(v).replace(/"/g, '""')}"`;
     const rows = logs.map((l) =>
-      headers.map((h) => escape(h === 'id' ? l._id : l[h])).join(',')
+      headers.map((h) => escape(h === 'id' ? l._id : l[h])).join(','),
     );
     return [headers.join(','), ...rows].join('\n');
   }
@@ -346,7 +472,8 @@ async function exportAuditLogs(filters = {}, format = 'json') {
  * (The TTL index handles this automatically; this is for on-demand use.)
  */
 async function purgeOldLogs(days = 365) {
-  const cutoff = new Date(Date.now() - days * 86400000);
+  const safeDays = Math.max(1, Math.floor(Number(days) || 365));
+  const cutoff = new Date(Date.now() - safeDays * 86400000);
   const result = await AuditLog.deleteMany({ createdAt: { $lt: cutoff } });
 
   logger.info('AUDIT_PURGE', { deletedCount: result.deletedCount, cutoff });
@@ -379,6 +506,13 @@ module.exports = {
 
   // Maintenance
   purgeOldLogs,
+
+  // Validation helpers (exported for testing)
+  escapeRegExp,
+  validateLogParams,
+  VALID_CATEGORIES,
+  VALID_STATUSES,
+  VALID_SEVERITIES,
 
   // Logger (for external use / testing)
   logger,
