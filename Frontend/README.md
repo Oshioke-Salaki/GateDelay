@@ -119,6 +119,7 @@ npm run dev
 - [`Frontend/.env.example`](.env.example) — all frontend required keys
 - [`Backend/README.md`](../Backend/README.md) — backend setup and runbook
 - [WEBSOCKET_QUICKSTART.md](WEBSOCKET_QUICKSTART.md) — WebSocket layer details
+- [TRADING_INTERFACE_DOCUMENTATION.md](TRADING_INTERFACE_DOCUMENTATION.md) — `/trade/[id]` shell map
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — wallet env vars and port details
 
 ## Learn More
@@ -227,6 +228,42 @@ Adding a route to the navbar means adding it to `NAV_LINKS` in
 `components/layout/Navigation.tsx`; the desktop row and the mobile drawer both
 render from that one array.
 
+## The `/trade/[id]` route (trading interface)
+
+[TRADING_INTERFACE_DOCUMENTATION.md](TRADING_INTERFACE_DOCUMENTATION.md) is the
+contributor map for the trading-interface **page shell**. It is not a second
+app: `app/trade/[id]/page.tsx` renders inside the same `app/layout.tsx` tree as
+`/`, `/dashboard`, and `/wallet` (error boundary → theme/toasts/query →
+`ParticleClientWrapper` → `WebSocketProvider` → `Navbar` → page).
+
+Wallet connect and navigation therefore come from the shell, not from the
+trading components. Open `/` or `/trade/market-1` and the navbar + **Connect
+Wallet** are already mounted. Particle credentials are optional; without them
+the default wrapper is `UnconfiguredWalletRoot` (Wagmi + no-op ConnectKit
+bridge) so first paint is never a blank screen.
+
+`/trade/[id]` is **not** `/markets/[id]`. The market-detail page is a separate
+YES/NO ticket UI. The trading interface is a chart / order-book / order-panel
+layout driven by a local demo catalog (`DEMO_TRADE_MARKETS`: `market-1`,
+`market-2`, `market-3`). There is no `GET /api/markets/:id` proxy. An unknown
+id shows **Market not found** instead of substituting another row. Chart, book,
+trades, positions, and the $1000 balance are in-component fixtures; order
+submit is a local toast, not a Backend or contract call. `MarketInfo` can
+overlay a live `/prices` tick when the layout WebSocket is connected and shows
+**OFFLINE** when it is not.
+
+The wallet address passed into `TradingInterface` is `useConnectKitBridge()` —
+the same context as the navbar button — never a hard-coded `0x1234…` string.
+
+**Tests.** `app/trade/[id]/page.test.tsx` — known market + Connect Wallet (no
+fake address), positions only when the bridge has an address, unknown id error.
+
+```bash
+npx vitest run app/trade
+```
+
+Manual first-load checklist (wallet, nav, and this route) lives in
+[TRADING_INTERFACE_DOCUMENTATION.md](TRADING_INTERFACE_DOCUMENTATION.md).
 ## Settings (`/settings`) and SETTINGS_SUMMARY.md
 
 [`SETTINGS_SUMMARY.md`](SETTINGS_SUMMARY.md) is the resolution-status map for
@@ -435,6 +472,8 @@ unexpected fault). Run with `npm test` or `npx vitest run app/api/ipfs`.
 cd Frontend
 cp .env.example .env.local   # set NEXT_PUBLIC_API_URL / BACKEND_URL as needed
 npm install
+npm test                     # includes the five route suites above
+npm run dev                  # open /, /trade/market-1, /audit, /wallet, /markets/create
 npm test                     # includes the IPFS pin suite and other route suites above
 npm run dev                  # open /, /audit, /wallet, /markets/create
 ```
@@ -442,6 +481,12 @@ npm run dev                  # open /, /audit, /wallet, /markets/create
 Manual checklist:
 
 1. `/` and navbar render; wallet button mounts (ConnectKit optional without Particle env).
+2. `/trade/market-1` renders inside that same chrome; `/trade/does-not-exist` shows **Market not found**.
+3. `/audit` loads without console errors; audit proxy errors show in the viewer when the backend is down.
+4. Market detail shows sentiment error/retry (not a blank card) when AI is down; "Live" appears when the WebSocket is connected.
+5. `/wallet` propose → sign (threshold) → execute shows `TransactionExecuted(...)`.
+6. `/markets/create` upload returns a non-localhost gateway URL; opening that URL in the gateway route shows the uploaded metadata.
+7. Hitting `/api/ipfs/gateway/` with an empty hash returns a JSON `VALIDATION_ERROR`, never a blank screen.
 2. `/audit` loads without console errors; audit proxy errors show in the viewer when the backend is down.
 3. Market detail shows sentiment error/retry (not a blank card) when AI is down; "Live" appears when the WebSocket is connected.
 4. `/wallet` propose → sign (threshold) → execute shows `TransactionExecuted(...)`.

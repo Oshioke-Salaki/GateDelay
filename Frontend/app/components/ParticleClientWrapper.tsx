@@ -82,6 +82,7 @@ import { UnconfiguredWalletRoot } from "./UnconfiguredWalletRoot";
  *
  * Always mounts Wagmi + a no-op ConnectKit bridge so first load never imports
  * `@particle-network/connectkit` (AWS → `node:fs`) into the Turbopack client
+ * graph. Navbar, Connect Wallet, and route children render on first paint.
  * graph. A previous merge left this file concatenated with a second
  * `ParticleClientWrapper` export, which broke `npm run dev` and blanked every
  * route including `/settings`.

@@ -1,11 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
+import { useConnectKitBridge } from "@/app/components/ConnectKitBridgeContext";
 import TradingInterface, { Market } from "@/app/components/trade/TradingInterface";
 
-// ─── Mock Market Data ─────────────────────────────────────────────────────────
-
-const MOCK_MARKETS: Record<string, Market> = {
+/**
+ * Local demo catalog for `/trade/[id]`.
+ *
+ * These rows are UI fixtures so the trading-interface shell can render without
+ * a Backend or chain. They are not live LMSR/CLOB reads and must not be
+ * documented as such. There is no `GET /api/markets/:id` proxy in this app.
+ */
+export const DEMO_TRADE_MARKETS: Record<string, Market> = {
     "market-1": {
         id: "market-1",
         name: "AA 1234 - JFK to LAX",
@@ -47,17 +54,54 @@ const MOCK_MARKETS: Record<string, Market> = {
     },
 };
 
-// ─── Trade Page ───────────────────────────────────────────────────────────────
+export const DEMO_TRADE_MARKET_IDS = Object.keys(DEMO_TRADE_MARKETS);
 
 export default function TradePage({ params }: { params: { id: string } }) {
-    const market = MOCK_MARKETS[params.id] || MOCK_MARKETS["market-1"];
+    const { address } = useConnectKitBridge();
+    const market = DEMO_TRADE_MARKETS[params.id];
 
-    // Mock user address - in production, get from wallet connection
-    const userAddress = "0x1234567890abcdef1234567890abcdef12345678";
+    if (!market) {
+        return (
+            <main className="mx-auto max-w-xl px-4 py-12 space-y-4">
+                <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+                    Market not found
+                </h1>
+                <p style={{ color: "var(--muted)" }}>
+                    No demo market is registered for{" "}
+                    <code className="font-mono">{params.id}</code>. The trading
+                    interface does not invent a substitute row or fall back to
+                    another market.
+                </p>
+                <p className="text-sm" style={{ color: "var(--muted)" }}>
+                    Known demo IDs: {DEMO_TRADE_MARKET_IDS.join(", ")}.
+                </p>
+                <div className="flex flex-wrap gap-3 pt-2">
+                    <Link
+                        href="/trade/market-1"
+                        className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+                        style={{ background: "#3b82f6" }}
+                    >
+                        Open market-1
+                    </Link>
+                    <Link
+                        href="/dashboard"
+                        className="rounded-lg px-4 py-2 text-sm font-medium"
+                        style={{
+                            background: "var(--card)",
+                            border: "1px solid var(--border)",
+                            color: "var(--foreground)",
+                        }}
+                    >
+                        Back to Markets
+                    </Link>
+                </div>
+            </main>
+        );
+    }
 
     return (
         <PageErrorBoundary>
-            <TradingInterface market={market} userAddress={userAddress} />
+            <TradingInterface market={market} userAddress={address} />
         </PageErrorBoundary>
     );
 }
