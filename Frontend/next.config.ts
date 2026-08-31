@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
   // Emits `.next/standalone` with a self-contained `server.js` and only the
   // node_modules actually traced from the build. The Dockerfile's runtime stage
   // copies that instead of the full dependency tree, which is what keeps the
