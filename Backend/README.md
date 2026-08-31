@@ -121,9 +121,7 @@ $ npm run build
 
 ## Project setup
 
-```bash
-$ npm install
-```
+Node.js/TypeScript backend for the GateDelay flight-delay derivatives platform.
 
 ## AML Compliance Endpoint
 
@@ -398,6 +396,11 @@ cd Backend
 npm install
 npm run test:api-example
 ```
+GET http://localhost:4000/health
+→ { "status": "ok", "timestamp": "..." }
+```
+
+### What server.js provides
 
 Expected console output includes:
 
