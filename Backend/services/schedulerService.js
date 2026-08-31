@@ -22,7 +22,7 @@ const agenda = new Agenda({ db: { address: process.env.MONGODB_URI || 'mongodb:/
 
 class SchedulerService {
   constructor() {
-    this.initAgenda();
+    this.ready = this.initAgenda();
   }
 
   async initAgenda() {

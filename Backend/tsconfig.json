@@ -1,4 +1,38 @@
 {
+  // #708 — tsconfig.json ↔ environment variable mapping
+  //
+  // This file is used by ALL environments (development, staging, production).
+  // The build output in `outDir` ("./dist") is what gets deployed; it is
+  // produced by `tsconfig.build.json` (which extends this file and adds the
+  // spec-file exclusions listed below).
+  //
+  // Staging vs production env-var differences are NOT expressed here.
+  // TypeScript compilation is environment-agnostic; runtime behaviour is
+  // controlled exclusively through the `.env` file or CI/CD secrets.
+  // Map of relevant env vars → where they are consumed at runtime:
+  //
+  //   NODE_ENV            → Backend/src/main.ts (NestJS bootstrap, "production"
+  //                          disables the Swagger UI and tightens CORS)
+  //   PORT                → Backend/src/main.ts (default: 4000)
+  //   MONGODB_URI         → Backend/src/app.module.ts / MongooseModule.forRoot
+  //   REDIS_URL           → Backend/config/rateLimits.js, jobs/*, middleware/*
+  //   JWT_SECRET          → Backend/src/auth/* (NestJS JwtModule)
+  //   PRIVATE_KEY         → Backend/jobs/tradeExecutor.js, batchExecutor.js
+  //   BLOCKCHAIN_RPC_URL  → Backend/jobs/* and oracle routes
+  //   AVIATION_STACK_API_KEY → Backend/routes/oracle.js
+  //   BETA_INVITE_SECRET  → Backend/services/betaAccess.js (HMAC key)
+  //
+  // Toolchain versions (pinned — keep in sync with .github/workflows/ci.yml):
+  //   Node.js   : 20.x  (LTS; minimum 20.11 per Backend/README.md)
+  //   TypeScript: see devDependencies in Backend/package.json
+  //   Foundry   : v1.1.0
+  //   Solidity  : 0.8.28
+  //
+  // Secrets policy
+  //   • No secret may ever appear in this file.
+  //   • `.env` is git-ignored; `Backend/.env.example` covers every required key.
+  //   • In CI, secrets are injected via GitHub Actions repository secrets and
+  //     referenced in workflow env: blocks — never hard-coded.
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",

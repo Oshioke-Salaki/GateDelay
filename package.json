@@ -1,4 +1,16 @@
 {
+  "name": "gatedelay",
+  "private": true,
+  "engines": {
+    "node": "20.x",
+    "npm": "10.x"
+  },
+  "toolchain": {
+    "node": "20.19.0",
+    "npm": "10.8.2",
+    "foundry": "1.1.0",
+    "solidity": "0.8.28"
+  },
   "dependencies": {
     "@prb/math": "^4.1.2"
   }

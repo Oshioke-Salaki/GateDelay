@@ -2,7 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { DepositService } from './deposit.service';
-import { Deposit, DepositStatus, ConfirmationLevel } from './schemas/deposit.schema';
+import {
+  Deposit,
+  DepositStatus,
+  ConfirmationLevel,
+} from './schemas/deposit.schema';
 
 describe('DepositService', () => {
   let service: DepositService;
@@ -179,7 +183,12 @@ describe('DepositService', () => {
         del: jest.fn().mockResolvedValue(1),
       };
 
-      await service.updateConfirmations('507f1f77bcf86cd799439011', 3, 12345, '0xblockhash');
+      await service.updateConfirmations(
+        '507f1f77bcf86cd799439011',
+        3,
+        12345,
+        '0xblockhash',
+      );
 
       expect(deposit.confirmations).toBe(3);
       expect(deposit.save).toHaveBeenCalled();
@@ -251,7 +260,9 @@ describe('DepositService', () => {
         { _id: DepositStatus.CONFIRMED, count: 10 },
       ]);
 
-      mockDepositModel.aggregate.mockResolvedValueOnce([{ _id: null, total: 1000 }]);
+      mockDepositModel.aggregate.mockResolvedValueOnce([
+        { _id: null, total: 1000 },
+      ]);
 
       const result = await service.getStatistics();
 

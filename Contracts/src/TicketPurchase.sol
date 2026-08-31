@@ -30,8 +30,7 @@ contract TicketPurchase is Ownable {
     event TicketsPurchased(address indexed buyer, uint256[] ticketIds, uint256 quantity, uint256 totalPaid);
     event SaleStatusUpdated(bool indexed active);
 
-    constructor(uint256 _ticketPrice, address initialOwner) Ownable() {
-        transferOwnership(initialOwner);
+    constructor(uint256 _ticketPrice, address initialOwner) Ownable(initialOwner) {
         ticketPrice = _ticketPrice;
         saleActive = true;
     }

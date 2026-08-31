@@ -12,11 +12,34 @@ const restoreRoutes = require('../Backend/routes/restore');
 const upgradeCoordinator = require('./services/upgradeCoordinator');
 const upgradeManager = require('./jobs/upgradeManager');
 
+// API protection middlewares (Backend/API_PROTECTION_README.md) — same stack as NestJS (Backend/src/main.ts)
+let ddosGuard, throttle, versionMiddleware, backwardCompatMiddleware;
+try {
+  ({ ddosGuard } = require('../Backend/middleware/ddosGuard'));
+  ({ throttle } = require('../Backend/middleware/throttle'));
+  ({ versionMiddleware } = require('../Backend/middleware/version'));
+  ({ backwardCompatMiddleware } = require('../Backend/middleware/backwardCompat'));
+} catch (err) {
+  console.warn('[server] API protection middlewares unavailable:', err.message);
+}
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
+
+// Apply API protection globally if available (order: DDoS → throttle → version → compat)
+try {
+  if (typeof ddosGuard === 'function') app.use(ddosGuard({ whitelist: ['127.0.0.1'] }));
+  if (typeof throttle === 'function') app.use(throttle());
+  if (typeof versionMiddleware === 'function')
+    app.use(versionMiddleware({ defaultVersion: 'v2', supportedVersions: ['v1', 'v2'], deprecatedVersions: ['v1'] }));
+  if (typeof backwardCompatMiddleware === 'function')
+    app.use(backwardCompatMiddleware({ warnDeprecated: true, logUsage: false }));
+} catch (err) {
+  console.warn('[server] API protection setup failed:', err.message);
+}
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -79,5 +102,19 @@ upgradeManager.start();
 app.listen(PORT, () => {
   console.log(`GateDelay backend running on port ${PORT}`);
 });
+
+// Boot the standalone heartbeat server (default HEARTBEAT_PORT=4001) in the
+// same process so MarketFactory events stay wired into the heartbeat system
+// when running the legacy Express entrypoint.
+try {
+  const { startHeartbeatServer } = require('../Backend/heartbeatServer');
+  if (typeof startHeartbeatServer === 'function') {
+    startHeartbeatServer().catch((err) => {
+      console.warn('[server] heartbeat boot failed:', err.message);
+    });
+  }
+} catch (err) {
+  console.warn('[server] heartbeat server unavailable:', err.message);
+}
 
 module.exports = app;

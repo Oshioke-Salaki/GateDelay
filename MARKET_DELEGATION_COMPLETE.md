@@ -345,6 +345,357 @@ The MarketDelegation contract is ready to integrate with:
 
 ---
 
+## 🚀 LOCAL DEVELOPMENT: Running Wallet + Trade Flow
+
+### Prerequisites
+
+- **Node.js**: >= 20.11
+- **Foundry**: Latest (for Solidity testing)
+- **MongoDB**: Running locally or via Docker
+- **Redis**: Running locally or via Docker
+- **Ganache/Hardhat**: Local blockchain for testing
+
+### Step 1: Set Up Local Blockchain
+
+```bash
+# Option A: Using Hardhat (recommended for quick setup)
+cd Contracts
+npx hardhat node
+
+# Option B: Using Ganache
+ganache-cli --port 8545 --deterministic
+```
+
+**Expected output:**
+```
+Listening on 127.0.0.1:8545
+```
+
+Note the RPC URL and account private keys shown in the output.
+
+### Step 2: Configure Backend Environment
+
+```bash
+cd Backend
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with local values
+# Key settings for local development:
+PORT=4000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:3000
+RPC_URL=http://127.0.0.1:8545
+MONGODB_URI=mongodb://127.0.0.1:27017/gatedelay
+REDIS_URL=redis://127.0.0.1:6379
+PRIVATE_KEY=<use first account private key from blockchain output>
+MARKET_CONTRACT_ADDRESS=<deploy MarketDelegation contract, see Step 4>
+```
+
+### Step 3: Start MongoDB and Redis
+
+```bash
+# MongoDB (if not running)
+mongod --port 27017
+
+# Redis (if not running, in separate terminal)
+redis-server --port 6379
+```
+
+### Step 4: Deploy MarketDelegation Contract
+
+```bash
+cd Contracts
+
+# Compile contract
+forge build
+
+# Deploy to local network
+forge create contracts/MarketDelegation.sol:MarketDelegation \
+  --rpc-url http://127.0.0.1:8545 \
+  --private-key <your-private-key> \
+  --constructor-args <owner-address> 0
+
+# Example output:
+# Deployer: 0x... 
+# Deployed to: 0x1234567890123456789012345678901234567890
+# Transaction hash: 0x...
+
+# Copy the deployed address to .env as MARKET_CONTRACT_ADDRESS
+```
+
+### Step 5: Start Backend Server
+
+```bash
+cd Backend
+npm install
+npm run dev
+```
+
+**Expected startup sequence:**
+```
+[Nest] 2026-08-29 14:23:15     LOG [NestFactory] Starting Nest application...
+[Nest] 2026-08-29 14:23:15     LOG [InstanceLoader] MongooseModule dependencies initialized +12ms
+[Nest] 2026-08-29 14:23:16     LOG [InstanceLoader] RedisModule dependencies initialized +34ms
+[Nest] 2026-08-29 14:23:17     LOG [NestApplication] Nest application successfully started +45ms
+Server running on port 4000
+MongoDB connected to mongodb://127.0.0.1:27017/gatedelay
+Redis connected to redis://127.0.0.1:6379
+```
+
+**Verify health check:**
+```bash
+curl http://localhost:4000/health
+# Response: { "status": "ok", "timestamp": "2026-08-29T14:23:17Z" }
+```
+
+### Step 6: Start Frontend
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+**Expected output:**
+```
+  VITE v5.0.0  ready in xxx ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  press h to show help
+```
+
+Open browser to `http://localhost:3000`
+
+### Step 7: Test Wallet Connection
+
+1. Open browser DevTools (F12)
+2. Ensure MetaMask or Web3 wallet is connected to local chain (127.0.0.1:8545)
+3. Switch network to custom RPC: `http://127.0.0.1:8545` (Chain ID: 1337)
+4. Import first Ganache/Hardhat account private key into wallet
+5. Verify wallet shows balance (usually 100 ETH for local networks)
+
+### Step 8: Test MarketDelegation Trade Flow
+
+#### A. Create a Delegation Request
+
+**Frontend UI:**
+1. Navigate to Settings → Delegation Management
+2. Click "New Delegation"
+3. Enter delegatee address (another test wallet)
+4. Set duration: 30 days
+5. Click "Request Delegation"
+6. Sign transaction in wallet
+
+**Backend verification:**
+```bash
+# Check delegation was created
+curl http://localhost:4000/api/delegations
+
+# Response should include your delegation with status PENDING
+```
+
+#### B. Activate Delegation
+
+**Frontend UI:**
+1. In Delegation Management, find your PENDING delegation
+2. Click "Activate"
+3. Sign transaction
+4. Status changes to ACTIVE
+
+**Backend verification:**
+```bash
+# Check delegation status
+curl http://localhost:4000/api/delegations/<delegation-id>
+
+# Response: { "status": "ACTIVE", ... }
+```
+
+#### C. Grant Permissions
+
+**Frontend UI:**
+1. Click delegation to view details
+2. In "Grant Permissions" section, select:
+   - [ ] TRADE
+   - [ ] CREATE_MARKET
+   - [ ] RESOLVE_MARKET
+   - [ ] MANAGE_LIQUIDITY
+3. Click "Grant Selected Permissions"
+4. Sign transaction
+
+**Backend verification:**
+```bash
+curl http://localhost:4000/api/delegations/<delegation-id>/permissions
+
+# Response: { "permissions": ["TRADE", "CREATE_MARKET", ...] }
+```
+
+#### D. Execute Trade with Delegation
+
+**Frontend UI:**
+1. Navigate to Markets
+2. Select a market
+3. Create trade order
+4. At confirmation, select delegated account
+5. Sign transaction
+
+**Backend trade execution:**
+```bash
+# Check trade was executed
+curl http://localhost:4000/api/trades
+
+# Response should include new trade with delegated_by field set
+```
+
+#### E. Verify Margin Account
+
+**Frontend UI:**
+1. Navigate to Portfolio
+2. Check margin account for delegated account
+3. Verify Initial Margin calculation matches Backend/MARGIN.md formulas
+
+**Backend verification:**
+```bash
+curl http://localhost:4000/api/margin-accounts/<account-id>
+
+# Response shows:
+# {
+#   "userId": "...",
+#   "initialMargin": "10%",
+#   "maintenanceMargin": "5%",
+#   "marginRatio": "250%",
+#   "healthScore": 95,
+#   "status": "Healthy"
+# }
+```
+
+### Step 9: Verify Integration Points
+
+#### Check Contract ABI Matches Backend
+
+```bash
+# Generate ABI from contract
+cd Contracts
+forge inspect MarketDelegation abi > ../Backend/abis/MarketDelegation.json
+
+# Verify Backend models match ABI:
+# - getDelegation() → Backend models/Delegation.js
+# - grantPermission() → backend permission-grant event
+# - revokeDelegation() → backend revocation handler
+```
+
+#### Check Event Indexing
+
+```bash
+# In Backend logs, you should see:
+# [Indexer] Processing DelegationRequested event from block 123
+# [Indexer] Processing DelegationActivated event from block 124
+# [Indexer] Processing PermissionGranted event from block 125
+```
+
+### Running Locally: Commands Checklist
+
+```bash
+# Terminal 1: Blockchain
+cd Contracts && npx hardhat node
+
+# Terminal 2: MongoDB
+mongod --port 27017
+
+# Terminal 3: Redis
+redis-server --port 6379
+
+# Terminal 4: Backend
+cd Backend
+cp .env.example .env
+# Edit .env with MARKET_CONTRACT_ADDRESS and PRIVATE_KEY
+npm install
+npm run dev
+
+# Terminal 5: Frontend
+cd Frontend
+npm install
+npm run dev
+
+# Browser: http://localhost:3000
+```
+
+### Troubleshooting Local Setup
+
+**"Cannot connect to blockchain"**
+```bash
+# Verify blockchain is running
+curl http://127.0.0.1:8545 -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+
+# Should return: {"result":"0x..."}
+```
+
+**"MongoDB connection refused"**
+```bash
+# Check if MongoDB is running
+mongosh --eval "db.adminCommand('ping')"
+# Response: { ok: 1 }
+
+# Or start it:
+mongod --port 27017
+```
+
+**"Redis connection timeout"**
+```bash
+# Check if Redis is running
+redis-cli ping
+# Response: PONG
+
+# Or start it:
+redis-server --port 6379
+```
+
+**"MarketDelegation contract not found"**
+```bash
+# Redeploy contract and update .env MARKET_CONTRACT_ADDRESS
+cd Contracts
+forge create contracts/MarketDelegation.sol:MarketDelegation \
+  --rpc-url http://127.0.0.1:8545 \
+  --private-key <your-key>
+```
+
+**"Cannot sign transactions in wallet"**
+```bash
+# Verify wallet is connected to correct network:
+# - RPC: http://127.0.0.1:8545
+# - Chain ID: 1337 (Hardhat) or 5777 (Ganache)
+# - Correct private key imported
+```
+
+### Manual Testing Checklist
+
+- [ ] Blockchain node running and accessible
+- [ ] MongoDB connected and accepting writes
+- [ ] Redis connected and accepting connections
+- [ ] Backend server started without errors
+- [ ] Frontend loads in browser
+- [ ] Wallet connects to local chain
+- [ ] Wallet shows balance
+- [ ] Can request delegation via UI
+- [ ] Backend logs show delegation created
+- [ ] Can activate delegation
+- [ ] Can grant permissions
+- [ ] Can execute trade with delegation
+- [ ] Margin calculations reflect in portfolio
+- [ ] Health check endpoints respond
+
+### Next Steps After Local Testing
+
+1. **Deploy to Testnet** - Use testnet RPC (Sepolia, Mumbai, etc.)
+2. **Run CI/CD** - GitHub Actions workflows in `.github/workflows/`
+3. **Integration Testing** - Run full E2E test suite
+4. **Production Deployment** - See DEPLOYMENT.md
+
+---
+
 ## 🎓 Learning Resources
 
 ### Understanding the Contract

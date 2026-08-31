@@ -1,3 +1,166 @@
+# Run the wallet and trade flow locally
+
+This is the shortest path to exercise the current GateDelay UI locally. The
+trade page ships with demo markets, so MongoDB, Redis, the Nest API, and a
+local blockchain are not required to open the page or inspect the trade form.
+
+## Prerequisites
+
+- Node.js 20 or newer
+- npm 10 or newer
+- Particle ConnectKit credentials for a real wallet connection
+- A browser wallet such as MetaMask only when using a Particle-enabled setup
+
+## 1. Start the frontend
+
+From a clean checkout:
+
+```bash
+cd Frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000), then open the trade page:
+
+[http://localhost:3000/trade/market-1](http://localhost:3000/trade/market-1)
+
+The page uses the built-in demo market in
+[Frontend/app/trade/[id]/page.tsx](Frontend/app/trade/%5Bid%5D/page.tsx). The
+trade selector in `QuickTradeWidget` also uses built-in demo markets.
+
+## 2. Connect a wallet
+
+The checked-in layout uses the unconfigured wallet shell by default. In this
+mode the app renders safely, but the wallet modal cannot complete a connection
+without Particle ConnectKit being enabled. To enable wallet connection:
+
+1. Set the Particle variables below in `.env.local`.
+2. Point `Frontend/app/layout.tsx` at
+   `./components/ParticleClientWrapper.particle` instead of the default
+   `./components/ParticleClientWrapper`.
+3. Restart `npm run dev`.
+4. Install MetaMask, or use one of the enabled Particle connectors, then click
+   **Connect Wallet** and approve the connection.
+
+For Particle ConnectKit, copy the values in
+[Frontend/.env.example](Frontend/.env.example) to `.env.local` and set:
+
+```env
+NEXT_PUBLIC_PROJECT_ID=your_particle_project_id
+NEXT_PUBLIC_CLIENT_KEY=your_particle_client_key
+NEXT_PUBLIC_APP_ID=your_particle_app_id
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+```
+
+Restart `npm run dev` after changing `.env.local`. These are public browser
+configuration values; do not put secrets or private keys in this file.
+
+Without Particle credentials, the app still renders, but the wallet dialog
+reports that connection is unavailable even if MetaMask is detected.
+
+## 3. Exercise a trade
+
+On `/trade/market-1`:
+
+1. Choose **YES** or **NO** in the order panel.
+2. Enter an amount or select a preset.
+3. Click the trade action.
+4. With a connected wallet and a configured contract address, approve the
+    transaction in the wallet and wait for confirmation.
+
+The current trade widget calls `buy(uint256,uint256,uint256)` on the address
+in `NEXT_PUBLIC_MARKET_MAKER_ADDRESS`. The example leaves that value empty, so
+the UI-only path is verifiable without an on-chain transaction. A real trade
+requires a deployed compatible market-maker contract, its address in
+`.env.local`, a wallet on the configured chain, and enough native/token funds.
+
+## Optional backend API
+
+The Nest API is separate from the demo trade page. Its checked-in defaults are
+`PORT=4000`, MongoDB at `127.0.0.1:27017`, and Redis at `127.0.0.1:6379`.
+Review [Backend/.env.example](Backend/.env.example), then run:
+
+```bash
+cd Backend
+npm install
+cp .env.example .env
+npm run start:dev
+```
+
+The API base URL is `http://localhost:4000/api`. To make frontend proxy/API
+calls use it, set these values in `Frontend/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+```
+
+MongoDB and Redis must be running before starting the Nest app. The complete
+dependency notes are in [Backend/SETUP.md](Backend/SETUP.md).
+
+## Optional local blockchain
+
+The local Hardhat network listens on `http://127.0.0.1:8545`:
+
+```bash
+cd Frontend/localnet
+npm install
+npm run node
+```
+
+Use a second terminal to deploy the local mock contracts:
+
+```bash
+cd Frontend/localnet
+npm run deploy
+```
+
+The deployment script prints contract addresses. This localnet is separate
+from the default frontend wallet configuration; set the deployed compatible
+market-maker address in `Frontend/.env.local` and configure the wallet for the
+local chain before attempting an on-chain trade.
+
+## Ports and environment contract
+
+| Component | Port / URL | Source |
+| --- | --- | --- |
+| Next.js frontend | `3000` | `Frontend/.env.example` and `npm run dev` |
+| Nest API | `4000` | `Backend/.env.example` and `Backend/src/main.ts` |
+| Hardhat JSON-RPC | `8545` | `Frontend/localnet/hardhat.config.js` |
+| Redis | `6379` | `Backend/.env.example` |
+| MongoDB | `27017` | `Backend/.env.example` |
+
+## Verification from a clean checkout
+
+The documentation-only UI path can be checked with:
+
+```bash
+cd Frontend
+npm install
+npm run test
+npm run build
+```
+
+`npm run lint` is also part of the intended clean-checkout verification, but
+the current install fails before linting with an ESLint dependency-resolution
+error (`zod/v4/core` is not exported by the installed `zod` package). This is
+an existing dependency/tooling issue, not a documentation failure.
+
+At the time of writing, `npm run test` and `npm run build` also stop on the
+existing syntax error in
+[Frontend/app/components/ParticleClientWrapper.tsx](Frontend/app/components/ParticleClientWrapper.tsx):
+the file contains two concatenated implementations. The test run reached the
+suite and reported 47 passing tests plus one failed suite; the build fails on
+the same parse error. `Frontend/package-lock.json` also reports invalid JSON
+during Next.js lockfile handling. These repository issues must be repaired
+before the clean-checkout verification can pass end to end.
+
+The backend build currently depends on the external MongoDB/Redis setup and
+has known TypeScript issues documented in [Backend/SETUP.md](Backend/SETUP.md);
+do not treat `npm run build` there as a clean passing check until those issues
+are resolved.
 # DOES IT WORK? - DEFINITIVE ANSWER
 
 ## Your Questions Answered

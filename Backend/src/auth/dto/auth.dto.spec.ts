@@ -108,6 +108,22 @@ describe('Auth DTOs', () => {
       });
       expect(failedProperties(errors)).toContain('name');
     });
+
+    it('rejects control characters in names', () => {
+      const errors = check(RegisterDto, {
+        ...validRegister,
+        name: 'Test\nUser',
+      });
+      expect(failedProperties(errors)).toContain('name');
+    });
+
+    it('rejects unknown properties that could be mass-assigned', () => {
+      const errors = check(RegisterDto, {
+        ...validRegister,
+        isAdmin: true,
+      });
+      expect(failedProperties(errors)).toContain('isAdmin');
+    });
   });
 
   describe('LoginDto', () => {
@@ -136,6 +152,11 @@ describe('Auth DTOs', () => {
         ...validLogin,
         password: 'X'.repeat(129),
       });
+      expect(failedProperties(errors)).toContain('password');
+    });
+
+    it('rejects whitespace-only passwords', () => {
+      const errors = check(LoginDto, { ...validLogin, password: '   ' });
       expect(failedProperties(errors)).toContain('password');
     });
   });

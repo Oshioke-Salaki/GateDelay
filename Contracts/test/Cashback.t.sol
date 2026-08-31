@@ -3,11 +3,19 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/CashbackContract.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract MockMintableERC20 is ERC20 {
+    constructor() ERC20("TestToken", "TT") {}
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+}
 
 contract CashbackTest is Test {
     CashbackContract cashback;
-    ERC20PresetMinterPauser token;
+    MockMintableERC20 token;
 
     bytes32 constant TIER1 = keccak256("TIER1");
     bytes32 constant TIER2 = keccak256("TIER2");
@@ -17,7 +25,7 @@ contract CashbackTest is Test {
     address feeEngine = address(0xFEE);
 
     function setUp() public {
-        token = new ERC20PresetMinterPauser("TestToken", "TT", address(this));
+        token = new MockMintableERC20();
         cashback = new CashbackContract(address(token), address(this));
 
         // Fund cashback contract

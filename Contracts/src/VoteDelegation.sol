@@ -95,7 +95,11 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
 
     // ── Constructor ────────────────────────────────────────────────────────────
 
-    /// @param _governanceToken Address of the governance token
+    /// @notice Deploy VoteDelegation; deployer becomes owner.
+    /// @param _governanceToken Address of the ERC20 governance token (must be non-zero, immutable).
+    /// @dev Requirements: _governanceToken != address(0). No proxy; Ownable owner = msg.sender.
+    ///      Deploy: `forge create VoteDelegation --rpc-url $RPC_URL --private-key $KEY --constructor-args <token>`.
+    ///      Solc 0.8.20, OZ Ownable + ReentrancyGuard. See BUG_ANALYSIS_AND_FIXES.md for delegation-counter invariant.
     constructor(address _governanceToken) Ownable(msg.sender) {
         if (_governanceToken == address(0)) revert ZeroAddress();
         governanceToken = IERC20(_governanceToken);
@@ -118,7 +122,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
 
         Delegation storage currentDelegation = delegations[msg.sender];
         address previousDelegatee = currentDelegation.delegatee;
-        uint256 delegatorPower = governanceToken.balanceOf(msg.sender);
+        uint256 delegatorPower = getVotingPower(msg.sender);
         bool isChangingDelegation = currentDelegation.active;
 
         // Remove previous delegation if exists

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {PRBMathUD60x18} from "prb-math/PRBMathUD60x18.sol";
+import {PRBMathUD60x18} from "src/compat/PRBMathUD60x18.sol";
 
 /**
  * @title MarketBond

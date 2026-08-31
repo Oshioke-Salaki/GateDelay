@@ -57,7 +57,7 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
     /**
      * @param globalBorrowLimit_ Initial global borrow limit (0 = unlimited).
      */
-    constructor(uint256 globalBorrowLimit_) {
+    constructor(uint256 globalBorrowLimit_) Ownable(msg.sender) {
         _globalBorrowLimit = globalBorrowLimit_;
     }
 

@@ -36,7 +36,10 @@ export class RoyaltyConfigService {
     }
 
     // Belt-and-suspenders guard even though DTO class-validator covers this.
-    const bps = Math.max(MIN_ROYALTY_BPS, Math.min(MAX_ROYALTY_BPS, dto.royaltyBps));
+    const bps = Math.max(
+      MIN_ROYALTY_BPS,
+      Math.min(MAX_ROYALTY_BPS, dto.royaltyBps),
+    );
     clip.royaltyBps = bps;
 
     return { clipId: dto.clipId, royaltyBps: bps };

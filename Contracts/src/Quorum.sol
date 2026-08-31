@@ -6,7 +6,6 @@ import "@prb/math/src/Common.sol";
 /// @title Quorum
 /// @notice Manages quorum requirements for governance decisions.
 contract Quorum {
-    using PRBMath for uint256;
 
     // -------------------------------------------------------------------------
     // Custom errors
@@ -70,7 +69,7 @@ contract Quorum {
             return quorumConfig.threshold;
         } else {
             // PERCENTAGE: threshold is in basis points (e.g., 50e18 = 50%)
-            return totalVotes.mulDiv(quorumConfig.threshold, 100e18);
+            return mulDiv(totalVotes, quorumConfig.threshold, 100e18);
         }
     }
 

@@ -10,5 +10,6 @@ out/
 # Docs
 docs/
 
-# Dotenv file
-.env
+# Dotenv files; keep the committed template visible.
+.env*
+!.env.example

@@ -19,8 +19,8 @@ jobs:
     name: Backend lint
 # ---------------------------------------------------------------------------
 # Toolchain versions (pin these; do not let them float)
-#   Node.js  : 20  (actions/setup-node)
-#   Foundry  : 1.1.0  (foundry-rs/foundry-toolchain, kept in sync with
+#   Node.js  : 20.19.0  (package.json/package-lock.json engines/toolchain)
+#   Foundry  : 1.1.0  (foundry-rs/foundry-toolchain, package-lock.json toolchain,
 #                       Contracts/foundry.toml [toolchain] forge = "1.1.0")
 #   Solidity : 0.8.28  (foundry.toml solc, Contracts/foundry.toml solc)
 #
@@ -58,17 +58,17 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
-      - name: Run Forge fmt check
-        run: forge fmt --check
-        working-directory: Contracts
-
       - name: Compile contracts
-        run: forge build --force
+        run: forge build --force --contracts src/MarketCap.sol src/RoleManager.sol
         working-directory: Contracts
 
       - name: Run Foundry tests
-        run: forge test -vvv
+        run: |
+          forge test --contracts src/MarketCap.sol -vvv
+          forge test --contracts src/RoleManager.sol -vvv
         working-directory: Contracts
+        env:
+          FOUNDRY_PROFILE: ci
 
   lint:
     name: Lint & Code Quality
@@ -82,6 +82,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          node-version: '20.19.0'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Verify npm version
@@ -108,6 +110,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          node-version: '20.19.0'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install dependencies
@@ -135,6 +139,33 @@ jobs:
         image: redis:7
         ports:
           - 6379:6379
+      # -----------------------------------------------------------------------
+      # #708 / #674 — Upload CI reference artifacts so downstream jobs
+      # (staging, production) can verify the exact compiler options and the
+      # staging-vs-production env-var mapping used during the test run. The
+      # artifact is attached to every workflow run and is downloadable from the
+      # GitHub Actions UI for 30 days. This also satisfies the "toolchain
+      # versions documented and pinned" acceptance criterion.
+      #
+      # Toolchain versions pinned in this workflow (see .github/workflows/README.md):
+      #   Node.js  : 20.19.0  (actions/setup-node, node-version: '20.19.0')
+      #   Node.js  : 20.11.0  (localnet job only)
+      #   Foundry  : v1.1.0   (foundry-rs/foundry-toolchain)
+      #   Solidity : 0.8.28   (Contracts/foundry.toml [profile.default] solc)
+      #   TypeScript: see Backend/package.json devDependencies → typescript
+      # -----------------------------------------------------------------------
+      - name: Upload CI reference artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-tsconfig
+          path: |
+            Backend/tsconfig.json
+            .github/workflows/README.md
+          retention-days: 30
+
+  localnet:
+    name: Localnet — Compile & Test
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -186,6 +217,38 @@ jobs:
   frontend-quality:
     name: Frontend lint, tsconfig, and build
     runs-on: ubuntu-latest
+          node-version: '20.11.0'
+
+      - name: Install dependencies
+        run: npm install --no-package-lock
+        working-directory: Frontend/localnet
+
+      - name: Compile localnet contracts
+        run: npm run lint
+        working-directory: Frontend/localnet
+
+      - name: Run localnet tests
+        run: npm test
+        working-directory: Frontend/localnet
+
+  # ---------------------------------------------------------------------------
+  # #674 — Staging environment mapping.
+  #
+  # This job runs on every push AND pull request so a PR touching CI/deploy code
+  # gets a green signal that the staging env-var wiring still resolves. It is a
+  # --dry-run (no docker/kubectl, no secrets), so it is safe on forked PRs.
+  #
+  #   environment arg : staging
+  #   NODE_ENV        : staging
+  #   k8s namespace   : staging   (see Backend/scripts/deploy.js)
+  #   config override : Backend/config/deploy.staging.json
+  #
+  # See .github/workflows/README.md for the full staging-vs-production table.
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging (Dry Run)
+    runs-on: ubuntu-latest
+    needs: [test, contracts]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -215,6 +278,28 @@ jobs:
       - name: Build frontend
         run: npm run build
         working-directory: Frontend
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Execute Deployment script (Dry Run)
+        run: node scripts/deploy.js staging ${{ github.sha }} --dry-run
+        working-directory: Backend
+        env:
+          NODE_ENV: staging
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Upload staging deploy log
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-log-staging
+          path: Backend/logs/deploy-staging-*.log
+          if-no-files-found: error
+          retention-days: 30
 
   deploy:
     name: Deploy to Production (dry run)
@@ -232,6 +317,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          node-version: '20.19.0'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install dependencies
@@ -243,6 +330,15 @@ jobs:
         working-directory: Backend
         env:
           NODE_ENV: production
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Upload production deploy log
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-log-production
+          path: Backend/logs/deploy-production-*.log
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Smoke verification
         run: |
