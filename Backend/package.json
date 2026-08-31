@@ -25,11 +25,19 @@
     "test:blacklist": "node -e \"require('./routes/blacklist'); console.log('BLACKLIST_SMOKE_PASS')\"",
     "test:alerts": "node -e \"require('./routes/alerts')\"",
     "test:api-example": "node -e \"require('./routes/api.example')\"",
+    "test:balance": "node ./scripts/balance-smoke.js",
     "test:migration": "node -e \"const migration = require('../backend/migrations/001_init_markets'); if (typeof migration.up !== 'function' || typeof migration.down !== 'function') process.exit(1); console.log('MIGRATION_SMOKE_PASS')\"",
     "express:start": "node ../backend/server.js",
     "express:dev": "node --watch ../backend/server.js",
     "test:disputes": "node -e \"require('./routes/disputes'); console.log('DISPUTES_SMOKE_PASS')\"",
-    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\""
+    "test:trade-validation": "node -e \"require('./middleware/tradeValidation'); console.log('TRADE_VALIDATION_SMOKE_PASS')\"",
+    "test:rate-limits": "node -e \"const c = require('./config/rateLimits'); ['tiers','endpoints','ipLimits','whitelist','messages','headers','redis','costs','adaptive'].forEach(k => { if (!c[k]) { console.error('FAIL: missing section ' + k); process.exit(1); } }); ['PUBLIC','BASIC','PREMIUM','VIP','ADMIN'].forEach(t => { if (!c.tiers[t]) { console.error('FAIL: missing tier ' + t); process.exit(1); } }); if (!Array.isArray(c.whitelist.ips)) { console.error('FAIL: whitelist.ips is not an array'); process.exit(1); } console.log('RATE_LIMITS_SMOKE_PASS')\"",
+    "test:deprecation": "node -e \"const middleware = require('./middleware/deprecation'); if (typeof middleware.deprecationMiddleware !== 'function' || typeof middleware.markDeprecated !== 'function') process.exit(1); console.log('DEPRECATION_SMOKE_PASS')\"",
+    "test:heartbeat": "node scripts/smoke/heartbeat-marketfactory.smoke.js",
+    "test:trade-executor": "node -e \"const executor = require('./jobs/tradeExecutor'); if (typeof executor.startTradeExecutor !== 'function') process.exit(1); console.log('TRADE_EXECUTOR_SMOKE_PASS')\"",
+    "test:pagerduty": "node -e \"require('./config/pagerduty'); console.log('PAGERDUTY_SMOKE_PASS')\""
+    "test:pagerduty": "node -e \"require('./config/pagerduty'); console.log('PAGERDUTY_SMOKE_PASS')\"",
+    "test:api-protection": "node scripts/smoke/api-protection.smoke.js"
   },
   "dependencies": {
     "@keyv/redis": "^5.1.6",

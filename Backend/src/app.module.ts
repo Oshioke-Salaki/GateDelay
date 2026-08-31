@@ -45,6 +45,7 @@ import { MarketMetadataModule } from './market-metadata/market-metadata.module';
 import { EventNotificationModule } from './event-notifications/event-notification.module';
 import { BridgeModule } from './bridge/bridge.module';
 import { NftModule } from './nft/nft.module';
+import { BalanceModule } from './balance/balance.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { NftModule } from './nft/nft.module';
     EventNotificationModule,
     BridgeModule,
     NftModule,
+    BalanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

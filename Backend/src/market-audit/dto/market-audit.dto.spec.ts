@@ -1,6 +1,8 @@
 import 'reflect-metadata';
+import { readFileSync } from 'fs';
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
+import { readFileSync } from 'fs';
 import {
   AuditQueryDto,
   CreateAuditLogDto,
@@ -53,10 +55,7 @@ const FAKE_HEX_KEY = '0123456789abcdef'.repeat(4);
 const CREDENTIAL_FIXTURES: Array<[string, string]> = [
   ['EVM private key', `rotated key 0x${FAKE_HEX_KEY}`],
   ['bare 64-hex key', `seed ${FAKE_HEX_KEY} stored`],
-  [
-    'PEM block',
-    assemble('-----BEGIN RSA ', 'PRIVATE', ' KEY-----', ' MIIEow'),
-  ],
+  ['PEM block', assemble('-----BEGIN RSA ', 'PRIVATE', ' KEY-----', ' MIIEow')],
   [
     'JWT',
     assemble(
@@ -142,11 +141,16 @@ describe('CreateAuditLogDto', () => {
     it.each([
       'market paused after the oracle feed went stale for our main resolver',
       'trade was settled and the payout has been sent from their wallet',
-    ])('does not mistake a 12-word English sentence for a mnemonic: %s', (prose) => {
-      expect(prose.split(' ')).toHaveLength(12);
-      expect(findSecretLabel(prose)).toBeNull();
-      expect(check(CreateAuditLogDto, { ...VALID_LOG, details: prose })).toHaveLength(0);
-    });
+    ])(
+      'does not mistake a 12-word English sentence for a mnemonic: %s',
+      (prose) => {
+        expect(prose.split(' ')).toHaveLength(12);
+        expect(findSecretLabel(prose)).toBeNull();
+        expect(
+          check(CreateAuditLogDto, { ...VALID_LOG, details: prose }),
+        ).toHaveLength(0);
+      },
+    );
   });
 
   // ── Threat #2: log flooding / memory amplification ────────────────────────
@@ -209,7 +213,10 @@ describe('CreateAuditLogDto', () => {
     it('rejects a lowercase or spaced operation', () => {
       expect(
         failedProperties(
-          check(CreateAuditLogDto, { ...VALID_LOG, operation: 'create market' }),
+          check(CreateAuditLogDto, {
+            ...VALID_LOG,
+            operation: 'create market',
+          }),
         ),
       ).toContain('operation');
     });
@@ -270,7 +277,9 @@ describe('AuditQueryDto', () => {
     });
 
     it(`rejects a limit above ${MAX_QUERY_LIMIT}`, () => {
-      const errors = check(AuditQueryDto, { limit: String(MAX_QUERY_LIMIT + 1) });
+      const errors = check(AuditQueryDto, {
+        limit: String(MAX_QUERY_LIMIT + 1),
+      });
       expect(failedProperties(errors)).toContain('limit');
     });
 
@@ -286,13 +295,15 @@ describe('AuditQueryDto', () => {
 
   describe('date filters must be real timestamps', () => {
     it.each(['not-a-date', '2026-13-45', ''])('rejects from=%s', (from) => {
-      expect(failedProperties(check(AuditQueryDto, { from }))).toContain('from');
+      expect(failedProperties(check(AuditQueryDto, { from }))).toContain(
+        'from',
+      );
     });
 
     it('accepts an ISO-8601 instant', () => {
-      expect(check(AuditQueryDto, { from: '2026-01-01T00:00:00.000Z' })).toHaveLength(
-        0,
-      );
+      expect(
+        check(AuditQueryDto, { from: '2026-01-01T00:00:00.000Z' }),
+      ).toHaveLength(0);
     });
   });
 
@@ -332,8 +343,6 @@ describe('RetentionPolicyDto', () => {
 describe('the DTO module itself carries no credentials', () => {
   // Acceptance criterion: "No secrets or private keys in market-audit.dto.ts".
   it('has no secret-shaped literal in the source file', () => {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { readFileSync } = require('fs') as typeof import('fs');
     const source = readFileSync(`${__dirname}/market-audit.dto.ts`, 'utf8');
     // The scanner's own regexes live in no-secrets.validator.ts, so a hit here
     // is a real literal rather than a pattern definition.

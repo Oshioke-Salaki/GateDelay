@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./PositionToken.sol";
+import {PositionToken} from "./PositionToken.sol";
 
 /// @title MarketFactory
 /// @notice Deploys and registers prediction market instances.
@@ -127,6 +127,15 @@ contract MarketFactory {
     /// @notice Returns whether an address is a registered market.
     function isRegisteredMarket(address market) external view returns (bool) {
         return _markets[market].creator != address(0);
+    }
+
+    function marketCount() external view returns (uint256) {
+        return _marketList.length;
+    }
+
+    /// @notice Returns a registered market address by index.
+    function marketAt(uint256 index) external view returns (address) {
+        return _marketList[index];
     }
 
     /// @notice Returns the creator of a registered market, or address(0) if unregistered.

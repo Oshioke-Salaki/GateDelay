@@ -12,10 +12,10 @@ export enum DepositStatus {
 }
 
 export enum ConfirmationLevel {
-  INSTANT = 0,      // 0 confirmations (risky)
-  FAST = 1,         // 1 confirmation
-  STANDARD = 3,     // 3 confirmations
-  SECURE = 6,       // 6 confirmations
+  INSTANT = 0, // 0 confirmations (risky)
+  FAST = 1, // 1 confirmation
+  STANDARD = 3, // 3 confirmations
+  SECURE = 6, // 6 confirmations
   VERY_SECURE = 12, // 12 confirmations
 }
 
@@ -55,7 +55,7 @@ export class Deposit {
 
   @Prop({
     type: Number,
-    enum: Object.values(ConfirmationLevel).filter((v) => typeof v === "number"),
+    enum: Object.values(ConfirmationLevel).filter((v) => typeof v === 'number'),
     default: ConfirmationLevel.STANDARD,
   })
   requiredConfirmations: ConfirmationLevel;

@@ -14,7 +14,9 @@ export const mockMarkets = [
     id: 'm2',
     name: 'Uniswap ETH-USDT',
     asset: 'ETH',
-    price: 2002,
+    // Priced ~5% above Binance so the demo surfaces at least one profitable
+    // opportunity on first load (spread must beat the 0.1% + 0.3% fees).
+    price: 2100,
     feePercent: 0.3,
     liquidity: 300,
     tokenAddress: '0x1000000000000000000000000000000000000001',

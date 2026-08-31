@@ -16,18 +16,61 @@ These values should always be reviewed before local development or deployment:
 
 Redis-backed workers also require either `REDIS_URL` or `REDIS_HOST`/`REDIS_PORT`.
 
+## Trade executor
+
+`Backend/jobs/tradeExecutor.js` starts the scheduled-trade worker. It loads the
+Agenda scheduler and logs the environment, scheduler name, and whether MongoDB
+configuration is present. The MongoDB URI itself is never written to logs.
+
+Environment variables:
+
+- `MONGODB_URI` - MongoDB connection used by Agenda and scheduled-trade models;
+  defaults to `mongodb://localhost:27017/gatedelay` when unset.
+- `NODE_ENV` - startup environment included in the executor log; defaults to
+  `development`.
+
+Run the module-load smoke check with:
+
+```bash
+npm run test:trade-executor
+```
+
 ## Setup
 
 ```bash
 npm install
 ```
 
-## Run
+## Run the Nest API
 
 ```bash
-npm run dev
+npm run start:dev
 ```
 
+Run the legacy Express API from the repository root with `npm --prefix backend run start`.
+
+## Market data and balances
+
+The Nest market-data module uses AviationStack for flight queries and caches responses for five minutes. Set `AVIATION_STACK_API_KEY` in `.env`; requests are exposed at `/api/market-data/flights` and `/api/market-data/airlines`.
+
+Balances are persisted by `models/Balance.js` and are shared by the Nest API and legacy Express routes:
+
+- Nest: `GET /api/balances/:userId` and `GET /api/balances/:userId/:asset`
+- Legacy: `GET /user/balance`, `/v1/users/balance`, and `/v2/users/balance` with the `userId` query parameter
+
+Run the dependency-free module wiring smoke check from this directory:
+
+```bash
+npm run test:balance
+```
+
+The Nest scripts are also run from `Backend`:
+
+```bash
+npm run start:dev
+npm run build
+npm test
+```
 Use `npm run start:dev` for the NestJS development API. The migration REST API is owned by the Express entrypoint:
 
 ```bash
@@ -242,7 +285,52 @@ explicitly:
 npx eslint middleware/tradeValidation.js
 ```
 
+## Rate limit configuration
+
+`Backend/config/rateLimits.js` is the single CommonJS source of rate-limit rules
+shared by the legacy Express limiter (`Backend/middleware/rateLimiter.js`) and the
+Nest rate-limiter module (`Backend/src/rate-limiter/`). It is a plain data module —
+requiring it has no side effects and opens no connections.
+
+**Sections** — `tiers` (PUBLIC / BASIC / PREMIUM / VIP / ADMIN request budgets),
+`endpoints` (per-endpoint, per-tier `{ max, windowMs }` overrides), `ipLimits`
+(`global` and `strict` per-IP buckets), `whitelist`, `messages`, `headers`,
+`redis`, `costs` (read / write / heavy operation weights), and `adaptive`
+(load-based tightening, disabled by default).
+
+**Environment variables**
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `RATE_LIMIT_WHITELIST` | No | Comma-separated IPs exempt from rate limiting. Empty/unset ⇒ `whitelist.ips` is `[]`. |
+
+Everything else — tier budgets, window sizes, Redis prefix/TTL — is a
+compile-time constant in this file, not an env var. Redis connection details for
+the limiter store come from the standard `REDIS_HOST` / `REDIS_PORT` /
+`REDIS_DB` vars read by `middleware/rateLimiter.js`.
+
+**Scripts**
+
+```bash
+npm run test:rate-limits   # smoke: config module loads and every section/tier is present
+npm test                   # runs src/rate-limits-config.spec.ts (shape + consistency checks)
+```
+
 ## Health endpoints
+
+## Deprecation middleware
+
+`Backend/middleware/deprecation.js` is a CommonJS Express middleware. It uses the in-memory
+`Backend/services/deprecationService.js` registry and requires no environment variables.
+Endpoints are registered with `markDeprecated(endpoint, config)`; `config` must include
+`deprecationDate`, `sunsetDate`, `alternative`, and `migrationGuide`. Sunset endpoints return
+HTTP 410, while active deprecations receive `Warning`, `Deprecation`, and `Link` headers.
+
+Verify that the module loads cleanly with:
+
+```bash
+npm run test:deprecation
+```
 
 The backend exposes health check endpoints for monitoring and CI/CD probes:
 
@@ -253,6 +341,37 @@ The backend exposes health check endpoints for monitoring and CI/CD probes:
 **NestJS (port 3000):**
 - `GET /api/health` - Basic health check with service info
 - `GET /api/health/details` - Detailed health with uptime, memory, and environment info
+
+## PagerDuty alerting
+
+`Backend/services/pagerduty.js` sends/acknowledges/resolves PagerDuty incidents and syncs
+on-call schedules. It reads its config from `Backend/config/pagerduty.js`, which in turn
+reads three optional environment variables (`Backend/.env.example`):
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `PAGERDUTY_API_KEY` | No | PagerDuty REST API key |
+| `PAGERDUTY_SERVICE_ID` | No | Target service for alert routing |
+| `PAGERDUTY_FROM_EMAIL` | No | Sender address on incident requests |
+
+All three are optional — the app boots normally without them. If any is missing,
+`config/pagerduty.js` logs a single `[pagerduty] Alerting is not fully configured` warning
+at startup naming the missing variable(s), rather than only surfacing as an opaque
+401/400 from the PagerDuty API the first time an alert is sent. Verify the module loads
+cleanly with:
+
+```bash
+npm run test:pagerduty
+```
+## Market Status endpoints
+
+The backend exposes market operational status and uptime tracking API endpoints:
+
+**Express server (port 4000) or mounted at `/status`:**
+- `GET /status/:marketId` — Retrieves current operational status (ACTIVE, PAUSED, MAINTENANCE, OFFLINE), uptime/downtime statistics, and last status change.
+- `GET /status/:marketId/history` — Queries paginated history logs of status transitions for the market.
+- `POST /status/:marketId/toggle` — Updates the operational status of the market (requires `x-operator-id` header).
+
 
 ## Compile and run the project
 

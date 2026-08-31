@@ -38,7 +38,10 @@ export class NonceManagerService {
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
       await this.persistState(state);
       return state;
@@ -60,7 +63,10 @@ export class NonceManagerService {
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
 
       const nonce = this.findFirstAvailableNonce(state);
@@ -100,7 +106,10 @@ export class NonceManagerService {
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
 
       const reservation = this.findReservationById(state, reservationId);
@@ -130,7 +139,10 @@ export class NonceManagerService {
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
 
       const reservation = this.findReservationById(state, reservationId);
@@ -146,12 +158,18 @@ export class NonceManagerService {
     });
   }
 
-  async syncNonce(address: string, network = DEFAULT_NETWORK): Promise<NonceState> {
+  async syncNonce(
+    address: string,
+    network = DEFAULT_NETWORK,
+  ): Promise<NonceState> {
     const normalizedAddress = this.normalizeAddress(address);
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
 
       const provider = this.getProvider(normalizedNetwork);
@@ -164,7 +182,9 @@ export class NonceManagerService {
       if (state.nextNonce < chainNonce) {
         state.nextNonce = chainNonce;
       }
-      state.usedNonces = state.usedNonces.filter((nonce) => nonce >= chainNonce);
+      state.usedNonces = state.usedNonces.filter(
+        (nonce) => nonce >= chainNonce,
+      );
       state.updatedAt = new Date().toISOString();
 
       await this.persistState(state);
@@ -182,7 +202,10 @@ export class NonceManagerService {
     const normalizedNetwork = this.normalizeNetwork(network);
 
     return this.withLock(normalizedNetwork, normalizedAddress, async () => {
-      const state = await this.getOrInitState(normalizedAddress, normalizedNetwork);
+      const state = await this.getOrInitState(
+        normalizedAddress,
+        normalizedNetwork,
+      );
       await this.pruneExpiredReservations(state);
 
       const gapsBeforeReservation = this.detectGaps(state);
@@ -197,7 +220,8 @@ export class NonceManagerService {
 
         const nonce = gapsBeforeReservation[0];
         const hasConflict =
-          !!state.reservations[String(nonce)] || state.usedNonces.includes(nonce);
+          !!state.reservations[String(nonce)] ||
+          state.usedNonces.includes(nonce);
         if (hasConflict) {
           throw new ConflictException(
             'Unable to reserve nonce gap due to conflict',
@@ -256,7 +280,10 @@ export class NonceManagerService {
     return `nonce:state:${network}:${address}`;
   }
 
-  private async getOrInitState(address: string, network: string): Promise<NonceState> {
+  private async getOrInitState(
+    address: string,
+    network: string,
+  ): Promise<NonceState> {
     const key = this.cacheKey(network, address);
     const cached = await this.cache.get<NonceState>(key);
     if (cached) {
@@ -328,10 +355,15 @@ export class NonceManagerService {
       Object.values(state.reservations).map((reservation) => reservation.nonce),
     );
 
-    const maxUsed = state.usedNonces.length > 0 ? Math.max(...state.usedNonces) : -1;
+    const maxUsed =
+      state.usedNonces.length > 0 ? Math.max(...state.usedNonces) : -1;
     const maxReserved =
       reserved.size > 0 ? Math.max(...Array.from(reserved.values())) : -1;
-    const highestKnown = Math.max(state.nextNonce, maxUsed + 1, maxReserved + 1);
+    const highestKnown = Math.max(
+      state.nextNonce,
+      maxUsed + 1,
+      maxReserved + 1,
+    );
 
     const gaps: number[] = [];
     for (let nonce = state.chainNonce; nonce < highestKnown; nonce += 1) {
@@ -348,8 +380,7 @@ export class NonceManagerService {
     const cached = this.providerCache.get(normalizedNetwork);
     if (cached) return cached;
 
-    const networkConfigKey =
-      `BLOCKCHAIN_RPC_URL_${normalizedNetwork.toUpperCase()}`;
+    const networkConfigKey = `BLOCKCHAIN_RPC_URL_${normalizedNetwork.toUpperCase()}`;
     const fallbackRpc = this.config.get<string>(
       'BLOCKCHAIN_RPC_URL',
       'https://rpc.mantle.xyz',

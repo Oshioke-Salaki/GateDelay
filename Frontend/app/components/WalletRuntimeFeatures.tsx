@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useConnectKitBridge } from "./ConnectKitBridge";
+import { useConnectKitBridge } from "./ConnectKitBridgeContext";
 
 /**
  * Layout widgets that call ConnectKit or wagmi hooks (BackupReminder,

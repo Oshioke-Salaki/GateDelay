@@ -29,25 +29,39 @@ export class MarketDataService {
     offset?: number;
   }) {
     const key = `flights:${JSON.stringify(params)}`;
-    return this.cache.getOrSet(key, () =>
-      this.fetch('/flights', {
-        flight_status: params.flightStatus,
-        airline_name: params.airline,
-        flight_iata: params.flightNumber,
-        limit: params.limit ?? 20,
-        offset: params.offset ?? 0,
-      }), TTL);
+    return this.cache.getOrSet(
+      key,
+      () =>
+        this.fetch('/flights', {
+          flight_status: params.flightStatus,
+          airline_name: params.airline,
+          flight_iata: params.flightNumber,
+          limit: params.limit ?? 20,
+          offset: params.offset ?? 0,
+        }),
+      TTL,
+    );
   }
 
   async getFlightByIata(iata: string) {
-    return this.cache.getOrSet(`flight:${iata}`, () =>
-      this.fetch('/flights', { flight_iata: iata, limit: 1 }), TTL);
+    return this.cache.getOrSet(
+      `flight:${iata}`,
+      () => this.fetch('/flights', { flight_iata: iata, limit: 1 }),
+      TTL,
+    );
   }
 
   async getAirlines(params: { search?: string; limit?: number }) {
     const key = `airlines:${JSON.stringify(params)}`;
-    return this.cache.getOrSet(key, () =>
-      this.fetch('/airlines', { search: params.search, limit: params.limit ?? 20 }), TTL);
+    return this.cache.getOrSet(
+      key,
+      () =>
+        this.fetch('/airlines', {
+          search: params.search,
+          limit: params.limit ?? 20,
+        }),
+      TTL,
+    );
   }
 
   @Cron(CronExpression.EVERY_5_MINUTES)
@@ -56,7 +70,8 @@ export class MarketDataService {
     await this.cache.warm([
       {
         key: 'flights:active',
-        factory: () => this.fetch('/flights', { flight_status: 'active', limit: 100 }),
+        factory: () =>
+          this.fetch('/flights', { flight_status: 'active', limit: 100 }),
         ttlMs: TTL,
       },
       {

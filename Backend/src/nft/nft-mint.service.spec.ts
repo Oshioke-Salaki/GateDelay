@@ -8,8 +8,7 @@ import { NftMintService } from './nft-mint.service';
 import { SorobanNftClient } from './soroban/soroban-nft.client';
 
 describe('NftMintService', () => {
-  const wallet =
-    'GABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRS';
+  const wallet = 'GABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRS';
 
   let service: NftMintService;
   let clips: ClipStore;
@@ -23,10 +22,7 @@ describe('NftMintService', () => {
         networkPassphrase: 'Test SDF Network ; September 2015',
       }),
     };
-    service = new NftMintService(
-      clips,
-      soroban as unknown as SorobanNftClient,
-    );
+    service = new NftMintService(clips, soroban as unknown as SorobanNftClient);
   });
 
   it('prepareMintTx builds XDR with metadata URI and royalty', async () => {

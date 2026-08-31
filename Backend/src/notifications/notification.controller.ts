@@ -9,7 +9,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
-import { SendNotificationDto, UpdatePreferencesDto } from './dto/notification.dto';
+import {
+  SendNotificationDto,
+  UpdatePreferencesDto,
+} from './dto/notification.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('notifications')

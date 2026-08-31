@@ -6,7 +6,7 @@ const bridge = vi.hoisted(() => ({
   isAvailable: false,
 }));
 
-vi.mock("./ConnectKitBridge", () => ({
+vi.mock("./ConnectKitBridgeContext", () => ({
   useConnectKitBridge: () => bridge,
 }));
 

@@ -31,32 +31,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeProvider>
             <ToastProvider>
               <GlobalErrorHandler />
-              <ParticleClientWrapper>
-                <WebSocketProvider>
-                  <ConnectivityProvider>
-                    <OfflineDetection />
-                    <Navbar />
-                    <WalletRuntimeFeatures>
-                      <BackupReminder />
-                    </WalletRuntimeFeatures>
-                    <PageErrorBoundary>
-                      <div className="flex-1">{children}</div>
-                    </PageErrorBoundary>
-                    <WalletRuntimeFeatures>
-                      <PendingTransactions />
-                    </WalletRuntimeFeatures>
-                  </ConnectivityProvider>
-                </WebSocketProvider>
-              </ParticleClientWrapper>
               <QueryProvider>
                 <ParticleClientWrapper>
                   <WebSocketProvider>
                     <ConnectivityProvider>
                       <OfflineDetection />
                       <Navbar />
-                      <BackupReminder />
-                      <div className="flex-1">{children}</div>
-                      <PendingTransactions />
+                      <WalletRuntimeFeatures>
+                        <BackupReminder />
+                      </WalletRuntimeFeatures>
+                      <PageErrorBoundary>
+                        <div className="flex-1">{children}</div>
+                      </PageErrorBoundary>
+                      <WalletRuntimeFeatures>
+                        <PendingTransactions />
+                      </WalletRuntimeFeatures>
                     </ConnectivityProvider>
                   </WebSocketProvider>
                 </ParticleClientWrapper>

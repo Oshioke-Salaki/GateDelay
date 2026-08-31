@@ -143,7 +143,7 @@ Sources live in `Contracts/src/` (e.g. `LMSR`, `MarketMaker`, `Trading`) and `Co
 | `forge build` import errors | Wrong working directory | `cd Contracts` before `forge build` |
 | Wallet modal empty / connection errors | Missing Particle env vars | Fill `NEXT_PUBLIC_PROJECT_ID`, `NEXT_PUBLIC_CLIENT_KEY`, `NEXT_PUBLIC_APP_ID` in `.env.local` |
 | Frontend API 404 / CORS | Backend not running or wrong URL | Start `npm run start:dev` in `Backend/`; set `NEXT_PUBLIC_API_URL` |
-| `npm ci` fails | Lockfile out of sync | Run `npm install` in the affected package and commit lockfile updates separately |
+| `npm ci` fails | Lockfile out of sync | Run `npm install` in the affected package and commit lockfile updates separately. See [`Frontend/BUILD_NOTES.md`](Frontend/BUILD_NOTES.md) for rollback/retry and smoke verification after Docker builds |
 
 ---
 

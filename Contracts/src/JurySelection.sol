@@ -69,8 +69,8 @@ contract JurySelection {
             pool[j] = tmp;
         }
 
+        delete _juries[juryId].members;
         address[] storage members = _juries[juryId].members;
-        members = new address[](0);
 
         // pick first `size` unique and valid addresses
         uint256 count = 0;

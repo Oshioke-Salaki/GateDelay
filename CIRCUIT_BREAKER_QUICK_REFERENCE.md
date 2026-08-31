@@ -1,154 +1,171 @@
-# Circuit Breaker Quick Reference
+# Circuit Breaker — quick reference and API contract
 
-## Implementation Summary
-✅ **COMPLETE** - Full circuit breaker pattern with health monitoring, break triggering, recovery handling, permission control, and status reporting.
+> **Phase owner:** Phase 2 (core market wiring) — see [PHASE_2.md](PHASE_2.md).
+> **Ground truth:** `Contracts/src/CircuitBreaker.sol`, `test/CircuitBreaker.t.sol`,
+> `Backend/services/breakerService.js`, `Backend/routes/circuitBreaker.js`.
+
+Earlier versions of this document claimed full production completion with inflated test
+counts. This reference matches the codebase as of Phase 2.
+
+---
 
 ## Files
-- **Contract:** `Contracts/src/CircuitBreaker.sol` (293 lines)
-- **Tests:** `test/CircuitBreaker.t.sol` (550+ lines, 40+ tests)
 
-## Core API
+| Artifact | Path | Lines (approx.) |
+|----------|------|-----------------|
+| On-chain contract | `Contracts/src/CircuitBreaker.sol` | ~277 |
+| Forge tests | `test/CircuitBreaker.t.sol` | ~554 (37 test functions) |
+| Backend service | `Backend/services/breakerService.js` | Redis-backed breaker state |
+| Express routes | `Backend/routes/circuitBreaker.js` | REST handlers (mount pending in `server.js`) |
 
-### Health Recording (MONITOR_ROLE)
+Run tests from repo root (legacy test tree):
+
+```bash
+forge test --match-contract CircuitBreakerTest -vv
+```
+
+Or from `Contracts/` if your Foundry profile includes the root `test/` remapping.
+
+---
+
+## Environment and ports
+
+Backend breaker service reads from [`Backend/.env.example`](Backend/.env.example):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PORT` | `4000` | API listen port when Express/NestJS is running |
+| `REDIS_HOST` | `127.0.0.1` | Breaker state persistence |
+| `REDIS_PORT` | `6379` | Redis port |
+| `REDIS_DB` | `0` | Logical DB for breaker keys (`breaker:<service>`) |
+| `HEARTBEAT_PORT` | `4001` | Operational heartbeat (separate from main API) |
+
+Without Redis, `breakerService.js` falls back to an in-memory store (single-process only).
+
+Frontend WebSocket/API defaults: `NEXT_PUBLIC_BACKEND_URL=http://localhost:4000` per
+[`Frontend/.env.example`](Frontend/.env.example).
+
+---
+
+## On-chain API (`CircuitBreaker.sol`)
+
+Constructor takes **no arguments**. Grants `DEFAULT_ADMIN_ROLE`, `BREAKER_ROLE`, and
+`MONITOR_ROLE` to `msg.sender`.
+
+### Health recording (`MONITOR_ROLE`)
+
 ```solidity
-recordSuccess()                    // Record successful operation
-recordFailure(string reason)       // Record failed operation
+recordSuccess()
+recordFailure(string reason)
 ```
 
-### Break Control (BREAKER_ROLE)
+### Break control (`BREAKER_ROLE`)
+
 ```solidity
-triggerBreak(string reason)        // Manually trigger circuit break
-attemptRecovery()                  // Attempt recovery after timeout
+triggerBreak(string reason)
+attemptRecovery()
 ```
 
-### Configuration (ADMIN_ROLE)
+### Configuration (`DEFAULT_ADMIN_ROLE`)
+
 ```solidity
-setFailureThreshold(uint256)       // Default: 5
-setFailureRateThreshold(uint256)   // Default: 50% (0-100)
-setRecoveryTimeout(uint256)        // Default: 1 hour
-resetMetrics()                     // Reset counters and close circuit
+setFailureThreshold(uint256)       // default: 5
+setFailureRateThreshold(uint256)   // default: 50 (%)
+setRecoveryTimeout(uint256)        // default: 1 hour
+setHealthCheckWindow(uint256)      // default: 24 hours
+resetMetrics()
+grantBreakerRole(address) / revokeBreakerRole(address)
+grantMonitorRole(address) / revokeMonitorRole(address)
 ```
 
-### Permission Management (ADMIN_ROLE)
+### Status queries (anyone)
+
 ```solidity
-grantBreakerRole(address)
-revokeBreakerRole(address)
-grantMonitorRole(address)
-revokeMonitorRole(address)
+getStatus()           // (state, failures, successes, total, health%, isHealthy)
+getRecoveryInfo()     // (state, timeSinceBreak, timeUntilRecovery, recoveryReady)
+getFailureMetrics()   // (totalFailures, failureRate, lastFailureTime, lastSuccessTime)
+isCircuitOpen() / isCircuitHalfOpen() / isCircuitClosed()
 ```
 
-### Status Queries (Anyone)
+### State machine
+
+```
+CLOSED → (threshold exceeded) → OPEN → (timeout + attemptRecovery) → HALF_OPEN
+HALF_OPEN → (recordSuccess) → CLOSED
+HALF_OPEN → (recordFailure) → OPEN
+```
+
+### Defaults
+
+| Parameter | Default |
+|-----------|---------|
+| `failureThreshold` | 5 |
+| `failureRateThreshold` | 50 (%) |
+| `recoveryTimeout` | 1 hour |
+| `healthCheckWindow` | 24 hours |
+
+---
+
+## Backend HTTP API (`Backend/routes/circuitBreaker.js`)
+
+These routes mirror the on-chain pattern for off-chain services. **Mount them** under
+`/api/circuit-breaker` in `Backend/server.js` or the NestJS app before calling them
+from production — the route module exists but is not registered in the minimal
+Express bootstrap checked into this repo.
+
+| Method | Path | Body / params | Response |
+|--------|------|---------------|----------|
+| `GET` | `/status` | — | All monitored services + summary counts |
+| `GET` | `/status/:serviceName` | — | Single service state |
+| `GET` | `/check/:serviceName` | — | `{ allowed, state, reason?, retryAfter? }` |
+| `POST` | `/trip` | `{ serviceName, reason? }` | Tripped state |
+| `POST` | `/reset` | `{ serviceName }` | Reset one breaker |
+| `POST` | `/reset-all` | — | Reset all monitored services |
+| `POST` | `/isolate` | `{ serviceName, reason? }` | Force open |
+| `GET` | `/history` | `?serviceName&action&limit` | Activation history |
+| `GET` | `/config` | — | `BREAKER_CONFIG` |
+| `POST` | `/config` | partial config object | Updated config |
+
+Monitored services (default): `trade-engine`, `balance-service`, `oracle-service`,
+`liquidation-service`, `blockchain-service`, `market-data`.
+
+Backend config defaults (`breakerService.js`):
+
+| Key | Value |
+|-----|-------|
+| `FAILURE_THRESHOLD` | 5 |
+| `SUCCESS_THRESHOLD` | 2 (half-open → closed) |
+| `TIMEOUT_MS` | 60_000 |
+| `RESET_TIMEOUT_MS` | 300_000 |
+
+---
+
+## Usage (on-chain)
+
 ```solidity
-getStatus()                        // Returns: (state, failures, successes, total, health%, isHealthy)
-getRecoveryInfo()                  // Returns: (state, timeSinceBreak, timeUntilRecovery, recoveryReady)
-getFailureMetrics()                // Returns: (totalFailures, failureRate, lastFailureTime, lastSuccessTime)
-isCircuitOpen()                    // Returns: bool
-isCircuitHalfOpen()                // Returns: bool
-isCircuitClosed()                  // Returns: bool
-```
-
-## State Machine
-```
-CLOSED (normal)
-  ↓ (failures ≥ threshold OR failure rate ≥ threshold)
-OPEN (blocked)
-  ↓ (timeout elapsed, manual call)
-HALF_OPEN (recovery test)
-  ↓ (success → CLOSED) or (failure → OPEN)
-```
-
-## Key Features
-✅ Automatic break triggering on dual thresholds
-✅ Manual break triggering for control
-✅ Timeout-based recovery attempts
-✅ Configurable thresholds and timeouts
-✅ Role-based permission control
-✅ Real-time health metrics
-✅ Comprehensive event logging
-✅ Fail-safe design (blocks operations when open)
-
-## Events
-- `StateChanged(State oldState, State newState, string reason)`
-- `FailureRecorded(uint256 failureCount, string reason)`
-- `SuccessRecorded(uint256 successCount)`
-- `CircuitBreakerTriggered(State previousState, uint256 timestamp)`
-- `RecoveryAttempt(uint256 timestamp)`
-- `ConfigurationUpdated(string parameter, uint256 value)`
-- `BreakPermitted(address indexed operator, uint256 timestamp)`
-
-## Default Configuration
-| Parameter | Default | Type |
-|-----------|---------|------|
-| failureThreshold | 5 | uint256 |
-| failureRateThreshold | 50 | uint256 (%) |
-| recoveryTimeout | 1 hour | uint256 (seconds) |
-| healthCheckWindow | 24 hours | uint256 (seconds) |
-
-## Requirements Met
-
-### ✅ Monitor operation health
-- Real-time success/failure tracking
-- Failure rate calculation
-- Health percentage metrics
-- Last event timestamps
-
-### ✅ Trigger circuit breaks
-- Automatic: Failure threshold exceeded
-- Automatic: Failure rate threshold exceeded  
-- Manual: triggerBreak() with reason
-- Role-based access control
-
-### ✅ Handle break recovery
-- Timeout-based recovery attempts
-- HalfOpen state for recovery testing
-- Automatic transition to Closed on success
-- Multiple recovery cycles supported
-
-### ✅ Control break permissions
-- BREAKER_ROLE for break triggering
-- MONITOR_ROLE for health recording
-- ADMIN_ROLE for configuration
-- Grant/revoke functions with validation
-
-### ✅ Provide break status
-- getStatus() for complete overview
-- getRecoveryInfo() for recovery timeline
-- getFailureMetrics() for analytics
-- State query helpers
-
-## Test Coverage
-- 40+ comprehensive test cases
-- Health monitoring (4 tests)
-- Break triggering (6 tests)
-- Recovery mechanisms (4 tests)
-- Permission control (4 tests)
-- Configuration (5 tests)
-- Status reporting (5 tests)
-- State transitions (3 tests)
-- Edge cases (2 tests)
-- All acceptance criteria verified
-
-## Usage Pattern
-```solidity
-// 1. Deploy and configure
 CircuitBreaker cb = new CircuitBreaker();
 cb.grantBreakerRole(breaker);
 cb.grantMonitorRole(monitor);
-cb.setFailureThreshold(10);
 
-// 2. Monitor operations
-if (operationFailed) {
-    monitor.recordFailure("reason");
-}
+// monitor path
+cb.recordFailure("upstream timeout");
 
-// 3. Check status
-(,,,,uint256 health,bool isHealthy) = cb.getStatus();
+// status
+(,,,, uint256 health, bool isHealthy) = cb.getStatus();
 
-// 4. Handle recovery
+// recovery
 if (cb.isCircuitOpen()) {
-    (,,,bool recoveryReady) = cb.getRecoveryInfo();
-    if (recoveryReady) {
-        breaker.attemptRecovery();
-    }
+    (,,, bool recoveryReady) = cb.getRecoveryInfo();
+    if (recoveryReady) cb.attemptRecovery();
 }
 ```
+
+---
+
+## Verification
+
+```bash
+forge test --match-contract CircuitBreakerTest -vv
+```
+
+For extended narrative (partially stale): [CIRCUIT_BREAKER_IMPLEMENTATION.md](CIRCUIT_BREAKER_IMPLEMENTATION.md).

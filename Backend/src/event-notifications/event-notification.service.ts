@@ -1,4 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 import { v4 as uuidv4 } from 'uuid';
@@ -35,7 +41,10 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    const rpcUrl = this.config.get<string>('BLOCKCHAIN_RPC_URL', 'https://rpc.mantle.xyz');
+    const rpcUrl = this.config.get<string>(
+      'BLOCKCHAIN_RPC_URL',
+      'https://rpc.mantle.xyz',
+    );
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.startListening();
   }
@@ -80,8 +89,7 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
   ): EventNotificationRecord[] {
     return [...this.notifications.values()]
       .filter(
-        (n) =>
-          n.userId === userId && (status ? n.status === status : true),
+        (n) => n.userId === userId && (status ? n.status === status : true),
       )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
@@ -104,12 +112,18 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
       .filter(Boolean);
 
     if (contractAddresses.length === 0) {
-      this.logger.warn('No TRACKED_CONTRACT_ADDRESSES configured — event listener idle');
+      this.logger.warn(
+        'No TRACKED_CONTRACT_ADDRESSES configured — event listener idle',
+      );
       return;
     }
 
     for (const address of contractAddresses) {
-      const contract = new ethers.Contract(address, TRACKED_EVENTS_ABI, this.provider);
+      const contract = new ethers.Contract(
+        address,
+        TRACKED_EVENTS_ABI,
+        this.provider,
+      );
       this.attachListeners(contract, address);
       this.listeners.set(address, contract);
       this.logger.log(`Listening to contract ${address}`);
@@ -146,7 +160,9 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     const log = args[args.length - 1] as ethers.EventLog;
     const payload = this.parseEventArgs(eventType, args);
 
-    this.logger.log(`Event ${eventType} from ${contractAddress} tx:${log.transactionHash}`);
+    this.logger.log(
+      `Event ${eventType} from ${contractAddress} tx:${log.transactionHash}`,
+    );
 
     // Find matching filters
     const matchingFilters = [...this.filters.values()].filter(
@@ -192,7 +208,10 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     } catch (err) {
       record.status = 'failed';
       record.error = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Failed to deliver notification ${record.id}`, record.error);
+      this.logger.error(
+        `Failed to deliver notification ${record.id}`,
+        record.error,
+      );
     }
   }
 

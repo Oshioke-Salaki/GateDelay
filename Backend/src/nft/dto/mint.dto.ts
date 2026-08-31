@@ -34,7 +34,8 @@ export class PrepareMintTxDto {
   @ApiPropertyOptional({
     description:
       'IPFS metadata URI for the clip (ipfs://CID or https gateway URL)',
-    example: 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    example:
+      'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
   })
   @IsOptional()
   @IsString()
@@ -77,7 +78,8 @@ export class PrepareMintTxResponseDto {
 
   @ApiProperty({
     description: 'Metadata URI attached to the mint',
-    example: 'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
+    example:
+      'ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi',
   })
   metadataUri: string;
 

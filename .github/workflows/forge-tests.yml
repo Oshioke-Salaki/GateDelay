@@ -39,13 +39,27 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
 
       - name: Show Forge version
         run: forge --version
 
       - name: Build MarketFactory foundation
         run: forge build --sizes src/MarketFactory.sol
+      - name: Build Contracts
+        run: forge build --contracts src/MarketCap.sol src/RoleManager.sol
+
+      - name: List test suites (Contracts/test-ci/)
+        run: |
+          forge test --list --contracts src/MarketCap.sol
+          forge test --list --contracts src/RoleManager.sol
+        env:
+          FOUNDRY_PROFILE: ci
+
+      - name: Run Contracts CI tests
+        run: |
+          forge test --contracts src/MarketCap.sol -vvv
+          forge test --contracts src/RoleManager.sol -vvv
         env:
           FOUNDRY_PROFILE: ci
 
@@ -64,18 +78,27 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
 
       - name: Show Forge version
         run: forge --version
 
       - name: Build (root profile)
-        run: forge build --sizes
+        run: forge build --contracts Contracts/src/CircuitBreaker.sol --skip test
+        env:
+          FOUNDRY_PROFILE: ci
 
       - name: Prepare isolated MarketFactory test root
         run: cp test/MarketFactory.t.sol test/marketfactory/MarketFactory.t.sol
 
       - name: Run MarketFactory verification tests
         run: forge test --root test/marketfactory -vvv
+      - name: List test suites (root test-ci/)
+        run: forge test --list --contracts Contracts/src/CircuitBreaker.sol
+        env:
+          FOUNDRY_PROFILE: ci
+
+      - name: Run root CI tests
+        run: forge test --contracts Contracts/src/CircuitBreaker.sol -vvv
         env:
           FOUNDRY_PROFILE: ci

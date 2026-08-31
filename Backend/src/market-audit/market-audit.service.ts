@@ -1,19 +1,40 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuditLog, AuditReport } from './market-audit.entity';
+
+export const BETA_ACCESS_CHECKER = Symbol('BETA_ACCESS_CHECKER');
+
+export interface BetaAccessChecker {
+  checkAccess(
+    walletAddress: string,
+  ): Promise<{ hasAccess: boolean; reason?: string }>;
+}
 
 @Injectable()
 export class MarketAuditService {
   private logs: AuditLog[] = [];
   private retentionDays = 90;
 
-  createLog(input: {
+  constructor(
+    @Optional()
+    @Inject(BETA_ACCESS_CHECKER)
+    private readonly betaAccessChecker?: BetaAccessChecker,
+  ) {}
+
+  async createLog(input: {
     marketId: string;
     operation: string;
     actor: string;
     details: string;
     severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  }): AuditLog {
+  }): Promise<AuditLog> {
+    await this.requireBetaAccess(input.actor);
+
     const previousHash = this.logs.length
       ? this.logs[this.logs.length - 1].hash
       : 'GENESIS';
@@ -35,6 +56,17 @@ export class MarketAuditService {
 
     this.logs.push(log);
     return log;
+  }
+
+  private async requireBetaAccess(actor: string): Promise<void> {
+    if (!this.betaAccessChecker) {
+      throw new ForbiddenException('Beta access gate is unavailable');
+    }
+
+    const access = await this.betaAccessChecker.checkAccess(actor);
+    if (!access.hasAccess) {
+      throw new ForbiddenException(access.reason ?? 'Beta access is required');
+    }
   }
 
   queryLogs(filters: {
@@ -69,7 +101,11 @@ export class MarketAuditService {
     this.retentionDays = retentionDays;
   }
 
-  enforceRetention(): { removed: number; retained: number; retentionDays: number } {
+  enforceRetention(): {
+    removed: number;
+    retained: number;
+    retentionDays: number;
+  } {
     const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000;
     const originalCount = this.logs.length;
 
@@ -91,13 +127,15 @@ export class MarketAuditService {
       limit: Number.MAX_SAFE_INTEGER,
     });
 
-    const severityTemplate: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', number> =
-      {
-        LOW: 0,
-        MEDIUM: 0,
-        HIGH: 0,
-        CRITICAL: 0,
-      };
+    const severityTemplate: Record<
+      'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+      number
+    > = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      CRITICAL: 0,
+    };
 
     const byOperation: Record<string, number> = {};
     const marketSet = new Set<string>();

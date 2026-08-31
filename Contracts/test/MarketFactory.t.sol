@@ -36,6 +36,12 @@ contract MarketFactoryTest is Test {
     function test_constructor_revertsWithInvalidPositionToken() public {
         vm.expectRevert(MarketFactory.InvalidPositionToken.selector);
         new MarketFactory(address(1));
+        // Predict the factory address so PositionToken can restrict authorisation
+        // to the factory before either contract is deployed.
+        uint256 nonce = vm.getNonce(address(this));
+        address predictedFactory = vm.computeCreateAddress(address(this), nonce + 1);
+        positionToken = new PositionToken(predictedFactory); // nonce
+        factory = new MarketFactory(address(positionToken)); // nonce + 1
     }
 
     // =========================================================================
@@ -77,6 +83,14 @@ contract MarketFactoryTest is Test {
     function test_createMarket_returnsNonZeroAddress() public {
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
         assertTrue(market != address(0));
+        assertEq(factory.marketCount(), 1);
+        assertEq(factory.marketAt(0), market);
+        assertTrue(positionToken.isAuthorised(market));
+    }
+
+    function test_constructor_revertsForZeroPositionToken() public {
+        vm.expectRevert(MarketFactory.ZeroPositionToken.selector);
+        new MarketFactory(address(0));
     }
 
     function test_createMarket_registersAndAuthorisesMarket() public {

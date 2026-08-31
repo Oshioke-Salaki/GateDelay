@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {MarketRelay, RelayClient, IRelayRouter} from "../src/MarketRelay.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 // ---------------------------------------------------------------
 // Mock Relay Router
@@ -264,7 +265,6 @@ contract MarketRelayTest is Test {
 
         assertEq(relay.totalFeesCollected(), 1.1 ether);
     }
-}
 
     // ---------------------------------------------------------------
     // Status Transition Tests
@@ -310,7 +310,7 @@ contract MarketRelayTest is Test {
         assertEq(uint256(relay.getRelayStatus(opId)), uint256(MarketRelay.RelayStatus.Completed));
     }
 
-    function test_FailRelay_WithRetriesAvailable_ReturnsToP pending() public {
+    function test_FailRelay_WithRetriesAvailable_ReturnsToPending() public {
         vm.prank(owner);
         relay.configureChain(CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50);
         router.setChainSupported(CHAIN_BASE, true);
