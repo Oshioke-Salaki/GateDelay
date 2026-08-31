@@ -74,7 +74,7 @@ interface ConnectModalProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
-  const { isConnected, openConnectKit, isAvailable } = useConnectKitBridge();
+  const { isConnected, openConnectKit, isAvailable, resolutionStatus, error } = useConnectKitBridge();
   const particleReady = isParticleConnectKitConfigured();
   const injectedReady = hasInjectedWalletProvider();
   const showEmptyState = !particleReady && !injectedReady;
@@ -259,6 +259,15 @@ export default function ConnectModal({ isOpen, onClose }: ConnectModalProps) {
                   );
                 })}
               </ul>
+            )}
+
+            {resolutionStatus === "unavailable" && error && (
+              <p
+                className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600"
+                role="status"
+              >
+                {error}
+              </p>
             )}
 
             {injectedReady && !particleReady && (

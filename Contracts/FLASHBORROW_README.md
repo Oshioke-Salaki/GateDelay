@@ -12,15 +12,33 @@ FlashBorrow enables users to borrow tokens within a single transaction, with man
 - 🎯 **Flexible Limits**: Per-account and global borrow caps
 - 🔍 **Query Functions**: Comprehensive data access
 
+## Requirements & pinned dependencies
+
+Build and test this contract with the exact versions pinned in the repo — do not
+let them float. Bump deliberately and in one place.
+
+| Dependency | Pinned version | Pinned in |
+|---|---|---|
+| Solidity (`solc`) | `0.8.28` | `Contracts/foundry.toml` → `[profile.default] solc` |
+| Contract pragma | `^0.8.20` | `src/FlashBorrow.sol` |
+| Foundry / `forge` | `1.1.0` | `Contracts/foundry.toml` → `[toolchain] forge`; `.github/workflows/*` |
+| OpenZeppelin Contracts | `v5.6.1` | `Contracts/foundry.lock` → `lib/openzeppelin-contracts` |
+| `forge-std` | `v1.16.0` | `Contracts/foundry.lock` → `lib/forge-std` |
+
+`FlashBorrow` imports `Ownable`, `ReentrancyGuard`, `IERC20`, and `SafeERC20`
+from `@openzeppelin/contracts` (remapped in `Contracts/remappings.txt`). It
+targets OpenZeppelin `v5.x`, whose `Ownable` requires an initial owner — the
+`FlashBorrow` constructor supplies `msg.sender`, so the deployer becomes the
+owner and only the global limit is passed at deploy time.
+
 ## Quick Start
 
 ### Deploy the Contract
 
 ```solidity
-// Deploy with initial owner and global limit
+// The deployer (msg.sender) becomes the owner; only the global limit is passed.
 FlashBorrow flashBorrow = new FlashBorrow(
-    ownerAddress,      // Initial owner
-    1000000 ether      // Global borrow limit (0 = unlimited)
+    1_000_000 ether     // Global borrow limit (0 = unlimited)
 );
 ```
 
@@ -96,9 +114,9 @@ forge test --match-contract FlashBorrowTest -vvv
 
 ## Files
 
-- **Contract**: `contracts/FlashBorrow.sol`
-- **Tests**: `test/FlashBorrow.t.sol`
-- **Documentation**: `FLASHBORROW_DOCUMENTATION.md`
+- **Contract**: `Contracts/src/FlashBorrow.sol`
+- **Tests**: `Contracts/test/FlashBorrow.t.sol` (contract `FlashBorrowTest`)
+- **Documentation**: `Contracts/FLASHBORROW_DOCUMENTATION.md`
 
 ## Support
 

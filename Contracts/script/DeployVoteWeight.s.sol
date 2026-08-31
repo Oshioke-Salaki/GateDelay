@@ -4,7 +4,6 @@ pragma solidity ^0.8.20;
 import {Script} from "forge-std/Script.sol";
 import {console} from "forge-std/console.sol";
 import {VoteWeight} from "../src/VoteWeight.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title DeployVoteWeight
 /// @notice Deployment script for VoteWeight contract
@@ -12,11 +11,12 @@ contract DeployVoteWeight is Script {
     function run() external returns (VoteWeight voteWeight) {
         // Get governance token address from environment
         address governanceToken = vm.envAddress("GOVERNANCE_TOKEN");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         
         console.log("Deploying VoteWeight with governance token:", governanceToken);
-        console.log("Deployer:", msg.sender);
+        console.log("Deployer:", vm.addr(deployerPrivateKey));
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployerPrivateKey);
         
         // Deploy VoteWeight
         voteWeight = new VoteWeight(governanceToken);

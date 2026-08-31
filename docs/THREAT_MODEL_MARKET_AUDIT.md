@@ -133,6 +133,21 @@ true })` in `Backend/src/main.ts` rejects any property not declared on the DTO.
 The chain fields are computed server-side in `createLog()` and are not
 DTO-settable. Covered by the "threat #7" block in the spec.
 
+### 8. Beta access bypass
+
+*Attack:* an unknown, revoked, or inactive actor submits an audit write directly
+to the Nest endpoint, bypassing the frontend and any route-specific feature
+checks.
+
+*Control:* `MarketAuditService.createLog()` calls the injected beta access
+checker before mutating the in-memory hash chain. A denied response becomes a
+`403`, and a missing checker fails closed. The service spec covers both denied
+access and an unavailable gate.
+
+*Residual risk:* the `actor` value is still self-asserted by the caller. The
+beta gate confirms enrollment, not wallet ownership; authenticated identity
+binding remains a separate requirement.
+
 ## Not addressed here
 
 - **AuthN/AuthZ.** No endpoint in this controller checks a caller identity;
@@ -153,3 +168,4 @@ DTO-settable. Covered by the "threat #7" block in the spec.
 - [ ] A negative-path case is added to `dto/market-audit.dto.spec.ts` for each
       new field.
 - [ ] Any new threat gets a row in the DTO header table and a section here.
+- [x] Audit writes are denied when the beta access gate rejects the actor.

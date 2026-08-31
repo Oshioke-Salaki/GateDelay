@@ -389,7 +389,7 @@ contract MarketVaultTest is Test {
     function test_Query_MaxWithdraw() public {
         _deposit(alice, DEPOSIT_1K);
         uint256 max = vault.maxWithdraw(alice);
-        assertApproxEqRel(max, DEPOSIT_1K, 1e15, "max withdraw ≈ deposited");
+        assertApproxEqRel(max, DEPOSIT_1K, 1e15, unicode"max withdraw ≈ deposited");
     }
 
     function test_Query_DepositAndWithdrawalCounts() public {

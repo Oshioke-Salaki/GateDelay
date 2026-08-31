@@ -30,8 +30,7 @@ contract RaffleContract is Ownable {
     event WinnerSelected(address indexed winnerAddress, uint256 indexed seed);
     event PrizeDistributed(address indexed winnerAddress, uint256 amount);
 
-    constructor(uint256 _entryPrice, uint256 duration, uint256 _prizeAmount, address initialOwner) Ownable() {
-        transferOwnership(initialOwner);
+    constructor(uint256 _entryPrice, uint256 duration, uint256 _prizeAmount, address initialOwner) Ownable(initialOwner) {
         entryPrice = _entryPrice;
         endTime = block.timestamp + duration;
         prizeAmount = _prizeAmount;

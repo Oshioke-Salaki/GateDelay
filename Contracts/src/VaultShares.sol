@@ -11,6 +11,7 @@ import {Pausable}        from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Math}            from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20}          from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20}       from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Nonces}          from "@openzeppelin/contracts/utils/Nonces.sol";
 
 /// @title VaultShares
 /// @notice ERC-20 vault share token that represents proportional ownership of an

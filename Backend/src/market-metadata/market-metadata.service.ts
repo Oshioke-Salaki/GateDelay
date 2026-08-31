@@ -54,10 +54,7 @@ export class MarketMetadataService {
   }
 
   async findVersions(marketId: string): Promise<MarketMetadata[]> {
-    return this.metadataModel
-      .find({ marketId })
-      .sort({ version: -1 })
-      .exec();
+    return this.metadataModel.find({ marketId }).sort({ version: -1 }).exec();
   }
 
   async update(
@@ -148,11 +145,13 @@ export class MarketMetadataService {
 
     const errors: string[] = [];
     for (const [key, type] of Object.entries(schema)) {
-      const val = (metadata.attributes as Record<string, unknown>)[key];
+      const val = metadata.attributes[key];
       if (val === undefined) {
         errors.push(`Missing required attribute: ${key}`);
       } else if (typeof val !== type) {
-        errors.push(`Attribute ${key} expected ${String(type)}, got ${typeof val}`);
+        errors.push(
+          `Attribute ${key} expected ${String(type)}, got ${typeof val}`,
+        );
       }
     }
 

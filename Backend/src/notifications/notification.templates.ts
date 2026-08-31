@@ -9,7 +9,8 @@ interface Template {
 export const TEMPLATES: Record<NotificationType, Template> = {
   trade_confirmation: {
     title: () => 'Trade Confirmed',
-    body: (d) => `Your trade on "${d?.market ?? 'market'}" was confirmed. Amount: ${d?.amount ?? '—'}`,
+    body: (d) =>
+      `Your trade on "${d?.market ?? 'market'}" was confirmed. Amount: ${d?.amount ?? '—'}`,
     emailHtml: (d) =>
       `<p>Your trade on <strong>${d?.market ?? 'market'}</strong> has been confirmed.</p><p>Amount: ${d?.amount ?? '—'}</p>`,
   },
@@ -32,7 +33,8 @@ export const TEMPLATES: Record<NotificationType, Template> = {
   },
   weekly_digest: {
     title: () => 'Your Weekly GateDelay Digest',
-    body: (d) => `You had ${d?.trades ?? 0} trades this week. P&L: ${d?.pnl ?? '—'}`,
+    body: (d) =>
+      `You had ${d?.trades ?? 0} trades this week. P&L: ${d?.pnl ?? '—'}`,
     emailHtml: (d) =>
       `<h2>Weekly Digest</h2><p>Trades: ${d?.trades ?? 0}</p><p>P&amp;L: ${d?.pnl ?? '—'}</p>`,
   },

@@ -37,36 +37,37 @@ This guide provides step-by-step instructions for integrating the MarketRelay co
 
 ### Step 1.1: Deploy MarketRelay Contracts
 
-Deploy to all supported chains:
+Deploy one `MarketRelay` instance per supported source chain. The constructor
+requires nonzero addresses for the CCIP-compatible router, relayer signer, fee
+recipient, and initial owner. Keep the owner on a multisig and use a separate,
+funded relayer signer.
 
 ```bash
-# Define chain parameters
-declare -a CHAINS=(
-    "arbitrum:42161:0xAA1DC17CFF15F99PI:0x1234..."  # Arbitrum
-    "base:8453:0xBB1DC17CFF15F99PI:0x5678..."       # Base
-    "avalanche:43114:0xCC1DC17CFF15F99PI:0x9abc..."  # Avalanche
-)
+# Run from Contracts/ with real, checksummed addresses and chain-specific RPCs.
+export RPC_URL="https://<chain-rpc>"
+export DEPLOYER_KEY="0x<deployment-key>"
+export CCIP_ROUTER="0x<router-address>"
+export RELAYER_SERVICE="0x<relayer-address>"
+export FEE_RECIPIENT="0x<treasury-address>"
+export OWNER="0x<multisig-address>"
 
-# Deploy to each chain
-for chain_info in "${CHAINS[@]}"; do
-    IFS=':' read -r name chainid router owner <<< "$chain_info"
-    
-    forge create Contracts/contracts/MarketRelay.sol:MarketRelay \
-        --rpc-url $RPC_URL \
-        --private-key $DEPLOYER_KEY \
-        --constructor-args \
-            $router \              # CCIP Router address
-            $RELAYER_SERVICE \     # Relayer address (see Phase 2)
-            $FEE_RECIPIENT \       # Treasury address
-            $owner                 # Contract owner (multisig)
-done
+forge create src/MarketRelay.sol:MarketRelay \
+  --rpc-url "$RPC_URL" \
+  --private-key "$DEPLOYER_KEY" \
+  --constructor-args "$CCIP_ROUTER" "$RELAYER_SERVICE" \
+    "$FEE_RECIPIENT" "$OWNER"
 ```
+
+Record the deployed address, chain ID, router, relayer, fee recipient, and
+owner from each deployment. Do not commit private keys or replace the address
+placeholders above with fake values.
 
 ### Step 1.2: Configure Chain Relationships
 
 ```solidity
-// After deployment, configure all supported chains from any chain
-// Example: Configure Arbitrum → Base relay path
+// The owner must execute this separately on every MarketRelay deployment.
+// Configuration is local state; configuring Base does not configure Arbitrum.
+// Example: configure the Base destination on the source-chain relay.
 
 relay.configureChain(
     BASE_CHAIN_SELECTOR,           // uint64: 15971525489660198786
@@ -113,6 +114,44 @@ relay.setRelayRouter(CHAINLINK_CCIP_ROUTER);
 // 4. Transfer ownership to DAO/Governance
 relay.transferOwnership(DAO_GOVERNANCE_ADDRESS);
 ```
+
+Before accepting traffic, verify `isChainSupported` on the source relay and
+that the configured router supports the same destination selector. Fund the
+router/relayer path with the native currency required by the deployment and
+quote `calculateRelayFee(destChainSelector, value)` before calling
+`initiateRelay`. The caller must send at least that fee as `msg.value`; any
+excess remains in the contract and is owner-withdrawable.
+
+### Step 1.4: Market relay lifecycle
+
+Each operation follows this lifecycle on the **source-chain** `MarketRelay`:
+
+1. A market caller encodes destination operation data and calls
+    `initiateRelay(destChainSelector, operationData, value)` with the quoted
+    native fee. The contract emits `RelayInitiated` and stores the operation as
+    `Pending` with `attempts = 1`.
+2. The off-chain relayer watches `RelayInitiated`, observes the CCIP message,
+    and performs the destination-chain work through a separately deployed and
+    authenticated destination executor. `MarketRelay` does not execute
+    arbitrary `operationData` and does not implement a CCIP receive callback.
+3. The configured `relayer` address calls `updateRelayExecuting(operationId)`
+    on the source relay, performs or confirms destination execution, and then
+    calls `completeRelay(operationId, result)`. Successful operations become
+    `Completed` and are added to history.
+4. A failed attempt is reported with `failRelay(operationId, reason)`. While
+    `attempts < maxRetries`, the operation returns to `Pending` and the
+    relayer must enforce `retryDelay` off-chain. `maxRetries` is the maximum
+    attempt count, not the number of retries after the first attempt.
+5. Anyone may call `checkTimeout(operationId)` after `timeoutAt`; this moves an
+    unfinished operation to `Timeout`. The initiator may call `cancelRelay` only
+    while the operation is `Pending` or `Executing`; a timed-out operation cannot
+    be cancelled, so recovery must reinitiate it after investigating the cause.
+
+Monitor `RelayInitiated`, `RelayExecuting`, `RelayRetried`, `RelayCompleted`,
+`RelayFailed`, `RelayTimeout`, and `RelayCancelled` events. Keepers should track
+pending IDs from events or `getRelayOperation`; do not rely solely on
+`getExpiredRelays`, which scans recorded history and may not discover a normal
+pending operation until it has entered history.
 
 ## Phase 2: Relayer Service Implementation
 
@@ -173,6 +212,8 @@ class MarketRelayService:
         """Periodic timeout enforcement"""
         while True:
             for chain_id, relay_contract in self.relay_contracts.items():
+                # Track Pending IDs from RelayInitiated/getRelayOperation;
+                # getExpiredRelays only scans operations already in history.
                 expired = relay_contract.getExpiredRelays()
                 for operation_id in expired:
                     try:
@@ -191,9 +232,9 @@ class MarketRelayService:
 # 1. Create service environment
 cat > .env.relayer << EOF
 # CCIP Configuration
-CCIP_ROUTER_ARBITRUM=0xAA1DC17CFF15F99PI
-CCIP_ROUTER_BASE=0xBB1DC17CFF15F99PI
-CCIP_ROUTER_AVALANCHE=0xCC1DC17CFF15F99PI
+CCIP_ROUTER_ARBITRUM=0x<arbitrum-router-address>
+CCIP_ROUTER_BASE=0x<base-router-address>
+CCIP_ROUTER_AVALANCHE=0x<avalanche-router-address>
 
 # MarketRelay Addresses
 MARKET_RELAY_ARBITRUM=0x1111111111111111111111111111111111111111
@@ -595,9 +636,9 @@ relay.updateChainConfig(
     5           // Increased retries
 );
 
-// Or manually retry timed-out operations
+// A Timeout operation cannot be cancelled. Reinitiate only after investigating
+// the cause and confirming the original operation cannot be executed.
 bytes32 opId = /* timed out operation */;
-relay.cancelRelay(opId);
 relay.initiateRelay(...);  // Reinitiate
 ```
 

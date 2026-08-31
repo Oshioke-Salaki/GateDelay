@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const balanceService = require('../../services/balanceService');
 
 /**
  * API V2 ROUTES
@@ -115,20 +116,25 @@ router.delete('/orders/cancel', (req, res) => {
 });
 
 // V2 User routes
-router.get('/users/balance', (req, res) => {
-  res.json({
-    success: true,
-    version: 'v2',
-    data: {
-      userId: req.query.userId,
-      balances: [],
-      totalValue: {
-        usd: 0,
-        btc: 0,
+router.get('/users/balance', async (req, res) => {
+  if (!req.query.userId) {
+    return res.status(400).json({ success: false, error: 'userId is required' });
+  }
+
+  try {
+    const balances = await balanceService.getBalances(req.query.userId, req.query.asset);
+    res.json({
+      success: true,
+      version: 'v2',
+      data: {
+        userId: req.query.userId,
+        balances,
+        lastUpdated: new Date().toISOString(),
       },
-      lastUpdated: new Date().toISOString(),
-    },
-  });
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Unable to load balance' });
+  }
 });
 
 router.get('/users/profile', (req, res) => {

@@ -7,7 +7,10 @@ import {
   NotificationChannel,
   NotificationPreferences,
 } from './notification.entity';
-import { SendNotificationDto, UpdatePreferencesDto } from './dto/notification.dto';
+import {
+  SendNotificationDto,
+  UpdatePreferencesDto,
+} from './dto/notification.dto';
 import { renderTemplate } from './notification.templates';
 
 @Injectable()
@@ -38,9 +41,7 @@ export class NotificationService {
       return [];
     }
 
-    const channels = dto.channel
-      ? [dto.channel]
-      : this.resolveChannels(prefs);
+    const channels = dto.channel ? [dto.channel] : this.resolveChannels(prefs);
 
     const created: Notification[] = channels.map((channel) => {
       const n: Notification = {
@@ -60,7 +61,9 @@ export class NotificationService {
       return n;
     });
 
-    this.logger.log(`Queued ${created.length} notification(s) for user ${dto.userId}`);
+    this.logger.log(
+      `Queued ${created.length} notification(s) for user ${dto.userId}`,
+    );
     return created;
   }
 
@@ -72,7 +75,8 @@ export class NotificationService {
 
   markRead(userId: string, notificationId: string): Notification {
     const n = this.notifications.get(notificationId);
-    if (!n || n.userId !== userId) throw new NotFoundException('Notification not found');
+    if (!n || n.userId !== userId)
+      throw new NotFoundException('Notification not found');
     n.status = 'read';
     n.readAt = new Date();
     return n;
@@ -91,12 +95,16 @@ export class NotificationService {
     return this.preferences.get(userId)!;
   }
 
-  updatePrefs(userId: string, dto: UpdatePreferencesDto): NotificationPreferences {
+  updatePrefs(
+    userId: string,
+    dto: UpdatePreferencesDto,
+  ): NotificationPreferences {
     const prefs = this.getPrefs(userId);
     if (dto.email !== undefined) prefs.email = dto.email;
     if (dto.push !== undefined) prefs.push = dto.push;
     if (dto.inApp !== undefined) prefs.inApp = dto.inApp;
-    if (dto.optedOutTypes !== undefined) prefs.optedOutTypes = dto.optedOutTypes;
+    if (dto.optedOutTypes !== undefined)
+      prefs.optedOutTypes = dto.optedOutTypes;
     if (dto.fcmToken !== undefined) prefs.fcmToken = dto.fcmToken;
     return prefs;
   }
@@ -141,7 +149,9 @@ export class NotificationService {
       n.status = 'sent';
       n.sentAt = new Date();
     } catch (err: any) {
-      this.logger.warn(`Failed to dispatch ${n.id} via ${n.channel}: ${err.message}`);
+      this.logger.warn(
+        `Failed to dispatch ${n.id} via ${n.channel}: ${err.message}`,
+      );
       n.error = err.message;
       // Retry up to 3 times
       if (n.attempts < 3) {
@@ -192,16 +202,20 @@ export class NotificationService {
     await admin.messaging().send({
       token: prefs.fcmToken,
       notification: { title: n.title, body: n.body },
-      data: n.data ? Object.fromEntries(
-        Object.entries(n.data).map(([k, v]) => [k, String(v)])
-      ) : undefined,
+      data: n.data
+        ? Object.fromEntries(
+            Object.entries(n.data).map(([k, v]) => [k, String(v)]),
+          )
+        : undefined,
     });
   }
 
   private firebaseAdmin: any = null;
   private async getFirebaseAdmin() {
     if (this.firebaseAdmin) return this.firebaseAdmin;
-    const serviceAccountJson = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT');
+    const serviceAccountJson = this.config.get<string>(
+      'FIREBASE_SERVICE_ACCOUNT',
+    );
     if (!serviceAccountJson) return null;
     try {
       const admin = await import('firebase-admin');
@@ -219,7 +233,9 @@ export class NotificationService {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  private resolveChannels(prefs: NotificationPreferences): NotificationChannel[] {
+  private resolveChannels(
+    prefs: NotificationPreferences,
+  ): NotificationChannel[] {
     const channels: NotificationChannel[] = [];
     if (prefs.email) channels.push('email');
     if (prefs.push) channels.push('push');

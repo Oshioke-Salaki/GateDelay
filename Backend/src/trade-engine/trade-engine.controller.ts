@@ -24,7 +24,10 @@ export class TradeEngineController {
   /** POST /trade-engine/orders — place a new order */
   @Post('orders')
   @HttpCode(HttpStatus.CREATED)
-  placeOrder(@Request() req: { user: { id: string } }, @Body() dto: PlaceOrderDto) {
+  placeOrder(
+    @Request() req: { user: { id: string } },
+    @Body() dto: PlaceOrderDto,
+  ) {
     return this.tradeEngineService.placeOrder(req.user.id, dto);
   }
 
@@ -49,7 +52,10 @@ export class TradeEngineController {
     @Request() req: { user: { id: string } },
     @Query('status') status?: string,
   ) {
-    return this.tradeEngineService.getUserOrders(req.user.id, status as OrderStatus);
+    return this.tradeEngineService.getUserOrders(
+      req.user.id,
+      status as OrderStatus,
+    );
   }
 
   /** GET /trade-engine/order-book/:pair — live order book for a pair */

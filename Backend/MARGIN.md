@@ -4,6 +4,56 @@
 
 ---
 
+## Quick Start - Local Development
+
+**Prerequisites:** Node.js >= 20.11, MongoDB, Redis
+
+```bash
+# 1. Configure environment
+cd Backend
+cp .env.example .env
+
+# Edit .env with local values:
+# PORT=4000
+# NODE_ENV=development
+# MONGODB_URI=mongodb://127.0.0.1:27017/gatedelay
+# REDIS_URL=redis://127.0.0.1:6379
+
+# 2. Start backend server (canonical dev entrypoint)
+npm install
+npm run dev
+
+# This starts NestJS in watch mode, equivalent to:
+# npm run start:dev
+
+# 3. Express server (legacy routes) starts separately if needed:
+npm run express:dev
+```
+
+**Server readiness indicators:**
+```
+✓ MongoDB connected to mongodb://127.0.0.1:27017/gatedelay
+✓ Redis connected to redis://127.0.0.1:6379
+✓ Listening on port 4000
+✓ Health check: GET /health
+```
+
+---
+
+## How Margin Works in the Trading Flow
+
+This module integrates with the canonical trading path:
+
+1. **User places order** → `/api/orders` (Express or Nest)
+2. **Trade engine validates** → calls `tradeValidator.validateTradeBalance()`
+3. **Margin is calculated** → `marginEngine.calculateMarginRequirements()`
+4. **Position is opened** → `marginEngine.openPosition()`
+5. **Margin tracked** → `marginEngine.updatePositionAndMargin()` on price changes
+6. **If margin ratio < 70%** → `marginEngine.checkMarginCall()`
+7. **Notification sent** → `marginEngine.sendMarginNotification()`
+
+---
+
 ## Setup
 
 ```javascript

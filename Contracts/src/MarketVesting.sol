@@ -21,7 +21,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     error NothingToRelease();
     error NotBeneficiary();
     error InvalidStepCount();
-    error VestingRevoked();
+    error VestingIsRevoked();
     error NotRevocable();
     error AlreadyRevoked();
 
@@ -143,7 +143,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
         VestingRecord storage v = _vestings[vestingId];
-        if (v.revoked) revert VestingRevoked();
+        if (v.revoked) revert VestingIsRevoked();
         if (msg.sender != v.beneficiary) revert NotBeneficiary();
 
         uint256 releasable = _releasableAmount(v);

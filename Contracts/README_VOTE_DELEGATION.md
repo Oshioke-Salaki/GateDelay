@@ -313,6 +313,17 @@ Run tests:
 forge test --match-contract VoteDelegationTest -vv
 ```
 
+Run the README integration flow:
+```bash
+forge build --profile integration --contracts src/VoteDelegation.sol
+forge test --profile integration --match-contract VoteDelegationIntegrationTest -vv
+```
+
+The compiled ABI is generated at
+`out/VoteDelegation.sol/VoteDelegation.json`. The current Backend does not
+consume this ABI directly; copy the artifact into an integration package only
+when a deployed governance address is configured.
+
 Generate gas report:
 ```bash
 forge test --match-contract VoteDelegationTest --gas-report

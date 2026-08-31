@@ -11,9 +11,6 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiConflictResponse,
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
-import {
-  ApiBearerAuth,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -64,7 +61,8 @@ export class NftController {
   @Get('clips/:clipId/royalty-config')
   @ApiOperation({
     summary: 'Get royaltyBps configured for a clip',
-    description: 'Returns the royalty basis points currently set on the clip. Default is 1000 (10%).',
+    description:
+      'Returns the royalty basis points currently set on the clip. Default is 1000 (10%).',
   })
   @ApiParam({
     name: 'clipId',
@@ -76,10 +74,11 @@ export class NftController {
     type: RoyaltyConfigResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Clip not found', type: MintNotFoundDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', type: RoyaltyUnauthorizedDto })
-  getRoyaltyConfig(
-    @Param('clipId') clipId: string,
-  ): RoyaltyConfigResponseDto {
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT',
+    type: RoyaltyUnauthorizedDto,
+  })
+  getRoyaltyConfig(@Param('clipId') clipId: string): RoyaltyConfigResponseDto {
     return this.royaltyConfigService.getRoyaltyBps(clipId);
   }
 
@@ -98,9 +97,15 @@ export class NftController {
     description: 'Royalty BPS updated',
     type: RoyaltyConfigResponseDto,
   })
-  @ApiBadRequestResponse({ description: 'Invalid royaltyBps value', type: MintBadRequestDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid royaltyBps value',
+    type: MintBadRequestDto,
+  })
   @ApiNotFoundResponse({ description: 'Clip not found', type: MintNotFoundDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT', type: RoyaltyUnauthorizedDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT',
+    type: RoyaltyUnauthorizedDto,
+  })
   setRoyaltyConfig(
     @Param('clipId') clipId: string,
     @Body() dto: SetRoyaltyBpsDto,
@@ -167,8 +172,6 @@ export class NftController {
   ): Promise<PrepareMintTxResponseDto> {
     return this.nftMintService.prepareMintTx(dto);
   }
-  constructor(private readonly nftService: NftService) {}
-
   @Get(':mintAddress/royalty')
   @ApiOperation({
     summary: 'Query on-chain NFT royalty from Soroban',

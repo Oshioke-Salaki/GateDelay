@@ -1,6 +1,7 @@
 name: CI
 
-permissions: {}
+permissions:
+  contents: read
 
 on:
   push:
@@ -17,13 +18,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"
 
       - name: Show Forge version
         run: forge --version
@@ -36,3 +39,19 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+
+      - name: Generate ABI artifacts
+        run: |
+          mkdir -p out-abi
+          if [ -f out/MarketCap.sol/MarketCap.json ]; then cp out/MarketCap.sol/MarketCap.json out-abi/MarketCap.abi.json; fi
+          if [ -f out/VoteDelegation.sol/VoteDelegation.json ]; then cp out/VoteDelegation.sol/VoteDelegation.json out-abi/VoteDelegation.abi.json; fi
+          ls -lh out-abi/ || echo "No ABI artifacts yet"
+
+      - name: Upload ABI artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-abi
+          path: out-abi/
+          if-no-files-found: warn
+          retention-days: 14

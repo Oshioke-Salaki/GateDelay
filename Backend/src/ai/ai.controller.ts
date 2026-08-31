@@ -50,5 +50,4 @@ export class AiController {
       generatedAt: analysis.generatedAt,
     };
   }
-
 }

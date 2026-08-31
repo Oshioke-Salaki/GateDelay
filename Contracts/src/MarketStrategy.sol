@@ -75,7 +75,12 @@ contract MarketStrategy is Ownable {
         if (bytes(strategies[id].name).length == 0) revert StrategyNotFound();
         if (!strategies[id].active) revert StrategyNotActive();
 
-        bytes memory dataToExecute = executionData.length > 0 ? executionData : strategies[id].defaultData;
+        bytes memory dataToExecute;
+        if (executionData.length > 0) {
+            dataToExecute = executionData;
+        } else {
+            dataToExecute = strategies[id].defaultData;
+        }
         
         (bool success, ) = strategies[id].target.call(dataToExecute);
 

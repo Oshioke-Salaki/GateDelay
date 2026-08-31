@@ -6,9 +6,13 @@ Quickstart for new collaborators: install dependencies, configure environment va
 
 | Tool | Version | Used for |
 |------|---------|----------|
-| [Node.js](https://nodejs.org/) | 18+ (CI uses 20) | Backend, Frontend |
-| [Foundry](https://getfoundry.sh/) (`forge`, `cast`) | latest stable | Smart contracts under `Contracts/` |
+| [Node.js](https://nodejs.org/) | 20.19.0 | Backend, Frontend |
+| npm | 10.8.2 | JavaScript dependency installation |
+| [Foundry](https://getfoundry.sh/) (`forge`, `cast`) | 1.1.0 | Smart contracts under `Contracts/` |
+| Solidity compiler | 0.8.28 | Smart contracts under `Contracts/` |
 | [Git](https://git-scm.com/) | any recent | clone / branch workflow |
+
+The exact repository toolchain is recorded in the root `package.json` and `package-lock.json`; use those values rather than floating tool versions.
 
 Optional but commonly needed for full backend features:
 
@@ -57,6 +61,7 @@ Health check: `GET http://localhost:3000/api` (global prefix is `api` — see `B
 ### Lint & test
 
 ```bash
+npm ci
 npm run lint
 npm run test
 ```
@@ -143,7 +148,7 @@ Sources live in `Contracts/src/` (e.g. `LMSR`, `MarketMaker`, `Trading`) and `Co
 | `forge build` import errors | Wrong working directory | `cd Contracts` before `forge build` |
 | Wallet modal empty / connection errors | Missing Particle env vars | Fill `NEXT_PUBLIC_PROJECT_ID`, `NEXT_PUBLIC_CLIENT_KEY`, `NEXT_PUBLIC_APP_ID` in `.env.local` |
 | Frontend API 404 / CORS | Backend not running or wrong URL | Start `npm run start:dev` in `Backend/`; set `NEXT_PUBLIC_API_URL` |
-| `npm ci` fails | Lockfile out of sync | Run `npm install` in the affected package and commit lockfile updates separately |
+| `npm ci` fails | Lockfile out of sync | Run `npm install` in the affected package and commit lockfile updates separately. See [`Frontend/BUILD_NOTES.md`](Frontend/BUILD_NOTES.md) for rollback/retry and smoke verification after Docker builds |
 
 ---
 

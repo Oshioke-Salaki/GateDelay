@@ -15,7 +15,7 @@ contract MarketInsuranceTest is Test {
     PositionToken positionToken;
     PremiumCalculator premiumCalculator;
 
-    address admin = address(0xADM1N);
+    address admin = address(0xAD0111);
     address alice = address(0xA11CE);
     address bob = address(0xB0B0);
     address market = address(0xDEAD);

@@ -51,7 +51,7 @@ contract MarketLotteryTest is Test {
         // Deterministic seed to select winner
         // totalTickets = 5, ticket indices [0..4]
         // seed chosen so that ticketIndex = 0 (likely but deterministic)
-        uint256 seed = uint256(keccak256(abi.encode(uint256(0), uint256(0), roundId))));
+        uint256 seed = uint256(keccak256(abi.encode(uint256(0), uint256(0), roundId)));
         lottery.fulfillRandomWords(requestId, seed);
 
         // Winner claims

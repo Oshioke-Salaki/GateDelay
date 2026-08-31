@@ -20,7 +20,7 @@ contract Blacklist is Ownable {
     error InvalidAddress();
     error AlreadyBlacklisted(address account);
     error NotBlacklisted(address account);
-    error Blacklisted(address account);
+    error BlacklistedAccount(address account);
 
     // -------------------------------------------------------------------------
     // Events
@@ -40,7 +40,7 @@ contract Blacklist is Ownable {
     // Modifiers
     // -------------------------------------------------------------------------
     modifier notBlacklisted(address account) {
-        if (_blacklisted[account]) revert Blacklisted(account);
+        if (_blacklisted[account]) revert BlacklistedAccount(account);
         _;
     }
 
@@ -57,7 +57,7 @@ contract Blacklist is Ownable {
         }
     }
 
-    function unblacklist(address account) external onlyOwner {
+    function unblacklist(address account) public onlyOwner {
         if (account == address(0)) revert InvalidAddress();
         if (!_blacklisted[account]) revert NotBlacklisted(account);
 
@@ -89,7 +89,7 @@ contract Blacklist is Ownable {
     }
 
     function requireNotBlacklisted(address account) external view {
-        if (_blacklisted[account]) revert Blacklisted(account);
+        if (_blacklisted[account]) revert BlacklistedAccount(account);
     }
 
     // -------------------------------------------------------------------------

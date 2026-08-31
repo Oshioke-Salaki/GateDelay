@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC1967Utils} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Utils.sol";
 
 /// @title UpgradeableMarket
 /// @notice Implements UUPS upgradeable pattern for market contracts.
@@ -25,7 +26,7 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
-    constructor() {
+    constructor() Ownable(msg.sender) {
         _disableInitializers();
     }
 
@@ -46,7 +47,7 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
 
     /// @notice Authorize an upgrade to a new implementation.
     /// @param newImplementation The address of the new implementation.
-    function authorizeUpgrade(address newImplementation) public override onlyOwner {
+    function authorizeUpgrade(address newImplementation) public onlyOwner {
         require(newImplementation != address(0), "Invalid implementation");
         require(newImplementation != _getImplementation(), "Same implementation");
         require(!_upgradeLocked, "Upgrade locked");
@@ -54,9 +55,14 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
         emit UpgradeAuthorized(newImplementation, msg.sender);
     }
 
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+        require(newImplementation != address(0), "Invalid implementation");
+        require(!_upgradeLocked, "Upgrade locked");
+    }
+
     /// @notice Execute the upgrade to a new implementation.
     /// @param newImplementation The address of the new implementation.
-    function upgradeToAndCall(address newImplementation, bytes memory data) public payable override onlyOwner {
+    function upgradeToAndCall(address newImplementation, bytes memory data) public payable override onlyProxy onlyOwner {
         require(newImplementation != address(0), "Invalid implementation");
         require(!_upgradeLocked, "Upgrade locked");
         
@@ -66,7 +72,7 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
         _validateUpgradeSafety(oldImplementation, newImplementation);
         
         // Execute upgrade
-        _upgradeToAndCallUUPS(newImplementation, data, false);
+        super.upgradeToAndCall(newImplementation, data);
         
         // Record upgrade
         _version++;
@@ -135,16 +141,7 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
 
     /// @notice Get the current implementation address.
     function _getImplementation() internal view returns (address) {
-        return _implementation();
-    }
-
-    /// @notice Execute upgrade with call.
-    function _upgradeToAndCallUUPS(
-        address newImplementation,
-        bytes memory data,
-        bool forceCall
-    ) internal {
-        _upgradeToAndCall(newImplementation, data, forceCall);
+        return ERC1967Utils.getImplementation();
     }
 
     // -------------------------------------------------------------------------

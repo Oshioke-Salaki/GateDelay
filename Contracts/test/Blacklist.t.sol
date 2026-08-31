@@ -106,7 +106,7 @@ contract BlacklistTest is Test {
         vm.prank(owner);
         blacklistContract.blacklist(alice);
 
-        vm.expectRevert(Blacklist.Blacklisted.selector);
+        vm.expectRevert(Blacklist.BlacklistedAccount.selector);
         blacklistContract.requireNotBlacklisted(alice);
     }
 
