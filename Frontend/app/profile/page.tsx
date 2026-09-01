@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../components/ConnectKitBridgeContext";
 
 type ProfileForm = {
   displayName: string;
@@ -43,7 +43,7 @@ function Avatar({ name }: { name: string }) {
 }
 
 export default function ProfilePage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnectKitBridge();
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
 

@@ -2,7 +2,11 @@ const async = require('async');
 const Big = require('big.js');
 const Order = require('../models/Order');
 const Balance = require('../models/Balance');
+const OnChainTrade = require('../models/OnChainTrade');
 const mongoose = require('mongoose');
+
+const DEFAULT_FEE_BPS = 30;
+const DEFAULT_REBATE_BPS = 10;
 
 class TradeEngine {
   constructor() {
@@ -144,11 +148,20 @@ class TradeEngine {
       let takerFilled = new Big(takerOrder.filled);
       const [baseAsset, quoteAsset] = takerOrder.pair.split('-');
 
+      // Calculate fee and commission/rebate for this settlement
+      const feeBps = new Big(DEFAULT_FEE_BPS);
+      const rebateBps = new Big(DEFAULT_REBATE_BPS);
+
       for (const match of matches) {
         const makerOrder = match.makerOrder;
         const fillAmount = new Big(match.amount);
         const price = new Big(match.price);
         const value = fillAmount.times(price);
+
+        // Calculate fee for this fill
+        const fee = value.times(feeBps).div(10000);
+        const rebate = fee.times(rebateBps).div(feeBps);
+        const commission = fee.minus(rebate);
 
         makerOrder.filled = new Big(makerOrder.filled).plus(fillAmount).toString();
         makerOrder.status = new Big(makerOrder.filled).eq(makerOrder.amount) ? 'Filled' : 'Partial';
@@ -198,6 +211,28 @@ class TradeEngine {
             }
             await takerQuoteBalance.save(options);
             await takerBaseBalance.save(options);
+        }
+
+        // Persist on-chain trade record with commission/rebate data
+        try {
+          const onChainTrade = new OnChainTrade({
+            txHash: `offchain-${takerOrder._id}-${Date.now()}`,
+            blockNumber: 0,
+            contractAddress: 'offchain',
+            trader: takerOrder.userId,
+            marketId: takerOrder.pair,
+            outcome: takerOrder.side === 'Buy' ? 'YES' : 'NO',
+            isBuy: takerOrder.side === 'Buy',
+            shares: fillAmount.toString(),
+            collateralAmount: value.toString(),
+            fee: fee.toString(),
+            rebate: rebate.toString(),
+            commission: commission.toString(),
+            referrer: null,
+          });
+          await onChainTrade.save(options);
+        } catch (e) {
+          console.error('Failed to persist on-chain trade record', e);
         }
       }
 

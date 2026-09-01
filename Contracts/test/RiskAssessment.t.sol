@@ -41,10 +41,10 @@ contract RiskAssessmentTest is Test {
         vm.prank(admin);
         assessment.updateRiskThresholds(9000, 8000, 7000);
 
-        RiskAssessment.RiskThreshold memory threshold = assessment.riskThreshold();
-        assertEq(threshold.maxExposure, 9000);
-        assertEq(threshold.maxConcentration, 8000);
-        assertEq(threshold.maxVolatility, 7000);
+        (uint256 maxExposure, uint256 maxConcentration, uint256 maxVolatility) = assessment.riskThreshold();
+        assertEq(maxExposure, 9000);
+        assertEq(maxConcentration, 8000);
+        assertEq(maxVolatility, 7000);
     }
 
     function test_updateRiskThresholds_revertsNotAdmin() public {

@@ -22,7 +22,7 @@ env:
   FOUNDRY_PROFILE: default
 
 jobs:
-  # ─── Contracts/test/ suite (uses Contracts/foundry.toml) ─────────────────
+  # --- Contracts/test/ suite (uses Contracts/foundry.toml) -------------------
   contracts-tests:
     name: Contracts/test/ suite
     runs-on: ubuntu-latest
@@ -39,13 +39,14 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
+          version: "v1.1.0"
 
       - name: Show Forge version
         run: forge --version
 
       - name: Build MarketFactory foundation
         run: forge build --sizes src/MarketFactory.sol
+
       - name: Build Contracts
         run: forge build --contracts src/MarketCap.sol src/RoleManager.sol
 
@@ -73,17 +74,27 @@ jobs:
           path: |
             Contracts/out/MarketFactory.sol/MarketFactory.json
             Contracts/out/PositionToken.sol/PositionToken.json
+
+  # --- Root test/ suite (uses root foundry.toml) -----------------------------
+  root-tests:
+    name: Root test/ suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
           submodules: recursive
 
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # pinned in package.json/package-lock.json toolchain
+          version: "v1.1.0"
 
       - name: Show Forge version
         run: forge --version
 
-      - name: Build (root profile)
+      - name: Build CircuitBreaker (root profile)
         run: forge build --contracts Contracts/src/CircuitBreaker.sol --skip test
         env:
           FOUNDRY_PROFILE: ci
@@ -93,6 +104,7 @@ jobs:
 
       - name: Run MarketFactory verification tests
         run: forge test --root test/marketfactory -vvv
+
       - name: List test suites (root test-ci/)
         run: forge test --list --contracts Contracts/src/CircuitBreaker.sol
         env:

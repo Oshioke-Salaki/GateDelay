@@ -26,6 +26,7 @@ describe('DepositService', () => {
     requiredConfirmations: ConfirmationLevel.STANDARD,
     balanceUpdated: false,
     notificationSent: false,
+    confirmedAt: undefined as Date | undefined,
     createdAt: new Date(),
     updatedAt: new Date(),
     save: jest.fn().mockResolvedValue(this),

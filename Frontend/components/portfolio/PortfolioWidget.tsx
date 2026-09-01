@@ -15,7 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { format, subDays, subWeeks, subMonths } from "date-fns";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -337,7 +337,7 @@ export default function PortfolioWidget({
   onRefresh,
   refreshInterval = 30_000,
 }: PortfolioWidgetProps) {
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
   const [range, setRange] = useState<Range>("1M");
   const [lastUpdated, setLastUpdated] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);

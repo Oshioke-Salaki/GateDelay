@@ -15,14 +15,17 @@ import {
 } from './event-notification.entity';
 import { CreateEventFilterDto } from './dto/event-notification.dto';
 import { NotificationService } from '../notifications/notification.service';
+import OnChainTrade from '../../models/OnChainTrade';
+import { MarketReferrerMapping } from '../../models/MarketReferrerMapping';
 
 // Minimal ABI fragments covering all tracked events
 const TRACKED_EVENTS_ABI = [
-  'event TradeExecuted(address indexed trader, uint256 indexed marketId, uint256 outcome, bool isBuy, uint256 shares, uint256 collateralAmount, uint256 fee)',
+  'event TradeExecuted(address indexed trader, uint256 indexed marketId, uint256 outcome, bool isBuy, uint256 shares, uint256 collateralAmount, uint256 fee, uint256 rebate, address indexed referrer)',
   'event MarketCreated(address indexed market, address indexed creator, address indexed collateralToken, uint256 resolutionDeadline)',
   'event Transfer(address indexed from, address indexed to, uint256 value)',
   'event LiquidityAdded(address indexed provider, uint256 indexed marketId, uint256 amount)',
   'event LiquidityRemoved(address indexed provider, uint256 indexed marketId, uint256 amount)',
+  'event MarketReferrerSet(address indexed trader, address indexed referrer)',
 ];
 
 @Injectable()
@@ -150,6 +153,9 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     contract.on('LiquidityRemoved', (...args) =>
       this.handleEvent('LiquidityRemoved', address, args),
     );
+    contract.on('MarketReferrerSet', (...args) =>
+      this.handleEvent('MarketReferrerSet', address, args),
+    );
   }
 
   private async handleEvent(
@@ -163,6 +169,14 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Event ${eventType} from ${contractAddress} tx:${log.transactionHash}`,
     );
+
+    // Persist on-chain trade data for rebate attribution
+    if (eventType === 'TradeExecuted') {
+      await this.persistTradeExecuted(contractAddress, log, payload);
+    }
+    if (eventType === 'MarketReferrerSet') {
+      await this.persistMarketReferrerSet(payload);
+    }
 
     // Find matching filters
     const matchingFilters = [...this.filters.values()].filter(
@@ -215,6 +229,68 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private async persistTradeExecuted(
+    contractAddress: string,
+    log: ethers.EventLog,
+    payload: Record<string, unknown>,
+  ) {
+    try {
+      const fee = String(payload.fee || '0');
+      const rebate = String(payload.rebate || '0');
+      const feeNum = parseFloat(fee) || 0;
+      const rebateNum = parseFloat(rebate) || 0;
+      const commission = String(feeNum - rebateNum);
+
+      const trade = new OnChainTrade({
+        txHash: log.transactionHash,
+        blockNumber: log.blockNumber,
+        contractAddress,
+        trader: payload.trader,
+        marketId: payload.marketId,
+        outcome: payload.outcome,
+        isBuy: payload.isBuy,
+        shares: payload.shares,
+        collateralAmount: payload.collateralAmount,
+        fee,
+        rebate,
+        commission,
+        referrer:
+          payload.referrer && payload.referrer !== ethers.ZeroAddress
+            ? payload.referrer
+            : null,
+      });
+      await trade.save();
+      this.logger.log(
+        `Persisted on-chain trade: tx=${log.transactionHash} rebate=${trade.rebate} referrer=${trade.referrer || 'none'}`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Failed to persist TradeExecuted for tx ${log.transactionHash}`,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
+  private async persistMarketReferrerSet(payload: Record<string, unknown>) {
+    try {
+      const trader = payload.trader as string;
+      const referrer = payload.referrer as string;
+      if (!trader || !referrer) return;
+
+      await MarketReferrerMapping.findOneAndUpdate(
+        { trader },
+        { trader, referrer, setAt: new Date() },
+        { upsert: true, new: true },
+      );
+      this.logger.log(`Persisted referrer mapping: ${trader} -> ${referrer}`);
+    } catch (err) {
+      this.logger.error(
+        'Failed to persist MarketReferrerSet',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+
   private parseEventArgs(
     eventType: BlockchainEventType,
     args: unknown[],
@@ -229,6 +305,8 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
           shares: String(args[4]),
           collateralAmount: String(args[5]),
           fee: String(args[6]),
+          rebate: String(args[7]),
+          referrer: args[8],
         };
       case 'MarketCreated':
         return {
@@ -244,6 +322,11 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
           marketId: String(args[1]),
           amount: String(args[2]),
         };
+      case 'MarketReferrerSet':
+        return {
+          trader: args[0],
+          referrer: args[1],
+        };
       default:
         return { raw: args.slice(0, -1) };
     }
@@ -258,6 +341,18 @@ export class EventNotificationService implements OnModuleInit, OnModuleDestroy {
     blockNumber: number,
     payload: Record<string, unknown>,
   ): Promise<EventNotificationRecord[]> {
+    // Persist trade/referrer events from manual injection too
+    if (eventType === 'TradeExecuted') {
+      const fakeLog = {
+        transactionHash: txHash,
+        blockNumber,
+      } as ethers.EventLog;
+      await this.persistTradeExecuted(contractAddress, fakeLog, payload);
+    }
+    if (eventType === 'MarketReferrerSet') {
+      await this.persistMarketReferrerSet(payload);
+    }
+
     const matchingFilters = [...this.filters.values()].filter(
       (f) =>
         f.eventTypes.includes(eventType) &&

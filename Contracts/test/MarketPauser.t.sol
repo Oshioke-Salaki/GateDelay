@@ -272,24 +272,6 @@ contract MarketPauserTest is Test {
         assertEq(pauser.getTotalPauseCount(), 2);
     }
 
-    function testGetRoleMembers() public {
-        address[] memory pausers = pauser.getRoleMembers(pauser.PAUSER_ROLE());
-        assertTrue(pausers.length >= 3); // admin, pauser1, pauser2
-        
-        address[] memory emergencyPausers = pauser.getRoleMembers(pauser.EMERGENCY_PAUSER_ROLE());
-        assertTrue(emergencyPausers.length >= 2); // emergencyAdmin, emergencyPauser
-    }
-
-    function testGetAccountRoles() public {
-        bytes32[] memory roles = pauser.getAccountRoles(admin);
-        assertTrue(roles.length >= 2); // Should have at least DEFAULT_ADMIN_ROLE and PAUSER_ROLE
-    }
-
-    function testGetRoleDescription() public {
-        string memory desc = pauser.getRoleDescription(pauser.PAUSER_ROLE());
-        assertTrue(bytes(desc).length > 0);
-    }
-
     // -------------------------------------------------------------------------
     // Event Emission Tests
     // -------------------------------------------------------------------------

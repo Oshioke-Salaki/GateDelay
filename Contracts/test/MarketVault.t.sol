@@ -498,9 +498,6 @@ contract MarketVaultTest is Test {
     // ─────────────────────────────────────────────────────────────────────────
 
     function _getSnapshot() internal view returns (uint256 ta, uint256 pps, uint256 ts) {
-        MarketVault.PerformanceSnapshot memory s = vault.lastSnapshot();
-        ta  = s.totalAssets;
-        pps = s.pricePerShare;
-        ts  = s.timestamp;
+        (ta, pps, ts) = vault.lastSnapshot();
     }
 }

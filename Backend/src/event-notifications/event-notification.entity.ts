@@ -9,7 +9,8 @@ export type BlockchainEventType =
   | 'LiquidityAdded'
   | 'LiquidityRemoved'
   | 'PositionOpened'
-  | 'PositionClosed';
+  | 'PositionClosed'
+  | 'MarketReferrerSet';
 
 export interface EventFilter {
   id: string;

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useToast } from "../../hooks/useToast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -162,8 +162,7 @@ export default function EmergencyWithdrawal({
   onWithdraw,
   networkStatus = MOCK_NETWORK,
 }: EmergencyWithdrawalProps) {
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { address, isConnected, disconnect } = useConnectKitBridge();
   const { success, error: toastError, warning } = useToast();
 
   const [showModal, setShowModal] = useState(false);

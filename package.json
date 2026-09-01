@@ -1,16 +1,11 @@
 {
+  "name": "gatedelay",
   "private": true,
   "engines": {
     "node": "20.11.1",
     "npm": "10.2.4"
   },
   "packageManager": "npm@10.2.4",
-  "name": "gatedelay",
-  "private": true,
-  "engines": {
-    "node": "20.x",
-    "npm": "10.x"
-  },
   "toolchain": {
     "node": "20.19.0",
     "npm": "10.8.2",

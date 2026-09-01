@@ -26,7 +26,9 @@ describe('MarketAuditService', () => {
         MarketAuditService,
         {
           provide: BETA_ACCESS_CHECKER,
-          useValue: { checkAccess: jest.fn().mockResolvedValue({ hasAccess: true }) },
+          useValue: {
+            checkAccess: jest.fn().mockResolvedValue({ hasAccess: true }),
+          },
         },
       ],
     }).compile();
@@ -145,7 +147,11 @@ describe('MarketAuditService', () => {
   });
 
   it('rejects audit writes for actors without beta access', async () => {
-    const checker = { checkAccess: jest.fn().mockResolvedValue({ hasAccess: false, reason: 'Not a beta user' }) };
+    const checker = {
+      checkAccess: jest
+        .fn()
+        .mockResolvedValue({ hasAccess: false, reason: 'Not a beta user' }),
+    };
     const gatedService = new MarketAuditService(checker);
 
     await expect(

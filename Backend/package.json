@@ -40,7 +40,6 @@
     "test:deprecation": "node -e \"const middleware = require('./middleware/deprecation'); if (typeof middleware.deprecationMiddleware !== 'function' || typeof middleware.markDeprecated !== 'function') process.exit(1); console.log('DEPRECATION_SMOKE_PASS')\"",
     "test:heartbeat": "node scripts/smoke/heartbeat-marketfactory.smoke.js",
     "test:trade-executor": "node -e \"const executor = require('./jobs/tradeExecutor'); if (typeof executor.startTradeExecutor !== 'function') process.exit(1); console.log('TRADE_EXECUTOR_SMOKE_PASS')\"",
-    "test:pagerduty": "node -e \"require('./config/pagerduty'); console.log('PAGERDUTY_SMOKE_PASS')\""
     "test:pagerduty": "node -e \"require('./config/pagerduty'); console.log('PAGERDUTY_SMOKE_PASS')\"",
     "test:api-protection": "node scripts/smoke/api-protection.smoke.js"
   },

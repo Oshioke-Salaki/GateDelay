@@ -2,7 +2,6 @@ import 'reflect-metadata';
 import { readFileSync } from 'fs';
 import { plainToInstance } from 'class-transformer';
 import { validateSync, ValidationError } from 'class-validator';
-import { readFileSync } from 'fs';
 import {
   AuditQueryDto,
   CreateAuditLogDto,

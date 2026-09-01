@@ -14,9 +14,6 @@ env:
   NODE_VERSION: '20.11.1'
   NPM_VERSION: '10.2.4'
 
-jobs:
-  backend-lint:
-    name: Backend lint
 # ---------------------------------------------------------------------------
 # Toolchain versions (pin these; do not let them float)
 #   Node.js  : 20.19.0  (package.json/package-lock.json engines/toolchain)
@@ -53,7 +50,7 @@ jobs:
       - name: Install Foundry (pinned version)
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: "v1.1.0"   # keep in sync with Contracts/foundry.toml [toolchain] forge
+          version: "v1.1.0"
 
       - name: Show Forge version
         run: forge --version
@@ -70,8 +67,8 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
 
-  lint:
-    name: Lint & Code Quality
+  backend-lint:
+    name: Backend Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -80,8 +77,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
           node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
@@ -93,8 +88,8 @@ jobs:
         run: npm ci
         working-directory: Backend
 
-      - name: Run affected backend ESLint checks
-        run: npm run lint:security
+      - name: Run ESLint
+        run: npm run lint
         working-directory: Backend
 
   backend-test:
@@ -108,8 +103,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
           node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
@@ -139,33 +132,6 @@ jobs:
         image: redis:7
         ports:
           - 6379:6379
-      # -----------------------------------------------------------------------
-      # #708 / #674 — Upload CI reference artifacts so downstream jobs
-      # (staging, production) can verify the exact compiler options and the
-      # staging-vs-production env-var mapping used during the test run. The
-      # artifact is attached to every workflow run and is downloadable from the
-      # GitHub Actions UI for 30 days. This also satisfies the "toolchain
-      # versions documented and pinned" acceptance criterion.
-      #
-      # Toolchain versions pinned in this workflow (see .github/workflows/README.md):
-      #   Node.js  : 20.19.0  (actions/setup-node, node-version: '20.19.0')
-      #   Node.js  : 20.11.0  (localnet job only)
-      #   Foundry  : v1.1.0   (foundry-rs/foundry-toolchain)
-      #   Solidity : 0.8.28   (Contracts/foundry.toml [profile.default] solc)
-      #   TypeScript: see Backend/package.json devDependencies → typescript
-      # -----------------------------------------------------------------------
-      - name: Upload CI reference artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: backend-tsconfig
-          path: |
-            Backend/tsconfig.json
-            .github/workflows/README.md
-          retention-days: 30
-
-  localnet:
-    name: Localnet — Compile & Test
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -173,8 +139,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          node-version: '20.19.0'
+          cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
 
       - name: Install dependencies
@@ -201,7 +167,91 @@ jobs:
           MARKET_AUDIT_ADMIN_IDS: ci-admin
 
       - name: Run health smoke test
-        run: npm run smoke
+        run: npm run test:heartbeat
+        working-directory: Backend
+        env:
+          NEST_PORT: 3000
+
+      - name: Show backend log on failure
+        if: failure()
+        run: cat /tmp/gatedelay-backend.log
+
+      - name: Stop backend
+        if: always()
+        run: kill "$(cat /tmp/gatedelay-backend.pid)" || true
+
+      # -----------------------------------------------------------------------
+      # #708 / #674 — Upload CI reference artifacts so downstream jobs
+      # (staging, production) can verify the exact compiler options and the
+      # staging-vs-production env-var mapping used during the test run. The
+      # artifact is attached to every workflow run and is downloadable from the
+      # GitHub Actions UI for 30 days. This also satisfies the "toolchain
+      # versions documented and pinned" acceptance criterion.
+      #
+      # Toolchain versions pinned in this workflow (see .github/workflows/README.md):
+      #   Node.js  : 20.19.0  (actions/setup-node, node-version: '20.19.0')
+      #   Node.js  : 20.11.0  (localnet job only)
+      #   Foundry  : v1.1.0   (foundry-rs/foundry-toolchain)
+      #   Solidity : 0.8.28   (Contracts/foundry.toml [profile.default] solc)
+      #   TypeScript: see Backend/package.json devDependencies -> typescript
+      # -----------------------------------------------------------------------
+      - name: Upload CI reference artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-tsconfig
+          path: |
+            Backend/tsconfig.json
+            .github/workflows/README.md
+          retention-days: 30
+
+  localnet:
+    name: Localnet — Compile & Test
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: Backend
+
+      - name: Start backend
+        run: |
+          npm run start:prod > /tmp/gatedelay-backend.log 2>&1 &
+          echo $! > /tmp/gatedelay-backend.pid
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          JWT_SECRET: ci-test-access-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret
+          MONGODB_URI: mongodb://127.0.0.1:27017/gatedelay-ci
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          MARKET_AUDIT_ADMIN_IDS: ci-admin
+
+      - name: Run health smoke test
+        run: npm run test:heartbeat
         working-directory: Backend
         env:
           NEST_PORT: 3000
@@ -217,19 +267,32 @@ jobs:
   frontend-quality:
     name: Frontend lint, tsconfig, and build
     runs-on: ubuntu-latest
-          node-version: '20.11.0'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm install --no-package-lock
-        working-directory: Frontend/localnet
+        run: npm ci
+        working-directory: Frontend
 
-      - name: Compile localnet contracts
+      - name: Run ESLint
         run: npm run lint
-        working-directory: Frontend/localnet
+        working-directory: Frontend
 
-      - name: Run localnet tests
-        run: npm test
-        working-directory: Frontend/localnet
+      - name: Typecheck Frontend
+        run: npm run typecheck
+        working-directory: Frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: Frontend
 
   # ---------------------------------------------------------------------------
   # #674 — Staging environment mapping.
@@ -248,7 +311,7 @@ jobs:
   deploy-staging:
     name: Deploy to Staging (Dry Run)
     runs-on: ubuntu-latest
-    needs: [test, contracts]
+    needs: [backend-smoke, frontend-quality, contracts]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -256,31 +319,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: Frontend/package-lock.json
-
-      - name: Verify npm version
-        run: test "$(npm --version)" = "${NPM_VERSION}"
-
-      - name: Install dependencies
-        run: npm ci
-        working-directory: Frontend
-
-      - name: Run affected frontend ESLint checks
-        run: npx eslint app/api/market-audit/route.ts
-        working-directory: Frontend
-
-      - name: Typecheck Frontend/tsconfig.json
-        run: npm run typecheck
-        working-directory: Frontend
-
-      - name: Build frontend
-        run: npm run build
-        working-directory: Frontend
           node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "${NPM_VERSION}"
 
       - name: Install dependencies
         run: npm ci
@@ -305,7 +349,6 @@ jobs:
     name: Deploy to Production (dry run)
     runs-on: ubuntu-latest
     needs: [backend-smoke, frontend-quality]
-    needs: [test, contracts]
     # Only deploy when pushing/merging directly to main or master
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
@@ -315,8 +358,6 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
           node-version: '20.19.0'
           cache: 'npm'
           cache-dependency-path: Backend/package-lock.json

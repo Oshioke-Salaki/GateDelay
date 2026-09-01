@@ -40,10 +40,15 @@ async function bootstrap() {
       }),
     );
   } catch (e) {
-    console.warn('[main] versionMiddleware failed to init:', (e as Error).message);
+    console.warn(
+      '[main] versionMiddleware failed to init:',
+      (e as Error).message,
+    );
   }
   try {
-    app.use(backwardCompatMiddleware({ warnDeprecated: true, logUsage: false }));
+    app.use(
+      backwardCompatMiddleware({ warnDeprecated: true, logUsage: false }),
+    );
   } catch (e) {
     console.warn('[main] backwardCompat failed to init:', (e as Error).message);
   }

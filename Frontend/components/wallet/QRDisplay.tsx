@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useToast } from "../../hooks/useToast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ export default function QRDisplay({
   onConnected,
   onTimeout,
 }: QRDisplayProps) {
-  const { address: connectedAddress, isConnected } = useAccount();
+  const { address: connectedAddress, isConnected } = useConnectKitBridge();
   const { success, info, error: toastError } = useToast();
 
   const address = addressOverride ?? connectedAddress ?? null;

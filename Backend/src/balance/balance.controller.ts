@@ -6,10 +6,7 @@ export class BalanceController {
   constructor(private readonly balanceService: BalanceService) {}
 
   @Get(':userId')
-  getBalances(
-    @Param('userId') userId: string,
-    @Query('asset') asset?: string,
-  ) {
+  getBalances(@Param('userId') userId: string, @Query('asset') asset?: string) {
     return this.balanceService.getBalances(userId, asset);
   }
 

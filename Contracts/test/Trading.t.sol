@@ -32,7 +32,7 @@ ERC20Token token;
     function setUp() public {
         token = new ERC20Token(0);
         mm = new MarketMaker(address(token));
-        trading = new Trading(address(mm), FEE);
+        trading = new Trading(address(mm), FEE, 0, address(this));
 
         token.addMinter(address(mm));
         token.mint(alice, 10_000 * WAD);
@@ -55,7 +55,7 @@ ERC20Token token;
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
 
-        assertEq(trading.accumulatedFees(), fee);
+        assertEq(trading.accumulatedCommission(), fee);
     }
 
     // ── Slippage protection ───────────────────────────────────────────────────
