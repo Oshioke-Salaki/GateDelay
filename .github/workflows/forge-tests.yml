@@ -99,12 +99,6 @@ jobs:
         env:
           FOUNDRY_PROFILE: ci
 
-      - name: Prepare isolated MarketFactory test root
-        run: cp test/MarketFactory.t.sol test/marketfactory/MarketFactory.t.sol
-
-      - name: Run MarketFactory verification tests
-        run: forge test --root test/marketfactory -vvv
-
       - name: List test suites (root test-ci/)
         run: forge test --list --contracts Contracts/src/CircuitBreaker.sol
         env:

@@ -12,7 +12,7 @@ on:
 
 env:
   NODE_VERSION: '20.11.1'
-  NPM_VERSION: '10.2.4'
+  NPM_VERSION: '10.8.2'
 
 # ---------------------------------------------------------------------------
 # Toolchain versions (pin these; do not let them float)
