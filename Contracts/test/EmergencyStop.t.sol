@@ -178,6 +178,7 @@ contract EmergencyStopTest is Test {
     function test_InitiateRecoveryRejectsWhenAlreadyInProgress() public {
         vm.prank(admin);
         emergency.activateEmergencyStop("Critical issue");
+        vm.prank(admin);
         emergency.initiateRecovery();
         
         vm.prank(admin);
@@ -188,6 +189,7 @@ contract EmergencyStopTest is Test {
     function test_CompleteRecovery() public {
         vm.prank(admin);
         emergency.activateEmergencyStop("Critical issue");
+        vm.prank(admin);
         emergency.initiateRecovery();
         
         vm.prank(admin);
@@ -199,6 +201,7 @@ contract EmergencyStopTest is Test {
     function test_CompleteRecoveryEmitsEvent() public {
         vm.prank(admin);
         emergency.activateEmergencyStop("Critical issue");
+        vm.prank(admin);
         emergency.initiateRecovery();
         
         vm.prank(admin);
@@ -210,6 +213,7 @@ contract EmergencyStopTest is Test {
     function test_CompleteRecoveryClearsEmergencyData() public {
         vm.prank(admin);
         emergency.activateEmergencyStop("Critical issue");
+        vm.prank(admin);
         emergency.initiateRecovery();
         
         vm.prank(admin);
@@ -317,6 +321,7 @@ contract EmergencyStopTest is Test {
     function test_OperatorCanInitiateRecovery() public {
         vm.prank(admin);
         emergency.grantRecoveryRole(operator);
+        vm.prank(admin);
         emergency.activateEmergencyStop("Critical issue");
         
         vm.prank(operator);
