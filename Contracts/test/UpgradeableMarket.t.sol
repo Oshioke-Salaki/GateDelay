@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/UpgradeableMarket.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract UpgradeableMarketTest is Test {
     UpgradeableMarket internal market;
@@ -12,11 +13,19 @@ contract UpgradeableMarketTest is Test {
     address internal user = address(0xB0B);
 
     function setUp() public {
-        vm.prank(owner);
-        market = new UpgradeableMarket();
-        
-        vm.prank(owner);
-        market.initialize();
+        // Behind a real ERC1967 proxy, as deployed: the implementation's
+        // constructor disables initializers, so it cannot be used directly.
+        vm.startPrank(owner);
+        UpgradeableMarket implementation = new UpgradeableMarket();
+        market = UpgradeableMarket(
+            address(
+                new ERC1967Proxy(
+                    address(implementation),
+                    abi.encodeCall(UpgradeableMarket.initialize, ())
+                )
+            )
+        );
+        vm.stopPrank();
     }
 
     // -------------------------------------------------------------------------
@@ -56,9 +65,11 @@ contract UpgradeableMarketTest is Test {
     }
 
     function test_AuthorizeUpgradeRejectsSameImplementation() public {
+        // Read first: vm.prank and vm.expectRevert apply to the next call.
+        address current = market.getImplementation();
         vm.prank(owner);
         vm.expectRevert("Same implementation");
-        market.authorizeUpgrade(market.getImplementation());
+        market.authorizeUpgrade(current);
     }
 
     function test_AuthorizeUpgradeRejectsNonOwner() public {
@@ -242,8 +253,11 @@ contract UpgradeableMarketTest is Test {
     }
 
     function test_GetUpgradeTimestamp() public {
-        address impl = market.getImplementation();
-        uint256 timestamp = market.getUpgradeTimestamp(impl);
+        // Timestamps are recorded on upgrade, not for the initial implementation.
+        UpgradeableMarket impl = new UpgradeableMarket();
+        vm.prank(owner);
+        market.upgradeToAndCall(address(impl), "");
+        uint256 timestamp = market.getUpgradeTimestamp(address(impl));
         assertGt(timestamp, 0);
     }
 

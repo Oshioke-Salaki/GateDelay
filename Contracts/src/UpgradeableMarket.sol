@@ -36,6 +36,10 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
 
     /// @notice Initialize the contract.
     function initialize() public initializer {
+        // Ownable's constructor only sets the owner in the implementation's
+        // storage; through the proxy the owner would stay address(0) and no
+        // one could ever upgrade.
+        _transferOwnership(msg.sender);
         _version = 1;
         _upgradeHistory.push(address(this));
         _upgradeLocked = false;
