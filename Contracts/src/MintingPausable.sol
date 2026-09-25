@@ -173,12 +173,12 @@ contract MintingPausable is ERC20, Pausable, AccessControl {
         returns (
             uint256 totalPauses,
             uint256 lastPauseStartTime,
-            uint256 lastUnpauseTime
+            uint256 lastUnpauseAt
         ) 
     {
         totalPauses = pauseCount;
         lastPauseStartTime = pausedAt;
-        lastUnpauseTime = lastUnpauseTime;
+        lastUnpauseAt = lastUnpauseTime;
     }
 
     function getTimeSincePause() external view returns (uint256) {
@@ -219,20 +219,21 @@ contract MintingPausable is ERC20, Pausable, AccessControl {
         pauseCountLifetime = pauseCount;
     }
 
-    // Override _beforeTokenTransfer to include pause check
-    function _beforeTokenTransfer(
+    // Every balance change (mint, transfer, burn) goes through _update in
+    // OpenZeppelin v5, so this blocks all of them while paused.
+    function _update(
         address from,
         address to,
         uint256 amount
     ) internal override whenNotPaused {
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, amount);
     }
 
     // Required override for AccessControl
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC20, AccessControl)
+        override(AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);

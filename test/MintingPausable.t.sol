@@ -400,7 +400,7 @@ contract MintingPausableTest is Test {
             vm.prank(pauser);
             token.pauseMinting("Pause");
 
-            (, , uint256 pauseCount) = token.getPauseHistory();
+            (uint256 pauseCount, , ) = token.getPauseHistory();
             assertEq(pauseCount, i + 1);
 
             vm.prank(pauser);
@@ -412,7 +412,7 @@ contract MintingPausableTest is Test {
         vm.prank(emergencyPauser);
         token.emergencyPause();
 
-        (, , uint256 pauseCount) = token.getPauseHistory();
+        (uint256 pauseCount, , ) = token.getPauseHistory();
         assertEq(pauseCount, 1);
     }
 
