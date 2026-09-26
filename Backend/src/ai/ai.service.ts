@@ -16,8 +16,17 @@ export interface TradingSignal {
 
 export interface RiskAssessment {
   level: RiskLevel;
-  score: number; // 0–100 (higher = riskier)
+  score: number; // 0-100 (higher = riskier)
   factors: string[];
+  reasons: string[]; // Human-readable explanations for the risk score
+  confidence: number; // 0-100, confidence in the risk assessment
+  inputSignals: Array<{
+    signal: string;
+    value: string;
+    weight: string;
+    contribution: string;
+  }>; // Signals used to compute the risk score
+  providerTimestamp: string; // ISO timestamp of when the assessment was generated
 }
 
 export interface MarketAnalysis {
@@ -162,6 +171,10 @@ Rules:
         level: this.coerceRisk(risk.level),
         score: this.clamp(Number(risk.score ?? 50), 0, 100),
         factors: Array.isArray(risk.factors) ? risk.factors.map(String) : [],
+        reasons: Array.isArray(risk.reasons) ? risk.reasons.map(String) : [],
+        confidence: this.clamp(Number(risk.confidence ?? 70), 0, 100),
+        inputSignals: Array.isArray(risk.inputSignals) ? risk.inputSignals : [],
+        providerTimestamp: new Date().toISOString(),
       },
       keyInsights: Array.isArray(parsed.keyInsights)
         ? parsed.keyInsights.map(String)
@@ -194,6 +207,18 @@ Rules:
           'Peak travel season congestion',
           'Limited historical data for this specific route',
         ],
+        reasons: [
+          'Mixed signals from social and news sentiment',
+          'Moderate historical volatility for this route',
+          'Weather patterns introduce resolution uncertainty',
+        ],
+        confidence: 72,
+        inputSignals: [
+          { signal: 'social_sentiment', value: 'mixed', weight: '0.30', contribution: '13.5' },
+          { signal: 'news_sentiment', value: 'neutral', weight: '0.30', contribution: '13.5' },
+          { signal: 'trading_volatility', value: 'moderate', weight: '0.40', contribution: '18.0' },
+        ],
+        providerTimestamp: new Date().toISOString(),
       },
       keyInsights: [
         'Carrier has a 68% on-time rate over the past 30 days on similar routes.',
