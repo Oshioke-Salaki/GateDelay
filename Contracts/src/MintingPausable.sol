@@ -219,20 +219,20 @@ contract MintingPausable is ERC20, Pausable, AccessControl {
         pauseCountLifetime = pauseCount;
     }
 
-    // Override _beforeTokenTransfer to include pause check
-    function _beforeTokenTransfer(
+    // Override token state updates so transfers, minting, and burning pause together.
+    function _update(
         address from,
         address to,
         uint256 amount
     ) internal override whenNotPaused {
-        super._beforeTokenTransfer(from, to, amount);
+        super._update(from, to, amount);
     }
 
     // Required override for AccessControl
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC20, AccessControl)
+        override(AccessControl)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
