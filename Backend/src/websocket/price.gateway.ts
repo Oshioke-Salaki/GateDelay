@@ -7,7 +7,7 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Namespace, Socket } from 'socket.io';
 import { Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PositionsService } from '../positions/positions.service';
@@ -34,7 +34,7 @@ export class PriceGateway
     OnModuleDestroy
 {
   @WebSocketServer()
-  server: Server;
+  server: Namespace;
 
   private readonly logger = new Logger(PriceGateway.name);
   private readonly subscriptions = new Map<string, Set<string>>(); // socketId -> marketIds

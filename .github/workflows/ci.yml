@@ -174,11 +174,19 @@ jobs:
 
       - name: Show backend log on failure
         if: failure()
-        run: cat /tmp/gatedelay-backend.log
+        run: |
+          if [ -f /tmp/gatedelay-backend.log ]; then
+            cat /tmp/gatedelay-backend.log
+          else
+            echo "Backend log was not created; startup was not reached."
+          fi
 
       - name: Stop backend
         if: always()
-        run: kill "$(cat /tmp/gatedelay-backend.pid)" || true
+        run: |
+          if [ -f /tmp/gatedelay-backend.pid ]; then
+            kill "$(cat /tmp/gatedelay-backend.pid)" || true
+          fi
 
       # -----------------------------------------------------------------------
       # #708 / #674 — Upload CI reference artifacts so downstream jobs
@@ -258,11 +266,19 @@ jobs:
 
       - name: Show backend log on failure
         if: failure()
-        run: cat /tmp/gatedelay-backend.log
+        run: |
+          if [ -f /tmp/gatedelay-backend.log ]; then
+            cat /tmp/gatedelay-backend.log
+          else
+            echo "Backend log was not created; startup was not reached."
+          fi
 
       - name: Stop backend
         if: always()
-        run: kill "$(cat /tmp/gatedelay-backend.pid)" || true
+        run: |
+          if [ -f /tmp/gatedelay-backend.pid ]; then
+            kill "$(cat /tmp/gatedelay-backend.pid)" || true
+          fi
 
   frontend-quality:
     name: Frontend lint, tsconfig, and build
