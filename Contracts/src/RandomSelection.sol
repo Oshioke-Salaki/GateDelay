@@ -68,6 +68,8 @@ contract RandomSelection is Ownable {
 
     uint256 public nextRequestId = 1;
 
+    constructor() Ownable(msg.sender) {}
+
     // -------------------- Events --------------------
     event PopulationSet(uint256 indexed populationRoundId, uint256 size);
     event SelectionRequested(uint256 indexed requestId, uint256 indexed populationRoundId, uint256 selectionCount);

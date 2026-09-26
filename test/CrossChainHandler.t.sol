@@ -32,7 +32,7 @@ contract CrossChainHandlerTest is Test {
         );
 
         CrossChainHandler.CrossChainMessage memory message = handler.getMessage(messageId);
-        assertEq(message.status, uint8(CrossChainHandler.MessageStatus.Validated));
+        assertEq(uint8(message.status), uint8(CrossChainHandler.MessageStatus.Validated));
         assertEq(message.srcChainId, uint16(101));
         assertEq(message.dstChainId, uint16(102));
         assertEq(message.sender, sender);
@@ -66,6 +66,29 @@ contract CrossChainHandlerTest is Test {
 
         assertEq(handler.totalMessages(), 1);
         assertEq(handler.totalValidated(), 1);
+    }
+
+    function test_MarkCompleted_UpdatesStatusAndTimestamp() public {
+        bytes32 messageId = handler.handleMessage(101, 102, sender, ROUTE_KEY, SAMPLE_PAYLOAD);
+        uint256 updatedAt = block.timestamp + 1;
+        vm.warp(updatedAt);
+
+        handler.markCompleted(messageId);
+
+        CrossChainHandler.CrossChainMessage memory message = handler.getMessage(messageId);
+        assertEq(uint8(message.status), uint8(CrossChainHandler.MessageStatus.Completed));
+        assertEq(message.updatedAt, updatedAt);
+    }
+
+    function test_MarkFailed_UpdatesStatus() public {
+        bytes32 messageId = handler.handleMessage(101, 102, sender, ROUTE_KEY, SAMPLE_PAYLOAD);
+
+        handler.markFailed(messageId);
+
+        assertEq(
+            uint8(handler.getMessageStatus(messageId)),
+            uint8(CrossChainHandler.MessageStatus.Failed)
+        );
     }
 }
 

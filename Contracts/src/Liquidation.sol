@@ -246,7 +246,20 @@ contract Liquidation is Ownable, ReentrancyGuard {
     function monitorLiquidationCondition(
         address account,
         address market
-    ) public view validMarket(market) returns (LiquidationCondition memory condition) {
+    ) public validMarket(market) returns (LiquidationCondition memory condition) {
+        condition = _monitorLiquidationCondition(account, market);
+        emit LiquidationConditionChecked(
+            account,
+            market,
+            condition.healthFactor,
+            condition.isLiquidatable
+        );
+    }
+
+    function _monitorLiquidationCondition(
+        address account,
+        address market
+    ) internal view returns (LiquidationCondition memory condition) {
         // Get margin requirement from MarginCalculator
         (bool success, bytes memory data) = marginCalculator.staticcall(
             abi.encodeWithSignature("getMarginRequirement(address,address)", account, market)
@@ -266,10 +279,10 @@ contract Liquidation is Ownable, ReentrancyGuard {
         // Decode margin requirement
         (
             uint256 initialMargin,
-            uint256 maintenanceMargin,
+            ,
             uint256 liquidationMargin,
             uint256 currentMargin,
-            // uint256 utilizationBps
+
         ) = abi.decode(data, (uint256, uint256, uint256, uint256, uint256));
 
         // Get collateral balance from CollateralVault
@@ -296,7 +309,6 @@ contract Liquidation is Ownable, ReentrancyGuard {
             isLiquidatable: isLiquidatable
         });
 
-        emit LiquidationConditionChecked(account, market, healthFactor, isLiquidatable);
     }
 
     /// @notice Execute liquidation of an undercollateralized position
@@ -442,7 +454,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
         address account,
         address market
     ) external view returns (bool) {
-        LiquidationCondition memory condition = monitorLiquidationCondition(account, market);
+        LiquidationCondition memory condition = _monitorLiquidationCondition(account, market);
         return condition.isLiquidatable;
     }
 
@@ -485,7 +497,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
         address account,
         address market
     ) external view returns (uint256) {
-        LiquidationCondition memory condition = monitorLiquidationCondition(account, market);
+        LiquidationCondition memory condition = _monitorLiquidationCondition(account, market);
         return condition.healthFactor;
     }
 
@@ -500,7 +512,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     ) external view returns (LiquidationCondition[] memory conditions) {
         conditions = new LiquidationCondition[](accounts.length);
         for (uint256 i = 0; i < accounts.length; i++) {
-            conditions[i] = monitorLiquidationCondition(accounts[i], market);
+            conditions[i] = _monitorLiquidationCondition(accounts[i], market);
         }
     }
 }

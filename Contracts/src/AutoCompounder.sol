@@ -128,7 +128,7 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
      */
     function unregisterPosition(uint256 positionId) external onlyOwner {
         AutoCompoundPosition storage pos = positions[positionId];
-        if (pos.positionId == 0) revert MarketNotRegistered();
+        if (positionId == 0 || !pos.isActive) revert MarketNotRegistered();
 
         pos.isActive = false;
         emit PositionUnregistered(positionId);
@@ -143,7 +143,7 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
      */
     function updateYieldThreshold(uint256 positionId, uint256 minYieldThreshold) external onlyOwner {
         AutoCompoundPosition storage pos = positions[positionId];
-        if (pos.positionId == 0) revert MarketNotRegistered();
+        if (positionId == 0 || !pos.isActive) revert MarketNotRegistered();
 
         pos.minYieldThreshold = minYieldThreshold;
         emit TriggerUpdated(positionId, minYieldThreshold);
@@ -160,7 +160,7 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
      */
     function checkCompoundEligibility(uint256 positionId) public view returns (bool) {
         AutoCompoundPosition memory pos = positions[positionId];
-        if (!pos.isActive || pos.positionId == 0) return false;
+        if (positionId == 0 || !pos.isActive) return false;
 
         uint256 pendingYield = marketCompound.getPendingYield(pos.marketId, pos.user);
         return pendingYield >= pos.minYieldThreshold;
@@ -177,7 +177,7 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
      */
     function performCompound(uint256 positionId) external nonReentrant returns (uint256 netAmount) {
         AutoCompoundPosition storage pos = positions[positionId];
-        if (!pos.isActive || pos.positionId == 0) revert MarketNotRegistered();
+        if (positionId == 0 || !pos.isActive) revert MarketNotRegistered();
 
         uint256 pendingYield = marketCompound.getPendingYield(pos.marketId, pos.user);
         if (pendingYield < pos.minYieldThreshold) revert NoEligiblePositions();

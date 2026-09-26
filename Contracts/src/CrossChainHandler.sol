@@ -49,7 +49,7 @@ contract CrossChainHandler is Ownable {
     error CrossChainHandler__RouteAlreadyRegistered(bytes32 routeKey);
     error CrossChainHandler__MessageNotFound(bytes32 messageId);
 
-    constructor() Ownable() {}
+    constructor() Ownable(msg.sender) {}
 
     /// @notice Executes registerRoute.
     /// @param routeKey Encoded data used for route key.
@@ -154,12 +154,7 @@ contract CrossChainHandler is Ownable {
         return _routes[routeKey];
     }
 
-    /// @notice Executes setMessageStatus.
-    /// @param messageId Identifier of the relevant message.
-    /// @param status status used by this operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
-    /// @dev Reverts: `CrossChainHandler__MessageNotFound` if `message.messageId == 0` is true.
-    function setMessageStatus(bytes32 messageId, MessageStatus status) external {
+    function setMessageStatus(bytes32 messageId, MessageStatus status) public {
         CrossChainMessage storage message = _messages[messageId];
         if (message.messageId == 0) revert CrossChainHandler__MessageNotFound(messageId);
         message.status = status;
