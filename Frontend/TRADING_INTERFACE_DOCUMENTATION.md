@@ -75,6 +75,14 @@ There is no `GET /api/markets/:id`, `POST /api/orders`, or order-book
 WebSocket event implemented for this page. Do not copy those paths as if they
 exist.
 
+For the product trading model, LMSR through `MarketMaker` is canonical for
+prediction-market execution; a CLOB is a distinct venue and must never be used
+as an implicit fallback. When this page is wired for real trades, it must
+display contract-derived quotes and transaction state and submit a wallet-
+authorized LMSR transaction. Current fixture rows and local submit behavior
+remain non-live. Backend and contract routing details are recorded in the
+[accepted trading-model ADR](../docs/adr/0001-lmsr-vs-clob-ambiguity.md).
+
 Unknown ids **do not** fall back to `market-1`. The page lists
 `DEMO_TRADE_MARKET_IDS` (`market-1`, `market-2`, `market-3`) and links to
 `/trade/market-1` and `/dashboard`.

@@ -7,8 +7,7 @@ Outcome is a decentralized flight prediction market built on the Stellar network
 - **Prediction Markets**: Participate in decentralized markets for flight arrival status.
 - **AI Risk Assessment**: Integrated Llama 3.1 analysis via **Groq** for real-time trading signals and flight risk reports.
 - **Real-time Aviation Data**: Automated flight tracking and market initialization powered by the **AviationStack API**.
-- **LMSR pricing**: Logarithmic Market Scoring Rule via `MarketMaker` / `Trading` / `LMSR` (`Contracts/src/`). A separate `OrderBook` CLOB also exists; [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) is undecided and owned by [Phase 2](docs/reports/PHASE_2.md).
-- **Hybrid AMM**: Sophisticated Logarithmic Market Scoring Rule (LMSR) for liquidity pricing, paired with a fair cost-based payout mechanism.
+- **Canonical prediction-market trading**: LMSR pricing and settlement via `MarketMaker` / `LMSR` (`Contracts/src/`); the separate `OrderBook` CLOB is not used for prediction-market trades. See [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) for backend/frontend routing and current integration status.
 - **Cross-Chain Relay**: Chainlink CCIP-powered relay for cross-chain market operations — see [Market Relay Delivery Summary](docs/reports/MARKET_RELAY_DELIVERY_SUMMARY.md).
 - **Stellar Network**: High-performance, low-fee prediction market trading powered by the Stellar blockchain.
 - **Connect with Ease**: Seamless wallet integration via **Particle Network**, supporting both social and traditional EOA logins.
@@ -87,7 +86,7 @@ Keep this README short. Details live in:
 | [PHASES.md](docs/reports/PHASES.md) | Phase roadmap and issue index | Roadmap |
 | [PHASE_1.md](docs/reports/PHASE_1.md) | Stabilize foundations (`phase-1`) | Phase 1 |
 | [PHASE_2.md](docs/reports/PHASE_2.md) | Core market wiring (`phase-2`) | Phase 2 |
-| [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) | LMSR vs CLOB — decision deferred to Phase 2 | Phase 2 |
+| [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) | Accepted LMSR ownership and backend/frontend routing | Phase 2 |
 
 Do not copy the Phase 2 issue list here; start from [PHASE_2.md](docs/reports/PHASE_2.md).
 
