@@ -109,6 +109,15 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     event RelayerUpdated(address indexed newRelayer);
     event FeeRecipientUpdated(address indexed newFeeRecipient);
     event RouterUpdated(address indexed newRouter);
+    event ChainFeeConfigurationUpdated(
+        uint64 indexed chainSelector, uint256 oldFlatFee, uint256 newFlatFee, uint256 oldFeeBps, uint256 newFeeBps
+    );
+    event ChainSupportUpdated(
+        uint64 indexed chainSelector, bool oldSupported, bool newSupported, uint256 flatFee, uint256 feeBps
+    );
+    event RelayerConfigurationUpdated(address indexed oldRelayer, address indexed newRelayer);
+    event FeeRecipientConfigurationUpdated(address indexed oldFeeRecipient, address indexed newFeeRecipient);
+    event RouterConfigurationUpdated(address indexed oldRouter, address indexed newRouter);
 
     event BridgeInitiated(
         uint256 indexed transferId,
@@ -168,6 +177,7 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         _supportedChainList.push(chainSelector);
 
         emit ChainSupported(chainSelector, flatFee, feeBps);
+        emit ChainSupportUpdated(chainSelector, false, true, flatFee, feeBps);
     }
 
     function removeSupportedChain(uint64 chainSelector) external onlyOwner {
@@ -175,34 +185,46 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         _chains[chainSelector].supported = false;
 
         emit ChainRemoved(chainSelector);
+        emit ChainSupportUpdated(
+            chainSelector, true, false, _chains[chainSelector].flatFee, _chains[chainSelector].feeBps
+        );
     }
 
     function updateChainFee(uint64 chainSelector, uint256 flatFee, uint256 feeBps) external onlyOwner {
         if (!_chains[chainSelector].supported) revert MarketBridge__ChainNotSupported(chainSelector);
         if (feeBps > MAX_FEE_BPS) revert MarketBridge__InvalidFee(feeBps);
 
+        uint256 oldFlatFee = _chains[chainSelector].flatFee;
+        uint256 oldFeeBps = _chains[chainSelector].feeBps;
         _chains[chainSelector].flatFee = flatFee;
         _chains[chainSelector].feeBps = feeBps;
 
         emit ChainFeeUpdated(chainSelector, flatFee, feeBps);
+        emit ChainFeeConfigurationUpdated(chainSelector, oldFlatFee, flatFee, oldFeeBps, feeBps);
     }
 
     function setRelayer(address newRelayer) external onlyOwner {
         if (newRelayer == address(0)) revert MarketBridge__ZeroAddress();
+        address oldRelayer = relayer;
         relayer = newRelayer;
         emit RelayerUpdated(newRelayer);
+        emit RelayerConfigurationUpdated(oldRelayer, newRelayer);
     }
 
     function setFeeRecipient(address newFeeRecipient) external onlyOwner {
         if (newFeeRecipient == address(0)) revert MarketBridge__ZeroAddress();
+        address oldFeeRecipient = feeRecipient;
         feeRecipient = newFeeRecipient;
         emit FeeRecipientUpdated(newFeeRecipient);
+        emit FeeRecipientConfigurationUpdated(oldFeeRecipient, newFeeRecipient);
     }
 
     function setCcipRouter(address newRouter) external onlyOwner {
         if (newRouter == address(0)) revert MarketBridge__ZeroAddress();
+        address oldRouter = address(ccipRouter);
         ccipRouter = IRouterClient(newRouter);
         emit RouterUpdated(newRouter);
+        emit RouterConfigurationUpdated(oldRouter, newRouter);
     }
 
     // ---------------------------------------------------------------

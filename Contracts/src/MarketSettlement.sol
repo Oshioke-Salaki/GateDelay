@@ -62,6 +62,15 @@ contract MarketSettlement {
         uint256 amountDistributed,
         uint256 remainingAmount
     );
+    event SettlementStatusUpdated(
+        address indexed market,
+        SettlementStatus oldStatus,
+        SettlementStatus newStatus,
+        uint256 oldDistributedAmount,
+        uint256 newDistributedAmount,
+        uint256 oldRemainingAmount,
+        uint256 newRemainingAmount
+    );
 
     // -------------------------------------------------------------------------
     // Storage
@@ -133,6 +142,9 @@ contract MarketSettlement {
         
         if (settlement.status == SettlementStatus.COMPLETE) revert AlreadySettled();
         if (amount > settlement.remainingAmount) revert InvalidSettlementAmount();
+        SettlementStatus oldStatus = settlement.status;
+        uint256 oldDistributedAmount = settlement.distributedAmount;
+        uint256 oldRemainingAmount = settlement.remainingAmount;
 
         // Record payout
         _payoutRecords[market].push(PayoutRecord({
@@ -157,6 +169,15 @@ contract MarketSettlement {
             settlement.status = SettlementStatus.PARTIAL;
             emit PartialSettlementProcessed(market, amount, settlement.remainingAmount);
         }
+        emit SettlementStatusUpdated(
+            market,
+            oldStatus,
+            settlement.status,
+            oldDistributedAmount,
+            settlement.distributedAmount,
+            oldRemainingAmount,
+            settlement.remainingAmount
+        );
 
         emit PayoutDistributed(market, user, amount);
     }
@@ -171,6 +192,9 @@ contract MarketSettlement {
 
         Settlement storage settlement = _settlements[market];
         if (settlement.status == SettlementStatus.COMPLETE) revert AlreadySettled();
+        SettlementStatus oldStatus = settlement.status;
+        uint256 oldDistributedAmount = settlement.distributedAmount;
+        uint256 oldRemainingAmount = settlement.remainingAmount;
 
         uint256 totalBatchAmount = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -202,6 +226,15 @@ contract MarketSettlement {
             settlement.status = SettlementStatus.PARTIAL;
             emit PartialSettlementProcessed(market, totalBatchAmount, settlement.remainingAmount);
         }
+        emit SettlementStatusUpdated(
+            market,
+            oldStatus,
+            settlement.status,
+            oldDistributedAmount,
+            settlement.distributedAmount,
+            oldRemainingAmount,
+            settlement.remainingAmount
+        );
     }
 
     /// @notice Get settlement info for a market

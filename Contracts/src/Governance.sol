@@ -40,6 +40,8 @@ contract Governance is Ownable, ReentrancyGuard {
     event ProposalCancelled(uint256 indexed proposalId);
     event QuorumUpdated(uint256 newQuorum);
     event VotingDurationUpdated(uint256 newDuration);
+    event QuorumConfigurationUpdated(uint256 oldQuorum, uint256 newQuorum);
+    event VotingDurationConfigurationUpdated(uint256 oldDuration, uint256 newDuration);
 
     // ── State ──────────────────────────────────────────────────────────────────
 
@@ -152,14 +154,18 @@ contract Governance is Ownable, ReentrancyGuard {
     // ── Admin ──────────────────────────────────────────────────────────────────
 
     function setQuorum(uint256 newQuorum) external onlyOwner {
+        uint256 oldQuorum = quorum;
         quorum = newQuorum;
         emit QuorumUpdated(newQuorum);
+        emit QuorumConfigurationUpdated(oldQuorum, newQuorum);
     }
 
     function setVotingDuration(uint256 newDuration) external onlyOwner {
         if (newDuration == 0) revert InvalidDuration();
+        uint256 oldDuration = votingDuration;
         votingDuration = newDuration;
         emit VotingDurationUpdated(newDuration);
+        emit VotingDurationConfigurationUpdated(oldDuration, newDuration);
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────

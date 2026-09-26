@@ -42,6 +42,7 @@ contract AccessControl {
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed grantor);
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed revoker);
     event RoleDescriptionSet(bytes32 indexed role, string description);
+    event RoleDescriptionUpdated(bytes32 indexed role, string oldDescription, string newDescription);
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -200,8 +201,10 @@ contract AccessControl {
         external
         onlyAdmin
     {
+        string memory oldDescription = _roleDescriptions[role];
         _roleDescriptions[role] = description;
         emit RoleDescriptionSet(role, description);
+        emit RoleDescriptionUpdated(role, oldDescription, description);
     }
 
     /// @notice Check if account has any of the specified roles.

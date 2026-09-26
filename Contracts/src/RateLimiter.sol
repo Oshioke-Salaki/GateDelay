@@ -29,6 +29,15 @@ contract RateLimiter is AccessControl {
         uint256 timeWindow,
         bool enabled
     );
+    event RateLimitConfigurationUpdated(
+        bytes32 indexed limitId,
+        uint256 oldMaxOperations,
+        uint256 newMaxOperations,
+        uint256 oldTimeWindow,
+        uint256 newTimeWindow,
+        bool oldEnabled,
+        bool newEnabled
+    );
     event OperationAllowed(bytes32 indexed limitId, address indexed user, uint256 operationCount);
     event OperationBlocked(bytes32 indexed limitId, address indexed user, string reason);
     event RateLimitReset(bytes32 indexed limitId, address indexed user);
@@ -61,12 +70,23 @@ contract RateLimiter is AccessControl {
         require(maxOperations > 0, "RateLimiter: maxOperations must be positive");
         require(timeWindow > 0, "RateLimiter: timeWindow must be positive");
 
+        RateLimitConfig memory oldConfig = rateLimitConfigs[limitId];
         rateLimitConfigs[limitId] = RateLimitConfig(maxOperations, timeWindow, enabled);
         emit RateLimitConfigured(limitId, maxOperations, timeWindow, enabled);
+        emit RateLimitConfigurationUpdated(
+            limitId,
+            oldConfig.maxOperations,
+            maxOperations,
+            oldConfig.timeWindow,
+            timeWindow,
+            oldConfig.enabled,
+            enabled
+        );
     }
 
     function enableRateLimit(bytes32 limitId) external onlyAdmin {
         require(rateLimitConfigs[limitId].timeWindow > 0, "RateLimiter: limit not configured");
+        bool oldEnabled = rateLimitConfigs[limitId].enabled;
         rateLimitConfigs[limitId].enabled = true;
         emit RateLimitConfigured(
             limitId,
@@ -74,15 +94,34 @@ contract RateLimiter is AccessControl {
             rateLimitConfigs[limitId].timeWindow,
             true
         );
+        emit RateLimitConfigurationUpdated(
+            limitId,
+            rateLimitConfigs[limitId].maxOperations,
+            rateLimitConfigs[limitId].maxOperations,
+            rateLimitConfigs[limitId].timeWindow,
+            rateLimitConfigs[limitId].timeWindow,
+            oldEnabled,
+            true
+        );
     }
 
     function disableRateLimit(bytes32 limitId) external onlyAdmin {
         require(rateLimitConfigs[limitId].timeWindow > 0, "RateLimiter: limit not configured");
+        bool oldEnabled = rateLimitConfigs[limitId].enabled;
         rateLimitConfigs[limitId].enabled = false;
         emit RateLimitConfigured(
             limitId,
             rateLimitConfigs[limitId].maxOperations,
             rateLimitConfigs[limitId].timeWindow,
+            false
+        );
+        emit RateLimitConfigurationUpdated(
+            limitId,
+            rateLimitConfigs[limitId].maxOperations,
+            rateLimitConfigs[limitId].maxOperations,
+            rateLimitConfigs[limitId].timeWindow,
+            rateLimitConfigs[limitId].timeWindow,
+            oldEnabled,
             false
         );
     }

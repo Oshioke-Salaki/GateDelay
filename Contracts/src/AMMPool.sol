@@ -63,6 +63,9 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
     event FeeRateSet(uint256 feeRateBps);
     event ProtocolShareSet(uint256 protocolSharePct);
     event FeeRecipientSet(address indexed recipient);
+    event FeeRateUpdated(uint256 indexed oldFeeRateBps, uint256 indexed newFeeRateBps);
+    event ProtocolShareUpdated(uint256 indexed oldProtocolSharePct, uint256 indexed newProtocolSharePct);
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
     event ProtocolFeesCollected(uint256 amount0, uint256 amount1);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
@@ -350,20 +353,26 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
 
     function setFeeRate(uint256 feeBps) external onlyOwner {
         if (feeBps > MAX_FEE_BPS) revert FeeTooHigh();
+        uint256 oldFeeRateBps = feeRateBps;
         feeRateBps = feeBps;
         emit FeeRateSet(feeBps);
+        emit FeeRateUpdated(oldFeeRateBps, feeBps);
     }
 
     function setProtocolShare(uint256 sharePct) external onlyOwner {
         if (sharePct > 100) revert InvalidProtocolShare();
+        uint256 oldProtocolSharePct = protocolSharePct;
         protocolSharePct = sharePct;
         emit ProtocolShareSet(sharePct);
+        emit ProtocolShareUpdated(oldProtocolSharePct, sharePct);
     }
 
     function setFeeRecipient(address recipient) external onlyOwner {
         if (recipient == address(0)) revert ZeroAddress();
+        address oldRecipient = feeRecipient;
         feeRecipient = recipient;
         emit FeeRecipientSet(recipient);
+        emit FeeRecipientUpdated(oldRecipient, recipient);
     }
 
     // ── Internal ───────────────────────────────────────────────────────────────

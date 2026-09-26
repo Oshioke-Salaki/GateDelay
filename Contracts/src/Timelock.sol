@@ -37,6 +37,7 @@ contract Timelock {
     event OperationExecuted(bytes32 indexed operationId, address indexed executor);
     event OperationCancelled(bytes32 indexed operationId);
     event DelayUpdated(uint256 newDelay);
+    event DelayConfigurationUpdated(uint256 oldDelay, uint256 newDelay);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -130,8 +131,10 @@ contract Timelock {
         if (msg.sender != admin) revert();
         if (_minDelay == 0) revert InvalidDelay();
 
+        uint256 oldDelay = minDelay;
         minDelay = _minDelay;
         emit DelayUpdated(_minDelay);
+        emit DelayConfigurationUpdated(oldDelay, _minDelay);
     }
 
     /// @notice Get operation details.

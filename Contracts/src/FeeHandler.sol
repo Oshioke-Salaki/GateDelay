@@ -59,6 +59,15 @@ contract FeeHandler is Ownable, ReentrancyGuard {
 
     event FeeStructureSet(bytes32 indexed id, uint256 feeBps, uint256 recipientCount);
     event FeeStructureDeactivated(bytes32 indexed id);
+    event FeeStructureUpdated(
+        bytes32 indexed id,
+        uint256 oldFeeBps,
+        uint256 newFeeBps,
+        bool oldActive,
+        bool newActive,
+        uint256 oldRecipientCount,
+        uint256 newRecipientCount
+    );
     event FeesDistributed(bytes32 indexed id, address indexed token, uint256 feeAmount);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
@@ -93,6 +102,9 @@ contract FeeHandler is Ownable, ReentrancyGuard {
         if (shareSum != BPS_DENOMINATOR) revert InvalidRecipients();
 
         FeeStructure storage fs = _structures[id];
+        uint256 oldFeeBps = fs.feeBps;
+        bool oldActive = fs.active;
+        uint256 oldRecipientCount = fs.recipients.length;
         fs.feeBps = feeBps;
         fs.active = true;
 
@@ -103,12 +115,23 @@ contract FeeHandler is Ownable, ReentrancyGuard {
         }
 
         emit FeeStructureSet(id, feeBps, recipients.length);
+        emit FeeStructureUpdated(id, oldFeeBps, feeBps, oldActive, true, oldRecipientCount, recipients.length);
     }
 
     /// @notice Disable a fee structure; any collection attempt will revert.
     function deactivateFeeStructure(bytes32 id) external onlyOwner {
+        bool oldActive = _structures[id].active;
         _structures[id].active = false;
         emit FeeStructureDeactivated(id);
+        emit FeeStructureUpdated(
+            id,
+            _structures[id].feeBps,
+            _structures[id].feeBps,
+            oldActive,
+            false,
+            _structures[id].recipients.length,
+            _structures[id].recipients.length
+        );
     }
 
     // ── Fee calculation ────────────────────────────────────────────────────────

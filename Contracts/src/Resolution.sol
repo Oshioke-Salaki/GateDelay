@@ -45,6 +45,12 @@ contract Resolution is ReentrancyGuard {
     event DisputeRaised(address indexed market, address indexed disputer, string evidenceURI);
     event PayoutClaimed(address indexed market, address indexed claimant, uint256 amount);
     event RefundClaimed(address indexed market, address indexed claimant, uint256 amount);
+    event MarketStatusUpdated(
+        address indexed market,
+        MarketFactory.MarketStatus oldStatus,
+        MarketFactory.MarketStatus newStatus,
+        address indexed updater
+    );
 
     // -------------------------------------------------------------------------
     // Immutable state
@@ -115,12 +121,14 @@ contract Resolution is ReentrancyGuard {
             resolver: msg.sender
         });
 
+        MarketFactory.MarketStatus oldStatus = _marketStatus[market];
         _marketStatus[market] = MarketFactory.MarketStatus.RESOLVED;
         _disputeWindowEnd[market] = block.timestamp + disputeWindowSeconds;
 
         LiquidityPool(_pools[market]).setMarketStatus(MarketFactory.MarketStatus.RESOLVED);
 
         emit MarketResolved(market, outcome, msg.sender);
+        emit MarketStatusUpdated(market, oldStatus, MarketFactory.MarketStatus.RESOLVED, msg.sender);
     }
 
     /// @notice Raise a dispute against a resolved market within the dispute window.
@@ -130,10 +138,12 @@ contract Resolution is ReentrancyGuard {
         if (_marketStatus[market] != MarketFactory.MarketStatus.RESOLVED) revert MarketNotResolved();
         if (block.timestamp > _disputeWindowEnd[market]) revert DisputeWindowElapsed();
 
+        MarketFactory.MarketStatus oldStatus = _marketStatus[market];
         _marketStatus[market] = MarketFactory.MarketStatus.DISPUTED;
         LiquidityPool(_pools[market]).setMarketStatus(MarketFactory.MarketStatus.DISPUTED);
 
         emit DisputeRaised(market, msg.sender, evidenceURI);
+        emit MarketStatusUpdated(market, oldStatus, MarketFactory.MarketStatus.DISPUTED, msg.sender);
     }
 
     /// @notice Settle a disputed market with a final outcome. Only callable by admin.
@@ -144,10 +154,12 @@ contract Resolution is ReentrancyGuard {
         if (_marketStatus[market] != MarketFactory.MarketStatus.DISPUTED) revert MarketNotDisputed();
 
         _records[market].outcome = finalOutcome;
+        MarketFactory.MarketStatus oldStatus = _marketStatus[market];
         _marketStatus[market] = MarketFactory.MarketStatus.RESOLVED;
         _disputeWindowEnd[market] = block.timestamp + disputeWindowSeconds;
 
         LiquidityPool(_pools[market]).setMarketStatus(MarketFactory.MarketStatus.RESOLVED);
+        emit MarketStatusUpdated(market, oldStatus, MarketFactory.MarketStatus.RESOLVED, msg.sender);
     }
 
     /// @notice Claim payout for winning position tokens after the dispute window has elapsed.
@@ -210,8 +222,10 @@ contract Resolution is ReentrancyGuard {
     /// @param market  The market address.
     function cancelMarket(address market) external {
         if (msg.sender != admin) revert NotAdmin();
+        MarketFactory.MarketStatus oldStatus = _marketStatus[market];
         _marketStatus[market] = MarketFactory.MarketStatus.CANCELLED;
         LiquidityPool(_pools[market]).setMarketStatus(MarketFactory.MarketStatus.CANCELLED);
+        emit MarketStatusUpdated(market, oldStatus, MarketFactory.MarketStatus.CANCELLED, msg.sender);
     }
 
     // -------------------------------------------------------------------------
