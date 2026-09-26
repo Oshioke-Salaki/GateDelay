@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
+import "@openzeppelin/contracts/access/IAccessControl.sol";
 import "../Contracts/src/MarketMinter.sol";
 import "../Contracts/src/ERC20Token.sol";
 
@@ -12,6 +13,7 @@ contract MarketMinterTest is Test {
     address admin = address(0xA);
     address minter = address(0xB);
     address recipient = address(0xC);
+    address unauthorized = address(0xD);
 
     uint256 constant CAP = 1000 ether;
     uint256 constant PER_MINT = 500 ether;
@@ -37,6 +39,43 @@ contract MarketMinterTest is Test {
         assertEq(controller.mintedTotal(minter), amount);
     }
 
+    function test_nonMinterCannotMint() public {
+        vm.prank(unauthorized);
+        vm.expectRevert(MarketMinter.NotMinter.selector);
+        controller.mint(recipient, 1 ether);
+    }
+
+    function test_onlyAdminCanRegisterMinter() public {
+        _assertAdminDenied(abi.encodeCall(controller.registerMinter, (recipient, CAP, PER_MINT)));
+    }
+
+    function test_onlyAdminCanUnregisterMinter() public {
+        _assertAdminDenied(abi.encodeCall(controller.unregisterMinter, (minter)));
+    }
+
+    function test_onlyAdminCanUpdateMintCap() public {
+        _assertAdminDenied(abi.encodeCall(controller.setMintCap, (minter, CAP)));
+    }
+
+    function test_onlyAdminCanUpdatePerMintCap() public {
+        _assertAdminDenied(abi.encodeCall(controller.setPerMintCap, (minter, PER_MINT)));
+    }
+
+    function _assertAdminDenied(bytes memory callData) internal {
+        vm.prank(unauthorized);
+        (bool success, bytes memory returnData) = address(controller).call(callData);
+
+        assertFalse(success);
+        assertEq(
+            returnData,
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                unauthorized,
+                bytes32(0)
+            )
+        );
+    }
+
     function test_perMint_cap_enforced() public {
         // attempt to mint more than per-call cap
         vm.prank(minter);
@@ -45,14 +84,16 @@ contract MarketMinterTest is Test {
     }
 
     function test_total_cap_enforced_across_calls() public {
-        // first mint up to per-call cap
+        // Two per-call mints exhaust the total cap.
         vm.prank(minter);
         controller.mint(recipient, PER_MINT);
 
-        // second mint that would exceed total cap
+        vm.prank(minter);
+        controller.mint(recipient, PER_MINT);
+
         vm.prank(minter);
         vm.expectRevert(MarketMinter.ExceedsTotalCap.selector);
-        controller.mint(recipient, PER_MINT + 1);
+        controller.mint(recipient, 1);
     }
 
     function test_queries_and_remaining() public {

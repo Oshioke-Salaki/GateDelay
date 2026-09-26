@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/MarketVesting.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /// @dev Minimal ERC20 for testing
 contract MockMarketToken is ERC20 {
@@ -197,6 +198,33 @@ contract MarketVestingTest is Test {
         vm.prank(other);
         vm.expectRevert();
         vesting.createLinearVesting(alice, address(token), AMOUNT, DURATION, 0, false);
+    }
+
+    function test_NonOwnerCannotCreateOtherVestingTypesOrRevoke() public {
+        vm.prank(owner);
+        vesting.createLinearVesting(alice, address(token), AMOUNT, DURATION, 0, true);
+
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(
+            vesting.createCliffVesting,
+            (alice, address(token), AMOUNT, CLIFF, false)
+        );
+        calls[1] = abi.encodeCall(
+            vesting.createSteppedVesting,
+            (alice, address(token), AMOUNT, DURATION, STEPS, false)
+        );
+        calls[2] = abi.encodeCall(vesting.revoke, (0));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(other);
+            (bool success, bytes memory returnData) = address(vesting).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, other)
+            );
+        }
     }
 
     function test_CannotReleaseWithNothingAvailable() public {

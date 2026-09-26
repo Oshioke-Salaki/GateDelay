@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {MarketStrategy} from "../src/MarketStrategy.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MockTarget {
     uint256 public value;
@@ -94,5 +95,31 @@ contract MarketStrategyTest is Test {
         assertEq(ids.length, 2);
         assertEq(ids[0], id1);
         assertEq(ids[1], id2);
+    }
+
+    function test_NonOwnerCannotDefineUpdateOrExecuteStrategy() public {
+        bytes32 id = keccak256("STRAT_1");
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(
+            strategyContract.defineStrategy,
+            (id, "Test Strategy", address(target), bytes(""))
+        );
+        calls[1] = abi.encodeCall(
+            strategyContract.updateStrategy,
+            (id, address(target), bytes(""), true)
+        );
+        calls[2] = abi.encodeCall(strategyContract.executeStrategy, (id, bytes("")));
+
+        address unauthorized = address(0xBAD);
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(unauthorized);
+            (bool success, bytes memory returnData) = address(strategyContract).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, unauthorized)
+            );
+        }
     }
 }

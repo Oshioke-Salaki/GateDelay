@@ -14,7 +14,9 @@ event TradeExecuted(
     bool isBuy,
     uint256 shares,
     uint256 collateralAmount,
-    uint256 fee
+    uint256 fee,
+    uint256 rebate,
+    address indexed referrer
 );
 
 ERC20Token token;
@@ -77,19 +79,25 @@ ERC20Token token;
 
     // ── Fee update ────────────────────────────────────────────────────────────
     function testSetFee() public {
-        trading.setFeeBps(50);
+        trading.setFeeSplit(50, 0);
         assertEq(trading.feeBps(), 50);
     }
 
     function testSetFeeExceedsMax() public {
         vm.expectRevert(Trading.InvalidFee.selector);
-        trading.setFeeBps(1001);
+        trading.setFeeSplit(1001, 0);
     }
 
     function testSetFeeUnauthorized() public {
         vm.prank(alice);
         vm.expectRevert(Trading.Unauthorized.selector);
-        trading.setFeeBps(10);
+        trading.setFeeSplit(10, 0);
+    }
+
+    function testSetCommissionRecipientUnauthorized() public {
+        vm.prank(alice);
+        vm.expectRevert(Trading.Unauthorized.selector);
+        trading.setCommissionRecipient(bob);
     }
 
     // ── Fee withdrawal ────────────────────────────────────────────────────────
@@ -103,12 +111,12 @@ ERC20Token token;
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
 
-        uint256 fees = trading.accumulatedFees();
+        uint256 fees = trading.accumulatedCommission();
         uint256 balBefore = token.balanceOf(address(this));
         trading.withdrawFees(address(this));
 
         assertEq(token.balanceOf(address(this)), balBefore + fees);
-        assertEq(trading.accumulatedFees(), 0);
+        assertEq(trading.accumulatedCommission(), 0);
     }
 
     function testWithdrawFeesUnauthorized() public {
@@ -127,7 +135,7 @@ ERC20Token token;
         vm.startPrank(alice);
         token.approve(address(trading), total);
         vm.expectEmit(true, true, false, false);
-        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee);
+        emit TradeExecuted(alice, marketId, 0, true, shares, total, fee, 0, address(0));
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
     }
@@ -143,6 +151,6 @@ ERC20Token token;
         trading.executeBuy(marketId, 0, shares, total);
         vm.stopPrank();
 
-        assertEq(trading.getPosition(alice, marketId, 0), shares);
+        assertEq(mm.positions(address(trading), marketId, 0), shares);
     }
 }

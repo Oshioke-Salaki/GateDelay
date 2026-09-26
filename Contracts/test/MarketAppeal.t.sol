@@ -64,4 +64,17 @@ contract MarketAppealTest is Test {
         assertTrue(accepted);
         assertEq(reason, "upheld");
     }
+
+    function test_NonOwnerCannotStartOrDecideAppeal() public {
+        vm.prank(alice);
+        bytes32 id = appeal.submitAppeal(address(0x200), "evidence");
+
+        vm.prank(alice);
+        vm.expectRevert(bytes("Not owner"));
+        appeal.startReview(id);
+
+        vm.prank(alice);
+        vm.expectRevert(bytes("Not owner"));
+        appeal.decideAppeal(id, true, "upheld", bytes32(0));
+    }
 }
