@@ -13,6 +13,7 @@ import {
   validateLimitPrice,
   getSlippageWarning,
 } from "@/lib/validationRules";
+import StalePriceWarning from "@/components/market/StalePriceWarning";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -356,6 +357,9 @@ export default function OrderPanel({
             )}
           </div>
         )}
+
+        {/* Stale price warning — shown inline above submit so users can't miss it */}
+        <StalePriceWarning marketId={market.id} />
 
         {/* Submit */}
         <button

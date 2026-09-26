@@ -138,10 +138,17 @@ export function useSinglePriceUpdate(marketId: string) {
         autoSubscribe: true,
     });
 
+    const priceData = getPrice(marketId);
+    const isStale =
+        priceData?.timestamp != null
+            ? Date.now() - priceData.timestamp > 30_000
+            : false;
+
     return {
-        price: getPrice(marketId),
+        price: priceData,
         isLoading,
         isConnected,
         connectionStatus,
+        isStale,
     };
 }

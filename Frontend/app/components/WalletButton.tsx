@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useConnectKitBridge } from "./ConnectKitBridgeContext";
+import { useToast } from "@/hooks/useToast";
 
 const ConnectModal = dynamic(
   () => import("../../components/wallet/ConnectModal"),
@@ -16,6 +17,35 @@ function truncate(addr: string) {
 export default function WalletButton() {
   const { isConnected, address, isConnecting, disconnect } = useConnectKitBridge();
   const [modalOpen, setModalOpen] = useState(false);
+  const { success, info } = useToast();
+
+  // Track previous connection state so we only fire toasts on transitions,
+  // not on the initial render.
+  const prevConnectedRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    // Skip the very first render (null → first real value)
+    if (prevConnectedRef.current === null) {
+      prevConnectedRef.current = isConnected;
+      return;
+    }
+
+    const prev = prevConnectedRef.current;
+    prevConnectedRef.current = isConnected;
+
+    if (!prev && isConnected && address) {
+      // just connected
+      success("Wallet connected", truncate(address));
+    } else if (prev && !isConnected) {
+      // just disconnected
+      info("Wallet disconnected", undefined, { duration: 3000 });
+    }
+  }, [isConnected, address, success, info]);
+
+  const handleDisconnect = () => {
+    disconnect();
+    // Toast fires via the useEffect above on the next render cycle
+  };
 
   if (isConnecting) {
     return (
@@ -43,7 +73,7 @@ export default function WalletButton() {
           {truncate(address)}
         </span>
         <button
-          onClick={() => disconnect()}
+          onClick={handleDisconnect}
           aria-label={`Disconnect wallet ${truncate(address)}`}
           title={`Disconnect wallet ${truncate(address)}`}
           className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
