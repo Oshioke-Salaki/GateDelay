@@ -3,11 +3,17 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MarketListSkeleton } from "./components/ui/Skeleton";
 import QuickTradeWidget from "../components/trade/QuickTradeWidget";
-import { HOME_MARKET_FIXTURES } from "@/data/fixtures/marketFixtures";
 
-// Fixture data — replace with a real API call (e.g. fetch /api/markets) once
-// the backend market-list endpoint is available.
-const SAMPLE_MARKETS = HOME_MARKET_FIXTURES;
+// Replace with a real API call (e.g. fetch /api/markets) once the backend
+// market-list endpoint is available.
+type HomeMarket = {
+  id: string;
+  title: string;
+  yesPrice: number;
+  volume: number;
+};
+
+const SAMPLE_MARKETS: HomeMarket[] = [];
 
 export default function Home() {
   return (

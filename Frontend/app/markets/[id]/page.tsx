@@ -16,7 +16,6 @@ import EventTimeline from "../../../components/market/EventTimeline";
 import { useToast } from "@/hooks/useToast";
 import { truncateTxHash, explorerTxUrl } from "@/lib/txUtils";
 import StalePriceWarning from "@/components/market/StalePriceWarning";
-import { MARKET_DETAIL_FIXTURE } from "@/data/fixtures/marketFixtures";
 
 // ── ABI (only the buy function) ──────────────────────────────────────────────
 const MARKET_MAKER_ABI = [
@@ -36,11 +35,25 @@ const MARKET_MAKER_ABI = [
 const MARKET_MAKER_ADDRESS =
   (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
 
-// Mock data — replace with real contract/API calls.
-// Until a real /api/markets/:id endpoint exists, we fall back to a typed
-// fixture so the page renders in development. The fixture import will throw
-// in production builds, forcing a real data source to be wired up.
-const MOCK_MARKET = MARKET_DETAIL_FIXTURE;
+// Replace with real contract/API calls when a market detail endpoint is wired.
+const MOCK_MARKET = {
+  title: "Market unavailable",
+  description: "Market data is not available yet.",
+  status: "closed" as "open" | "closed" | "resolved" | "disputed",
+  yesPrice: 0,
+  noPrice: 0,
+  volume: 0,
+  liquidity: 0,
+  participants: 0,
+  resolvedAt: undefined,
+  outcome: undefined,
+  recentTrades: [] as Array<{
+    side: string;
+    amount: number;
+    price: number;
+    time: string;
+  }>,
+};
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
   const { address, isConnected } = useAccount();

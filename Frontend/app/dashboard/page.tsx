@@ -4,11 +4,10 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 import MarketCard, { Market } from "../../components/market/MarketCard";
 import TrendingMarkets from "../../components/dashboard/TrendingMarkets";
 import TradingChallenge from "../../components/challenge/TradingChallenge";
-import { DASHBOARD_MARKET_FIXTURES } from "@/data/fixtures/marketFixtures";
 
-// Fixture data — replace with a real API call (e.g. TanStack Query fetching
-// /api/markets) once the backend market-list endpoint is available.
-const SAMPLE_MARKETS: Market[] = DASHBOARD_MARKET_FIXTURES as Market[];
+// Replace with a real API call (e.g. TanStack Query fetching /api/markets)
+// once the backend market-list endpoint is available.
+const SAMPLE_MARKETS: Market[] = [];
 
 const STATS = [
   { label: "Active Markets", value: SAMPLE_MARKETS.filter((m) => m.status === "open").length },

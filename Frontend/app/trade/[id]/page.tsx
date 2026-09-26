@@ -4,26 +4,13 @@ import Link from "next/link";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
 import { useConnectKitBridge } from "@/app/components/ConnectKitBridgeContext";
 import TradingInterface, { Market } from "@/app/components/trade/TradingInterface";
-import {
-  TRADING_MARKET_FIXTURES,
-  TRADING_MARKET_FIXTURE_IDS,
-} from "@/data/fixtures/marketFixtures";
 
-/**
- * Demo catalog for `/trade/[id]`.
- *
- * Rows come from the shared typed fixtures so the trading-interface shell can
- * render without a backend or chain connection. They are NOT live LMSR/CLOB
- * reads. There is no `GET /api/markets/:id` proxy in this app yet.
- *
- * The fixture import will throw in production builds — at that point wire up
- * a real data-fetching layer and remove this catalog entirely.
- */
-// Re-export under the original names so any existing imports keep working.
+// Re-export under the original names so any existing imports keep working
+// until a real market data source is wired for `/trade/[id]`.
 export const DEMO_TRADE_MARKETS: Record<string, Market> =
-  TRADING_MARKET_FIXTURES as Record<string, Market>;
+  {};
 
-export const DEMO_TRADE_MARKET_IDS = TRADING_MARKET_FIXTURE_IDS;
+export const DEMO_TRADE_MARKET_IDS: string[] = [];
 
 export default function TradePage({ params }: { params: { id: string } }) {
   const { address } = useConnectKitBridge();
