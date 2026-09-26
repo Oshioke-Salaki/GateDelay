@@ -27,6 +27,8 @@ interface I1inchRouter {
     /// @param data         Encoded calldata for the executor.
     /// @return returnAmount  Amount of destination token received.
     /// @return spentAmount   Amount of source token spent.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function swap(
         address executor,
         SwapDescription calldata desc,
@@ -171,22 +173,35 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
 
     // ─── Admin ───────────────────────────────────────────────────────────────
 
+    /// @notice Executes setPaused.
+    /// @param _paused Whether paused is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
         emit Paused(_paused);
     }
 
+    /// @notice Executes setRouter.
+    /// @param _router Address associated with router.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `_router == address(0)` is true.
     function setRouter(address _router) external onlyOwner {
         if (_router == address(0)) revert ZeroAddress();
         router = _router;
         emit RouterUpdated(_router);
     }
 
+    /// @notice Executes setDriftThreshold.
+    /// @param bps Rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
     function setDriftThreshold(uint256 bps) external onlyOwner {
         driftThresholdBps = bps;
         emit DriftThresholdUpdated(bps);
     }
 
+    /// @notice Executes setCooldownPeriod.
+    /// @param seconds_ Numeric seconds_ used by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function setCooldownPeriod(uint256 seconds_) external onlyOwner {
         cooldownPeriod = seconds_;
         emit CooldownUpdated(seconds_);
@@ -194,6 +209,11 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
 
     /// @notice Set the portfolio definition.
     ///         Weights must sum exactly to 10 000 bps (100 %).
+    /// @param assets assets used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `TooManyAssets` if `assets.length == 0 || assets.length > MAX_ASSETS` is true.
+    ///     `ZeroAddress` if `assets[i].token == address(0)` is true. `InvalidWeights` if
+    ///     `totalWeight != BPS_DENOMINATOR` is true.
     function setPortfolio(Asset[] calldata assets) external onlyOwner {
         if (assets.length == 0 || assets.length > MAX_ASSETS) revert TooManyAssets();
 
@@ -214,6 +234,10 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     // ─── Balance monitoring ───────────────────────────────────────────────────
 
     /// @notice Returns the current balance of each portfolio asset held by `holder`.
+    /// @param holder Address associated with holder.
+    /// @return tokens tokens produced by the operation.
+    /// @return balances Balances corresponding to the returned assets.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPortfolioBalances(address holder)
         external
         view
@@ -235,6 +259,10 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     ///         different decimal counts or prices; for a production deployment
     ///         you'd integrate a price oracle here.  This implementation assumes
     ///         all tokens have the same value per unit (normalised balances).
+    /// @param holder Address associated with holder.
+    /// @return tokens tokens produced by the operation.
+    /// @return weightsBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function currentWeights(address holder)
         external
         view
@@ -260,6 +288,9 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
 
     /// @notice Returns `true` if any asset's current weight deviates from its
     ///         target by more than `driftThresholdBps`.
+    /// @param holder Address associated with holder.
+    /// @return needed True if needed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkRebalance(address holder) external view returns (bool needed) {
         uint256 n        = _portfolio.length;
         if (n == 0) return false;
@@ -286,6 +317,12 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     }
 
     /// @notice Per-asset drift report.
+    /// @param holder Address associated with holder.
+    /// @return tokens tokens produced by the operation.
+    /// @return targetsBps Rate expressed in basis points.
+    /// @return currentsBps Rate expressed in basis points.
+    /// @return driftsBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDriftReport(address holder)
         external
         view
@@ -329,6 +366,10 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     /// @dev  Each swap uses the 1inch `swap()` interface:
     ///       the caller (this contract) must have pre-approved the router for
     ///       the srcToken amounts.  Token approvals are set inside this function.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `RebalanceCooldown` if `block.timestamp <
+    ///     lastRebalanceAt + cooldownPeriod` is true. `SlippageExceeded` if `returnAmount <
+    ///     s.minReturnAmount` is true.
     function rebalance(SwapOrder[] calldata swaps, bool autoDrift)
         external
         nonReentrant
@@ -384,22 +425,32 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     // ─── History queries ─────────────────────────────────────────────────────
 
     /// @notice Full details of a rebalance record.
+    /// @param id Numeric id used by this operation.
+    /// @return Rebalance returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `UnknownRebalance` if `_history[id].id == 0` is true.
     function getRebalance(uint256 id) external view returns (RebalanceRecord memory) {
         if (_history[id].id == 0) revert UnknownRebalance();
         return _history[id];
     }
 
     /// @notice All historical rebalance ids (chronological).
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function rebalanceHistory() external view returns (uint256[] memory) {
         return _historyIds;
     }
 
     /// @notice Total number of rebalances executed.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function rebalanceCount() external view returns (uint256) {
         return _historyIds.length;
     }
 
     /// @notice Seconds remaining until the next rebalance is allowed.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function cooldownRemaining() external view returns (uint256) {
         uint256 next = lastRebalanceAt + cooldownPeriod;
         if (block.timestamp >= next) return 0;
@@ -407,6 +458,8 @@ contract MarketRebalance is Ownable, ReentrancyGuard {
     }
 
     /// @notice Current portfolio definition.
+    /// @return Portfolio returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPortfolio() external view returns (Asset[] memory) {
         return _portfolio;
     }

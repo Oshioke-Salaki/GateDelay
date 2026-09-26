@@ -40,6 +40,8 @@ contract Governance is Ownable, ReentrancyGuard {
     event ProposalCancelled(uint256 indexed proposalId);
     event QuorumUpdated(uint256 newQuorum);
     event VotingDurationUpdated(uint256 newDuration);
+    event QuorumConfigurationUpdated(uint256 oldQuorum, uint256 newQuorum);
+    event VotingDurationConfigurationUpdated(uint256 oldDuration, uint256 newDuration);
 
     // ── State ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +76,8 @@ contract Governance is Ownable, ReentrancyGuard {
     /// @param target       Contract address to call if proposal passes.
     /// @param callData     ABI-encoded call to execute on `target`.
     /// @return proposalId  The new proposal's ID.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `target == address(0)` is true.
     function propose(string calldata description, address target, bytes calldata callData)
         external
         returns (uint256 proposalId)
@@ -103,6 +107,13 @@ contract Governance is Ownable, ReentrancyGuard {
 
     /// @notice Finalise a proposal after voting ends and execute if it passed.
     /// @param proposalId  The governance proposal to execute.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotFound` if `meta.proposer == address(0)` is true.
+    ///     `ProposalAlreadyExecuted` if `meta.state == ProposalState.EXECUTED` is true.
+    ///     `ProposalNotPassed` if `meta.state != ProposalState.ACTIVE` is true. `VotingStillActive`
+    ///     if `block.timestamp <= vp.endTime` is true. `QuorumNotReached` if `totalVotes < quorum`
+    ///     is true. `ProposalNotPassed` if `vp.forVotes <= vp.againstVotes` is true.
+    ///     `ExecutionFailed` if `!success` is true.
     function execute(uint256 proposalId) external nonReentrant {
         ProposalMeta storage meta = proposals[proposalId];
         if (meta.proposer == address(0)) revert ProposalNotFound();
@@ -139,6 +150,11 @@ contract Governance is Ownable, ReentrancyGuard {
     }
 
     /// @notice Cancel a proposal. Only the proposer or owner can cancel.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotFound` if `meta.proposer == address(0)` is true. `NotProposer` if
+    ///     `msg.sender != meta.proposer && msg.sender != owner()` is true.
+    ///     `ProposalAlreadyExecuted` if `meta.state == ProposalState.EXECUTED` is true.
     function cancel(uint256 proposalId) external {
         ProposalMeta storage meta = proposals[proposalId];
         if (meta.proposer == address(0)) revert ProposalNotFound();
@@ -151,35 +167,56 @@ contract Governance is Ownable, ReentrancyGuard {
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
+    /// @notice Executes setQuorum.
+    /// @param newQuorum New quorum value.
+    /// @dev Access: Caller must be the contract owner.
     function setQuorum(uint256 newQuorum) external onlyOwner {
+        uint256 oldQuorum = quorum;
         quorum = newQuorum;
         emit QuorumUpdated(newQuorum);
+        emit QuorumConfigurationUpdated(oldQuorum, newQuorum);
     }
 
+    /// @notice Executes setVotingDuration.
+    /// @param newDuration New duration value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidDuration` if `newDuration == 0` is true.
     function setVotingDuration(uint256 newDuration) external onlyOwner {
         if (newDuration == 0) revert InvalidDuration();
+        uint256 oldDuration = votingDuration;
         votingDuration = newDuration;
         emit VotingDurationUpdated(newDuration);
+        emit VotingDurationConfigurationUpdated(oldDuration, newDuration);
     }
 
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns the state of a proposal.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return Current state of the proposal.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposalState(uint256 proposalId) external view returns (ProposalState) {
         return proposals[proposalId].state;
     }
 
     /// @notice Returns full proposal metadata.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return Metadata for the proposal.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposal(uint256 proposalId) external view returns (ProposalMeta memory) {
         return proposals[proposalId];
     }
 
     /// @notice Returns the full history of proposal IDs.
+    /// @return Proposal identifiers in creation order.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposalHistory() external view returns (uint256[] memory) {
         return proposalHistory;
     }
 
     /// @notice Returns the number of proposals ever created.
+    /// @return Total number of proposals created.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposalCount() external view returns (uint256) {
         return proposalCount;
     }

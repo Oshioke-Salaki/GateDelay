@@ -31,6 +31,8 @@ contract PausableMarket is Pausable, Ownable {
 
     /// @notice Pause the market with a reason.
     /// @param reason The reason for pausing.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Already paused" if `!paused()` is false.
     function pause(string calldata reason) external onlyOwner {
         require(!paused(), "Already paused");
         _pauseReason = reason;
@@ -41,6 +43,8 @@ contract PausableMarket is Pausable, Ownable {
     }
 
     /// @notice Unpause the market.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Not paused" if `paused()` is false.
     function unpause() external onlyOwner {
         require(paused(), "Not paused");
         _pauseReason = "";
@@ -51,21 +55,29 @@ contract PausableMarket is Pausable, Ownable {
     }
 
     /// @notice Get the pause reason.
+    /// @return Pause reason returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPauseReason() external view returns (string memory) {
         return _pauseReason;
     }
 
     /// @notice Get the address that paused the market.
+    /// @return Paused by returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPausedBy() external view returns (address) {
         return _pausedBy;
     }
 
     /// @notice Get the timestamp when the market was paused.
+    /// @return Paused at returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPausedAt() external view returns (uint256) {
         return _pausedAt;
     }
 
     /// @notice Get pause status.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isPaused() external view returns (bool) {
         return paused();
     }
@@ -75,11 +87,15 @@ contract PausableMarket is Pausable, Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Example function that can only be called when not paused.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function executeMarketOperation() external whenNotPaused returns (bool) {
         return true;
     }
 
     /// @notice Example function that can only be called when paused.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function emergencyWithdraw() external whenPaused returns (bool) {
         return true;
     }

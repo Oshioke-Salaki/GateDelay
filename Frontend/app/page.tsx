@@ -4,11 +4,16 @@ import { Suspense } from "react";
 import { MarketListSkeleton } from "./components/ui/Skeleton";
 import QuickTradeWidget from "../components/trade/QuickTradeWidget";
 
-const SAMPLE_MARKETS = [
-  { id: "1", title: "Will AA123 arrive on time?", yesPrice: 0.62, volume: 14820, status: "open" },
-  { id: "2", title: "Will UA456 be delayed > 30 min?", yesPrice: 0.41, volume: 8300, status: "open" },
-  { id: "3", title: "Will DL789 be cancelled?", yesPrice: 0.08, volume: 3200, status: "open" },
-];
+// Replace with a real API call (e.g. fetch /api/markets) once the backend
+// market-list endpoint is available.
+type HomeMarket = {
+  id: string;
+  title: string;
+  yesPrice: number;
+  volume: number;
+};
+
+const SAMPLE_MARKETS: HomeMarket[] = [];
 
 export default function Home() {
   return (

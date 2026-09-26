@@ -83,12 +83,23 @@ contract CashbackContract is Ownable, ReentrancyGuard {
 
     // ------------------------- Admin -------------------------
 
+    /// @notice Executes setAuthorized.
+    /// @param caller Address associated with caller.
+    /// @param enabled Whether the configuration is enabled.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `caller == address(0)` is true.
     function setAuthorized(address caller, bool enabled) external onlyOwner {
         if (caller == address(0)) revert ZeroAddress();
         authorized[caller] = enabled;
         emit Authorized(caller, enabled);
     }
 
+    /// @notice Executes defineTier.
+    /// @param tierId Identifier of the relevant tier.
+    /// @param cashbackBps cashback bps expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `UnknownTier` if `tierId == bytes32(0)` is true. `InvalidBps` if `cashbackBps >
+    ///     BPS_DENOMINATOR` is true.
     function defineTier(bytes32 tierId, uint256 cashbackBps) external onlyOwner {
         if (tierId == bytes32(0)) revert UnknownTier(tierId);
         if (cashbackBps > BPS_DENOMINATOR) revert InvalidBps();
@@ -101,6 +112,10 @@ contract CashbackContract is Ownable, ReentrancyGuard {
         emit TierDefined(tierId, cashbackBps);
     }
 
+    /// @notice Executes deactivateTier.
+    /// @param tierId Identifier of the relevant tier.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `TierNotActive` if `!t.active` is true.
     function deactivateTier(bytes32 tierId) external onlyOwner {
         Tier storage t = cashbackTiers[tierId];
         if (!t.active) revert TierNotActive(tierId);
@@ -108,6 +123,12 @@ contract CashbackContract is Ownable, ReentrancyGuard {
         emit TierDeactivated(tierId);
     }
 
+    /// @notice Executes assignUserTier.
+    /// @param user User address affected by this operation.
+    /// @param tierId Identifier of the relevant tier.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidRecipient` if `user == address(0)` is true. `TierNotActive` if
+    ///     `!cashbackTiers[tierId].active` is true.
     function assignUserTier(address user, bytes32 tierId) external onlyOwner {
         if (user == address(0)) revert InvalidRecipient();
         if (!cashbackTiers[tierId].active) revert TierNotActive(tierId);
@@ -122,6 +143,10 @@ contract CashbackContract is Ownable, ReentrancyGuard {
      * @dev Intended to be called by the fee engine/collector after fees are known.
      * @param user       User receiving the cashback.
      * @param feeAmount  The eligible fee amount used as the base for cashback.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `NotAuthorized` if `!authorized[msg.sender]` is true. `InvalidRecipient` if
+     *     `user == address(0)` is true. `ZeroAmount` if `feeAmount == 0` is true. `UnknownTier` if
+     *     `!t.active` is true.
      */
     function recordCashback(address user, uint256 feeAmount) external nonReentrant {
         if (!authorized[msg.sender]) revert NotAuthorized();
@@ -143,12 +168,19 @@ contract CashbackContract is Ownable, ReentrancyGuard {
         emit CashbackRecorded(user, tierId, feeAmount, cashbackAmount);
     }
 
+    /// @notice Returns accrued.
+    /// @param user User address affected by this operation.
+    /// @return Accrued returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAccrued(address user) external view returns (uint256) {
         return accrued[user];
     }
 
     // ------------------------- Claiming -----------------------
 
+    /// @notice Claims.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NothingToClaim` if `amount == 0` is true.
     function claim() external nonReentrant {
         uint256 amount = accrued[msg.sender];
         if (amount == 0) revert NothingToClaim();
@@ -159,10 +191,17 @@ contract CashbackContract is Ownable, ReentrancyGuard {
 
     // ------------------------- Views --------------------------
 
+    /// @notice Returns tier.
+    /// @param tierId Identifier of the relevant tier.
+    /// @return Tier returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTier(bytes32 tierId) external view returns (Tier memory) {
         return cashbackTiers[tierId];
     }
 
+    /// @notice Returns tier ids.
+    /// @return Tier ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTierIds() external view returns (bytes32[] memory) {
         return tierIds;
     }
@@ -171,6 +210,9 @@ contract CashbackContract is Ownable, ReentrancyGuard {
 
     /**
      * @notice Owner may fund the contract with cashback tokens.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAmount` if `amount == 0` is true.
      */
     function fund(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();

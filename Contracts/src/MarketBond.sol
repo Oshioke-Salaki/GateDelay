@@ -114,6 +114,10 @@ contract MarketBond {
      *
      * The bond principal equals msg.value — ETH (or native token) is held in
      * the contract until redemption.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `Bond__InvalidPrincipal` if `msg.value == 0` is true. `Bond__InvalidRate` if
+     *     `annualRate == 0 || annualRate >= ONE` is true. `Bond__InvalidMaturity` if `maturityDate
+     *     <= block.timestamp` is true.
      */
     function issueBond(
         uint256 marketId,
@@ -151,6 +155,9 @@ contract MarketBond {
      * @notice Transfer a bond to a new owner.
      * @param bondId    The bond to transfer.
      * @param newOwner  Recipient address.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `Bond__NotOwner` if `bond.owner != msg.sender` is true. `Bond__AlreadyRedeemed`
+     *     if `bond.redeemed` is true. `Bond__InvalidRecipient` if `newOwner == address(0)` is true.
      */
     function transferBond(uint256 bondId, address newOwner) external {
         Bond storage bond = _bonds[bondId];
@@ -178,6 +185,7 @@ contract MarketBond {
      *         yield = principal × annualRate × min(elapsed, maturity−issued) / SECONDS_PER_YEAR
      * @param bondId The bond to query.
      * @return yieldAmount Accrued yield in wei.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function calculateYield(uint256 bondId) public view returns (uint256 yieldAmount) {
         Bond storage bond = _bonds[bondId];
@@ -199,6 +207,7 @@ contract MarketBond {
      * @notice Total redemption value (principal + accrued yield) at the current block.
      * @param bondId The bond to query.
      * @return total Amount the bond holder would receive upon redemption now.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function redemptionValue(uint256 bondId) external view returns (uint256 total) {
         Bond storage bond = _bonds[bondId];
@@ -213,6 +222,11 @@ contract MarketBond {
     /**
      * @notice Redeem a matured bond.  Sends principal + yield to the caller.
      * @param bondId The bond to redeem.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `Bond__NotOwner` if `bond.owner != msg.sender` is true. `Bond__AlreadyRedeemed`
+     *     if `bond.redeemed` is true. `Bond__NotMatured` if `block.timestamp < bond.maturityDate`
+     *     is true. `Bond__InsufficientFunds` if `address(this).balance < total` is true.
+     *     "MarketBond: ETH transfer failed" if `ok` is false.
      */
     function redeemBond(uint256 bondId) external {
         Bond storage bond = _bonds[bondId];
@@ -243,6 +257,9 @@ contract MarketBond {
 
     /**
      * @notice Return full details of a bond.
+     * @param bondId Identifier of the relevant bond.
+     * @return Complete data for the bond.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getBond(uint256 bondId) external view returns (Bond memory) {
         return _bonds[bondId];
@@ -252,6 +269,9 @@ contract MarketBond {
      * @notice Return all bond IDs owned by an address.
      * @dev    May include IDs that were transferred away (soft-removal).
      *         Callers should filter by `bond.owner == owner`.
+     * @param owner Owner address associated with this operation.
+     * @return Bond IDs associated with the owner; transferred bonds may remain in this list.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getBondsByOwner(address owner) external view returns (uint256[] memory) {
         return _ownerBonds[owner];
@@ -259,6 +279,9 @@ contract MarketBond {
 
     /**
      * @notice Return all bond IDs issued for a given market.
+     * @param marketId Identifier of the relevant market.
+     * @return Bond IDs issued for the market.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getBondsByMarket(uint256 marketId) external view returns (uint256[] memory) {
         return _marketBonds[marketId];
@@ -266,6 +289,8 @@ contract MarketBond {
 
     /**
      * @notice Total number of bonds ever issued.
+     * @return Total number of bonds issued.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function totalBonds() external view returns (uint256) {
         return _nextBondId;
@@ -273,6 +298,9 @@ contract MarketBond {
 
     /**
      * @notice Check whether a specific bond has been redeemed.
+     * @param bondId Identifier of the relevant bond.
+     * @return True if the bond has been redeemed.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function isBondRedeemed(uint256 bondId) external view returns (bool) {
         return _bonds[bondId].redeemed;

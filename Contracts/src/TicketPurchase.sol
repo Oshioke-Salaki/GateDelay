@@ -35,32 +35,61 @@ contract TicketPurchase is Ownable {
         saleActive = true;
     }
 
+    /// @notice Executes purchaseTickets.
+    /// @param quantity Numeric quantity used by this operation.
+    /// @return ticketIds ticket ids produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function purchaseTickets(uint256 quantity) external payable returns (uint256[] memory ticketIds) {
         return _purchaseTickets(quantity);
     }
 
+    /// @notice Executes bulkPurchaseTickets.
+    /// @param quantity Numeric quantity used by this operation.
+    /// @return ticketIds ticket ids produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function bulkPurchaseTickets(uint256 quantity) external payable returns (uint256[] memory ticketIds) {
         return _purchaseTickets(quantity);
     }
 
+    /// @notice Executes setSaleActive.
+    /// @param active Whether active is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setSaleActive(bool active) external onlyOwner {
         saleActive = active;
         emit SaleStatusUpdated(active);
     }
 
+    /// @notice Returns ticket.
+    /// @param ticketId Identifier of the relevant ticket.
+    /// @return ticket ticket produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `TicketNotFound` if `ticketId >= nextTicketId` is true.
     function getTicket(uint256 ticketId) external view returns (Ticket memory ticket) {
         if (ticketId >= nextTicketId) revert TicketNotFound();
         return _tickets[ticketId];
     }
 
+    /// @notice Returns tickets by owner.
+    /// @param owner Owner address associated with this operation.
+    /// @return Tickets by owner returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTicketsByOwner(address owner) external view returns (uint256[] memory) {
         return _ticketsByOwner[owner];
     }
 
+    /// @notice Returns owned ticket count.
+    /// @param owner Owner address associated with this operation.
+    /// @return Owned ticket count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getOwnedTicketCount(address owner) external view returns (uint256) {
         return _ownedTicketCount[owner];
     }
 
+    /// @notice Executes ownerOf.
+    /// @param ticketId Identifier of the relevant ticket.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `TicketNotFound` if `ticketId >= nextTicketId` is true.
     function ownerOf(uint256 ticketId) public view returns (address) {
         if (ticketId >= nextTicketId) revert TicketNotFound();
         return _tickets[ticketId].owner;

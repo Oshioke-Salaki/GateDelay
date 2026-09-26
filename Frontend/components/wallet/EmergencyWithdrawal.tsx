@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useToast } from "../../hooks/useToast";
+import { truncateTxHash, explorerTxUrl } from "../../lib/txUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -233,12 +234,19 @@ export default function EmergencyWithdrawal({
       success(
         "Emergency withdrawal initiated",
         `${balance} ${tokenSymbol} queued with ${priority} priority.`,
+        {
+          action: {
+            label: `View tx ${truncateTxHash(mockHash)}`,
+            onClick: () =>
+              window.open(explorerTxUrl(mockHash), "_blank", "noopener,noreferrer"),
+          },
+        },
       );
     } catch (err) {
       setStatus("failed");
       toastError(
-        "Withdrawal failed",
-        (err as Error)?.message ?? "Transaction could not be submitted.",
+        "Emergency withdrawal failed",
+        (err as Error)?.message ?? "Transaction could not be submitted. Your funds are safe.",
       );
     }
   }, [

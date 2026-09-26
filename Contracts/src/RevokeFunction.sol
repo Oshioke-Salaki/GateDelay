@@ -150,6 +150,10 @@ contract RevokeFunction is Ownable {
     /// @notice Grant a permission to an account
     /// @param account The account to grant permission to
     /// @param permission The permission identifier
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidAddress` if `account == address(0)` is true. `InvalidPermission` if
+    ///     `permission == bytes32(0)` is true. `PermissionAlreadyGranted` if
+    ///     `_permissions[account][permission]` is true.
     function grantPermission(address account, bytes32 permission) external onlyOwner {
         if (account == address(0)) revert InvalidAddress();
         if (permission == bytes32(0)) revert InvalidPermission();
@@ -166,6 +170,9 @@ contract RevokeFunction is Ownable {
     /// @notice Grant multiple permissions to an account
     /// @param account The account to grant permissions to
     /// @param permissions Array of permission identifiers
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidAddress` if `account == address(0)` is true. `InvalidPermission` if
+    ///     `permission == bytes32(0)` is true.
     function grantPermissions(address account, bytes32[] calldata permissions) external onlyOwner {
         if (account == address(0)) revert InvalidAddress();
         
@@ -187,6 +194,8 @@ contract RevokeFunction is Ownable {
     /// @param account The account to revoke permission from
     /// @param permission The permission identifier
     /// @param reason Reason for revocation
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `PermissionNotGranted` if `!_permissions[account][permission]` is true.
     function revokePermission(
         address account,
         bytes32 permission,
@@ -219,6 +228,8 @@ contract RevokeFunction is Ownable {
     /// @param account The account to revoke permissions from
     /// @param permissions Array of permission identifiers
     /// @param reason Reason for revocation
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `CannotRevokeZeroPermissions` if `permissions.length == 0` is true.
     function revokePermissions(
         address account,
         bytes32[] calldata permissions,
@@ -255,6 +266,9 @@ contract RevokeFunction is Ownable {
     /// @notice Revoke all permissions from an account
     /// @param account The account to revoke all permissions from
     /// @param reason Reason for revocation
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NoPermissionsToRevoke` if `_accountPermissions[account].length() == 0` is
+    ///     true.
     function revokeAllPermissions(
         address account,
         string calldata reason
@@ -294,6 +308,9 @@ contract RevokeFunction is Ownable {
     /// @notice Revoke a contract completely
     /// @param contractAddress The contract address to revoke
     /// @param reason Reason for revocation
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidAddress` if `contractAddress == address(0)` is true.
+    ///     `ContractAlreadyRevoked` if `_contractRevocations[contractAddress].isRevoked` is true.
     function revokeContract(
         address contractAddress,
         string calldata reason
@@ -316,6 +333,9 @@ contract RevokeFunction is Ownable {
 
     /// @notice Reinstate a revoked contract
     /// @param contractAddress The contract address to reinstate
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ContractNotRevoked` if `!_contractRevocations[contractAddress].isRevoked` is
+    ///     true.
     function reinstateContract(address contractAddress) external onlyOwner {
         if (!_contractRevocations[contractAddress].isRevoked) revert ContractNotRevoked();
 
@@ -328,6 +348,9 @@ contract RevokeFunction is Ownable {
     /// @notice Update contract revocation status
     /// @param contractAddress The contract address
     /// @param status New revocation status
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ContractNotRevoked` if `!_contractRevocations[contractAddress].isRevoked` is
+    ///     true.
     function updateRevocationStatus(
         address contractAddress,
         RevocationStatus status
@@ -345,6 +368,7 @@ contract RevokeFunction is Ownable {
     /// @param account The account to check
     /// @param permission The permission identifier
     /// @return bool True if account has permission
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasPermission(address account, bytes32 permission) external view returns (bool) {
         return _permissions[account][permission];
     }
@@ -352,6 +376,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get all permissions for an account
     /// @param account The account to query
     /// @return bytes32[] Array of permission identifiers
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAccountPermissions(address account) external view returns (bytes32[] memory) {
         return _accountPermissions[account].values();
     }
@@ -359,6 +384,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get permission count for an account
     /// @param account The account to query
     /// @return uint256 Number of permissions
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAccountPermissionCount(address account) external view returns (uint256) {
         return _accountPermissions[account].length();
     }
@@ -366,6 +392,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get all accounts with a specific permission
     /// @param permission The permission identifier
     /// @return address[] Array of account addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPermissionHolders(bytes32 permission) external view returns (address[] memory) {
         return _permissionHolders[permission].values();
     }
@@ -373,12 +400,14 @@ contract RevokeFunction is Ownable {
     /// @notice Get holder count for a permission
     /// @param permission The permission identifier
     /// @return uint256 Number of holders
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPermissionHolderCount(bytes32 permission) external view returns (uint256) {
         return _permissionHolders[permission].length();
     }
 
     /// @notice Get all accounts with any permissions
     /// @return address[] Array of account addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAllAccountsWithPermissions() external view returns (address[] memory) {
         return _accountsWithPermissions.values();
     }
@@ -386,6 +415,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get permission description
     /// @param permission The permission identifier
     /// @return string Permission description
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPermissionDescription(bytes32 permission) external view returns (string memory) {
         return _permissionDescriptions[permission];
     }
@@ -393,6 +423,7 @@ contract RevokeFunction is Ownable {
     /// @notice Set permission description
     /// @param permission The permission identifier
     /// @param description The description text
+    /// @dev Access: Caller must be the contract owner.
     function setPermissionDescription(
         bytes32 permission,
         string calldata description
@@ -408,6 +439,7 @@ contract RevokeFunction is Ownable {
     /// @notice Check if a contract is revoked
     /// @param contractAddress The contract address to check
     /// @return bool True if contract is revoked
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isContractRevoked(address contractAddress) external view returns (bool) {
         return _contractRevocations[contractAddress].isRevoked;
     }
@@ -415,6 +447,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get contract revocation details
     /// @param contractAddress The contract address to query
     /// @return ContractRevocation Revocation details
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getContractRevocation(address contractAddress) 
         external 
         view 
@@ -426,6 +459,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get revocation status for a contract
     /// @param contractAddress The contract address to query
     /// @return RevocationStatus Current status
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRevocationStatus(address contractAddress) 
         external 
         view 
@@ -436,12 +470,14 @@ contract RevokeFunction is Ownable {
 
     /// @notice Get all revoked contracts
     /// @return address[] Array of revoked contract addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAllRevokedContracts() external view returns (address[] memory) {
         return _revokedContracts.values();
     }
 
     /// @notice Get count of revoked contracts
     /// @return uint256 Number of revoked contracts
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRevokedContractCount() external view returns (uint256) {
         return _revokedContracts.length();
     }
@@ -453,6 +489,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get all partial revokes for an account
     /// @param account The account to query
     /// @return PartialRevoke[] Array of partial revoke records
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPartialRevokes(address account) external view returns (PartialRevoke[] memory) {
         return _partialRevokes[account];
     }
@@ -460,6 +497,7 @@ contract RevokeFunction is Ownable {
     /// @notice Get partial revoke count for an account
     /// @param account The account to query
     /// @return uint256 Number of partial revokes
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPartialRevokeCount(address account) external view returns (uint256) {
         return _partialRevokes[account].length;
     }
@@ -468,6 +506,8 @@ contract RevokeFunction is Ownable {
     /// @param account The account to query
     /// @param index The index of the partial revoke
     /// @return PartialRevoke The partial revoke record
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PartialRevokeNotFound` if `index >= _partialRevokes[account].length` is true.
     function getPartialRevokeByIndex(address account, uint256 index) 
         external 
         view 
@@ -481,6 +521,7 @@ contract RevokeFunction is Ownable {
     /// @param account The account to query
     /// @param count Number of recent revokes to return
     /// @return PartialRevoke[] Array of recent partial revoke records
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRecentPartialRevokes(address account, uint256 count) 
         external 
         view 
@@ -506,6 +547,7 @@ contract RevokeFunction is Ownable {
     /// @param account The account to check
     /// @param permissions Array of permission identifiers
     /// @return bool True if account has any of the permissions
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasAnyPermission(address account, bytes32[] calldata permissions) 
         external 
         view 
@@ -521,6 +563,7 @@ contract RevokeFunction is Ownable {
     /// @param account The account to check
     /// @param permissions Array of permission identifiers
     /// @return bool True if account has all of the permissions
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasAllPermissions(address account, bytes32[] calldata permissions) 
         external 
         view 

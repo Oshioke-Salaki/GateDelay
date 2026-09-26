@@ -23,6 +23,8 @@ const {
   expressNotFoundHandler,
   sendError,
 } = require('./utils/errorEnvelope');
+const rateLimits = require('./config/rateLimits');
+const { assertValidRateLimits } = require('./config/rateLimitsValidation');
 
 // API protection middlewares (Backend/API_PROTECTION_README.md) — same stack as NestJS (Backend/src/main.ts)
 let ddosGuard, throttle, versionMiddleware, backwardCompatMiddleware;
@@ -37,6 +39,15 @@ try {
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Validate the rate-limit tables before anything binds a port or installs a
+// limiter. An unsafe configuration (unreachable tier budgets, a missing Redis
+// connection, an open whitelist entry) has to fail the boot rather than boot a
+// limiter that quietly does nothing. Throws RateLimitConfigError on failure.
+const rateLimitReport = assertValidRateLimits(rateLimits);
+for (const warning of rateLimitReport.warnings) {
+  console.warn(`[server] ${warning}`);
+}
 
 app.use(cors());
 app.use(express.json());

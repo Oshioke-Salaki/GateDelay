@@ -26,8 +26,18 @@ interface IUniswapV3Router {
         uint256 amountOutMinimum;
     }
 
+    /// @notice Executes exactInputSingle.
+    /// @param params params used by this operation.
+    /// @return amountOut amount out produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function exactInputSingle(ExactInputSingleParams calldata params) external payable returns (uint256 amountOut);
 
+    /// @notice Executes exactInput.
+    /// @param params params used by this operation.
+    /// @return amountOut amount out produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function exactInput(ExactInputParams calldata params) external payable returns (uint256 amountOut);
 }
 
@@ -40,10 +50,28 @@ interface IQuoterV2 {
         uint160 sqrtPriceLimitX96;
     }
 
+    /// @notice Executes quoteExactInputSingle.
+    /// @param params params used by this operation.
+    /// @return amountOut amount out produced by the operation.
+    /// @return sqrtPriceX96After sqrt price x96 after produced by the operation.
+    /// @return initializedTicksCrossed initialized ticks crossed produced by the operation.
+    /// @return gasEstimate gas estimate produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function quoteExactInputSingle(QuoteExactInputSingleParams memory params)
         external
         returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate);
 
+    /// @notice Executes quoteExactInput.
+    /// @param path Encoded data used for path.
+    /// @param amountIn Numeric amount in used by this operation.
+    /// @return amountOut amount out produced by the operation.
+    /// @return sqrtPriceX96AfterList sqrt price x96 after list produced by the operation.
+    /// @return initializedTicksCrossedList initialized ticks crossed list returned by this
+    ///     function.
+    /// @return gasEstimate gas estimate produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function quoteExactInput(bytes memory path, uint256 amountIn)
         external
         returns (
@@ -68,6 +96,15 @@ interface IOneInchRouterV5 {
     }
 
     // executor and data are obtained from the 1inch Aggregation API.
+    /// @notice Swaps.
+    /// @param executor Address associated with executor.
+    /// @param desc desc used by this operation.
+    /// @param permit Encoded data used for permit.
+    /// @param data Encoded data supplied to the operation.
+    /// @return returnAmount Amount in the relevant token units.
+    /// @return spentAmount Amount in the relevant token units.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function swap(address executor, SwapDescription calldata desc, bytes calldata permit, bytes calldata data)
         external
         payable
@@ -164,6 +201,13 @@ contract SwapRouter is Ownable, ReentrancyGuard {
     /**
      * @notice Returns the expected output for a single-hop Uniswap V3 swap.
      *         Always call via staticcall; never embed in a state-changing tx.
+     * @param tokenIn Address associated with token in.
+     * @param tokenOut Address associated with token out.
+     * @param poolFee Numeric pool fee used by this operation.
+     * @param amountIn Numeric amount in used by this operation.
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true.
      */
     function getUniswapSingleQuote(address tokenIn, address tokenOut, uint24 poolFee, uint256 amountIn)
         external
@@ -185,6 +229,12 @@ contract SwapRouter is Ownable, ReentrancyGuard {
      * @notice Returns the expected output for a multi-hop Uniswap V3 swap.
      *         Path encoding: abi.encodePacked(tokenA, fee, tokenB, fee, tokenC, ...)
      *         Always call via staticcall; never embed in a state-changing tx.
+     * @param path Encoded data used for path.
+     * @param amountIn Numeric amount in used by this operation.
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true. `InvalidPath` if `path.length < 43` is
+     *     true.
      */
     function getUniswapMultiHopQuote(bytes calldata path, uint256 amountIn) external returns (uint256 amountOut) {
         if (amountIn == 0) revert ZeroAmount();
@@ -202,6 +252,10 @@ contract SwapRouter is Ownable, ReentrancyGuard {
      * @param amountIn     Gross input amount (protocol fee deducted before swap).
      * @param minAmountOut Minimum acceptable output (slippage guard).
      * @param recipient    Address that receives tokenOut.
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true. `ZeroAddress` if `recipient ==
+     *     address(0)` is true. `InsufficientOutput` if `amountOut < minAmountOut` is true.
      */
     function swapSingle(
         address tokenIn,
@@ -243,6 +297,11 @@ contract SwapRouter is Ownable, ReentrancyGuard {
      * @param amountIn     Gross input amount (protocol fee deducted before swap).
      * @param minAmountOut Minimum acceptable output (slippage guard).
      * @param recipient    Address that receives the final output token.
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true. `ZeroAddress` if `recipient ==
+     *     address(0)` is true. `InvalidPath` if `path.length < 43` is true. `InsufficientOutput` if
+     *     `amountOut < minAmountOut` is true.
      */
     function swapMultiHop(
         bytes calldata path,
@@ -287,6 +346,11 @@ contract SwapRouter is Ownable, ReentrancyGuard {
      * @param executor     1inch executor contract (from API response).
      * @param permit       EIP-2612 permit data, or empty bytes.
      * @param data         Executor calldata (from API response).
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true. `ZeroAddress` if `recipient ==
+     *     address(0) || executor == address(0)` is true. `InsufficientOutput` if `amountOut <
+     *     minAmountOut` is true.
      */
     function swapOneInch(
         address tokenIn,
@@ -343,6 +407,12 @@ contract SwapRouter is Ownable, ReentrancyGuard {
      * @param oneInchExecutor    1inch executor address (from API).
      * @param oneInchPermit      EIP-2612 permit bytes, or empty.
      * @param oneInchData        1inch executor calldata (from API).
+     * @return amountOut amount out produced by the operation.
+     * @return usedProtocol used protocol produced by the operation.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAmount` if `amountIn == 0` is true. `ZeroAddress` if `recipient ==
+     *     address(0)` is true. `ZeroAddress` if `oneInchExecutor == address(0)` is true.
+     *     `InsufficientOutput` if `amountOut < minAmountOut` is true.
      */
     function swapBestRate(
         address tokenIn,
@@ -406,12 +476,20 @@ contract SwapRouter is Ownable, ReentrancyGuard {
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
+    /// @notice Executes setProtocolFee.
+    /// @param feeBps Fee rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `FeeTooHigh` if `feeBps > MAX_FEE_BPS` is true.
     function setProtocolFee(uint256 feeBps) external onlyOwner {
         if (feeBps > MAX_FEE_BPS) revert FeeTooHigh(feeBps, MAX_FEE_BPS);
         protocolFeeBps = feeBps;
         emit ProtocolFeeSet(feeBps);
     }
 
+    /// @notice Executes setFeeRecipient.
+    /// @param recipient Address that receives the transfer or result.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `recipient == address(0)` is true.
     function setFeeRecipient(address recipient) external onlyOwner {
         if (recipient == address(0)) revert ZeroAddress();
         feeRecipient = recipient;
@@ -419,6 +497,11 @@ contract SwapRouter is Ownable, ReentrancyGuard {
     }
 
     /// @notice Recover tokens accidentally sent directly to this contract.
+    /// @param token Token contract address used by the operation.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `to == address(0)` is true.
     function rescueTokens(address token, address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         IERC20(token).safeTransfer(to, amount);

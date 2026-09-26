@@ -69,6 +69,12 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     // ── Admin ──────────────────────────────────────────────────────────────────
 
     /// @notice Register a market with its collateral token.
+    /// @param market Market address associated with this operation.
+    /// @param collateralToken Address associated with collateral token.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `market == address(0) || collateralToken == address(0)` is
+    ///     true. `MarketAlreadyRegistered` if `marketCollateralToken[market] != address(0)` is
+    ///     true.
     function registerMarket(address market, address collateralToken) external onlyOwner {
         if (market == address(0) || collateralToken == address(0)) revert ZeroAddress();
         if (marketCollateralToken[market] != address(0)) revert MarketAlreadyRegistered();
@@ -77,6 +83,10 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     }
 
     /// @notice Approve or revoke a liquidator.
+    /// @param liquidator Address associated with liquidator.
+    /// @param approved Whether approved is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `liquidator == address(0)` is true.
     function setLiquidator(address liquidator, bool approved) external onlyOwner {
         if (liquidator == address(0)) revert ZeroAddress();
         isLiquidator[liquidator] = approved;
@@ -84,6 +94,8 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     }
 
     /// @notice Pause or unpause the vault.
+    /// @param _paused Whether paused is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
         emit PauseToggled(_paused);
@@ -94,6 +106,8 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     /// @notice Deposit collateral for a market.
     /// @param market  The registered market address.
     /// @param amount  Amount of collateral to deposit.
+    /// @dev Access: Caller must satisfy `onlyRegistered` access checks.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function deposit(address market, uint256 amount)
         external
         nonReentrant
@@ -114,6 +128,9 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     /// @notice Withdraw collateral from a market.
     /// @param market  The registered market address.
     /// @param amount  Amount of collateral to withdraw.
+    /// @dev Access: Caller must satisfy `onlyRegistered` access checks.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true. `InsufficientBalance` if
+    ///     `userBalance[market][msg.sender] < amount` is true.
     function withdraw(address market, uint256 amount)
         external
         nonReentrant
@@ -137,6 +154,10 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     /// @param account    The account being liquidated.
     /// @param amount     Amount of collateral to seize.
     /// @param recipient  Address that receives the seized collateral.
+    /// @dev Access: Caller must satisfy `onlyLiquidator`, `onlyRegistered` access checks.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true. `ZeroAddress` if `recipient ==
+    ///     address(0)` is true. `InsufficientBalance` if `userBalance[market][account] < amount` is
+    ///     true.
     function liquidate(address market, address account, uint256 amount, address recipient)
         external
         nonReentrant
@@ -159,16 +180,26 @@ contract CollateralVault is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns the collateral balance of a user in a market.
+    /// @param market Market address associated with this operation.
+    /// @param user User address affected by this operation.
+    /// @return Balance returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBalance(address market, address user) external view returns (uint256) {
         return userBalance[market][user];
     }
 
     /// @notice Returns the total collateral held for a market.
+    /// @param market Market address associated with this operation.
+    /// @return Market balance returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketBalance(address market) external view returns (uint256) {
         return marketBalance[market];
     }
 
     /// @notice Returns the collateral token for a market.
+    /// @param market Market address associated with this operation.
+    /// @return Collateral token returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCollateralToken(address market) external view returns (address) {
         return marketCollateralToken[market];
     }

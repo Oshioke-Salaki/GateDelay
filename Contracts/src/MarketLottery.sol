@@ -123,6 +123,13 @@ contract MarketLottery is Ownable, ReentrancyGuard {
 
     /// @notice Starts a new lottery round. Closes any existing round.
     /// @dev This default implementation uses ETH for ticket entries.
+    /// @param durationSeconds duration seconds, in seconds.
+    /// @param _ticketPriceWei Numeric ticket price wei used by this operation.
+    /// @param _winnerCount Numeric winner count used by this operation.
+    /// @return roundId Identifier of the relevant round.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `TicketPriceZero` if `_ticketPriceWei == 0` is true. `InvalidWinnerCount` if
+    ///     `_winnerCount == 0` is true.
     function startRound(
         uint256 durationSeconds,
         uint256 _ticketPriceWei,
@@ -154,6 +161,10 @@ contract MarketLottery is Ownable, ReentrancyGuard {
 
     /// @notice Fund prize tokens for the current or a specific round.
     /// @dev Admin can pre-fund to ensure enough prize tokens.
+    /// @param roundId Identifier of the relevant round.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NothingToWithdraw` if `amount == 0` is true.
     function fundPrize(uint256 roundId, uint256 amount) external onlyOwner nonReentrant {
         if (amount == 0) revert NothingToWithdraw();
         // Transfer into contract then snapshot when finalizing
@@ -164,6 +175,10 @@ contract MarketLottery is Ownable, ReentrancyGuard {
     // -------------------- Entry --------------------
 
     /// @notice Enter by paying ETH. Each ticket costs `ticketPrice`.
+    /// @param ticketCount Numeric ticket count used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `RoundNotOpen` if `!r.open` is true. `RoundNotOpen` if `block.timestamp >
+    ///     r.endsAt` is true. "BAD_VALUE" if `msg.value == cost` is false.
     function enter(uint256 ticketCount) external payable nonReentrant {
         Round storage r = _rounds[currentRoundId];
         if (!r.open) revert RoundNotOpen();
@@ -184,6 +199,11 @@ contract MarketLottery is Ownable, ReentrancyGuard {
 
     /// @notice Admin requests randomness. In real usage this would call Chainlink VRF.
     /// @dev Here we expose the interface and let the test call fulfillRandomWords.
+    /// @return requestId Identifier of the relevant request.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RoundNotOpen` if `!r.open` is true. `RoundNotOpen` if `block.timestamp <=
+    ///     r.endsAt` is true. `RoundAlreadyRequested` if `r.randomRequested` is true. `NoTickets`
+    ///     if `r.totalTickets == 0` is true.
     function requestRandomWinner() external onlyOwner returns (uint256 requestId) {
         Round storage r = _rounds[currentRoundId];
         if (!r.open) revert RoundNotOpen();
@@ -203,6 +223,12 @@ contract MarketLottery is Ownable, ReentrancyGuard {
         emit RandomWinnerRequested(currentRoundId, requestId);
     }
 
+    /// @notice Executes fulfillRandomWords.
+    /// @param requestId Identifier of the relevant request.
+    /// @param randomSeed Numeric random seed used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RoundAlreadyFinalized` if `!r.randomRequested` is true.
+    ///     `RoundAlreadyFinalized` if `r.finalized` is true.
     function fulfillRandomWords(uint256 requestId, uint256 randomSeed) external onlyOwner {
         uint256 roundId = requestIdToRoundId[requestId];
         Round storage r = _rounds[roundId];
@@ -307,6 +333,10 @@ contract MarketLottery is Ownable, ReentrancyGuard {
 
     // -------------------- Claim / Queries --------------------
 
+    /// @notice Claims.
+    /// @param roundId Identifier of the relevant round.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotWinner` if `amount == 0` is true. "NOT_FINAL" if `r.finalized` is false.
     function claim(uint256 roundId) external nonReentrant {
         Round storage r = _rounds[roundId];
         require(r.finalized, "NOT_FINAL");
@@ -319,10 +349,25 @@ contract MarketLottery is Ownable, ReentrancyGuard {
         emit PrizeClaimed(roundId, msg.sender, amount);
     }
 
+    /// @notice Returns tickets.
+    /// @param roundId Identifier of the relevant round.
+    /// @return Tickets returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTickets(uint256 roundId) external view returns (Ticket[] memory) {
         return _tickets[roundId];
     }
 
+    /// @notice Returns history.
+    /// @param roundId Identifier of the relevant round.
+    /// @return startedAt Unix timestamp of the event.
+    /// @return endsAt Unix timestamp of the event.
+    /// @return totalTickets total tickets produced by the operation.
+    /// @return prizeBalance Token balance, in the smallest token units.
+    /// @return winnerCount Number of items tracked by the contract.
+    /// @return winners winners produced by the operation.
+    /// @return winTicketIndices win ticket indices produced by the operation.
+    /// @return prizeAmounts prize amounts produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getHistory(uint256 roundId)
         external
         view
@@ -350,6 +395,17 @@ contract MarketLottery is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Executes roundStatus.
+    /// @param roundId Identifier of the relevant round.
+    /// @return open open produced by the operation.
+    /// @return randomRequested random requested produced by the operation.
+    /// @return finalized finalized produced by the operation.
+    /// @return ticketPrice ticket price produced by the operation.
+    /// @return totalTickets total tickets produced by the operation.
+    /// @return prizeBalance Token balance, in the smallest token units.
+    /// @return endsAt Unix timestamp of the event.
+    /// @return winnerCount Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function roundStatus(uint256 roundId)
         external
         view
@@ -377,6 +433,10 @@ contract MarketLottery is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Executes withdrawUnallocated.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NothingToWithdraw` if `amount == 0` is true.
     function withdrawUnallocated(uint256 amount) external onlyOwner nonReentrant {
         if (amount == 0) revert NothingToWithdraw();
         prizeToken.safeTransfer(msg.sender, amount);

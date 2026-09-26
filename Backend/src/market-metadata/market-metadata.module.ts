@@ -6,12 +6,14 @@ import {
   MarketMetadata,
   MarketMetadataSchema,
 } from './schemas/market-metadata.schema';
+import { AppCacheModule } from '../cache/cache.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: MarketMetadata.name, schema: MarketMetadataSchema },
     ]),
+    AppCacheModule,
   ],
   controllers: [MarketMetadataController],
   providers: [MarketMetadataService],

@@ -109,6 +109,10 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Delegate voting power to another address
     /// @param delegatee Address to delegate to
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `delegatee == address(0)` is true. `SelfDelegation` if
+    ///     `delegatee == msg.sender` is true. `MaxChainDepthExceeded` if `chainDepth >=
+    ///     MAX_CHAIN_DEPTH` is true.
     function delegate(address delegatee) external nonReentrant {
         if (delegatee == address(0)) revert ZeroAddress();
         if (delegatee == msg.sender) revert SelfDelegation();
@@ -165,6 +169,8 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     }
 
     /// @notice Remove current delegation and reclaim voting power
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NoActiveDelegation` if `!currentDelegation.active` is true.
     function undelegate() external nonReentrant {
         Delegation storage currentDelegation = delegations[msg.sender];
         if (!currentDelegation.active) revert NoActiveDelegation();
@@ -258,6 +264,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get the current voting power of an account
     /// @param account Address to check
     /// @return Total voting power (own balance + delegated power if not delegating)
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotingPower(address account) public view returns (uint256) {
         uint256 ownBalance = governanceToken.balanceOf(account);
         
@@ -274,6 +281,8 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @param account Address to check
     /// @param blockNumber Block number to query
     /// @return Voting power at that block
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidCheckpoint` if `blockNumber >= block.number` is true.
     function getVotingPowerAt(address account, uint256 blockNumber) 
         external 
         view 
@@ -311,6 +320,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get the full delegation chain for an account
     /// @param account Address to trace
     /// @return chain Full delegation chain information
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationChain(address account) 
         external 
         view 
@@ -344,6 +354,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get the final delegatee in a chain (who actually votes)
     /// @param account Address to trace
     /// @return Final delegatee address
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFinalDelegatee(address account) external view returns (address) {
         address current = account;
         uint256 depth = 0;
@@ -359,6 +370,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Check if an account has an active delegation
     /// @param account Address to check
     /// @return True if account is currently delegating
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasActiveDelegation(address account) external view returns (bool) {
         return delegations[account].active;
     }
@@ -366,6 +378,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get all delegators for a delegatee
     /// @param delegatee Address to check
     /// @return Array of delegator addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegators(address delegatee) external view returns (address[] memory) {
         return delegators[delegatee];
     }
@@ -373,6 +386,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get delegation history for an account
     /// @param account Address to check
     /// @return Array of historical delegations
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationHistory(address account) 
         external 
         view 
@@ -384,6 +398,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get the number of checkpoints for an account
     /// @param account Address to check
     /// @return Number of checkpoints
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCheckpointCount(address account) external view returns (uint256) {
         return checkpoints[account].length;
     }
@@ -392,6 +407,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @param account Address to check
     /// @param index Checkpoint index
     /// @return Checkpoint data
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCheckpoint(address account, uint256 index) 
         external 
         view 
@@ -404,6 +420,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Get total number of active delegations in the system
     /// @return Total active delegations
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalActiveDelegations() external view returns (uint256) {
         return totalActiveDelegations;
     }
@@ -411,6 +428,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get total delegated power for an account
     /// @param account Address to check
     /// @return Total power delegated to this account
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalDelegatedPower(address account) external view returns (uint256) {
         return delegatedPower[account];
     }
@@ -418,6 +436,7 @@ contract VoteDelegation is Ownable, ReentrancyGuard {
     /// @notice Get the current delegation for an account
     /// @param account Address to check
     /// @return Current delegation struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCurrentDelegation(address account) 
         external 
         view 

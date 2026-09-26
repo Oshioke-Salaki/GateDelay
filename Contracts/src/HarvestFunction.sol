@@ -113,6 +113,13 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Add a new reward source
+     * @param name name used by this operation.
+     * @param rewardToken Address associated with reward token.
+     * @param rewardRate Numeric reward rate used by this operation.
+     * @param feeBps Fee rate expressed in basis points.
+     * @return sourceId Identifier of the relevant source.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `InvalidFeeBps` if `feeBps > MAX_FEE_BPS` is true.
      */
     function addRewardSource(
         string calldata name,
@@ -140,6 +147,13 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Update an existing reward source
+     * @param sourceId Identifier of the relevant source.
+     * @param rewardRate Numeric reward rate used by this operation.
+     * @param feeBps Fee rate expressed in basis points.
+     * @param isActive Whether is active is enabled or selected.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `SourceNotFound` if `source.id == 0` is true. `InvalidFeeBps` if `feeBps >
+     *     MAX_FEE_BPS` is true.
      */
     function updateRewardSource(
         uint256 sourceId,
@@ -162,6 +176,9 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Set a new fee treasury address
+     * @param _feeTreasury Address associated with fee treasury.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAddress` if `_feeTreasury == address(0)` is true.
      */
     function setFeeTreasury(address _feeTreasury) external onlyOwner {
         if (_feeTreasury == address(0)) revert ZeroAddress();
@@ -174,6 +191,11 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Stake tokens into a reward source
+     * @param sourceId Identifier of the relevant source.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `SourceNotFound` if `source.id == 0` is true. `SourceNotActive` if
+     *     `!source.isActive` is true. `ZeroAmount` if `amount == 0` is true.
      */
     function stake(uint256 sourceId, uint256 amount) external nonReentrant {
         RewardSource storage source = rewardSources[sourceId];
@@ -207,6 +229,11 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Withdraw staked tokens from a reward source
+     * @param sourceId Identifier of the relevant source.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `SourceNotFound` if `source.id == 0` is true. `InsufficientRewardBalance` if
+     *     `position.stakeAmount < amount` is true. `ZeroAmount` if `amount == 0` is true.
      */
     function withdraw(uint256 sourceId, uint256 amount) external nonReentrant {
         RewardSource storage source = rewardSources[sourceId];
@@ -233,6 +260,10 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Emergency withdraw without caring about rewards
+     * @param sourceId Identifier of the relevant source.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `SourceNotFound` if `source.id == 0` is true. `ZeroAmount` if `amount == 0` is
+     *     true.
      */
     function emergencyWithdraw(uint256 sourceId) external nonReentrant {
         RewardSource storage source = rewardSources[sourceId];
@@ -257,6 +288,16 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Harvest rewards from a single reward source for a user
+     * @param sourceId Identifier of the relevant source.
+     * @param user User address affected by this operation.
+     * @return netAmount Amount in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `SourceNotFound` if `source.id == 0` is true. `SourceNotActive` if
+     *     `!source.isActive` is true. `ZeroAddress` if `user == address(0)` is true.
+     *     `NoRewardsToHarvest` if `totalReward == 0` is true. `InsufficientRewardBalance` if
+     *     `source.rewardToken != address(0)` is true. `InsufficientRewardBalance` if `bal <
+     *     totalReward` is true. `TransferFailed` if `feeAmount > 0` is true. `TransferFailed` if
+     *     `!successFee` is true.
      */
     function harvest(uint256 sourceId, address user) external nonReentrant returns (uint256 netAmount) {
         RewardSource storage source = rewardSources[sourceId];
@@ -322,6 +363,10 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Harvest rewards from multiple sources for a user in a single transaction
+     * @param sourceIds Numeric source ids used by this operation.
+     * @param user User address affected by this operation.
+     * @return netAmounts net amounts produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function harvestMultiple(uint256[] calldata sourceIds, address user) external returns (uint256[] memory netAmounts) {
         netAmounts = new uint256[](sourceIds.length);
@@ -334,6 +379,11 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Calculate harvest fee for a given reward amount and fee BPS
+     * @param amount Amount to process, in the relevant token units.
+     * @param feeBps Fee rate expressed in basis points.
+     * @return Harvest fee returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InvalidFeeBps` if `feeBps > FEE_DENOMINATOR` is true.
      */
     function calculateHarvestFee(uint256 amount, uint256 feeBps) public pure returns (uint256) {
         if (feeBps > FEE_DENOMINATOR) revert InvalidFeeBps();
@@ -344,6 +394,10 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get pending harvestable rewards for a user
+     * @param sourceId Identifier of the relevant source.
+     * @param user User address affected by this operation.
+     * @return Pending rewards returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPendingRewards(uint256 sourceId, address user) external view returns (uint256) {
         RewardSource memory source = rewardSources[sourceId];
@@ -363,6 +417,10 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get harvest history records for a specific source and user
+     * @param sourceId Identifier of the relevant source.
+     * @param user User address affected by this operation.
+     * @return Harvest history returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getHarvestHistory(uint256 sourceId, address user) external view returns (HarvestRecord[] memory) {
         uint256[] memory indices = _userHarvestIndices[sourceId][user];
@@ -375,6 +433,8 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get the total count of harvest history records
+     * @return Harvest history count returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getHarvestHistoryCount() external view returns (uint256) {
         return _harvestHistory.length;
@@ -382,6 +442,9 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get a specific harvest history record by index
+     * @param index Numeric index used by this operation.
+     * @return Harvest history record returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getHarvestHistoryRecord(uint256 index) external view returns (HarvestRecord memory) {
         return _harvestHistory[index];
@@ -389,6 +452,8 @@ contract HarvestFunction is Ownable, ReentrancyGuard {
 
     /**
      * @notice Query active reward sources count
+     * @return activeCount Number of items tracked by the contract.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getActiveSourcesCount() external view returns (uint256 activeCount) {
         for (uint256 i = 1; i <= sourceCount; i++) {

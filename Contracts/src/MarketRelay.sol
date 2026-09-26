@@ -25,11 +25,22 @@ library RelayClient {
 
 /// @dev Chainlink CCIP router interface for relay operations
 interface IRelayRouter {
+    /// @notice Executes relayMessage.
+    /// @param destChainSelector CCIP selector of the destination chain.
+    /// @param message message used by this operation.
+    /// @return messageId Identifier of the relevant message.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function relayMessage(
         uint64 destChainSelector,
         RelayClient.RelayMessage calldata message
     ) external payable returns (bytes32 messageId);
 
+    /// @notice Reports whether a destination chain is supported.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @return True if the destination chain is supported.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function isChainSupported(uint64 chainSelector) external view returns (bool);
 }
 
@@ -221,6 +232,17 @@ contract MarketRelay is Ownable {
     // ---------------------------------------------------------------
 
     /// @notice Configure a chain for relay operations
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @param defaultTimeout default timeout as a Unix timestamp.
+    /// @param maxRetries Maximum retries allowed.
+    /// @param retryDelay Numeric retry delay used by this operation.
+    /// @param baseFee Numeric base fee used by this operation.
+    /// @param feeBps Fee rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ChainAlreadyConfigured` if
+    ///     `_chainConfigs[chainSelector].supported` is true. `MarketRelay__InvalidTimeout` if
+    ///     `defaultTimeout < MIN_TIMEOUT || defaultTimeout > MAX_TIMEOUT` is true.
+    ///     `MarketRelay__InvalidFee` if `feeBps > MAX_FEE_BPS` is true.
     function configureChain(
         uint64 chainSelector,
         uint256 defaultTimeout,
@@ -252,6 +274,10 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Remove a chain from relay operations
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ChainNotSupported` if `!_chainConfigs[chainSelector].supported`
+    ///     is true.
     function removeChain(uint64 chainSelector) external onlyOwner {
         if (!_chainConfigs[chainSelector].supported) {
             revert MarketRelay__ChainNotSupported(chainSelector);
@@ -261,6 +287,13 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Update chain configuration parameters
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @param newTimeout New timeout value.
+    /// @param newMaxRetries New max retries value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ChainNotSupported` if `!_chainConfigs[chainSelector].supported`
+    ///     is true. `MarketRelay__InvalidTimeout` if `newTimeout < MIN_TIMEOUT || newTimeout >
+    ///     MAX_TIMEOUT` is true.
     function updateChainConfig(
         uint64 chainSelector,
         uint256 newTimeout,
@@ -280,6 +313,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Set the relay operator address
+    /// @param newRelayer Address of the new relayer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ZeroAddress` if `newRelayer == address(0)` is true.
     function setRelayer(address newRelayer) external onlyOwner {
         if (newRelayer == address(0)) revert MarketRelay__ZeroAddress();
         relayer = newRelayer;
@@ -287,6 +323,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Set the fee recipient address
+    /// @param newFeeRecipient Address of the new fee recipient.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ZeroAddress` if `newFeeRecipient == address(0)` is true.
     function setFeeRecipient(address newFeeRecipient) external onlyOwner {
         if (newFeeRecipient == address(0)) revert MarketRelay__ZeroAddress();
         feeRecipient = newFeeRecipient;
@@ -294,6 +333,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Set the CCIP router address
+    /// @param newRouter Address of the new router.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ZeroAddress` if `newRouter == address(0)` is true.
     function setRelayRouter(address newRouter) external onlyOwner {
         if (newRouter == address(0)) revert MarketRelay__ZeroAddress();
         relayRouter = IRelayRouter(newRouter);
@@ -308,6 +350,8 @@ contract MarketRelay is Ownable {
     /// @param destChainSelector The destination chain
     /// @param operationValue The value being relayed
     /// @return fee The calculated fee
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__ChainNotSupported` if `!cfg.supported` is true.
     function calculateRelayFee(uint64 destChainSelector, uint256 operationValue)
         public
         view
@@ -329,6 +373,10 @@ contract MarketRelay is Ownable {
     /// @param operationData The encoded operation data
     /// @param value The value to relay (optional, for state-changing operations)
     /// @return operationId The unique operation identifier
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketRelay__ChainNotSupported` if `!cfg.supported` is true.
+    ///     `MarketRelay__ZeroValue` if `operationData.length == 0` is true.
+    ///     `MarketRelay__InsufficientFundsForFee` if `msg.value < fee` is true.
     function initiateRelay(
         uint64 destChainSelector,
         bytes calldata operationData,
@@ -401,6 +449,9 @@ contract MarketRelay is Ownable {
 
     /// @notice Update relay status to executing
     /// @param operationId The operation identifier
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
+    ///     `MarketRelay__InvalidOperationStatus` if `op.status != RelayStatus.Pending` is true.
     function updateRelayExecuting(bytes32 operationId) external onlyRelayer {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.operationId == bytes32(0)) revert MarketRelay__OperationNotFound(operationId);
@@ -417,6 +468,10 @@ contract MarketRelay is Ownable {
     /// @notice Mark relay operation as completed
     /// @param operationId The operation identifier
     /// @param result The result data from the relay execution
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
+    ///     `MarketRelay__InvalidOperationStatus` if `op.status != RelayStatus.Executing &&
+    ///     op.status != RelayStatus.Pending` is true.
     function completeRelay(bytes32 operationId, bytes calldata result) external onlyRelayer {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.operationId == bytes32(0)) revert MarketRelay__OperationNotFound(operationId);
@@ -436,6 +491,10 @@ contract MarketRelay is Ownable {
     /// @notice Mark relay operation as failed
     /// @param operationId The operation identifier
     /// @param reason Reason for failure
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
+    ///     `MarketRelay__OperationAlreadyCompleted` if `op.status == RelayStatus.Completed ||
+    ///     op.status == RelayStatus.Timeout` is true.
     function failRelay(bytes32 operationId, string calldata reason) external onlyRelayer {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.operationId == bytes32(0)) revert MarketRelay__OperationNotFound(operationId);
@@ -459,6 +518,11 @@ contract MarketRelay is Ownable {
 
     /// @notice Check and enforce timeout for a relay operation
     /// @param operationId The operation identifier
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
+    ///     `MarketRelay__OperationAlreadyCompleted` if `op.status == RelayStatus.Completed ||
+    ///     op.status == RelayStatus.Failed || op.status == RelayStatus.Timeout` is true.
+    ///     `MarketRelay__OperationNotExpired` if `block.timestamp <= op.timeoutAt` is true.
     function checkTimeout(bytes32 operationId) external {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.operationId == bytes32(0)) revert MarketRelay__OperationNotFound(operationId);
@@ -478,6 +542,9 @@ contract MarketRelay is Ownable {
 
     /// @notice Cancel a relay operation (by initiator)
     /// @param operationId The operation identifier
+    /// @dev Access: Caller must satisfy `onlyInitiator` access checks.
+    /// @dev Reverts: `MarketRelay__InvalidOperationStatus` if `op.status != RelayStatus.Pending &&
+    ///     op.status != RelayStatus.Executing` is true.
     function cancelRelay(bytes32 operationId) external onlyInitiator(operationId) {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.status != RelayStatus.Pending && op.status != RelayStatus.Executing) {
@@ -515,6 +582,15 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Add manual history record (for archive/recovery)
+    /// @param operationId Identifier of the relevant operation.
+    /// @param initiator Address associated with initiator.
+    /// @param status status used by this operation.
+    /// @param createdAt Numeric created at used by this operation.
+    /// @param completedAt Numeric completed at used by this operation.
+    /// @param timeoutAt timeout at as a Unix timestamp.
+    /// @param attempts Numeric attempts used by this operation.
+    /// @param result Encoded data used for result.
+    /// @dev Access: Caller must be the contract owner.
     function addRelayHistory(
         bytes32 operationId,
         address initiator,
@@ -548,6 +624,10 @@ contract MarketRelay is Ownable {
     // ---------------------------------------------------------------
 
     /// @notice Get relay operation status
+    /// @param operationId Identifier of the relevant operation.
+    /// @return Relay status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
     function getRelayStatus(bytes32 operationId) external view returns (RelayStatus) {
         RelayOperation storage op = _relayOperations[operationId];
         if (op.operationId == bytes32(0)) revert MarketRelay__OperationNotFound(operationId);
@@ -555,6 +635,10 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get complete relay operation details
+    /// @param operationId Identifier of the relevant operation.
+    /// @return Relay operation returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `op.operationId == bytes32(0)` is true.
     function getRelayOperation(bytes32 operationId)
         external
         view
@@ -566,6 +650,11 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get relay history entry
+    /// @param operationId Identifier of the relevant operation.
+    /// @return Relay history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__OperationNotFound` if `_relayHistory[operationId].operationId ==
+    ///     bytes32(0)` is true.
     function getRelayHistory(bytes32 operationId)
         external
         view
@@ -578,6 +667,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get pending operations for a user
+    /// @param initiator Address associated with initiator.
+    /// @return pending pending produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPendingRelaysByInitiator(address initiator)
         external
         view
@@ -604,6 +696,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get all operations by initiator
+    /// @param initiator Address associated with initiator.
+    /// @return Relays by initiator returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRelaysByInitiator(address initiator)
         external
         view
@@ -613,6 +708,9 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get pending operations for a destination chain
+    /// @param destChain Numeric dest chain used by this operation.
+    /// @return pending pending produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPendingRelaysByChain(uint64 destChain)
         external
         view
@@ -637,11 +735,15 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get all operation history
+    /// @return All relay history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAllRelayHistory() external view returns (bytes32[] memory) {
         return _allOperationHistory;
     }
 
     /// @notice Get operations requiring timeout check
+    /// @return expired expired produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getExpiredRelays() external view returns (bytes32[] memory expired) {
         uint256 count = 0;
         uint256 historyLen = _allOperationHistory.length;
@@ -671,6 +773,11 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Get chain configuration
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @return Chain config returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketRelay__ChainNotSupported` if `!_chainConfigs[chainSelector].supported`
+    ///     is true.
     function getChainConfig(uint64 chainSelector)
         external
         view
@@ -683,16 +790,23 @@ contract MarketRelay is Ownable {
     }
 
     /// @notice Check if chain is supported
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @return True if the destination chain is supported.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isChainSupported(uint64 chainSelector) external view returns (bool) {
         return _chainConfigs[chainSelector].supported;
     }
 
     /// @notice Get all supported chains
+    /// @return Supported chains returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSupportedChains() external view returns (uint64[] memory) {
         return _supportedChainList;
     }
 
     /// @notice Get total operation count
+    /// @return Relay count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRelayCount() external view returns (uint256) {
         return _nextNonce - 1;
     }
@@ -702,6 +816,11 @@ contract MarketRelay is Ownable {
     // ---------------------------------------------------------------
 
     /// @notice Withdraw accumulated fees
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketRelay__ZeroAddress` if `to == address(0)` is true. "Fee withdrawal
+    ///     failed" if `success` is false.
     function withdrawFees(address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert MarketRelay__ZeroAddress();
         (bool success, ) = to.call{value: amount}("");

@@ -51,6 +51,13 @@ contract CrossChainHandler is Ownable {
 
     constructor() Ownable(msg.sender) {}
 
+    /// @notice Executes registerRoute.
+    /// @param routeKey Encoded data used for route key.
+    /// @param handler Address associated with handler.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `CrossChainHandler__ZeroAddress` if `handler == address(0)` is true.
+    ///     `CrossChainHandler__RouteAlreadyRegistered` if `_routes[routeKey] != address(0)` is
+    ///     true.
     function registerRoute(bytes32 routeKey, address handler) external onlyOwner {
         if (handler == address(0)) revert CrossChainHandler__ZeroAddress();
         if (_routes[routeKey] != address(0)) revert CrossChainHandler__RouteAlreadyRegistered(routeKey);
@@ -59,6 +66,17 @@ contract CrossChainHandler is Ownable {
         emit RouteRegistered(routeKey, handler);
     }
 
+    /// @notice Executes handleMessage.
+    /// @param srcChainId Identifier of the relevant src chain.
+    /// @param dstChainId Identifier of the relevant dst chain.
+    /// @param sender Address associated with sender.
+    /// @param routeKey Encoded data used for route key.
+    /// @param payload Payload to send or process.
+    /// @return messageId Identifier of the relevant message.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `CrossChainHandler__ZeroAddress` if `sender == address(0)` is true.
+    ///     `CrossChainHandler__InvalidPayload` if `payload.length == 0` is true.
+    ///     `CrossChainHandler__RouteNotFound` if `routedTo == address(0)` is true.
     function handleMessage(uint16 srcChainId, uint16 dstChainId, address sender, bytes32 routeKey, bytes calldata payload)
         external
         returns (bytes32 messageId)
@@ -98,22 +116,40 @@ contract CrossChainHandler is Ownable {
         emit MessageHandled(messageId, routeKey, sender);
     }
 
+    /// @notice Returns message.
+    /// @param messageId Identifier of the relevant message.
+    /// @return Message returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `CrossChainHandler__MessageNotFound` if `message.messageId == 0` is true.
     function getMessage(bytes32 messageId) external view returns (CrossChainMessage memory) {
         CrossChainMessage memory message = _messages[messageId];
         if (message.messageId == 0) revert CrossChainHandler__MessageNotFound(messageId);
         return message;
     }
 
+    /// @notice Returns message status.
+    /// @param messageId Identifier of the relevant message.
+    /// @return Message status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `CrossChainHandler__MessageNotFound` if `message.messageId == 0` is true.
     function getMessageStatus(bytes32 messageId) external view returns (MessageStatus) {
         CrossChainMessage memory message = _messages[messageId];
         if (message.messageId == 0) revert CrossChainHandler__MessageNotFound(messageId);
         return message.status;
     }
 
+    /// @notice Returns messages for sender.
+    /// @param sender Address associated with sender.
+    /// @return Messages for sender returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMessagesForSender(address sender) external view returns (bytes32[] memory) {
         return _messagesBySender[sender];
     }
 
+    /// @notice Returns route.
+    /// @param routeKey Encoded data used for route key.
+    /// @return Route returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoute(bytes32 routeKey) external view returns (address) {
         return _routes[routeKey];
     }
@@ -125,10 +161,16 @@ contract CrossChainHandler is Ownable {
         message.updatedAt = block.timestamp;
     }
 
+    /// @notice Executes markCompleted.
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function markCompleted(bytes32 messageId) external {
         setMessageStatus(messageId, MessageStatus.Completed);
     }
 
+    /// @notice Executes markFailed.
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function markFailed(bytes32 messageId) external {
         setMessageStatus(messageId, MessageStatus.Failed);
     }

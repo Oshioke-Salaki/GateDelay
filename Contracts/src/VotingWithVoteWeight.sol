@@ -90,6 +90,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     /// @param description  Human-readable description of the proposal
     /// @param duration     Voting period in seconds
     /// @return proposalId  The new proposal's ID
+    /// @dev Access: Caller must be the contract owner.
     function createProposal(string calldata description, uint256 duration)
         external
         onlyOwner
@@ -124,6 +125,10 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Close a proposal after voting ends
+    /// @param proposalId Identifier of the governance proposal.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidProposal` if `!p.active` is true. `VotingNotEnded` if `block.timestamp
+    ///     < p.endTime` is true.
     function closeProposal(uint256 proposalId) external onlyOwner {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert InvalidProposal();
@@ -140,6 +145,10 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     /// @notice Cast a vote on a proposal using snapshot weight
     /// @param proposalId  The proposal to vote on
     /// @param choice      FOR, AGAINST, or ABSTAIN
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotActive` if `!p.active` is true. `VotingEnded` if `block.timestamp >
+    ///     p.endTime` is true. `AlreadyVoted` if `votes[proposalId][msg.sender].choice !=
+    ///     VoteChoice.NONE` is true. `ZeroVotingPower` if `weight == 0` is true.
     function castVote(uint256 proposalId, VoteChoice choice) external nonReentrant {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert ProposalNotActive();
@@ -170,6 +179,9 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Delegate your voting power through VoteWeight system
     /// @param delegatee  Address to delegate to
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `SelfDelegation` if `delegatee == msg.sender` is true. `ZeroAddress` if
+    ///     `delegatee == address(0)` is true.
     function delegate(address delegatee) external {
         if (delegatee == msg.sender) revert SelfDelegation();
         if (delegatee == address(0)) revert ZeroAddress();
@@ -193,6 +205,8 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Remove delegation through VoteWeight system
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `oldDelegatee == address(0)` is true.
     function undelegate() external {
         address oldDelegatee = voteWeight.getDelegatee(msg.sender);
         if (oldDelegatee == address(0)) revert ZeroAddress();
@@ -207,6 +221,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     /// @notice Returns the current voting power of an address
     /// @param account Address to query
     /// @return uint256 Current voting power
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotingPower(address account) public view returns (uint256) {
         return voteWeight.getVotingWeight(account);
     }
@@ -215,17 +230,27 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     /// @param proposalId Proposal ID
     /// @param account Address to query
     /// @return uint256 Voting power at proposal snapshot
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotingPowerAtProposal(uint256 proposalId, address account) external view returns (uint256) {
         Proposal storage p = proposals[proposalId];
         return voteWeight.getWeightAtSnapshot(p.snapshotId, account);
     }
 
     /// @notice Returns the vote record of a voter for a proposal
+    /// @param proposalId Identifier of the governance proposal.
+    /// @param voter Address associated with voter.
+    /// @return Vote returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVote(uint256 proposalId, address voter) external view returns (VoteRecord memory) {
         return votes[proposalId][voter];
     }
 
     /// @notice Returns the current tally for a proposal
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return forVotes for votes produced by the operation.
+    /// @return againstVotes against votes produced by the operation.
+    /// @return abstainVotes abstain votes produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getResults(uint256 proposalId)
         external
         view
@@ -236,11 +261,20 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns full proposal data
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return Metadata for the proposal.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposal(uint256 proposalId) external view returns (Proposal memory) {
         return proposals[proposalId];
     }
 
     /// @notice Returns detailed weight breakdown for an account
+    /// @param account Account address affected by this operation.
+    /// @return base base produced by the operation.
+    /// @return received received produced by the operation.
+    /// @return given given produced by the operation.
+    /// @return total total produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWeightBreakdown(address account)
         external
         view
@@ -250,26 +284,41 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns delegation info for an account
+    /// @param account Account address affected by this operation.
+    /// @return DelegationInfo delegation info produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationInfo(address account) external view returns (VoteWeight.DelegationInfo memory) {
         return voteWeight.getDelegationInfo(account);
     }
 
     /// @notice Returns all delegators for a delegatee
+    /// @param delegatee Address associated with delegatee.
+    /// @return Delegators returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegators(address delegatee) external view returns (address[] memory) {
         return voteWeight.getDelegators(delegatee);
     }
 
     /// @notice Returns weight change history for an account
+    /// @param account Account address affected by this operation.
+    /// @return WeightChange weight change produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWeightChangeHistory(address account) external view returns (VoteWeight.WeightChange[] memory) {
         return voteWeight.getWeightChangeHistory(account);
     }
 
     /// @notice Check if an account has delegated
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasDelegated(address account) external view returns (bool) {
         return voteWeight.hasDelegated(account);
     }
 
     /// @notice Get the delegatee for an account
+    /// @param account Account address affected by this operation.
+    /// @return Delegatee returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegatee(address account) external view returns (address) {
         return voteWeight.getDelegatee(account);
     }
@@ -278,6 +327,8 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Update the VoteWeight contract address (owner only)
     /// @param newVoteWeight Address of new VoteWeight contract
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `newVoteWeight == address(0)` is true.
     function setVoteWeight(address newVoteWeight) external onlyOwner {
         if (newVoteWeight == address(0)) revert ZeroAddress();
         voteWeight = VoteWeight(newVoteWeight);
@@ -286,6 +337,7 @@ contract VotingWithVoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Batch update weights for multiple accounts
     /// @param accounts Array of accounts to update
+    /// @dev Access: No caller-specific access restriction is imposed.
     function batchUpdateWeights(address[] calldata accounts) external {
         voteWeight.batchUpdateWeights(accounts);
     }

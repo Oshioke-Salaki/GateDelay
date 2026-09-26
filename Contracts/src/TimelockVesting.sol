@@ -136,6 +136,10 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @param timelockDelay Seconds required between queue and execute (1 hour – 30 days)
     /// @param revocable Whether owner may cancel the schedule
     /// @return vestingId The created schedule ID
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `beneficiary == address(0)` is true. `ZeroAddress` if `token
+    ///     == address(0)` is true. `ZeroAmount` if `amount == 0` is true. `InvalidTimelockDelay` if
+    ///     `timelockDelay < MIN_TIMELOCK_DELAY || timelockDelay > MAX_TIMELOCK_DELAY` is true.
     function createVesting(
         address beneficiary,
         address token,
@@ -179,6 +183,12 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @dev Snaps the releasable amount at queue time; actual transfer happens on execute
     /// @param vestingId Vesting schedule to release from
     /// @return releaseId The queued release ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true. `VestingIsRevoked` if
+    ///     `schedule.revoked` is true. `NotBeneficiaryOrOwner` if `msg.sender !=
+    ///     schedule.beneficiary && msg.sender != owner()` is true. `ReleaseAlreadyQueued` if
+    ///     `_hasPendingRelease[vestingId]` is true. `NothingToRelease` if `releasable == 0` is
+    ///     true.
     function queueRelease(uint256 vestingId) external nonReentrant returns (uint256 releaseId) {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
@@ -210,6 +220,11 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
 
     /// @notice Execute a queued release once its timelock has expired
     /// @param releaseId Release operation to execute
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ReleaseNotFound` if `releaseId >= releaseCount` is true. `ReleaseNotPending`
+    ///     if `rel.status != ReleaseStatus.Pending` is true. `TimelockNotExpired` if
+    ///     `block.timestamp < rel.executeAfter` is true. `VestingIsRevoked` if `schedule.revoked`
+    ///     is true.
     function executeRelease(uint256 releaseId) external nonReentrant {
         if (releaseId >= releaseCount) revert ReleaseNotFound();
 
@@ -231,6 +246,10 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
 
     /// @notice Cancel a pending release before it is executed
     /// @param releaseId Release to cancel
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ReleaseNotFound` if `releaseId >= releaseCount` is true. `ReleaseNotPending`
+    ///     if `rel.status != ReleaseStatus.Pending` is true. `NotBeneficiaryOrOwner` if `msg.sender
+    ///     != schedule.beneficiary && msg.sender != owner()` is true.
     function cancelRelease(uint256 releaseId) external {
         if (releaseId >= releaseCount) revert ReleaseNotFound();
 
@@ -251,6 +270,11 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @param vestingId Vesting schedule to draw from
     /// @param amount Amount to release early (capped at unreleased balance)
     /// @return releaseId The queued early release ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotGuardian` if `msg.sender != guardian` is true. `VestingNotFound` if
+    ///     `vestingId >= vestingCount` is true. `ZeroAmount` if `amount == 0` is true.
+    ///     `VestingIsRevoked` if `schedule.revoked` is true. `ReleaseAlreadyQueued` if
+    ///     `_hasPendingRelease[vestingId]` is true. `NothingToRelease` if `remaining == 0` is true.
     function queueEarlyRelease(uint256 vestingId, uint256 amount) external nonReentrant returns (uint256 releaseId) {
         if (msg.sender != guardian) revert NotGuardian();
         if (vestingId >= vestingCount) revert VestingNotFound();
@@ -284,6 +308,9 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
 
     /// @notice Revoke a vesting schedule, forwarding accrued tokens and recovering unvested ones
     /// @param vestingId Vesting to revoke
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true. `NotRevocable` if
+    ///     `!schedule.revocable` is true. `AlreadyRevoked` if `schedule.revoked` is true.
     function revoke(uint256 vestingId) external onlyOwner {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
@@ -314,6 +341,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
 
     /// @notice Replace the guardian address
     /// @param newGuardian New guardian (must be non-zero)
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `newGuardian == address(0)` is true.
     function setGuardian(address newGuardian) external onlyOwner {
         if (newGuardian == address(0)) revert ZeroAddress();
         address old = guardian;
@@ -341,6 +370,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice Get a vesting schedule by ID
     /// @param vestingId Schedule to query
     /// @return VestingSchedule struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getSchedule(uint256 vestingId) external view returns (VestingSchedule memory) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return _schedules[vestingId];
@@ -349,6 +380,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice Get a queued release operation by ID
     /// @param releaseId Release to query
     /// @return QueuedRelease struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ReleaseNotFound` if `releaseId >= releaseCount` is true.
     function getRelease(uint256 releaseId) external view returns (QueuedRelease memory) {
         if (releaseId >= releaseCount) revert ReleaseNotFound();
         return _releases[releaseId];
@@ -357,6 +390,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice All release IDs associated with a vesting schedule
     /// @param vestingId Schedule to query
     /// @return Array of release IDs (in creation order)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getVestingReleases(uint256 vestingId) external view returns (uint256[] memory) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return _vestingReleases[vestingId];
@@ -365,6 +400,7 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice All vesting IDs belonging to a beneficiary
     /// @param beneficiary Address to query
     /// @return Array of vesting IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBeneficiaryVestings(address beneficiary) external view returns (uint256[] memory) {
         return _beneficiaryVestings[beneficiary];
     }
@@ -373,6 +409,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @param vestingId Schedule to query
     /// @return hasPending Whether a Pending release exists
     /// @return timeRemaining Seconds until the pending release can execute (0 if ready)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getTimelockStatus(uint256 vestingId) external view returns (bool hasPending, uint256 timeRemaining) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         hasPending = _hasPendingRelease[vestingId];
@@ -391,6 +429,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice Tokens releasable under normal vesting rules right now
     /// @param vestingId Schedule to query
     /// @return Releasable amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getReleasableAmount(uint256 vestingId) external view returns (uint256) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         VestingSchedule storage schedule = _schedules[vestingId];
@@ -401,6 +441,8 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice Total tokens vested so far under linear schedule
     /// @param vestingId Schedule to query
     /// @return Cumulative vested amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getVestedAmount(uint256 vestingId) external view returns (uint256) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return _vestedAmount(_schedules[vestingId]);
@@ -409,18 +451,21 @@ contract TimelockVesting is Ownable, ReentrancyGuard {
     /// @notice Whether a Pending release is currently queued for a schedule
     /// @param vestingId Schedule to query
     /// @return True if a release is queued and awaiting execution
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasPendingRelease(uint256 vestingId) external view returns (bool) {
         return _hasPendingRelease[vestingId];
     }
 
     /// @notice Total number of vesting schedules created
     /// @return vestingCount
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVestingCount() external view returns (uint256) {
         return vestingCount;
     }
 
     /// @notice Total number of release operations created
     /// @return releaseCount
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getReleaseCount() external view returns (uint256) {
         return releaseCount;
     }

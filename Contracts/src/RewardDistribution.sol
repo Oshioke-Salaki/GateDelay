@@ -82,6 +82,9 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
     // ── Admin ──────────────────────────────────────────────────────────────────
 
     /// @notice Fund the contract with reward tokens.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function fund(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -94,6 +97,8 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
      * @param vestingPeriod  Seconds over which rewards vest linearly. 0 = no vesting.
      * @param description    Human-readable label.
      * @return roundId       The new round's ID.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAmount` if `totalReward == 0` is true.
      */
     function createRound(uint256 totalReward, uint256 vestingPeriod, string calldata description)
         external
@@ -117,6 +122,11 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
      * @param roundId     Round to distribute.
      * @param recipients  List of recipients with weights. Weights need not sum to any
      *                    specific value; allocations are computed proportionally.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `RoundNotFound` if `round.totalReward == 0` is true. `RoundAlreadyDistributed`
+     *     if `round.distributed` is true. `InvalidRecipients` if `recipients.length == 0` is true.
+     *     `ZeroAddress` if `recipients[i].account == address(0)` is true. `InvalidRecipients` if
+     *     `totalWeight == 0` is true.
      */
     function distribute(uint256 roundId, Recipient[] calldata recipients) external onlyOwner {
         Round storage round = rounds[roundId];
@@ -163,6 +173,10 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
     // ── Claiming ───────────────────────────────────────────────────────────────
 
     /// @notice Claim all currently vested tokens for a given round.
+    /// @param roundId Identifier of the relevant round.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NothingToVest` if `vs.totalAmount == 0` is true. `NothingToVest` if `claimable
+    ///     == 0` is true.
     function claim(uint256 roundId) external nonReentrant {
         VestingSchedule storage vs = schedules[roundId][msg.sender];
         if (vs.totalAmount == 0) revert NothingToVest();
@@ -179,6 +193,10 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns the claimable (vested but unclaimed) amount for a user in a round.
+    /// @param roundId Identifier of the relevant round.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function claimable(uint256 roundId, address user) external view returns (uint256) {
         VestingSchedule storage vs = schedules[roundId][user];
         if (vs.totalAmount == 0) return 0;
@@ -186,16 +204,26 @@ contract RewardDistribution is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns the full vesting schedule for a user in a round.
+    /// @param roundId Identifier of the relevant round.
+    /// @param user User address affected by this operation.
+    /// @return Schedule returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSchedule(uint256 roundId, address user) external view returns (VestingSchedule memory) {
         return schedules[roundId][user];
     }
 
     /// @notice Returns round details.
+    /// @param roundId Identifier of the relevant round.
+    /// @return Round returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRound(uint256 roundId) external view returns (Round memory) {
         return rounds[roundId];
     }
 
     /// @notice Returns the recipients of a distribution round.
+    /// @param roundId Identifier of the relevant round.
+    /// @return Round recipients returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoundRecipients(uint256 roundId) external view returns (Recipient[] memory) {
         return _roundRecipients[roundId];
     }

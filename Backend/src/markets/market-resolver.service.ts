@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { createRequire } from 'module';
 import { paginate } from '../../utils/pagination';
 import type { PaginationMeta } from '../../utils/pagination';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
 
 // The durable audit trail lives in the CommonJS half of the package
 // (services/auditTrail.js → the `audit_logs` collection). market-audit.module.ts
@@ -63,6 +64,8 @@ export class MarketResolverService {
   private readonly markets = new Map<string, Market>();
   private readonly resolutionHistory: ResolutionEvent[] = [];
 
+  constructor(private readonly cacheRefresh: CacheRefreshService) {}
+
   // ─── Public management helpers ──────────────────────────────────────────────
 
   /**
@@ -95,6 +98,32 @@ export class MarketResolverService {
         categoryId: market.categoryId,
       },
     });
+    void this.cacheRefresh.refresh({
+      type: 'market.updated',
+      marketId: market.id,
+    });
+  }
+
+  /**
+   * Apply an edit to a registered market's terms or stakes.
+   *
+   * Status, outcome and category have dedicated paths (`resolveMarket`,
+   * `CategoriesService.assignMarket`) with their own cache refresh events, so
+   * they are not patchable here.
+   *
+   * @returns The updated market, or `undefined` if it is not registered.
+   */
+  updateMarket(
+    marketId: string,
+    changes: Partial<
+      Pick<Market, 'title' | 'deadline' | 'totalYesStake' | 'totalNoStake'>
+    >,
+  ): Market | undefined {
+    const market = this.markets.get(marketId);
+    if (!market) return undefined;
+    Object.assign(market, changes);
+    void this.cacheRefresh.refresh({ type: 'market.updated', marketId });
+    return market;
   }
 
   getMarket(id: string): Market | undefined {
@@ -115,9 +144,10 @@ export class MarketResolverService {
    *
    * @param options - `page` / `limit`; both are clamped by `normalizePagination`.
    */
-  getMarketsPage(
-    options: { page?: number; limit?: number } = {},
-  ): { markets: Market[]; meta: PaginationMeta } {
+  getMarketsPage(options: { page?: number; limit?: number } = {}): {
+    markets: Market[];
+    meta: PaginationMeta;
+  } {
     const { items, meta } = paginate(this.getAllMarkets(), options);
     return { markets: items, meta };
   }
@@ -227,6 +257,8 @@ export class MarketResolverService {
       this.logger.log(
         `Market ${marketId} resolved → ${outcome}. Total payout: ${totalPayout.toString()} wei`,
       );
+
+      await this.cacheRefresh.refresh({ type: 'market.resolved', marketId });
 
       await auditTrail.logMarketResolved({
         marketId,

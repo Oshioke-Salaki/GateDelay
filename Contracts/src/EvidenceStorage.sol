@@ -66,6 +66,9 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @param evidenceURI URI pointing to the evidence
     /// @param evidenceHash Hash of the evidence content
     /// @return evidenceId The ID of the stored evidence
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidEvidence` if `bytes(evidenceURI).length == 0` is true.
+    ///     `InvalidEvidence` if `evidenceHash == bytes32(0)` is true.
     function storeEvidence(
         uint256 disputeId,
         string calldata evidenceURI,
@@ -95,6 +98,9 @@ contract EvidenceStorage is ReentrancyGuard {
 
     /// @notice Verify evidence (admin only)
     /// @param evidenceId The evidence ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `EvidenceNotFound` if
+    ///     `evidence.timestamp == 0` is true.
     function verifyEvidence(uint256 evidenceId) external {
         if (msg.sender != admin) revert NotAuthorized();
         
@@ -109,6 +115,8 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @param evidenceId The evidence ID
     /// @param providedHash The hash to validate
     /// @return valid True if hash matches
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `EvidenceNotFound` if `evidence.timestamp == 0` is true.
     function validateEvidenceHash(uint256 evidenceId, bytes32 providedHash) 
         external 
         view 
@@ -126,6 +134,8 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get evidence details
     /// @param evidenceId The evidence ID
     /// @return evidence The evidence struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `EvidenceNotFound` if `evidence.timestamp == 0` is true.
     function getEvidence(uint256 evidenceId) external view returns (Evidence memory) {
         Evidence memory evidence = evidences[evidenceId];
         if (evidence.timestamp == 0) revert EvidenceNotFound();
@@ -135,6 +145,7 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get all evidence for a dispute
     /// @param disputeId The dispute ID
     /// @return evidenceIds Array of evidence IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDisputeEvidence(uint256 disputeId) 
         external 
         view 
@@ -146,6 +157,7 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get all evidence submitted by an address
     /// @param submitter The submitter address
     /// @return evidenceIds Array of evidence IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSubmitterEvidence(address submitter) 
         external 
         view 
@@ -157,6 +169,7 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get evidence ID by hash
     /// @param evidenceHash The evidence hash
     /// @return evidenceId The evidence ID (0 if not found)
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getEvidenceByHash(bytes32 evidenceHash) 
         external 
         view 
@@ -168,6 +181,7 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Check if evidence exists
     /// @param evidenceId The evidence ID
     /// @return exists True if evidence exists
+    /// @dev Access: No caller-specific access restriction is imposed.
     function evidenceExists(uint256 evidenceId) external view returns (bool) {
         return evidences[evidenceId].timestamp > 0;
     }
@@ -175,6 +189,8 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Check if evidence is verified
     /// @param evidenceId The evidence ID
     /// @return verified True if verified
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `EvidenceNotFound` if `evidence.timestamp == 0` is true.
     function isVerified(uint256 evidenceId) external view returns (bool) {
         Evidence memory evidence = evidences[evidenceId];
         if (evidence.timestamp == 0) revert EvidenceNotFound();
@@ -184,6 +200,8 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get evidence timestamp
     /// @param evidenceId The evidence ID
     /// @return timestamp The submission timestamp
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `EvidenceNotFound` if `evidence.timestamp == 0` is true.
     function getEvidenceTimestamp(uint256 evidenceId) external view returns (uint256) {
         Evidence memory evidence = evidences[evidenceId];
         if (evidence.timestamp == 0) revert EvidenceNotFound();
@@ -193,6 +211,8 @@ contract EvidenceStorage is ReentrancyGuard {
     /// @notice Get multiple evidence details at once
     /// @param evidenceIds Array of evidence IDs
     /// @return evidenceList Array of evidence structs
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `EvidenceNotFound` if `evidence.timestamp == 0` is true.
     function getMultipleEvidence(uint256[] calldata evidenceIds) 
         external 
         view 

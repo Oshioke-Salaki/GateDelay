@@ -191,6 +191,14 @@ contract MarketPayout is ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Register market resolution
+    /// @param market Market address associated with this operation.
+    /// @param outcome outcome used by this operation.
+    /// @param totalCollateral Numeric total collateral used by this operation.
+    /// @param resolver Address associated with resolver.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `outcome != Outcome.NONE` must hold. require
+    ///     condition `totalCollateral > 0` must hold.
     function registerResolution(
         address market,
         Outcome outcome,
@@ -217,6 +225,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Update admin address
+    /// @param newAdmin Address of the new administrator.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. "Invalid admin" if `newAdmin
+    ///     != address(0)` is false.
     function updateAdmin(address newAdmin) external {
         require(msg.sender == admin, NotAuthorized());
         require(newAdmin != address(0), "Invalid admin");
@@ -233,6 +245,11 @@ contract MarketPayout is ReentrancyGuard {
     /// @param winningBalance Balance of winning tokens
     /// @param totalWinningSupply Total supply of winning tokens
     /// @return payoutAmount Calculated payout amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `market != address(0)` must hold. require condition
+    ///     `recipient != address(0)` must hold. require condition `winningBalance > 0` must hold.
+    ///     require condition `totalWinningSupply > 0` must hold. require condition
+    ///     `resolution.finalized` must hold.
     function calculatePayout(
         address market,
         address recipient,
@@ -256,6 +273,15 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Initiate payout for a single recipient
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @param payoutAmount Numeric payout amount used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PayoutAlreadyClaimed` if `record.status == PayoutStatus.PENDING ||
+    ///     record.status == PayoutStatus.PARTIAL` is true. require condition `msg.sender == admin`
+    ///     must hold. require condition `market != address(0)` must hold. require condition
+    ///     `recipient != address(0)` must hold. require condition `payoutAmount > 0` must hold.
+    ///     require condition `resolution.finalized` must hold.
     function initiatePayout(
         address market,
         address recipient,
@@ -297,6 +323,15 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Initiate batch payouts
+    /// @param market Market address associated with this operation.
+    /// @param recipients Address associated with recipients.
+    /// @param amounts Numeric amounts used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PayoutAlreadyClaimed` if `record.status == PayoutStatus.PENDING ||
+    ///     record.status == PayoutStatus.PARTIAL` is true. require condition `msg.sender == admin`
+    ///     must hold. require condition `recipients.length == amounts.length` must hold. require
+    ///     condition `resolution.finalized` must hold. require condition `recipients[i] !=
+    ///     address(0)` must hold. require condition `amounts[i] > 0` must hold.
     function initiateBatchPayouts(
         address market,
         address[] calldata recipients,
@@ -339,6 +374,14 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Distribute payout to recipient (called by admin or automated system)
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `recipient != address(0)` must hold. require
+    ///     condition `record.status == PayoutStatus.PENDING || record.status ==
+    ///     PayoutStatus.PARTIAL` must hold. require condition `amountToPay > 0` must hold. require
+    ///     condition `pendingDistributions[market] >= amountToPay` must hold.
     function distributePayout(
         address market,
         address recipient
@@ -382,6 +425,11 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Distribute batch payouts
+    /// @param market Market address associated with this operation.
+    /// @param recipients Address associated with recipients.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `recipients[i] != address(0)` must hold.
     function distributeBatchPayouts(
         address market,
         address[] calldata recipients
@@ -425,6 +473,14 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Mark payout as failed and add to retry queue
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `recipient != address(0)` must hold. require
+    ///     condition `record.status == PayoutStatus.PENDING || record.status ==
+    ///     PayoutStatus.PARTIAL` must hold.
     function markPayoutFailed(
         address market,
         address recipient,
@@ -465,6 +521,12 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Retry failed payouts
+    /// @param market Market address associated with this operation.
+    /// @param recipients Address associated with recipients.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `recipients[i] != address(0)` must hold.
+    ///     require condition `record.status == PayoutStatus.FAILED` must hold.
     function retryFailedPayouts(
         address market,
         address[] calldata recipients
@@ -494,6 +556,11 @@ contract MarketPayout is ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Claim payout (called by recipient)
+    /// @param market Market address associated with this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `market != address(0)` must hold. require condition
+    ///     `record.status == PayoutStatus.COMPLETE` must hold. require condition `unclaimedAmount >
+    ///     0` must hold.
     function claimPayout(address market) external nonReentrant {
         require(market != address(0), InvalidMarket());
 
@@ -519,6 +586,9 @@ contract MarketPayout is ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Get resolution details for a market
+    /// @param market Market address associated with this operation.
+    /// @return Resolution returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getResolution(
         address market
     ) external view returns (MarketResolution memory) {
@@ -526,6 +596,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get payout record for a recipient
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @return Payout record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPayoutRecord(
         address market,
         address recipient
@@ -534,6 +608,9 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get all payouts for a market
+    /// @param market Market address associated with this operation.
+    /// @return Market payouts returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketPayouts(
         address market
     ) external view returns (PayoutRecord[] memory) {
@@ -548,6 +625,9 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get settlement status for a market
+    /// @param market Market address associated with this operation.
+    /// @return Settlement returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSettlement(
         address market
     ) external view returns (Settlement memory) {
@@ -555,6 +635,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get payout history for a recipient
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @return Payout history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPayoutHistory(
         address market,
         address recipient
@@ -563,6 +647,9 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get recipients for a market
+    /// @param market Market address associated with this operation.
+    /// @return Market recipients returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketRecipients(
         address market
     ) external view returns (address[] memory) {
@@ -570,6 +657,9 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get failed recipients for a market
+    /// @param market Market address associated with this operation.
+    /// @return Failed recipients returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFailedRecipients(
         address market
     ) external view returns (address[] memory) {
@@ -577,6 +667,9 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get pending distribution amount
+    /// @param market Market address associated with this operation.
+    /// @return Pending distribution returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPendingDistribution(
         address market
     ) external view returns (uint256) {
@@ -584,6 +677,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Check if recipient has claimable payout
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasClaimablePayout(
         address market,
         address recipient
@@ -595,6 +692,10 @@ contract MarketPayout is ReentrancyGuard {
     }
 
     /// @notice Get claimable payout amount
+    /// @param market Market address associated with this operation.
+    /// @param recipient Address that receives the transfer or result.
+    /// @return Claimable amount returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimableAmount(
         address market,
         address recipient

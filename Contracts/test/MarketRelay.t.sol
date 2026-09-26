@@ -679,6 +679,32 @@ contract MarketRelayTest is Test {
         relay.configureChain(CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50);
     }
 
+    function test_EveryOwnerRestrictedFunctionRejectsNonOwner() public {
+        bytes[] memory calls = new bytes[](8);
+        calls[0] = abi.encodeCall(relay.configureChain, (CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50));
+        calls[1] = abi.encodeCall(relay.removeChain, (CHAIN_BASE));
+        calls[2] = abi.encodeCall(relay.updateChainConfig, (CHAIN_BASE, 1 hours, 3));
+        calls[3] = abi.encodeCall(relay.setRelayer, (bob));
+        calls[4] = abi.encodeCall(relay.setFeeRecipient, (bob));
+        calls[5] = abi.encodeCall(relay.setRelayRouter, (address(router)));
+        calls[6] = abi.encodeCall(
+            relay.addRelayHistory,
+            (bytes32(0), alice, MarketRelay.RelayStatus.Pending, 0, 0, 0, 0, bytes(""))
+        );
+        calls[7] = abi.encodeCall(relay.withdrawFees, (alice, 0));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(relay).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
+            );
+        }
+    }
+
     function test_RevertWhen_NonRelayerUpdatesStatus() public {
         vm.prank(owner);
         relay.configureChain(CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50);
@@ -697,6 +723,35 @@ contract MarketRelayTest is Test {
             )
         );
         relay.updateRelayExecuting(opId);
+    }
+
+    function test_EveryRelayerRestrictedFunctionRejectsNonRelayer() public {
+        vm.prank(owner);
+        relay.configureChain(CHAIN_BASE, 1 hours, 3, 5 minutes, 0.01 ether, 50);
+        router.setChainSupported(CHAIN_BASE, true);
+
+        vm.prank(alice);
+        bytes32 operationId = relay.initiateRelay{value: 0.05 ether}(
+            CHAIN_BASE,
+            abi.encode(address(0x123), 100 ether),
+            0
+        );
+
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(relay.updateRelayExecuting, (operationId));
+        calls[1] = abi.encodeCall(relay.completeRelay, (operationId, bytes("")));
+        calls[2] = abi.encodeCall(relay.failRelay, (operationId, "failure"));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(relay).call(calls[i]);
+
+            assertFalse(success, "non-relayer call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(MarketRelay.MarketRelay__NotRelayer.selector, alice)
+            );
+        }
     }
 
     // ---------------------------------------------------------------

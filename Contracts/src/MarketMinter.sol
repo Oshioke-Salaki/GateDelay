@@ -5,6 +5,11 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @dev Simple ERC20 mint interface used by the MarketMinter controller
 interface IERC20Mint {
+    /// @notice Mints.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function mint(address to, uint256 amount) external;
 }
 
@@ -42,6 +47,11 @@ contract MarketMinter is AccessControl {
     }
 
     /// @notice Register an address as a minter and set its caps. Only admin.
+    /// @param minter Address associated with minter.
+    /// @param cap Numeric cap used by this operation.
+    /// @param perMintCap_ Numeric per mint cap_ used by this operation.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
+    /// @dev Reverts: `ZeroAddress` if `minter == address(0)` is true.
     function registerMinter(address minter, uint256 cap, uint256 perMintCap_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (minter == address(0)) revert ZeroAddress();
         _grantRole(MINTER_ROLE, minter);
@@ -51,6 +61,8 @@ contract MarketMinter is AccessControl {
     }
 
     /// @notice Unregister a minter. Only admin.
+    /// @param minter Address associated with minter.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
     function unregisterMinter(address minter) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _revokeRole(MINTER_ROLE, minter);
         _mintCap[minter] = 0;
@@ -59,18 +71,31 @@ contract MarketMinter is AccessControl {
     }
 
     /// @notice Update total cap for a minter. Only admin.
+    /// @param minter Address associated with minter.
+    /// @param cap Numeric cap used by this operation.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
     function setMintCap(address minter, uint256 cap) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _mintCap[minter] = cap;
         emit MintCapUpdated(minter, cap);
     }
 
     /// @notice Update per-call cap for a minter. Only admin.
+    /// @param minter Address associated with minter.
+    /// @param perMintCap_ Numeric per mint cap_ used by this operation.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
     function setPerMintCap(address minter, uint256 perMintCap_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _perMintCap[minter] = perMintCap_;
         emit PerMintCapUpdated(minter, perMintCap_);
     }
 
     /// @notice Mint tokens via the underlying token contract. Caller must have `MINTER_ROLE`.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotMinter` if `!hasRole(MINTER_ROLE, msg.sender)` is true. `ZeroAddress` if
+    ///     `to == address(0)` is true. `ExceedsPerMintCap` if `amount == 0` is true.
+    ///     `ExceedsPerMintCap` if `perCap != 0 && amount > perCap` is true. `ExceedsTotalCap` if
+    ///     `cap != 0` is true. `ExceedsTotalCap` if `already + amount > cap` is true.
     function mint(address to, uint256 amount) external {
         if (!hasRole(MINTER_ROLE, msg.sender)) revert NotMinter();
         if (to == address(0)) revert ZeroAddress();
@@ -94,25 +119,42 @@ contract MarketMinter is AccessControl {
     }
 
     // --------- Queries ---------
+    /// @notice Reports whether minter is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function isMinter(address account) external view returns (bool) {
         return hasRole(MINTER_ROLE, account);
     }
 
+    /// @notice Executes mintedTotal.
+    /// @param minter Address associated with minter.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function mintedTotal(address minter) external view returns (uint256) {
         return _mintedTotal[minter];
     }
 
     /// @notice Returns configured total cap (0 = unlimited)
+    /// @param minter Address associated with minter.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function mintCap(address minter) external view returns (uint256) {
         return _mintCap[minter];
     }
 
     /// @notice Returns configured per-call cap (0 = unlimited)
+    /// @param minter Address associated with minter.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function perMintCap(address minter) external view returns (uint256) {
         return _perMintCap[minter];
     }
 
     /// @notice Remaining cap for a minter (uint256 max if unlimited)
+    /// @param minter Address associated with minter.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingCap(address minter) external view returns (uint256) {
         uint256 cap = _mintCap[minter];
         if (cap == 0) return type(uint256).max;

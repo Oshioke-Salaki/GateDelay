@@ -71,6 +71,16 @@ contract BondRedemption {
         _;
     }
 
+    /// @notice Executes registerBond.
+    /// @param bondId Identifier of the relevant bond.
+    /// @param owner_ Address associated with owner_.
+    /// @param marketId Identifier of the relevant market.
+    /// @param principal Numeric principal used by this operation.
+    /// @param annualRate Numeric annual rate used by this operation.
+    /// @param maturityDate Numeric maturity date used by this operation.
+    /// @dev Access: Caller must be an authorized registrar.
+    /// @dev Reverts: `BondRedemption__AlreadyRegistered` if `_bonds[bondId].registered` is true.
+    ///     `BondRedemption__InvalidOwner` if `owner_ == address(0)` is true.
     function registerBond(
         uint256 bondId,
         address owner_,
@@ -98,6 +108,11 @@ contract BondRedemption {
         emit BondRegistered(bondId, owner_, marketId, principal, annualRate, maturityDate);
     }
 
+    /// @notice Executes calculateAccruedYield.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Accrued yield returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BondRedemption__NotRegistered` if `!b.registered` is true.
     function calculateAccruedYield(uint256 bondId) public view returns (uint256) {
         RedeemableBond storage b = _bonds[bondId];
         if (!b.registered) revert BondRedemption__NotRegistered(bondId);
@@ -111,16 +126,29 @@ contract BondRedemption {
         return b.remainingPrincipal.mul(rateScaled).div(ONE);
     }
 
+    /// @notice Executes redeemableValue.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BondRedemption__NotRegistered` if `!b.registered` is true.
     function redeemableValue(uint256 bondId) external view returns (uint256) {
         RedeemableBond storage b = _bonds[bondId];
         if (!b.registered) revert BondRedemption__NotRegistered(bondId);
         return b.remainingPrincipal + calculateAccruedYield(bondId);
     }
 
+    /// @notice Executes redeemFull.
+    /// @param bondId Identifier of the relevant bond.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function redeemFull(uint256 bondId) external {
         _redeem(bondId, _bonds[bondId].remainingPrincipal, true);
     }
 
+    /// @notice Executes redeemPartial.
+    /// @param bondId Identifier of the relevant bond.
+    /// @param principalAmount Numeric principal amount used by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BondRedemption__ZeroAmount` if `principalAmount == 0` is true.
     function redeemPartial(uint256 bondId, uint256 principalAmount) external {
         if (principalAmount == 0) revert BondRedemption__ZeroAmount();
         _redeem(bondId, principalAmount, false);
@@ -184,32 +212,61 @@ contract BondRedemption {
         isFullCall;
     }
 
+    /// @notice Returns bond.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Complete data for the bond.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBond(uint256 bondId) external view returns (RedeemableBond memory) {
         return _bonds[bondId];
     }
 
+    /// @notice Returns redemption history.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Redemption history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRedemptionHistory(uint256 bondId) external view returns (RedemptionRecord[] memory) {
         return _history[bondId];
     }
 
+    /// @notice Returns redemption count.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Redemption count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRedemptionCount(uint256 bondId) external view returns (uint256) {
         return _history[bondId].length;
     }
 
+    /// @notice Returns redemption record.
+    /// @param bondId Identifier of the relevant bond.
+    /// @param index Numeric index used by this operation.
+    /// @return Redemption record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRedemptionRecord(uint256 bondId, uint256 index)
         external view returns (RedemptionRecord memory)
     {
         return _history[bondId][index];
     }
 
+    /// @notice Returns bonds redeemed by.
+    /// @param redeemer Address associated with redeemer.
+    /// @return Bonds redeemed by returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBondsRedeemedBy(address redeemer) external view returns (uint256[] memory) {
         return _redeemerBonds[redeemer];
     }
 
+    /// @notice Reports whether fully redeemed is satisfied.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isFullyRedeemed(uint256 bondId) external view returns (bool) {
         return _bonds[bondId].fullyRedeemed;
     }
 
+    /// @notice Executes remainingPrincipal.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingPrincipal(uint256 bondId) external view returns (uint256) {
         return _bonds[bondId].remainingPrincipal;
     }

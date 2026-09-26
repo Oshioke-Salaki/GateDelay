@@ -22,7 +22,15 @@ vi.mock("@/hooks/usePriceUpdates", () => ({
     isLoading: false,
     isConnected: false,
     connectionStatus: "disconnected",
+    isStale: false,
   }),
+}));
+
+// StalePriceWarning uses useWebSocketContext which requires a provider.
+// Stub it out so OrderPanel renders cleanly in isolation.
+vi.mock("@/hooks/useStalePriceDetection", () => ({
+  useStalePriceDetection: () => ({ isStale: false, ageSeconds: null, lastTimestamp: null }),
+  STALE_PRICE_THRESHOLD_MS: 30000,
 }));
 
 if (typeof globalThis.ResizeObserver === "undefined") {

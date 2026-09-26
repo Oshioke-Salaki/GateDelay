@@ -79,6 +79,21 @@ contract MarketFreezeTest is Test {
         freeze.freezeMarket(market, "x");
     }
 
+    function test_NonFreezerCannotFreezeOrUnfreezeAnyOperation() public {
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(freeze.freezeOperation, (market, freeze.OP_TRADE(), "x"));
+        calls[1] = abi.encodeCall(freeze.unfreezeMarket, (market));
+        calls[2] = abi.encodeCall(freeze.unfreezeOperation, (market, freeze.OP_TRADE()));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(other);
+            (bool success, bytes memory returnData) = address(freeze).call(calls[i]);
+
+            assertFalse(success, "non-freezer call unexpectedly succeeded");
+            assertEq(returnData, abi.encodeWithSelector(MarketFreeze.NotFreezer.selector));
+        }
+    }
+
     function test_OwnerCanFreezeWithoutBeingFreezer() public {
         vm.prank(owner);
         freeze.freezeMarket(market, "ad-hoc");

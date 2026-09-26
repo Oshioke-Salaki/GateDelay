@@ -59,6 +59,15 @@ contract FeeHandler is Ownable, ReentrancyGuard {
 
     event FeeStructureSet(bytes32 indexed id, uint256 feeBps, uint256 recipientCount);
     event FeeStructureDeactivated(bytes32 indexed id);
+    event FeeStructureUpdated(
+        bytes32 indexed id,
+        uint256 oldFeeBps,
+        uint256 newFeeBps,
+        bool oldActive,
+        bool newActive,
+        uint256 oldRecipientCount,
+        uint256 newRecipientCount
+    );
     event FeesDistributed(bytes32 indexed id, address indexed token, uint256 feeAmount);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
@@ -80,6 +89,10 @@ contract FeeHandler is Ownable, ReentrancyGuard {
      * @param id         Arbitrary identifier (e.g. keccak256("TRADING")).
      * @param feeBps     Fee rate in basis points. Must be ≤ MAX_FEE_BPS.
      * @param recipients List of recipients; shareBps must sum to BPS_DENOMINATOR.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `FeeTooHigh` if `feeBps > MAX_FEE_BPS` is true. `InvalidRecipients` if
+     *     `recipients.length == 0` is true. `ZeroAddress` if `recipients[i].account == address(0)`
+     *     is true. `InvalidRecipients` if `shareSum != BPS_DENOMINATOR` is true.
      */
     function setFeeStructure(bytes32 id, uint256 feeBps, FeeRecipient[] calldata recipients) external onlyOwner {
         if (feeBps > MAX_FEE_BPS) revert FeeTooHigh();
@@ -93,6 +106,9 @@ contract FeeHandler is Ownable, ReentrancyGuard {
         if (shareSum != BPS_DENOMINATOR) revert InvalidRecipients();
 
         FeeStructure storage fs = _structures[id];
+        uint256 oldFeeBps = fs.feeBps;
+        bool oldActive = fs.active;
+        uint256 oldRecipientCount = fs.recipients.length;
         fs.feeBps = feeBps;
         fs.active = true;
 
@@ -103,12 +119,25 @@ contract FeeHandler is Ownable, ReentrancyGuard {
         }
 
         emit FeeStructureSet(id, feeBps, recipients.length);
+        emit FeeStructureUpdated(id, oldFeeBps, feeBps, oldActive, true, oldRecipientCount, recipients.length);
     }
 
     /// @notice Disable a fee structure; any collection attempt will revert.
+    /// @param id Encoded data used for id.
+    /// @dev Access: Caller must be the contract owner.
     function deactivateFeeStructure(bytes32 id) external onlyOwner {
+        bool oldActive = _structures[id].active;
         _structures[id].active = false;
         emit FeeStructureDeactivated(id);
+        emit FeeStructureUpdated(
+            id,
+            _structures[id].feeBps,
+            _structures[id].feeBps,
+            oldActive,
+            false,
+            _structures[id].recipients.length,
+            _structures[id].recipients.length
+        );
     }
 
     // ── Fee calculation ────────────────────────────────────────────────────────
@@ -118,6 +147,8 @@ contract FeeHandler is Ownable, ReentrancyGuard {
      * @param grossAmount Pre-fee amount in token units.
      * @param id          Fee structure to apply.
      * @return feeAmount  Fee in the same token units as grossAmount.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `StructureNotActive` if `!_structures[id].active` is true.
      */
     function calculateFee(uint256 grossAmount, bytes32 id) public view returns (uint256 feeAmount) {
         if (!_structures[id].active) revert StructureNotActive(id);
@@ -136,6 +167,9 @@ contract FeeHandler is Ownable, ReentrancyGuard {
      * @param grossAmount The gross (pre-fee) amount used to derive the fee.
      * @param id          Fee structure to apply.
      * @return feeAmount  Tokens collected and distributed.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `ZeroAmount` if `grossAmount ==
+     *     0` is true.
      */
     function collectAndDistribute(address token, uint256 grossAmount, bytes32 id)
         external
@@ -160,6 +194,9 @@ contract FeeHandler is Ownable, ReentrancyGuard {
      * @param token      ERC-20 token to distribute.
      * @param feeAmount  Exact amount to distribute.
      * @param id         Fee structure that defines the recipient split.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `ZeroAmount` if `feeAmount == 0`
+     *     is true. `StructureNotActive` if `!_structures[id].active` is true.
      */
     function distribute(address token, uint256 feeAmount, bytes32 id) external nonReentrant {
         if (token == address(0)) revert ZeroAddress();
@@ -171,6 +208,11 @@ contract FeeHandler is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Return the full configuration of a fee structure.
+    /// @param id Encoded data used for id.
+    /// @return feeBps Rate expressed in basis points.
+    /// @return active True if active.
+    /// @return recipients recipients produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFeeStructure(bytes32 id)
         external
         view
@@ -181,11 +223,18 @@ contract FeeHandler is Ownable, ReentrancyGuard {
     }
 
     /// @notice Cumulative fees collected under a specific structure for a given token.
+    /// @param id Encoded data used for id.
+    /// @param token Token contract address used by the operation.
+    /// @return Collected fees returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCollectedFees(bytes32 id, address token) external view returns (uint256) {
         return _collected[id][token];
     }
 
     /// @notice Cumulative fees collected across all structures for a given token.
+    /// @param token Token contract address used by the operation.
+    /// @return Total collected fees returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalCollectedFees(address token) external view returns (uint256) {
         return _totalCollected[token];
     }

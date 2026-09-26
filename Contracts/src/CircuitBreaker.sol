@@ -58,6 +58,8 @@ contract CircuitBreaker is AccessControl {
     }
 
     // Health Monitoring
+    /// @notice Executes recordSuccess.
+    /// @dev Access: Caller must satisfy `onlyMonitor` access checks.
     function recordSuccess() external onlyMonitor {
         if (currentState == State.Open) {
             return;
@@ -73,6 +75,9 @@ contract CircuitBreaker is AccessControl {
         emit SuccessRecorded(successCount);
     }
 
+    /// @notice Executes recordFailure.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller must satisfy `onlyMonitor` access checks.
     function recordFailure(string calldata reason) external onlyMonitor {
         if (currentState == State.Open) {
             return;
@@ -90,6 +95,9 @@ contract CircuitBreaker is AccessControl {
     }
 
     // Trigger Break
+    /// @notice Executes triggerBreak.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller must satisfy `onlyBreaker` access checks.
     function triggerBreak(string calldata reason) public onlyBreaker {
         _openCircuit(reason);
     }
@@ -105,6 +113,11 @@ contract CircuitBreaker is AccessControl {
     }
 
     // Recovery Handling
+    /// @notice Executes attemptRecovery.
+    /// @dev Access: Caller must satisfy `onlyBreaker` access checks.
+    /// @dev Reverts: "CircuitBreaker: circuit is not open" if `currentState == State.Open` is false.
+    ///     "CircuitBreaker: recovery timeout not reached" if `block.timestamp >= breakTriggeredTime
+    ///     + recoveryTimeout` is false.
     function attemptRecovery() external onlyBreaker {
         require(currentState == State.Open, "CircuitBreaker: circuit is not open");
         require(
@@ -116,6 +129,8 @@ contract CircuitBreaker is AccessControl {
         emit RecoveryAttempt(block.timestamp);
     }
 
+    /// @notice Executes resetMetrics.
+    /// @dev Access: Caller must be an administrator.
     function resetMetrics() external onlyAdmin {
         failureCount = 0;
         successCount = 0;
@@ -128,46 +143,79 @@ contract CircuitBreaker is AccessControl {
     }
 
     // Permission Control
+    /// @notice Executes grantBreakerRole.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: invalid account" if `account != address(0)` is false.
     function grantBreakerRole(address account) external onlyAdmin {
         require(account != address(0), "CircuitBreaker: invalid account");
         _grantRole(BREAKER_ROLE, account);
         emit BreakPermitted(account, block.timestamp);
     }
 
+    /// @notice Executes revokeBreakerRole.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: invalid account" if `account != address(0)` is false.
     function revokeBreakerRole(address account) external onlyAdmin {
         require(account != address(0), "CircuitBreaker: invalid account");
         _revokeRole(BREAKER_ROLE, account);
     }
 
+    /// @notice Executes grantMonitorRole.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: invalid account" if `account != address(0)` is false.
     function grantMonitorRole(address account) external onlyAdmin {
         require(account != address(0), "CircuitBreaker: invalid account");
         _grantRole(MONITOR_ROLE, account);
     }
 
+    /// @notice Executes revokeMonitorRole.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: invalid account" if `account != address(0)` is false.
     function revokeMonitorRole(address account) external onlyAdmin {
         require(account != address(0), "CircuitBreaker: invalid account");
         _revokeRole(MONITOR_ROLE, account);
     }
 
     // Configuration
+    /// @notice Executes setFailureThreshold.
+    /// @param threshold Numeric threshold used by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: threshold must be positive" if `threshold > 0` is false.
     function setFailureThreshold(uint256 threshold) external onlyAdmin {
         require(threshold > 0, "CircuitBreaker: threshold must be positive");
         failureThreshold = threshold;
         emit ConfigurationUpdated("failureThreshold", threshold);
     }
 
+    /// @notice Executes setFailureRateThreshold.
+    /// @param rate Numeric rate used by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: rate must be between 0 and 100" if `rate > 0 && rate <= 100`
+    ///     is false.
     function setFailureRateThreshold(uint256 rate) external onlyAdmin {
         require(rate > 0 && rate <= 100, "CircuitBreaker: rate must be between 0 and 100");
         failureRateThreshold = rate;
         emit ConfigurationUpdated("failureRateThreshold", rate);
     }
 
+    /// @notice Executes setRecoveryTimeout.
+    /// @param timeout timeout as a Unix timestamp.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: timeout must be positive" if `timeout > 0` is false.
     function setRecoveryTimeout(uint256 timeout) external onlyAdmin {
         require(timeout > 0, "CircuitBreaker: timeout must be positive");
         recoveryTimeout = timeout;
         emit ConfigurationUpdated("recoveryTimeout", timeout);
     }
 
+    /// @notice Executes setHealthCheckWindow.
+    /// @param window Numeric window used by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "CircuitBreaker: window must be positive" if `window > 0` is false.
     function setHealthCheckWindow(uint256 window) external onlyAdmin {
         require(window > 0, "CircuitBreaker: window must be positive");
         healthCheckWindow = window;
@@ -175,6 +223,14 @@ contract CircuitBreaker is AccessControl {
     }
 
     // Status Reporting
+    /// @notice Returns status.
+    /// @return state Current state of the item.
+    /// @return failures failures produced by the operation.
+    /// @return successes successes produced by the operation.
+    /// @return totalOperations total operations produced by the operation.
+    /// @return healthPercentage health percentage produced by the operation.
+    /// @return isHealthy is healthy produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getStatus() external view returns (
         State state,
         uint256 failures,
@@ -197,6 +253,12 @@ contract CircuitBreaker is AccessControl {
         isHealthy = currentState == State.Closed;
     }
 
+    /// @notice Returns recovery info.
+    /// @return state Current state of the item.
+    /// @return timeSinceBreak time since break produced by the operation.
+    /// @return timeUntilRecoveryAttempt time until recovery attempt produced by the operation.
+    /// @return recoveryReady recovery ready produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRecoveryInfo() external view returns (
         State state,
         uint256 timeSinceBreak,
@@ -223,6 +285,12 @@ contract CircuitBreaker is AccessControl {
         }
     }
 
+    /// @notice Returns failure metrics.
+    /// @return totalFailures total failures produced by the operation.
+    /// @return failureRate failure rate produced by the operation.
+    /// @return lastFailure last failure produced by the operation.
+    /// @return lastSuccess last success produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFailureMetrics() external view returns (
         uint256 totalFailures,
         uint256 failureRate,
@@ -242,14 +310,23 @@ contract CircuitBreaker is AccessControl {
         lastSuccess = lastSuccessTime;
     }
 
+    /// @notice Reports whether circuit open is satisfied.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isCircuitOpen() external view returns (bool) {
         return currentState == State.Open;
     }
 
+    /// @notice Reports whether circuit half open is satisfied.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isCircuitHalfOpen() external view returns (bool) {
         return currentState == State.HalfOpen;
     }
 
+    /// @notice Reports whether circuit closed is satisfied.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isCircuitClosed() external view returns (bool) {
         return currentState == State.Closed;
     }

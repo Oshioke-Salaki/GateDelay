@@ -44,6 +44,9 @@ contract MarketAdmin is AccessControl {
 
     /// @notice Transfer admin role to a new address.
     /// @param newAdmin The address to transfer admin role to.
+    /// @dev Access: Caller must hold the ADMIN_ROLE role.
+    /// @dev Reverts: "Invalid admin address" if `newAdmin != address(0)` is false. "Already admin"
+    ///     if `newAdmin != _currentAdmin` is false.
     function transferAdmin(address newAdmin) external onlyRole(ADMIN_ROLE) {
         require(newAdmin != address(0), "Invalid admin address");
         require(newAdmin != _currentAdmin, "Already admin");
@@ -63,11 +66,15 @@ contract MarketAdmin is AccessControl {
     }
 
     /// @notice Get the current admin address.
+    /// @return Current admin returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCurrentAdmin() external view returns (address) {
         return _currentAdmin;
     }
 
     /// @notice Get the admin history.
+    /// @return Admin history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAdminHistory() external view returns (address[] memory) {
         return _adminHistory;
     }
@@ -78,6 +85,8 @@ contract MarketAdmin is AccessControl {
 
     /// @notice Add a market operator.
     /// @param operator The address to grant operator role to.
+    /// @dev Access: Caller must hold the ADMIN_ROLE role.
+    /// @dev Reverts: "Invalid operator address" if `operator != address(0)` is false.
     function addOperator(address operator) external onlyRole(ADMIN_ROLE) {
         require(operator != address(0), "Invalid operator address");
         _grantRole(MARKET_OPERATOR_ROLE, operator);
@@ -86,6 +95,8 @@ contract MarketAdmin is AccessControl {
 
     /// @notice Remove a market operator.
     /// @param operator The address to revoke operator role from.
+    /// @dev Access: Caller must hold the ADMIN_ROLE role.
+    /// @dev Reverts: "Invalid operator address" if `operator != address(0)` is false.
     function removeOperator(address operator) external onlyRole(ADMIN_ROLE) {
         require(operator != address(0), "Invalid operator address");
         _revokeRole(MARKET_OPERATOR_ROLE, operator);
@@ -94,12 +105,16 @@ contract MarketAdmin is AccessControl {
 
     /// @notice Check if an address is an operator.
     /// @param operator The address to check.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function isOperator(address operator) external view returns (bool) {
         return hasRole(MARKET_OPERATOR_ROLE, operator);
     }
 
     /// @notice Check if an address is an admin.
     /// @param admin The address to check.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function isAdmin(address admin) external view returns (bool) {
         return hasRole(ADMIN_ROLE, admin);
     }

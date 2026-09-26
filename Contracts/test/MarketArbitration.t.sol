@@ -55,6 +55,24 @@ contract MarketArbitrationTest is Test {
         assertFalse(arbitration.isApprovedArbitrator(arb1));
     }
 
+    function test_NonAdminCannotManageArbitrationsOrArbitrators() public {
+        address[] memory arbitrators = new address[](0);
+        bytes[] memory calls = new bytes[](5);
+        calls[0] = abi.encodeCall(arbitration.approveArbitrator, (arb1));
+        calls[1] = abi.encodeCall(arbitration.revokeArbitrator, (arb1));
+        calls[2] = abi.encodeCall(arbitration.createArbitration, (1, market, arbitrators));
+        calls[3] = abi.encodeCall(arbitration.startVoting, (1));
+        calls[4] = abi.encodeCall(arbitration.manualResolve, (1));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(arb1);
+            (bool success, bytes memory returnData) = address(arbitration).call(calls[i]);
+
+            assertFalse(success, "non-admin call unexpectedly succeeded");
+            assertEq(returnData, abi.encodeWithSelector(MarketArbitration.NotAuthorized.selector));
+        }
+    }
+
     function test_createArbitration() public {
         address[] memory arbitrators = new address[](3);
         arbitrators[0] = arb1;

@@ -69,6 +69,8 @@ contract PriceOracle is Ownable {
     /// @param feedId       Unique identifier (e.g. keccak256("ETH/USD")).
     /// @param description  Human-readable label.
     /// @param maxStaleness Maximum age in seconds before the price is stale.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `FeedAlreadyRegistered` if `feeds[feedId].active` is true.
     function registerFeed(bytes32 feedId, string calldata description, uint256 maxStaleness) external onlyOwner {
         if (feeds[feedId].active) revert FeedAlreadyRegistered();
         feeds[feedId] = FeedData({
@@ -82,12 +84,19 @@ contract PriceOracle is Ownable {
     }
 
     /// @notice Deactivate a feed.
+    /// @param feedId Identifier of the relevant feed.
+    /// @dev Access: Caller must be the contract owner.
     function deactivateFeed(bytes32 feedId) external onlyOwner feedExists(feedId) {
         feeds[feedId].active = false;
         emit FeedDeactivated(feedId);
     }
 
     /// @notice Set a fallback feed for a primary feed.
+    /// @param primaryFeedId Identifier of the relevant primary feed.
+    /// @param fallbackFeedId Identifier of the relevant fallback feed.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `FeedNotRegistered` if `!feeds[primaryFeedId].active` is true.
+    ///     `FeedNotRegistered` if `!feeds[fallbackFeedId].active` is true.
     function setFallback(bytes32 primaryFeedId, bytes32 fallbackFeedId) external onlyOwner {
         if (!feeds[primaryFeedId].active) revert FeedNotRegistered();
         if (!feeds[fallbackFeedId].active) revert FeedNotRegistered();
@@ -96,6 +105,10 @@ contract PriceOracle is Ownable {
     }
 
     /// @notice Approve or revoke a price updater.
+    /// @param updater Address associated with updater.
+    /// @param approved Whether approved is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `updater == address(0)` is true.
     function setUpdater(address updater, bool approved) external onlyOwner {
         if (updater == address(0)) revert ZeroAddress();
         isUpdater[updater] = approved;
@@ -107,6 +120,8 @@ contract PriceOracle is Ownable {
     /// @notice Push a new price for a feed.
     /// @param feedId  The feed to update.
     /// @param price   New price value (must be > 0).
+    /// @dev Access: Caller must satisfy `onlyUpdater` access checks.
+    /// @dev Reverts: `InvalidPrice` if `price <= 0` is true.
     function updatePrice(bytes32 feedId, int256 price) external onlyUpdater feedExists(feedId) {
         if (price <= 0) revert InvalidPrice();
         feeds[feedId].price = price;
@@ -120,17 +135,25 @@ contract PriceOracle is Ownable {
     /// @param feedId  The primary feed to query.
     /// @return price      The latest valid price.
     /// @return updatedAt  Timestamp of the price.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPrice(bytes32 feedId) external view returns (int256 price, uint256 updatedAt) {
         (price, updatedAt) = _resolvePrice(feedId);
     }
 
     /// @notice Returns the latest price without reverting on staleness (caller must validate).
+    /// @param feedId Identifier of the relevant feed.
+    /// @return Raw price returned by the operation.
+    /// @return Raw price returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRawPrice(bytes32 feedId) external view feedExists(feedId) returns (int256, uint256) {
         FeedData storage f = feeds[feedId];
         return (f.price, f.updatedAt);
     }
 
     /// @notice Returns true if the feed has a fresh, valid price.
+    /// @param feedId Identifier of the relevant feed.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isFeedHealthy(bytes32 feedId) external view returns (bool) {
         if (!feeds[feedId].active) return false;
         FeedData storage f = feeds[feedId];
@@ -138,6 +161,9 @@ contract PriceOracle is Ownable {
     }
 
     /// @notice Returns feed metadata.
+    /// @param feedId Identifier of the relevant feed.
+    /// @return Feed info returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFeedInfo(bytes32 feedId) external view returns (FeedData memory) {
         return feeds[feedId];
     }

@@ -91,6 +91,10 @@ contract MarginCalculator {
     // -------------------------------------------------------------------------
 
     /// @notice Calculate margin requirements for a user's position
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Margin requirement returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function calculateMarginRequirement(address user, address market) external returns (MarginRequirement memory) {
         uint256 yesId = positionToken.yesId(market);
         uint256 noId = positionToken.noId(market);
@@ -124,17 +128,26 @@ contract MarginCalculator {
     }
 
     /// @notice Deposit margin
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function depositMargin(uint256 amount) external {
         _depositedMargin[msg.sender] += amount;
     }
 
     /// @notice Withdraw margin (if sufficient)
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InsufficientMargin` if `_depositedMargin[msg.sender] < amount` is true.
     function withdrawMargin(uint256 amount) external {
         if (_depositedMargin[msg.sender] < amount) revert InsufficientMargin();
         _depositedMargin[msg.sender] -= amount;
     }
 
     /// @notice Check if margin call is needed
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkMarginCall(address user, address market) external returns (bool) {
         MarginRequirement memory req = _marginRequirements[user][market];
         
@@ -154,6 +167,11 @@ contract MarginCalculator {
     }
 
     /// @notice Resolve margin call by depositing required amount
+    /// @param market Market address associated with this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InsufficientMargin` if `req.currentMargin < lastCall.requiredAmount` is true.
+    ///     "No margin calls" if `calls.length > 0` is false. "Already resolved" if
+    ///     `!lastCall.resolved` is false.
     function resolveMarginCall(address market) external {
         MarginCall[] storage calls = _marginCalls[msg.sender][market];
         require(calls.length > 0, "No margin calls");
@@ -169,26 +187,47 @@ contract MarginCalculator {
     }
 
     /// @notice Get margin requirement for a user
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Margin requirement returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarginRequirement(address user, address market) external view returns (MarginRequirement memory) {
         return _marginRequirements[user][market];
     }
 
     /// @notice Get margin calls for a user
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Margin calls returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarginCalls(address user, address market) external view returns (MarginCall[] memory) {
         return _marginCalls[user][market];
     }
 
     /// @notice Get deposited margin for a user
+    /// @param user User address affected by this operation.
+    /// @return Deposited margin returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDepositedMargin(address user) external view returns (uint256) {
         return _depositedMargin[user];
     }
 
     /// @notice Calculate margin utilization
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Margin utilization returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarginUtilization(address user, address market) external view returns (uint256) {
         return _marginRequirements[user][market].utilizationBps;
     }
 
     /// @notice Check if user has sufficient margin
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @param marginType margin type used by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidMarginType` when its validation condition fails.
     function hasSufficientMargin(address user, address market, MarginType marginType) external view returns (bool) {
         MarginRequirement memory req = _marginRequirements[user][market];
         

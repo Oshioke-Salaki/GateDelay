@@ -121,7 +121,9 @@ contract BridgeConnectorTest is Test {
     }
 
     function test_RevertWhen_ZeroOwnerAddress() public {
-        vm.expectRevert(BridgeConnector.BridgeConnector__ZeroAddress.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0))
+        );
         new BridgeConnector(address(endpoint), address(0));
     }
 
@@ -156,6 +158,35 @@ contract BridgeConnectorTest is Test {
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
         connector.registerProtocol(CHAIN_A, REMOTE_A);
+    }
+
+    function test_EveryOwnerRestrictedFunctionRejectsNonOwner() public {
+        bytes[] memory calls = new bytes[](14);
+        calls[0] = abi.encodeCall(connector.removeProtocol, (CHAIN_A));
+        calls[1] = abi.encodeCall(connector.updateProtocol, (CHAIN_A, REMOTE_A));
+        calls[2] = abi.encodeCall(connector.markDelivered, (1));
+        calls[3] = abi.encodeCall(connector.markFailed, (1));
+        calls[4] = abi.encodeCall(connector.retryMessage, (1, PAYLOAD));
+        calls[5] = abi.encodeCall(connector.acknowledgeInbound, (1));
+        calls[6] = abi.encodeCall(connector.failInbound, (1));
+        calls[7] = abi.encodeCall(connector.executeUpgrade, (1));
+        calls[8] = abi.encodeCall(connector.cancelUpgrade, (1));
+        calls[9] = abi.encodeCall(connector.resume, ());
+        calls[10] = abi.encodeCall(connector.deprecate, ());
+        calls[11] = abi.encodeCall(connector.setEndpoint, (address(endpoint)));
+        calls[12] = abi.encodeCall(connector.pause, ());
+        calls[13] = abi.encodeCall(connector.proposeUpgrade, (address(this), "upgrade"));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(connector).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
+            );
+        }
     }
 
     function test_RevertWhen_RegisterAlreadyActiveProtocol() public {

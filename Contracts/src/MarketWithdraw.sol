@@ -132,22 +132,35 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
 
     // ─── Admin ───────────────────────────────────────────────────────────────
 
+    /// @notice Executes setPaused.
+    /// @param _paused Whether paused is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
         emit Paused(_paused);
     }
 
+    /// @notice Executes setMaxFraction.
+    /// @param bps Rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidFraction` if `bps == 0 || bps > MAX_FRACTION_BPS` is true.
     function setMaxFraction(uint256 bps) external onlyOwner {
         if (bps == 0 || bps > MAX_FRACTION_BPS) revert InvalidFraction();
         maxFractionBps = bps;
         emit MaxFractionSet(bps);
     }
 
+    /// @notice Executes setGlobalDailyLimit.
+    /// @param limit Numeric limit used by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function setGlobalDailyLimit(uint256 limit) external onlyOwner {
         globalDailyLimit = limit;
         emit GlobalDailyLimitSet(limit);
     }
 
+    /// @notice Executes setUserDailyLimit.
+    /// @param limit Numeric limit used by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function setUserDailyLimit(uint256 limit) external onlyOwner {
         userDailyLimit = limit;
         emit UserDailyLimitSet(limit);
@@ -156,6 +169,9 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     // ─── Deposits (position bookkeeping) ─────────────────────────────────────
 
     /// @notice Deposit tokens into the market and credit virtual balance.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function deposit(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         token.safeTransferFrom(msg.sender, address(this), amount);
@@ -170,6 +186,11 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     /// @param fractionBps  Fraction to actually withdraw (1–maxFractionBps).
     ///                     Pass maxFractionBps for a "full" withdrawal.
     /// @return id          Request identifier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketPaused` if `paused` is true. `ZeroAmount` if `amount == 0` is true.
+    ///     `InvalidFraction` if `fractionBps == 0 || fractionBps > maxFractionBps` is true.
+    ///     `InsufficientUserBalance` if `userBalance[msg.sender] < amount` is true. `ZeroAmount` if
+    ///     `withdrawable == 0` is true.
     function requestWithdraw(uint256 amount, uint256 fractionBps)
         external
         nonReentrant
@@ -223,6 +244,12 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
 
     /// @notice Execute a pending withdrawal (transfer tokens to user).
     /// @dev  Can be called by the request owner or the contract owner.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketPaused` if `paused` is true. `UnknownRequest` if `r.status ==
+    ///     WithdrawStatus.NONE` is true. `NotRequestOwner` if `r.user != msg.sender && msg.sender
+    ///     != owner()` is true. `RequestNotPending` if `r.status != WithdrawStatus.PENDING` is
+    ///     true.
     function executeWithdraw(uint256 id) external nonReentrant {
         if (paused) revert MarketPaused();
         WithdrawRequest storage r = _requests[id];
@@ -238,6 +265,11 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     }
 
     /// @notice Cancel a pending request and restore the virtual balance.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `UnknownRequest` if `r.status == WithdrawStatus.NONE` is true.
+    ///     `NotRequestOwner` if `r.user != msg.sender` is true. `RequestNotPending` if `r.status !=
+    ///     WithdrawStatus.PENDING` is true.
     function cancelWithdraw(uint256 id) external nonReentrant {
         WithdrawRequest storage r = _requests[id];
         if (r.status == WithdrawStatus.NONE) revert UnknownRequest();
@@ -259,16 +291,25 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     // ─── Queries ─────────────────────────────────────────────────────────────
 
     /// @notice Full details of a single request.
+    /// @param id Numeric id used by this operation.
+    /// @return Request returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRequest(uint256 id) external view returns (WithdrawRequest memory) {
         return _requests[id];
     }
 
     /// @notice Status of a request.
+    /// @param id Numeric id used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function statusOf(uint256 id) external view returns (WithdrawStatus) {
         return _requests[id].status;
     }
 
     /// @notice All request ids for a user (any status).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userRequestIds(address user) external view returns (uint256[] memory) {
         return _userRequests[user];
     }
@@ -276,6 +317,10 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     /// @notice Compute the withdrawable amount for a hypothetical request.
     /// @param amount      Gross amount.
     /// @param fractionBps Fraction (1–10 000).
+    /// @return withdrawable withdrawable produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidFraction` if `fractionBps == 0 || fractionBps > MAX_FRACTION_BPS` is
+    ///     true.
     function previewWithdraw(uint256 amount, uint256 fractionBps)
         external
         pure
@@ -288,6 +333,9 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     }
 
     /// @notice How much the user can still withdraw today.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingUserDailyLimit(address user) external view returns (uint256) {
         if (userDailyLimit == 0) return type(uint256).max;
         uint256 used = (_userWindowStart[user] + DAY >= block.timestamp)
@@ -297,6 +345,8 @@ contract MarketWithdraw is Ownable, ReentrancyGuard {
     }
 
     /// @notice How much can still be withdrawn globally today.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingGlobalDailyLimit() external view returns (uint256) {
         if (globalDailyLimit == 0) return type(uint256).max;
         uint256 used = (_globalWindowStart + DAY >= block.timestamp)

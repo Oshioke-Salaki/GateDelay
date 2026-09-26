@@ -13,6 +13,9 @@ import AnalysisPanel from "../../../components/ai/AnalysisPanel";
 import MarketSentiment from "../../../components/market/MarketSentiment";
 import ExecutionProgress, { type ExecutionStatus } from "../../../components/trade/ExecutionProgress";
 import EventTimeline from "../../../components/market/EventTimeline";
+import { useToast } from "@/hooks/useToast";
+import { truncateTxHash, explorerTxUrl } from "@/lib/txUtils";
+import StalePriceWarning from "@/components/market/StalePriceWarning";
 
 // ── ABI (only the buy function) ──────────────────────────────────────────────
 const MARKET_MAKER_ABI = [
@@ -32,30 +35,29 @@ const MARKET_MAKER_ABI = [
 const MARKET_MAKER_ADDRESS =
   (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
 
-// Mock data — replace with real contract/API calls
+// Replace with real contract/API calls when a market detail endpoint is wired.
 const MOCK_MARKET = {
-  id: "1",
-  title: "Will AA123 arrive on time?",
-  description: "American Airlines flight AA123 from JFK to LAX on Apr 25, 2026.",
-  status: "open" as "open" | "closed" | "resolved" | "disputed",
-  yesPrice: 0.62,
-  noPrice: 0.38,
-  volume: 14820,
-  liquidity: 5400,
-  participants: 87,
-  resolvedAt: undefined as string | undefined,
-  outcome: undefined as "YES" | "NO" | undefined,
-  recentTrades: [
-    { side: "YES", amount: 50, price: 0.62, time: "2m ago" },
-    { side: "NO", amount: 120, price: 0.38, time: "5m ago" },
-    { side: "YES", amount: 200, price: 0.61, time: "11m ago" },
-    { side: "NO", amount: 75, price: 0.39, time: "18m ago" },
-    { side: "YES", amount: 300, price: 0.60, time: "25m ago" },
-  ],
+  title: "Market unavailable",
+  description: "Market data is not available yet.",
+  status: "closed" as "open" | "closed" | "resolved" | "disputed",
+  yesPrice: 0,
+  noPrice: 0,
+  volume: 0,
+  liquidity: 0,
+  participants: 0,
+  resolvedAt: undefined,
+  outcome: undefined,
+  recentTrades: [] as Array<{
+    side: string;
+    amount: number;
+    price: number;
+    time: string;
+  }>,
 };
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
   const { address, isConnected } = useAccount();
+  const { success: toastSuccess, error: toastError } = useToast();
   const market = { ...MOCK_MARKET, id: params.id };
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
@@ -86,11 +88,31 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
       setProgressStatus("confirming");
     } else if (isSuccess) {
       setProgressStatus("success");
-      setConfirmationMessage(`Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`);
+      const msg = `Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`;
+      setConfirmationMessage(msg);
+      toastSuccess(
+        `${side} trade confirmed`,
+        txHash
+          ? `${amountValue.toFixed(2)} USDC · ${truncateTxHash(txHash)}`
+          : msg,
+        txHash
+          ? {
+              action: {
+                label: `View tx ${truncateTxHash(txHash)}`,
+                onClick: () =>
+                  window.open(explorerTxUrl(txHash), "_blank", "noopener,noreferrer"),
+              },
+            }
+          : undefined,
+      );
     } else if (signError || confirmError) {
       setProgressStatus("error");
+      toastError(
+        "Trade failed",
+        (signError || confirmError)?.message || "Transaction could not be submitted.",
+      );
     }
-  }, [isProgressOpen, isSigning, isConfirming, isSuccess, signError, confirmError, side, amountValue, price]);
+  }, [isProgressOpen, isSigning, isConfirming, isSuccess, signError, confirmError, side, amountValue, price, txHash, toastSuccess, toastError]);
 
   const openConfirmation = () => {
     if (isTradeValid) {
@@ -209,6 +231,8 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <h2 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>Place Trade</h2>
+          {/* Warn the user when the price feed has gone stale */}
+          <StalePriceWarning marketId={params.id} />
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {(["YES", "NO"] as const).map((s) => (
               <button

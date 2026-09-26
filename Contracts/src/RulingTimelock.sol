@@ -39,6 +39,13 @@ contract RulingTimelock {
     }
 
     /// @notice Schedule a ruling to be executed after `delay` seconds.
+    /// @param id Encoded data used for id.
+    /// @param target Address associated with target.
+    /// @param data Encoded data supplied to the operation.
+    /// @param delay Numeric delay used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Already scheduled" if `r.unlockTime == 0` is false. "Invalid target" if
+    ///     `target != address(0)` is false. "Invalid delay" if `delay > 0` is false.
     function scheduleRuling(
         bytes32 id,
         address target,
@@ -60,6 +67,11 @@ contract RulingTimelock {
     }
 
     /// @notice Execute a scheduled ruling if the timelock has passed.
+    /// @param id Encoded data used for id.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "Not scheduled" if `r.unlockTime != 0` is false. "Already executed" if
+    ///     `!r.executed` is false. "Canceled" if `!r.canceled` is false. "Not ready" if
+    ///     `block.timestamp >= r.unlockTime` is false.
     function executeRuling(bytes32 id) external {
         Ruling storage r = _rulings[id];
         require(r.unlockTime != 0, "Not scheduled");
@@ -79,6 +91,10 @@ contract RulingTimelock {
     }
 
     /// @notice Cancel a pending ruling. Owner only.
+    /// @param id Encoded data used for id.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Not scheduled" if `r.unlockTime != 0` is false. "Already executed" if
+    ///     `!r.executed` is false. "Already canceled" if `!r.canceled` is false.
     function cancelRuling(bytes32 id) external onlyOwner {
         Ruling storage r = _rulings[id];
         require(r.unlockTime != 0, "Not scheduled");
@@ -89,6 +105,17 @@ contract RulingTimelock {
     }
 
     /// @notice Query a ruling record.
+    /// @param id Encoded data used for id.
+    /// @return target target produced by the operation.
+    /// @return data Encoded data returned by the operation.
+    /// @return unlockTime unlock time produced by the operation.
+    /// @return delay delay produced by the operation.
+    /// @return proposer proposer produced by the operation.
+    /// @return executed executed produced by the operation.
+    /// @return canceled canceled produced by the operation.
+    /// @return failed failed produced by the operation.
+    /// @return failureData failure data produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRuling(
         bytes32 id
     )
@@ -121,6 +148,9 @@ contract RulingTimelock {
     }
 
     /// @notice Check if a ruling is ready to execute.
+    /// @param id Encoded data used for id.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isReady(bytes32 id) external view returns (bool) {
         Ruling storage r = _rulings[id];
         if (r.unlockTime == 0) return false;

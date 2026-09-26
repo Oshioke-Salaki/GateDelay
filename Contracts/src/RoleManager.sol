@@ -71,6 +71,9 @@ contract RoleManager is AccessControlEnumerable {
 
     /// @notice Registers `role` so it can be handed out by {assignRole}.
     /// @param role Non-zero role identifier, conventionally `keccak256("NAME")`.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RoleManager: invalid role" if `role != bytes32(0)` is false. "RoleManager:
+    ///     role already exists" if `!_createdRoles.contains(role)` is false.
     function createRole(bytes32 role) external onlyAdmin {
         require(role != bytes32(0), "RoleManager: invalid role");
         require(!_createdRoles.contains(role), "RoleManager: role already exists");
@@ -81,6 +84,13 @@ contract RoleManager is AccessControlEnumerable {
 
     /// @notice Grants a previously created `role` to `account`.
     /// @dev The sanctioned replacement for the disabled {grantRole}.
+    /// @param role Role identifier.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RoleManager: invalid role" if `role != bytes32(0)` is false. "RoleManager:
+    ///     invalid account" if `account != address(0)` is false. "RoleManager: role does not exist"
+    ///     if `_createdRoles.contains(role)` is false. "RoleManager: role already assigned" if
+    ///     `!hasRole(role, account)` is false.
     function assignRole(bytes32 role, address account) external onlyAdmin {
         require(role != bytes32(0), "RoleManager: invalid role");
         require(account != address(0), "RoleManager: invalid account");
@@ -95,6 +105,11 @@ contract RoleManager is AccessControlEnumerable {
     /// @dev Overrides `AccessControl.revokeRole` to gate on `DEFAULT_ADMIN_ROLE`
     ///      and to require that the role was registered. Bookkeeping happens in
     ///      the `_revokeRole` override, so `renounceRole` stays consistent too.
+    /// @param role Role identifier.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RoleManager: role does not exist" if `_createdRoles.contains(role)` is false.
+    ///     "RoleManager: role not assigned" if `hasRole(role, account)` is false.
     function revokeRole(bytes32 role, address account)
         public
         virtual
@@ -109,21 +124,31 @@ contract RoleManager is AccessControlEnumerable {
     }
 
     /// @notice Disabled. Use {assignRole} so the role registry stays authoritative.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "RoleManager: use assignRole" on every call.
     function grantRole(bytes32, address) public virtual override(AccessControl, IAccessControl) {
         revert("RoleManager: use assignRole");
     }
 
     /// @notice Every role currently held by `account`.
+    /// @param account Account address affected by this operation.
+    /// @return Roles returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoles(address account) external view returns (bytes32[] memory) {
         return _accountRoles[account].values();
     }
 
     /// @notice Every role registered through {createRole}, including `DEFAULT_ADMIN_ROLE`.
+    /// @return Created roles returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCreatedRoles() external view returns (bytes32[] memory) {
         return _createdRoles.values();
     }
 
     /// @notice Whether `role` has been registered and is therefore assignable.
+    /// @param role Role identifier.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function roleExists(bytes32 role) external view returns (bool) {
         return _createdRoles.contains(role);
     }

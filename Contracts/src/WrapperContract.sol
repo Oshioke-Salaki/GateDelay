@@ -35,6 +35,14 @@ contract WrapperContract is Initializable, ERC20Upgradeable, OwnableUpgradeable,
         _disableInitializers();
     }
 
+    /// @notice Initializes.
+    /// @param underlying_ Address associated with underlying_.
+    /// @param name_ name_ used by this operation.
+    /// @param symbol_ symbol_ used by this operation.
+    /// @param initialOwner Address associated with initial owner.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `WrapperContract__ZeroAddress` if `underlying_ == address(0) || initialOwner ==
+    ///     address(0)` is true.
     function initialize(address underlying_, string memory name_, string memory symbol_, address initialOwner)
         public
         initializer
@@ -52,6 +60,9 @@ contract WrapperContract is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     }
 
     /// @notice Deposit `amount` of the underlying asset and receive an equal amount of wrapper tokens.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `WrapperContract__ZeroAmount` if `amount == 0` is true.
     function wrap(uint256 amount) external {
         if (amount == 0) revert WrapperContract__ZeroAmount();
 
@@ -66,6 +77,10 @@ contract WrapperContract is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     }
 
     /// @notice Burn `amount` of wrapper tokens and redeem an equal amount of the underlying asset.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `WrapperContract__ZeroAmount` if `amount == 0` is true.
+    ///     `WrapperContract__InsufficientUnderlying` if `amount > totalUnderlyingHeld` is true.
     function unwrap(uint256 amount) external {
         if (amount == 0) revert WrapperContract__ZeroAmount();
         if (amount > totalUnderlyingHeld) {
@@ -96,6 +111,13 @@ contract WrapperContract is Initializable, ERC20Upgradeable, OwnableUpgradeable,
     // Queries
     // ---------------------------------------------------------------
 
+    /// @notice Returns wrapper state.
+    /// @return underlying underlying produced by the operation.
+    /// @return underlyingHeld underlying held produced by the operation.
+    /// @return version version produced by the operation.
+    /// @return wrapCount Number of items tracked by the contract.
+    /// @return unwrapCount Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWrapperState()
         external
         view
@@ -112,6 +134,8 @@ contract WrapperContract is Initializable, ERC20Upgradeable, OwnableUpgradeable,
 
     /// @notice Wrapping is always 1:1; expressed as a fixed-point rate for future-proofing
     /// in case a future version introduces fee-on-wrap or rebasing behavior.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function exchangeRate() external pure returns (uint256) {
         return 1e18;
     }

@@ -76,6 +76,10 @@ contract KYCStorage is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Add an account that may write KYC records.
+    /// @param verifier Address associated with verifier.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `verifier == address(0)` is true. `AlreadyVerifier` if
+    ///     `_verifiers[verifier]` is true.
     function addVerifier(address verifier) external onlyOwner {
         if (verifier == address(0)) revert ZeroAddress();
         if (_verifiers[verifier]) revert AlreadyVerifier();
@@ -85,6 +89,9 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Remove a verifier.
+    /// @param verifier Address associated with verifier.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NotVerifier` if `!_verifiers[verifier]` is true.
     function removeVerifier(address verifier) external onlyOwner {
         if (!_verifiers[verifier]) revert NotVerifier();
         _verifiers[verifier] = false;
@@ -101,11 +108,16 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Whether the supplied account is registered as a verifier.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isVerifier(address account) external view returns (bool) {
         return _verifiers[account];
     }
 
     /// @notice Read all current verifier addresses.
+    /// @return Verifiers returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVerifiers() external view returns (address[] memory) {
         return _verifierList;
     }
@@ -116,6 +128,9 @@ contract KYCStorage is Ownable {
 
     /// @notice User-facing entry point: submit a KYC record for review.
     /// @dev Marks the record as PENDING; verifier later finalises status.
+    /// @param documentHash Encoded data used for document hash.
+    /// @param jurisdiction jurisdiction used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function submit(bytes32 documentHash, string calldata jurisdiction) external {
         Record storage rec = _records[msg.sender];
         rec.status = Status.PENDING;
@@ -131,6 +146,13 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Verifier finalises a user's KYC outcome.
+    /// @param user User address affected by this operation.
+    /// @param status status used by this operation.
+    /// @param level Numeric level used by this operation.
+    /// @param expiresAt Numeric expires at used by this operation.
+    /// @dev Access: Caller must satisfy `onlyVerifier` access checks.
+    /// @dev Reverts: `ZeroAddress` if `user == address(0)` is true. `InvalidStatus` if `status ==
+    ///     Status.NONE` is true. `InvalidLevel` if `level > 3` is true.
     function setVerification(
         address user,
         Status status,
@@ -159,6 +181,10 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Revoke a previously verified record.
+    /// @param user User address affected by this operation.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller must satisfy `onlyVerifier` access checks.
+    /// @dev Reverts: `UnknownRecord` if `rec.status == Status.NONE` is true.
     function revoke(address user, string calldata reason) external onlyVerifier {
         Record storage rec = _records[user];
         if (rec.status == Status.NONE) revert UnknownRecord();
@@ -173,11 +199,17 @@ contract KYCStorage is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Return the full KYC record for a user.
+    /// @param user User address affected by this operation.
+    /// @return Record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRecord(address user) external view returns (Record memory) {
         return _records[user];
     }
 
     /// @notice Effective verification status, accounting for expiry.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function statusOf(address user) public view returns (Status) {
         Record storage rec = _records[user];
         if (rec.status == Status.VERIFIED && rec.expiresAt != 0 && block.timestamp >= rec.expiresAt) {
@@ -187,6 +219,10 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Convenience predicate: user is currently verified at >= minLevel.
+    /// @param user User address affected by this operation.
+    /// @param minLevel Minimum level required.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isVerified(address user, uint8 minLevel) external view returns (bool) {
         Record storage rec = _records[user];
         if (rec.status != Status.VERIFIED) return false;
@@ -195,16 +231,25 @@ contract KYCStorage is Ownable {
     }
 
     /// @notice Block timestamp at which the user's verification expires (0 = none).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function expiryOf(address user) external view returns (uint64) {
         return _records[user].expiresAt;
     }
 
     /// @notice Number of users that have ever submitted or been written by a verifier.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userCount() external view returns (uint256) {
         return _userList.length;
     }
 
     /// @notice Paginated list of known users.
+    /// @param offset Numeric offset used by this operation.
+    /// @param limit Numeric limit used by this operation.
+    /// @return page page produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function listUsers(uint256 offset, uint256 limit) external view returns (address[] memory page) {
         uint256 total = _userList.length;
         if (offset >= total) return new address[](0);

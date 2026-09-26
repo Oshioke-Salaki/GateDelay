@@ -119,6 +119,12 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Add a new compound interval configuration
+     * @param name name used by this operation.
+     * @param intervalSeconds interval seconds, in seconds.
+     * @param minYieldForInterval Minimum yield for interval required.
+     * @return intervalId Identifier of the relevant interval.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `InvalidInterval` if `intervalSeconds < MIN_INTERVAL_SECONDS` is true.
      */
     function addInterval(
         string calldata name,
@@ -141,6 +147,13 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Update an existing interval configuration
+     * @param intervalId Identifier of the relevant interval.
+     * @param intervalSeconds interval seconds, in seconds.
+     * @param minYieldForInterval Minimum yield for interval required.
+     * @param isActive Whether is active is enabled or selected.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `IntervalNotFound` if `interval.id == 0` is true. `InvalidInterval` if
+     *     `intervalSeconds < MIN_INTERVAL_SECONDS` is true.
      */
     function updateInterval(
         uint256 intervalId,
@@ -163,6 +176,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Schedule a position for compounding
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `IntervalNotFound` if `interval.id == 0` is true.
      */
     function schedulePosition(uint256 intervalId, address user) external onlyOwner {
         CompoundIntervalConfig storage interval = intervals[intervalId];
@@ -180,6 +197,13 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Set custom schedule for a position
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @param customSeconds Numeric custom seconds used by this operation.
+     * @param maxYieldThreshold Maximum yield threshold allowed.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `InvalidInterval` if `customSeconds < MIN_INTERVAL_SECONDS` is true.
+     *     `PositionNotFound` if `pos.intervalId == 0` is true.
      */
     function setCustomSchedule(
         uint256 intervalId,
@@ -204,6 +228,9 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Remove custom schedule for a position
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @dev Access: Caller must be the contract owner.
      */
     function removeCustomSchedule(uint256 intervalId, address user) external onlyOwner {
         positions[intervalId][user].hasCustomSchedule = false;
@@ -216,6 +243,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Check if a position is eligible for compounding based on interval
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return True when the requested condition is met.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function checkIntervalEligibility(uint256 intervalId, address user) external view returns (bool) {
         CompoundIntervalConfig memory interval = intervals[intervalId];
@@ -227,6 +258,14 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Execute compound for an interval position
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @param yieldAmount Numeric yield amount used by this operation.
+     * @param feeAmount Numeric fee amount used by this operation.
+     * @return netAmount Amount in the relevant token units.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `IntervalNotFound` if `interval.id == 0` is true. `PositionNotFound` if
+     *     `pos.intervalId == 0` is true.
      */
     function executeCompound(
         uint256 intervalId,
@@ -270,6 +309,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get next compound time for a position
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return Next compound time returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getNextCompoundTime(uint256 intervalId, address user) external view returns (uint256) {
         return positions[intervalId][user].nextCompoundTime;
@@ -277,6 +320,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get time until next compound
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return Time until next compound returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getTimeUntilNextCompound(uint256 intervalId, address user) external view returns (uint256) {
         uint256 nextTime = positions[intervalId][user].nextCompoundTime;
@@ -285,6 +332,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get interval history for a user
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return Interval history returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getIntervalHistory(uint256 intervalId, address user) external view returns (IntervalRecord[] memory) {
         uint256[] memory indices = _userHistoryIndices[intervalId][user];
@@ -297,6 +348,8 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get total interval history count
+     * @return Interval history count returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getIntervalHistoryCount() external view returns (uint256) {
         return _intervalHistory.length;
@@ -304,6 +357,9 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get a specific interval history record
+     * @param index Numeric index used by this operation.
+     * @return Interval record returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getIntervalRecord(uint256 index) external view returns (IntervalRecord memory) {
         return _intervalHistory[index];
@@ -311,6 +367,9 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get positions due for compounding before a timestamp
+     * @param timestamp Unix timestamp associated with this operation.
+     * @return positionIds position ids produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPositionsDueBefore(uint256 timestamp) external view returns (uint256[] memory positionIds) {
         // Note: This would typically require iteration over all positions
@@ -320,6 +379,8 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get all active interval configurations
+     * @return Active intervals returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getActiveIntervals() external view returns (CompoundIntervalConfig[] memory) {
         uint256 activeCount = 0;
@@ -342,6 +403,10 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Query if a custom schedule exists for a position
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return True when the requested condition is met.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function hasCustomSchedule(uint256 intervalId, address user) external view returns (bool) {
         return positions[intervalId][user].hasCustomSchedule;
@@ -349,6 +414,11 @@ contract CompoundInterval is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get custom schedule configuration
+     * @param intervalId Identifier of the relevant interval.
+     * @param user User address affected by this operation.
+     * @return customSeconds custom seconds produced by the operation.
+     * @return maxYieldThreshold max yield threshold produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getCustomSchedule(uint256 intervalId, address user) external view returns (
         uint256 customSeconds,

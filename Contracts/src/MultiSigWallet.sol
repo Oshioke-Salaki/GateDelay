@@ -79,6 +79,9 @@ contract MultiSigWallet {
 
     /// @notice Add a new signer to the wallet.
     /// @param newSigner The address of the new signer.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `InvalidSignerCount` if
+    ///     `newSigner == address(0)` is true. `DuplicateSigner` if `isSigner[newSigner]` is true.
     function addSigner(address newSigner) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (newSigner == address(0)) revert InvalidSignerCount();
@@ -92,6 +95,10 @@ contract MultiSigWallet {
 
     /// @notice Remove a signer from the wallet.
     /// @param signerToRemove The address of the signer to remove.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `SignerNotFound` if
+    ///     `!isSigner[signerToRemove]` is true. `InvalidThreshold` if `signers.length - 1 <
+    ///     threshold` is true.
     function removeSigner(address signerToRemove) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (!isSigner[signerToRemove]) revert SignerNotFound();
@@ -112,6 +119,9 @@ contract MultiSigWallet {
 
     /// @notice Update the approval threshold.
     /// @param newThreshold The new threshold value.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `InvalidThreshold` if
+    ///     `newThreshold == 0 || newThreshold > signers.length` is true.
     function updateThreshold(uint256 newThreshold) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (newThreshold == 0 || newThreshold > signers.length) revert InvalidThreshold();
@@ -125,6 +135,9 @@ contract MultiSigWallet {
     /// @param value The amount of ETH to send.
     /// @param data The encoded function call.
     /// @return txId The ID of the created transaction.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `InvalidTransaction` if `target
+    ///     == address(0)` is true.
     function createTransaction(address target, uint256 value, bytes calldata data)
         external
         returns (uint256 txId)
@@ -150,6 +163,11 @@ contract MultiSigWallet {
 
     /// @notice Approve a transaction.
     /// @param txId The ID of the transaction to approve.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `TransactionNotFound` if `txId
+    ///     >= transactionCount` is true. `InvalidTransaction` if `transaction.status !=
+    ///     TransactionStatus.PENDING` is true. `InvalidTransaction` if
+    ///     `approvals[txId][msg.sender]` is true.
     function approveTransaction(uint256 txId) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (txId >= transactionCount) revert TransactionNotFound();
@@ -170,6 +188,12 @@ contract MultiSigWallet {
 
     /// @notice Execute an approved transaction.
     /// @param txId The ID of the transaction to execute.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `TransactionNotFound` if `txId
+    ///     >= transactionCount` is true. `InsufficientApprovals` if `transaction.status !=
+    ///     TransactionStatus.APPROVED` is true. `TransactionAlreadyExecuted` if
+    ///     `transaction.executedAt != 0` is true. "Transaction execution failed" if `success` is
+    ///     false.
     function executeTransaction(uint256 txId) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (txId >= transactionCount) revert TransactionNotFound();
@@ -189,6 +213,10 @@ contract MultiSigWallet {
 
     /// @notice Reject a pending transaction.
     /// @param txId The ID of the transaction to reject.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `TransactionNotFound` if `txId
+    ///     >= transactionCount` is true. `InvalidTransaction` if `transaction.status !=
+    ///     TransactionStatus.PENDING` is true.
     function rejectTransaction(uint256 txId) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (txId >= transactionCount) revert TransactionNotFound();
@@ -203,6 +231,8 @@ contract MultiSigWallet {
     /// @notice Get transaction details.
     /// @param txId The ID of the transaction.
     /// @return transaction The transaction struct.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `TransactionNotFound` if `txId >= transactionCount` is true.
     function getTransaction(uint256 txId) external view returns (Transaction memory transaction) {
         if (txId >= transactionCount) revert TransactionNotFound();
         return transactions[txId];
@@ -210,12 +240,14 @@ contract MultiSigWallet {
 
     /// @notice Get all signers.
     /// @return The array of signer addresses.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSigners() external view returns (address[] memory) {
         return signers;
     }
 
     /// @notice Get the number of signers.
     /// @return The count of signers.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSignerCount() external view returns (uint256) {
         return signers.length;
     }
@@ -223,6 +255,7 @@ contract MultiSigWallet {
     /// @notice Check if an address is a signer.
     /// @param account The address to check.
     /// @return True if the address is a signer.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkSigner(address account) external view returns (bool) {
         return isSigner[account];
     }
@@ -231,6 +264,8 @@ contract MultiSigWallet {
     /// @param txId The ID of the transaction.
     /// @param signer The signer address to check.
     /// @return True if the signer has approved the transaction.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `TransactionNotFound` if `txId >= transactionCount` is true.
     function hasApproved(uint256 txId, address signer) external view returns (bool) {
         if (txId >= transactionCount) revert TransactionNotFound();
         return approvals[txId][signer];

@@ -68,6 +68,8 @@ contract StakingContract is Ownable, ReentrancyGuard {
     // ── Admin ──────────────────────────────────────────────────────────────────
 
     /// @notice Update the reward emission rate.
+    /// @param newRate New rate value.
+    /// @dev Access: Caller must be the contract owner.
     function setRewardRate(uint256 newRate) external onlyOwner {
         _updateReward(address(0));
         rewardPerSecond = newRate;
@@ -75,6 +77,9 @@ contract StakingContract is Ownable, ReentrancyGuard {
     }
 
     /// @notice Fund the contract with reward tokens.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function fundRewards(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -84,6 +89,9 @@ contract StakingContract is Ownable, ReentrancyGuard {
     // ── Core ───────────────────────────────────────────────────────────────────
 
     /// @notice Deposit staking tokens.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function stake(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
         _updateReward(msg.sender);
@@ -99,6 +107,10 @@ contract StakingContract is Ownable, ReentrancyGuard {
     }
 
     /// @notice Withdraw staked tokens. Pending rewards remain claimable.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true. `InsufficientStake` if `info.amount <
+    ///     amount` is true.
     function withdraw(uint256 amount) external nonReentrant {
         StakeInfo storage info = stakes[msg.sender];
         if (amount == 0) revert ZeroAmount();
@@ -115,6 +127,8 @@ contract StakingContract is Ownable, ReentrancyGuard {
     }
 
     /// @notice Claim all pending rewards.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NoRewardsToClaim` if `reward == 0` is true.
     function claimRewards() external nonReentrant {
         _updateReward(msg.sender);
         StakeInfo storage info = stakes[msg.sender];
@@ -129,6 +143,9 @@ contract StakingContract is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns the current pending reward for a user.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pendingReward(address user) external view returns (uint256) {
         StakeInfo storage info = stakes[user];
         uint256 rpt = _currentRewardPerToken();
@@ -137,11 +154,17 @@ contract StakingContract is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns full stake info for a user.
+    /// @param user User address affected by this operation.
+    /// @return Stake info returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getStakeInfo(address user) external view returns (StakeInfo memory) {
         return stakes[user];
     }
 
     /// @notice Returns the staking period duration (seconds since first stake).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function stakingPeriod(address user) external view returns (uint256) {
         uint256 start = stakes[user].stakedAt;
         if (start == 0) return 0;

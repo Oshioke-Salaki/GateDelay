@@ -8,6 +8,12 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IFlashBorrowReceiver {
+    /// @notice Executes executeFlashBorrow.
+    /// @param token Token contract address used by the operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @param data Encoded data supplied to the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function executeFlashBorrow(address token, uint256 amount, bytes calldata data) external;
 }
 
@@ -65,6 +71,8 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
      * @notice Set a per-account borrow cap.
      * @param account Borrower address.
      * @param limit Maximum borrowable amount in one flash operation (0 = unlimited).
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAddress` if `account == address(0)` is true.
      */
     function setBorrowLimit(address account, uint256 limit) external onlyOwner {
         if (account == address(0)) revert ZeroAddress();
@@ -75,6 +83,7 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
     /**
      * @notice Set a global borrow cap for all flash borrows.
      * @param limit Maximum borrowable amount in one flash operation (0 = unlimited).
+     * @dev Access: Caller must be the contract owner.
      */
     function setGlobalBorrowLimit(uint256 limit) external onlyOwner {
         _globalBorrowLimit = limit;
@@ -89,6 +98,13 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
      * @param amount Amount to borrow.
      * @param receiver Contract that receives funds and executes the flash borrow callback.
      * @param data Arbitrary data forwarded to the receiver callback.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAddress` if `token == address(0) || receiver == address(0)` is true.
+     *     `ZeroAmount` if `amount == 0` is true. `UnsupportedReceiver` if `receiver.code.length ==
+     *     0` is true. `BorrowLimitExceeded` if `accountLimit != 0 && amount > accountLimit` is
+     *     true. `BorrowLimitExceeded` if `globalLimit != 0 && amount > globalLimit` is true.
+     *     `InsufficientLiquidity` if `initialBalance < amount` is true. `RepaymentRequired` if
+     *     `finalBalance < initialBalance` is true.
      */
     function flashBorrow(address token, uint256 amount, address receiver, bytes calldata data)
         external
@@ -126,6 +142,9 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the configured per-account borrow limit.
+     * @param account Account address affected by this operation.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function borrowLimit(address account) external view returns (uint256) {
         return _borrowLimit[account];
@@ -133,6 +152,8 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the configured global borrow limit.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function globalBorrowLimit() external view returns (uint256) {
         return _globalBorrowLimit;
@@ -140,6 +161,9 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the number of flash borrows executed by the borrower.
+     * @param borrower Address associated with borrower.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function borrowCount(address borrower) external view returns (uint256) {
         return _borrowActivity[borrower].count;
@@ -147,6 +171,9 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the historic total amount borrowed by the borrower.
+     * @param borrower Address associated with borrower.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function totalBorrowed(address borrower) external view returns (uint256) {
         return _borrowActivity[borrower].totalBorrowed;
@@ -154,6 +181,9 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the block number of the borrower's last flash borrow.
+     * @param borrower Address associated with borrower.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function lastBorrowBlock(address borrower) external view returns (uint256) {
         return _borrowActivity[borrower].lastBlock;
@@ -161,6 +191,9 @@ contract FlashBorrow is Ownable, ReentrancyGuard {
 
     /**
      * @notice Returns the effective remaining borrow limit for the account.
+     * @param account Account address affected by this operation.
+     * @return Value produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function remainingBorrowLimit(address account) external view returns (uint256) {
         uint256 accountLimit = _borrowLimit[account];

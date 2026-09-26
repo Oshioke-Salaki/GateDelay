@@ -156,6 +156,12 @@ contract VaultShares is
 
     /// @notice Mint `shares` to `recipient` representing `assetsDeposited` underlying tokens.
     /// @dev Called by the vault after it has received the underlying tokens.
+    /// @param recipient Address that receives the transfer or result.
+    /// @param shares Numeric shares used by this operation.
+    /// @param assetsDeposited Numeric assets deposited used by this operation.
+    /// @dev Access: Caller must satisfy `onlyVault` access checks.
+    /// @dev Reverts: `ZeroAddress` if `recipient == address(0)` is true. `ZeroAmount` if `shares ==
+    ///     0` is true.
     function issueShares(
         address recipient,
         uint256 shares,
@@ -182,6 +188,11 @@ contract VaultShares is
 
     /// @notice Burn `shares` from `holder` on withdrawal.
     /// @dev Called by the vault when it releases underlying tokens back to the user.
+    /// @param holder Address associated with holder.
+    /// @param shares Numeric shares used by this operation.
+    /// @dev Access: Caller must satisfy `onlyVault` access checks.
+    /// @dev Reverts: `ZeroAddress` if `holder == address(0)` is true. `ZeroAmount` if `shares == 0`
+    ///     is true. `InsufficientShares` if `balanceOf(holder) < shares` is true.
     function redeemShares(address holder, uint256 shares)
         external
         onlyVault
@@ -205,6 +216,8 @@ contract VaultShares is
 
     /// @notice Update the total assets under management (called when yield accrues
     ///         or assets change so that `shareValue` stays accurate).
+    /// @param newTotal New total value.
+    /// @dev Access: Caller must satisfy `onlyVault` access checks.
     function setTotalManagedAssets(uint256 newTotal)
         external
         onlyVault
@@ -220,6 +233,8 @@ contract VaultShares is
 
     /// @notice Price of one share in underlying tokens (PRECISION-scaled).
     ///         Returns PRECISION (1.0) when no shares exist yet.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pricePerShare() public view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0) return PRECISION;
@@ -227,11 +242,17 @@ contract VaultShares is
     }
 
     /// @notice Underlying asset value of `shares` at the current share price.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function shareValue(uint256 shares) public view returns (uint256) {
         return shares.mulDiv(totalManagedAssets, _nonZeroSupply());
     }
 
     /// @notice Underlying asset value of all shares held by `account`.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function accountValue(address account) external view returns (uint256) {
         uint256 bal = balanceOf(account);
         if (bal == 0) return 0;
@@ -239,6 +260,9 @@ contract VaultShares is
     }
 
     /// @notice How many shares `assets` underlying tokens would currently buy.
+    /// @param assets Numeric assets used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function assetsToShares(uint256 assets) external view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0 || totalManagedAssets == 0) return assets; // 1:1 at inception
@@ -246,6 +270,9 @@ contract VaultShares is
     }
 
     /// @notice How many underlying tokens `shares` would currently redeem for.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function sharesToAssets(uint256 shares) external view returns (uint256) {
         return shareValue(shares);
     }
@@ -256,12 +283,18 @@ contract VaultShares is
 
     /// @notice Enable or disable transfer restrictions (owner only).
     ///         When restricted, only whitelisted addresses may send or receive.
+    /// @param restricted Whether restricted is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setTransferRestriction(bool restricted) external onlyOwner {
         transferRestricted = restricted;
         emit TransferRestrictionToggled(restricted);
     }
 
     /// @notice Add or remove an address from the transfer whitelist.
+    /// @param account Account address affected by this operation.
+    /// @param status Whether status is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `account == address(0)` is true.
     function setWhitelist(address account, bool status) external onlyOwner {
         if (account == address(0)) revert ZeroAddress();
         transferWhitelist[account] = status;
@@ -269,6 +302,10 @@ contract VaultShares is
     }
 
     /// @notice Batch whitelist update for gas efficiency.
+    /// @param accounts Address associated with accounts.
+    /// @param status Whether status is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `accounts[i] == address(0)` is true.
     function batchSetWhitelist(address[] calldata accounts, bool status) external onlyOwner {
         for (uint256 i; i < accounts.length; ++i) {
             if (accounts[i] == address(0)) revert ZeroAddress();
@@ -282,16 +319,25 @@ contract VaultShares is
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Transfer vault control to a new address (e.g. upgraded vault).
+    /// @param newVault New vault value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `newVault == address(0)` is true.
     function setVault(address newVault) external onlyOwner {
         if (newVault == address(0)) revert ZeroAddress();
         emit VaultUpdated(vault, newVault);
         vault = newVault;
     }
 
+    /// @notice Pauses.
+    /// @dev Access: Caller must be the contract owner.
     function pause()   external onlyOwner { _pause(); }
+    /// @notice Resumes.
+    /// @dev Access: Caller must be the contract owner.
     function unpause() external onlyOwner { _unpause(); }
 
     /// @notice Take a manual balance snapshot for `account`.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function takeSnapshot(address account) external {
         _recordSnapshot(account);
     }
@@ -301,6 +347,9 @@ contract VaultShares is
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Full issuance history for a holder.
+    /// @param account Account address affected by this operation.
+    /// @return Issuance history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getIssuanceHistory(address account)
         external view returns (IssuanceRecord[] memory)
     {
@@ -308,6 +357,9 @@ contract VaultShares is
     }
 
     /// @notice Full transfer history for a sender.
+    /// @param account Account address affected by this operation.
+    /// @return Transfer history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTransferHistory(address account)
         external view returns (TransferRecord[] memory)
     {
@@ -315,6 +367,9 @@ contract VaultShares is
     }
 
     /// @notice All historical balance snapshots for an account.
+    /// @param account Account address affected by this operation.
+    /// @return Balance snapshots returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBalanceSnapshots(address account)
         external view returns (BalanceSnapshot[] memory)
     {
@@ -322,21 +377,35 @@ contract VaultShares is
     }
 
     /// @notice Number of times shares were issued to `account`.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function issuanceCount(address account) external view returns (uint256) {
         return _issuanceHistory[account].length;
     }
 
     /// @notice Number of outgoing transfers recorded for `account`.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function transferCount(address account) external view returns (uint256) {
         return _transferHistory[account].length;
     }
 
     /// @notice Net shares in circulation (issued minus burned).
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function circulatingShares() external view returns (uint256) {
         return totalSupply();
     }
 
     /// @notice Returns key share supply statistics in one call.
+    /// @return current current produced by the operation.
+    /// @return issued issued produced by the operation.
+    /// @return burned burned produced by the operation.
+    /// @return managedAssets managed assets produced by the operation.
+    /// @return pps pps produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function supplyStats()
         external view
         returns (
@@ -388,6 +457,10 @@ contract VaultShares is
     // ERC-20Votes / Permit nonce override (required by OZ v5)
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Executes nonces.
+    /// @param owner Owner address associated with this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function nonces(address owner)
         public view
         override(ERC20Permit, Nonces)

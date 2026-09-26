@@ -44,28 +44,65 @@ $ forge build src/FeeHandler.sol
 - Register fee structures with `setFeeStructure(bytes32 id, uint256 feeBps, FeeRecipient[] recipients)` after deployment. Recipients must sum to 10_000 bps.
 - Requires `PRIVATE_KEY` when deploying via Foundry script. No Backend ABI wiring exists yet (Phase 2).
 
-### Deploy order (Phase 2 core market wiring)
+### Deploy scripts (Phase 2 core market wiring)
 
-Production contracts live under `src/`. Deploy in dependency order when wiring a fresh stack:
+Production contracts live under `src/`. Copy `.env.example` to `.env` and set
+real values before broadcasting. `PRIVATE_KEY` must be a funded deployer key;
+never commit `.env` or paste production secrets into logs.
 
-| Order | Contract | Script | Constructor args | Env vars |
-|-------|----------|--------|------------------|----------|
-| 1 | `RoleManager` | manual / custom | none — admin is `msg.sender` | `PRIVATE_KEY` |
-| 2 | `FeeHandler` | manual / custom | none — owner is `msg.sender` | `PRIVATE_KEY` |
-| 3 | `MarketCap` | `script/DeployMarketCap.s.sol` | none — owner is `msg.sender` | `PRIVATE_KEY` |
-| 4 | `MarketMinter` | `script/DeployMarketMinter.s.sol` | `address tokenAddress` | `PRIVATE_KEY`, `TOKEN_ADDRESS` |
-| 5 | `CircuitBreaker` | manual / custom | none — admin/breaker/monitor granted to `msg.sender` | `PRIVATE_KEY` |
+| Deploy | Script | Constructor args / setup | Required env vars |
+|--------|--------|--------------------------|-------------------|
+| `RoleManager` | `script/DeployRoleManager.s.sol:DeployRoleManager` | None; deployer receives `DEFAULT_ADMIN_ROLE` | `PRIVATE_KEY` |
+| `FeeHandler` | `script/DeployFeeHandler.s.sol:DeployFeeHandler` | None; deployer becomes owner | `PRIVATE_KEY` |
+| `CircuitBreaker` | `script/DeployCircuitBreaker.s.sol:DeployCircuitBreaker` | None; deployer receives admin, breaker, and monitor roles | `PRIVATE_KEY` |
+| `PositionToken` + `MarketFactory` | `script/DeployMarketFactory.s.sol:DeployMarketFactory` | Script predicts the factory CREATE address to bind the token to its factory | `PRIVATE_KEY` |
+| `MarketMaker` + `Trading` | `script/DeployCoreMarket.s.sol:DeployCoreMarket` | Collateral address; fee/rebate basis points; commission recipient | `PRIVATE_KEY`, `COLLATERAL_TOKEN_ADDRESS`, `TRADING_FEE_BPS`, `TRADING_REBATE_BPS`, `COMMISSION_RECIPIENT` |
+| `MarketCap` | `script/DeployMarketCap.s.sol:DeployMarketCap` | None | `PRIVATE_KEY` |
+| `MarketMinter` | `script/DeployMarketMinter.s.sol:DeployMarketMinter` | Existing token address | `PRIVATE_KEY`, `TOKEN_ADDRESS` |
 
-Run from `Contracts/`:
+Run from `Contracts/` in PowerShell after setting the environment from `.env`:
 
-```shell
-$ export PRIVATE_KEY=0x...
-$ export TOKEN_ADDRESS=0x...   # MarketMinter only
-$ forge script script/DeployMarketCap.s.sol:DeployMarketCap --rpc-url $RPC_URL --broadcast
-$ forge script script/DeployMarketMinter.s.sol:DeployMarketMinter --rpc-url $RPC_URL --broadcast
+```powershell
+$env:PRIVATE_KEY = "0xYOUR_FUNDED_DEPLOYER_KEY"
+$env:RPC_URL = "https://YOUR_NETWORK_RPC_URL"
+$env:COLLATERAL_TOKEN_ADDRESS = "0xYOUR_COLLATERAL_TOKEN_ADDRESS"
+$env:TRADING_FEE_BPS = "30"
+$env:TRADING_REBATE_BPS = "0"
+$env:COMMISSION_RECIPIENT = "0xYOUR_COMMISSION_RECIPIENT_ADDRESS"
+
+forge script script/DeployRoleManager.s.sol:DeployRoleManager --rpc-url $env:RPC_URL --broadcast
+forge script script/DeployFeeHandler.s.sol:DeployFeeHandler --rpc-url $env:RPC_URL --broadcast
+forge script script/DeployCircuitBreaker.s.sol:DeployCircuitBreaker --rpc-url $env:RPC_URL --broadcast
+forge script script/DeployMarketFactory.s.sol:DeployMarketFactory --rpc-url $env:RPC_URL --broadcast
+forge script script/DeployCoreMarket.s.sol:DeployCoreMarket --rpc-url $env:RPC_URL --broadcast
+forge script script/DeployMarketCap.s.sol:DeployMarketCap --rpc-url $env:RPC_URL --broadcast
+$env:TOKEN_ADDRESS = "0xYOUR_TOKEN_ADDRESS"
+forge script script/DeployMarketMinter.s.sol:DeployMarketMinter --rpc-url $env:RPC_URL --broadcast
 ```
 
-ABI artifacts land in `Contracts/out/<Contract>.sol/<Contract>.json`. The Backend reads deployed addresses from `Backend/.env.example` keys such as `MARKET_CONTRACT_ADDRESS` and chain-specific `*_MARKET_ADDRESS` entries — wire those after broadcast, not before.
+Each script logs deployed addresses and constructor configuration. With
+`--broadcast`, Foundry writes transaction and deployment-address records to
+`broadcast/<ScriptName>.s.sol/<chain-id>/run-latest.json`; compiled ABI and
+bytecode artifacts are written to `out/<Contract>.sol/<Contract>.json`. Retain
+the chain-specific broadcast record as the deployment output; do not rely on
+console output alone.
+
+`DeployMarketFactory` deploys `PositionToken` first, then `MarketFactory` at
+the predicted next deployer nonce because the constructors bind to each
+other's addresses. Do not insert another deploy transaction into that script
+without updating the nonce prediction. `DeployCoreMarket` expects an already
+deployed ERC-20 collateral token. `LMSR` is a library linked into
+`MarketMaker`; it is not separately deployed. `Trading.executeSell` currently
+uses a buy-cost proxy for proceeds, so do not use that wrapper for production
+sells until the contract logic is corrected and tested.
+
+The `PositionToken`/`MarketFactory` pair is a separate market-registry stack;
+it does not currently create or configure markets in the LMSR
+`MarketMaker`/`Trading` stack. Deploying both does not connect their state.
+
+The Backend reads deployed addresses from its own configuration (for example,
+`MARKET_CONTRACT_ADDRESS` and chain-specific `*_MARKET_ADDRESS` entries); copy
+the confirmed addresses from the broadcast record only after deployment.
 
 > **Import paths:** all production sources import via Foundry remappings (`@openzeppelin/contracts`, `@prb/math`, `forge-std`). Do not add new contracts outside `src/`; legacy `contracts/` paths in older docs are stale.
 

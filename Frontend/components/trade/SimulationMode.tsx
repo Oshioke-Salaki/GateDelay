@@ -4,6 +4,10 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, Pause, RotateCcw, Wallet, BarChart3, Zap } from "lucide-react";
 import { useToast } from "../../hooks/useToast";
+import {
+  SIMULATION_MARKET_FIXTURES,
+  SIMULATION_MARKET_FIXTURE_MAP,
+} from "../../data/fixtures/marketFixtures";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,12 +100,7 @@ export default function SimulationMode({
 }: SimulationModeProps) {
     const toast = useToast();
     const simulationState = useSimulationState();
-    const [selectedMarket, setSelectedMarket] = useState({
-        id: "1",
-        title: "Will BTC exceed $100k by EOY?",
-        yesPrice: 0.65,
-        noPrice: 0.35,
-    });
+    const [selectedMarket, setSelectedMarket] = useState(SIMULATION_MARKET_FIXTURES[0]);
     const [amount, setAmount] = useState<string>("100");
     const [side, setSide] = useState<"YES" | "NO">("YES");
 
@@ -289,13 +288,9 @@ export default function SimulationMode({
                         <select
                             value={selectedMarket.id}
                             onChange={(e) => {
-                                const marketId = e.target.value;
-                                const mockMarkets = {
-                                    "1": { id: "1", title: "Will BTC exceed $100k by EOY?", yesPrice: 0.65, noPrice: 0.35 },
-                                    "2": { id: "2", title: "Will ETH outperform BTC?", yesPrice: 0.55, noPrice: 0.45 },
-                                    "3": { id: "3", title: "Will SOL reach $500?", yesPrice: 0.4, noPrice: 0.6 },
-                                };
-                                setSelectedMarket(mockMarkets[marketId as keyof typeof mockMarkets] || mockMarkets["1"]);
+                                const next = SIMULATION_MARKET_FIXTURE_MAP[e.target.value]
+                                    ?? SIMULATION_MARKET_FIXTURES[0];
+                                setSelectedMarket(next);
                             }}
                             className="w-full rounded-xl px-3 py-2 text-sm outline-none"
                             style={{
@@ -304,9 +299,9 @@ export default function SimulationMode({
                                 color: "var(--foreground)",
                             }}
                         >
-                            <option value="1">Will BTC exceed $100k by EOY?</option>
-                            <option value="2">Will ETH outperform BTC?</option>
-                            <option value="3">Will SOL reach $500?</option>
+                            {SIMULATION_MARKET_FIXTURES.map((m) => (
+                                <option key={m.id} value={m.id}>{m.title}</option>
+                            ))}
                         </select>
                     </div>
 

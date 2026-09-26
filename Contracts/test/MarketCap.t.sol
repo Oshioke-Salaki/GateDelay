@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../src/MarketCap.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MarketCapTest is Test {
     MarketCap internal marketCap;
@@ -114,6 +115,27 @@ contract MarketCapTest is Test {
         vm.prank(alice);
         vm.expectRevert();
         marketCap.setCapLimit(marketId, CAP_LIMIT);
+    }
+
+    function test_AllOwnerRestrictedConfigurationRejectsNonOwner() public {
+        uint256 marketId = 1;
+        marketCap.calculateMarketCap(marketId, PRICE_1, SUPPLY_500);
+
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(marketCap.setCapLimit, (marketId, CAP_LIMIT));
+        calls[1] = abi.encodeCall(marketCap.setCapThreshold, (marketId, CAP_LIMIT));
+        calls[2] = abi.encodeCall(marketCap.removeCapThreshold, (marketId, CAP_LIMIT));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(marketCap).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
+            );
+        }
     }
 
     function test_calculateMarketCap_revertsCapLimitExceeded() public {

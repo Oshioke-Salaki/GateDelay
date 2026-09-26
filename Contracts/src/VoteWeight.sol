@@ -170,6 +170,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     ///      Callers that legitimately do not know whether a change is pending —
     ///      batch jobs, delegation flows — should use {syncWeight} instead of
     ///      swallowing this revert.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function updateWeight(address account) public {
         if (!syncWeight(account)) revert NoWeightChange();
     }
@@ -182,6 +183,8 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     ///      before another action, has to guess which ones are already current.
     ///      The alternative that grew up around it — wrapping the call in
     ///      `try/catch {}` — also swallows genuine failures.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroAddress` if `account == address(0)` is true.
     function syncWeight(address account) public returns (bool changed) {
         if (account == address(0)) revert ZeroAddress();
 
@@ -236,6 +239,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @dev Accounts already in sync are skipped rather than reverting the whole
     ///      batch. Reverting would make this function unusable in practice: the
     ///      caller cannot know which accounts changed without reading each one.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function batchUpdateWeights(address[] calldata accounts) external {
         for (uint256 i = 0; i < accounts.length; i++) {
             syncWeight(accounts[i]);
@@ -246,6 +250,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Delegate voting weight to another address
     /// @param delegatee Address to delegate to
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function delegate(address delegatee) external nonReentrant {
         _delegate(msg.sender, delegatee);
     }
@@ -259,12 +264,15 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     ///      own — usually zero — weight and the user's delegation would silently
     ///      never happen. Restricted to the owner, since it moves someone
     ///      else's voting power.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `delegator == address(0)` is true.
     function delegateFor(address delegator, address delegatee) external onlyOwner nonReentrant {
         if (delegator == address(0)) revert ZeroAddress();
         _delegate(delegator, delegatee);
     }
 
     /// @notice Remove current delegation
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function undelegate() external nonReentrant {
         _undelegate(msg.sender);
     }
@@ -272,6 +280,8 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Remove `delegator`'s delegation on their behalf.
     /// @param delegator Account whose delegation is removed.
     /// @dev Owner-only counterpart to {undelegate}; see {delegateFor}.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `delegator == address(0)` is true.
     function undelegateFor(address delegator) external onlyOwner nonReentrant {
         if (delegator == address(0)) revert ZeroAddress();
         _undelegate(delegator);
@@ -486,6 +496,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get weight change history for an account
     /// @param account Account to query
     /// @return WeightChange[] Array of weight changes
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWeightChangeHistory(address account) external view returns (WeightChange[] memory) {
         return weightChangeHistory[account];
     }
@@ -494,6 +505,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param account Account to query
     /// @param count Number of recent changes to return
     /// @return WeightChange[] Array of recent weight changes
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRecentWeightChanges(address account, uint256 count) external view returns (WeightChange[] memory) {
         WeightChange[] storage history = weightChangeHistory[account];
         uint256 length = history.length;
@@ -517,6 +529,8 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param fromBlock Starting block number
     /// @param toBlock Ending block number
     /// @return int256 Total weight change (can be negative)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidBlockNumber` if `toBlock < fromBlock` is true.
     function calculateWeightChange(address account, uint256 fromBlock, uint256 toBlock) external view returns (int256) {
         if (toBlock < fromBlock) revert InvalidBlockNumber();
 
@@ -557,6 +571,8 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param account Account to query
     /// @param blockNumber Block number to query
     /// @return uint256 Weight at that block
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidBlockNumber` if `blockNumber > block.number` is true.
     function getWeightAt(address account, uint256 blockNumber) public view returns (uint256) {
         if (blockNumber > block.number) revert InvalidBlockNumber();
 
@@ -593,6 +609,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
 
     /// @notice Create a snapshot of all current weights
     /// @return uint256 Snapshot ID
+    /// @dev Access: Caller must be the contract owner.
     function createSnapshot() external onlyOwner returns (uint256) {
         uint256 snapshotId = ++currentSnapshotId;
         Snapshot storage snapshot = snapshots[snapshotId];
@@ -617,6 +634,9 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param snapshotId Snapshot ID
     /// @param account Account to query
     /// @return uint256 Weight at snapshot
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidSnapshotId` if `snapshotId == 0 || snapshotId > currentSnapshotId` is
+    ///     true.
     function getWeightAtSnapshot(uint256 snapshotId, address account) external view returns (uint256) {
         if (snapshotId == 0 || snapshotId > currentSnapshotId) revert InvalidSnapshotId();
         return snapshots[snapshotId].weights[account];
@@ -628,6 +648,9 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @return blockNumber Block number of snapshot
     /// @return timestamp Timestamp of snapshot
     /// @return accountCount Number of accounts in snapshot
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidSnapshotId` if `snapshotId == 0 || snapshotId > currentSnapshotId` is
+    ///     true.
     function getSnapshotInfo(uint256 snapshotId)
         external
         view
@@ -643,6 +666,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get current voting weight for an account
     /// @param account Account to query
     /// @return uint256 Current voting weight
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotingWeight(address account) external view returns (uint256) {
         return currentWeight[account];
     }
@@ -653,6 +677,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @return received Delegated weight received
     /// @return given Delegated weight given away
     /// @return total Total effective voting weight
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWeightBreakdown(address account)
         external
         view
@@ -666,6 +691,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get delegation info for an account
     /// @param account Account to query
     /// @return DelegationInfo Delegation information
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationInfo(address account) external view returns (DelegationInfo memory) {
         return delegationInfo[account];
     }
@@ -673,6 +699,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get all delegators for a delegatee
     /// @param delegatee Address to query
     /// @return address[] Array of delegators
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegators(address delegatee) external view returns (address[] memory) {
         return delegators[delegatee];
     }
@@ -680,6 +707,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get number of checkpoints for an account
     /// @param account Account to query
     /// @return uint256 Number of checkpoints
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCheckpointCount(address account) external view returns (uint256) {
         return checkpoints[account].length;
     }
@@ -688,24 +716,28 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @param account Account to query
     /// @param index Checkpoint index
     /// @return Checkpoint Checkpoint data
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCheckpoint(address account, uint256 index) external view returns (Checkpoint memory) {
         return checkpoints[account][index];
     }
 
     /// @notice Get all tracked accounts
     /// @return address[] Array of tracked accounts
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTrackedAccounts() external view returns (address[] memory) {
         return trackedAccounts;
     }
 
     /// @notice Get total number of tracked accounts
     /// @return uint256 Number of tracked accounts
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTrackedAccountCount() external view returns (uint256) {
         return trackedAccounts.length;
     }
 
     /// @notice Get total voting weight across all accounts
     /// @return uint256 Total voting weight
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalVotingWeight() external view returns (uint256) {
         return totalVotingWeight;
     }
@@ -713,6 +745,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Check if an account has delegated their weight
     /// @param account Account to check
     /// @return bool True if account has active delegation
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasDelegated(address account) external view returns (bool) {
         return currentDelegation[account] != address(0);
     }
@@ -720,6 +753,7 @@ contract VoteWeight is Ownable, ReentrancyGuard {
     /// @notice Get the delegatee for an account
     /// @param account Account to query
     /// @return address Current delegatee (address(0) if none)
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegatee(address account) external view returns (address) {
         return currentDelegation[account];
     }

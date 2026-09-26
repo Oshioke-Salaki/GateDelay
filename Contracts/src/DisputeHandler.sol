@@ -87,6 +87,8 @@ contract DisputeHandler is ReentrancyGuard {
     /// @param market The market being disputed
     /// @param evidenceURI URI pointing to initial evidence
     /// @return disputeId The ID of the created dispute
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidEvidence` if `bytes(evidenceURI).length == 0` is true.
     function submitDispute(address market, string calldata evidenceURI) 
         external 
         nonReentrant 
@@ -122,6 +124,11 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Add additional evidence to an existing dispute
     /// @param disputeId The dispute ID
     /// @param evidenceURI URI pointing to additional evidence
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DisputeNotFound` if `dispute.submittedAt == 0` is true.
+    ///     `DisputeAlreadyResolved` if `dispute.status == DisputeStatus.RESOLVED || dispute.status
+    ///     == DisputeStatus.REJECTED` is true. `InvalidEvidence` if `bytes(evidenceURI).length ==
+    ///     0` is true.
     function addEvidence(uint256 disputeId, string calldata evidenceURI) external nonReentrant {
         Dispute storage dispute = disputes[disputeId];
         if (dispute.submittedAt == 0) revert DisputeNotFound();
@@ -142,6 +149,10 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Update dispute status
     /// @param disputeId The dispute ID
     /// @param newStatus The new status
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `DisputeNotFound` if
+    ///     `dispute.submittedAt == 0` is true. `DisputeAlreadyResolved` if `dispute.status ==
+    ///     DisputeStatus.RESOLVED || dispute.status == DisputeStatus.REJECTED` is true.
     function updateStatus(uint256 disputeId, DisputeStatus newStatus) external {
         if (msg.sender != admin) revert NotAuthorized();
         
@@ -158,6 +169,10 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Resolve a dispute
     /// @param disputeId The dispute ID
     /// @param upheld Whether the dispute is upheld
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `DisputeNotFound` if
+    ///     `dispute.submittedAt == 0` is true. `DisputeAlreadyResolved` if `dispute.status ==
+    ///     DisputeStatus.RESOLVED || dispute.status == DisputeStatus.REJECTED` is true.
     function resolveDispute(uint256 disputeId, bool upheld) external {
         if (msg.sender != admin) revert NotAuthorized();
         
@@ -182,6 +197,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Get dispute details
     /// @param disputeId The dispute ID
     /// @return dispute The dispute struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDispute(uint256 disputeId) external view returns (Dispute memory) {
         return disputes[disputeId];
     }
@@ -189,6 +205,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Get all evidence for a dispute
     /// @param disputeId The dispute ID
     /// @return evidence Array of evidence
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getEvidence(uint256 disputeId) external view returns (Evidence[] memory) {
         return disputeEvidence[disputeId];
     }
@@ -196,6 +213,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Get all disputes for a market
     /// @param market The market address
     /// @return disputeIds Array of dispute IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketDisputes(address market) external view returns (uint256[] memory) {
         return marketDisputes[market];
     }
@@ -203,6 +221,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Get all disputes submitted by a user
     /// @param user The user address
     /// @return disputeIds Array of dispute IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserDisputes(address user) external view returns (uint256[] memory) {
         return userDisputes[user];
     }
@@ -210,6 +229,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Get dispute status
     /// @param disputeId The dispute ID
     /// @return status The current status
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDisputeStatus(uint256 disputeId) external view returns (DisputeStatus) {
         return disputes[disputeId].status;
     }
@@ -217,6 +237,7 @@ contract DisputeHandler is ReentrancyGuard {
     /// @notice Check if dispute exists
     /// @param disputeId The dispute ID
     /// @return exists True if dispute exists
+    /// @dev Access: No caller-specific access restriction is imposed.
     function disputeExists(uint256 disputeId) external view returns (bool) {
         return disputes[disputeId].submittedAt > 0;
     }

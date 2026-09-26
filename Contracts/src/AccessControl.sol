@@ -42,6 +42,7 @@ contract AccessControl {
     event RoleGranted(bytes32 indexed role, address indexed account, address indexed grantor);
     event RoleRevoked(bytes32 indexed role, address indexed account, address indexed revoker);
     event RoleDescriptionSet(bytes32 indexed role, string description);
+    event RoleDescriptionUpdated(bytes32 indexed role, string oldDescription, string newDescription);
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -80,6 +81,12 @@ contract AccessControl {
     /// @notice Grant a role to an account.
     /// @param role Role identifier.
     /// @param account Account to grant role to.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `InvalidRole` if `account == address(0)` is true. `RoleAlreadyAssigned` if
+    ///     `_roles[role][account]` is true.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `InvalidRole` if `account == address(0)` is true. `RoleAlreadyAssigned` if
+    ///     `_roles[role][account]` is true.
     function grantRole(bytes32 role, address account) external onlyAdmin {
         if (account == address(0)) revert InvalidRole();
         if (_roles[role][account]) revert RoleAlreadyAssigned();
@@ -94,6 +101,10 @@ contract AccessControl {
     /// @notice Revoke a role from an account.
     /// @param role Role identifier.
     /// @param account Account to revoke role from.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `RoleNotAssigned` if `!_roles[role][account]` is true.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `RoleNotAssigned` if `!_roles[role][account]` is true.
     function revokeRole(bytes32 role, address account) external onlyAdmin {
         if (!_roles[role][account]) revert RoleNotAssigned();
 
@@ -124,6 +135,10 @@ contract AccessControl {
 
     /// @notice Renounce a role (self-revocation).
     /// @param role Role identifier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `RoleNotAssigned` if `!_roles[role][msg.sender]` is true.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `RoleNotAssigned` if `!_roles[role][msg.sender]` is true.
     function renounceRole(bytes32 role) external {
         if (!_roles[role][msg.sender]) revert RoleNotAssigned();
 
@@ -159,36 +174,54 @@ contract AccessControl {
     /// @notice Check if an account has a role.
     /// @param role Role identifier.
     /// @param account Account to check.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasRole(bytes32 role, address account) public view returns (bool) {
         return _roles[role][account];
     }
 
     /// @notice Get all members of a role.
     /// @param role Role identifier.
+    /// @return Addresses that currently hold the role.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoleMembers(bytes32 role) external view returns (address[] memory) {
         return _roleMembers[role];
     }
 
     /// @notice Get member count for a role.
     /// @param role Role identifier.
+    /// @return Number of members assigned to the role.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoleMemberCount(bytes32 role) external view returns (uint256) {
         return _roleMembers[role].length;
     }
 
     /// @notice Get all roles for an account.
     /// @param account Account to check.
+    /// @return Roles currently assigned to the account.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAccountRoles(address account) external view returns (bytes32[] memory) {
         return _accountRoles[account];
     }
 
     /// @notice Get role count for an account.
     /// @param account Account to check.
+    /// @return Number of roles assigned to the account.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAccountRoleCount(address account) external view returns (uint256) {
         return _accountRoles[account].length;
     }
 
     /// @notice Get role description.
     /// @param role Role identifier.
+    /// @return Human-readable description of the role.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRoleDescription(bytes32 role) external view returns (string memory) {
         return _roleDescriptions[role];
     }
@@ -196,17 +229,24 @@ contract AccessControl {
     /// @notice Set role description.
     /// @param role Role identifier.
     /// @param description Role description.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Access: Caller must be an administrator.
     function setRoleDescription(bytes32 role, string calldata description)
         external
         onlyAdmin
     {
+        string memory oldDescription = _roleDescriptions[role];
         _roleDescriptions[role] = description;
         emit RoleDescriptionSet(role, description);
+        emit RoleDescriptionUpdated(role, oldDescription, description);
     }
 
     /// @notice Check if account has any of the specified roles.
     /// @param roles Array of role identifiers.
     /// @param account Account to check.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasAnyRole(bytes32[] calldata roles, address account)
         external
         view
@@ -221,6 +261,9 @@ contract AccessControl {
     /// @notice Check if account has all of the specified roles.
     /// @param roles Array of role identifiers.
     /// @param account Account to check.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasAllRoles(bytes32[] calldata roles, address account)
         external
         view

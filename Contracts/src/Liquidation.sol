@@ -170,6 +170,9 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param market Market address
     /// @param collateralToken Collateral token address
     /// @param priceOracle Price oracle address for this market
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `market == address(0) || collateralToken == address(0) ||
+    ///     priceOracle == address(0)` is true.
     function registerMarket(
         address market,
         address collateralToken,
@@ -186,6 +189,11 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @notice Update liquidation penalty parameters
     /// @param _liquidationPenaltyBps New liquidation penalty in bps
     /// @param _liquidatorRewardBps New liquidator reward in bps
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidLiquidationPenalty` if `_liquidationPenaltyBps <
+    ///     MIN_LIQUIDATION_PENALTY_BPS || _liquidationPenaltyBps > MAX_LIQUIDATION_PENALTY_BPS` is
+    ///     true. `InvalidLiquidatorReward` if `_liquidatorRewardBps < MIN_LIQUIDATOR_REWARD_BPS ||
+    ///     _liquidatorRewardBps > MAX_LIQUIDATOR_REWARD_BPS` is true.
     function updatePenaltyParameters(
         uint256 _liquidationPenaltyBps,
         uint256 _liquidatorRewardBps
@@ -203,6 +211,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
 
     /// @notice Pause or unpause liquidations
     /// @param _paused New pause state
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
     }
@@ -211,6 +220,9 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param token Token address to withdraw
     /// @param recipient Recipient address
     /// @param amount Amount to withdraw
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `recipient == address(0)` is true. `NoLiquidationProceeds` if
+    ///     `protocolProceeds[token] < amount` is true.
     function withdrawProtocolProceeds(
         address token,
         address recipient,
@@ -230,6 +242,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param account Account to check
     /// @param market Market address
     /// @return condition LiquidationCondition struct with health metrics
+    /// @dev Access: No caller-specific access restriction is imposed.
     function monitorLiquidationCondition(
         address account,
         address market
@@ -302,6 +315,11 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param account Account to liquidate
     /// @param market Market address
     /// @return execution LiquidationExecution struct with liquidation details
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PositionNotLiquidatable` if `!condition.isLiquidatable` is true.
+    ///     `InsufficientCollateral` if `condition.collateralValue == 0` is true. "Liquidation:
+    ///     reward transfer failed" if `success` is false. "Liquidation: protocol fee transfer
+    ///     failed" if `success` is false.
     function executeLiquidation(
         address account,
         address market
@@ -398,6 +416,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @return penaltyAmount Total penalty amount
     /// @return liquidatorReward Reward for liquidator
     /// @return protocolFee Fee for protocol
+    /// @dev Access: No caller-specific access restriction is imposed.
     function calculateLiquidationPenalty(
         uint256 collateralValue,
         uint256 debtValue
@@ -430,6 +449,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param account Account to check
     /// @param market Market address
     /// @return isLiquidatable Whether the position can be liquidated
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isPositionLiquidatable(
         address account,
         address market
@@ -442,6 +462,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param account Account address
     /// @param market Market address
     /// @return executions Array of liquidation executions
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getLiquidationHistory(
         address account,
         address market
@@ -452,6 +473,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @notice Get liquidation proceeds for a market
     /// @param market Market address
     /// @return proceeds LiquidationProceeds struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketProceeds(
         address market
     ) external view returns (LiquidationProceeds memory) {
@@ -461,6 +483,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @notice Get protocol proceeds balance for a token
     /// @param token Token address
     /// @return balance Protocol proceeds balance
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProtocolProceeds(address token) external view returns (uint256) {
         return protocolProceeds[token];
     }
@@ -469,6 +492,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param account Account address
     /// @param market Market address
     /// @return healthFactor Health factor (18 decimals)
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getHealthFactor(
         address account,
         address market
@@ -481,6 +505,7 @@ contract Liquidation is Ownable, ReentrancyGuard {
     /// @param accounts Array of account addresses
     /// @param market Market address
     /// @return conditions Array of liquidation conditions
+    /// @dev Access: No caller-specific access restriction is imposed.
     function batchMonitorConditions(
         address[] calldata accounts,
         address market

@@ -72,6 +72,11 @@ contract MarketWrap {
     /// @notice Configure a market to accept wraps of a given token, with optional limits.
     /// @param wrapLimit Maximum total amount that may be wrapped for this market. 0 means unlimited.
     /// @param userWrapLimit Maximum amount a single participant may have wrapped at once. 0 means unlimited.
+    /// @param marketId Identifier of the relevant market.
+    /// @param token Token contract address used by the operation.
+    /// @dev Access: Caller must satisfy `onlyController` access checks.
+    /// @dev Reverts: `MarketWrap__MarketAlreadyConfigured` if `_configs[marketId].active` is true.
+    ///     `MarketWrap__InvalidToken` if `token == address(0)` is true.
     function configureMarket(uint256 marketId, address token, uint256 wrapLimit, uint256 userWrapLimit)
         external
         onlyController
@@ -91,6 +96,10 @@ contract MarketWrap {
     }
 
     /// @notice Update the wrap limits for an already-configured market.
+    /// @param marketId Identifier of the relevant market.
+    /// @param newWrapLimit New wrap limit value.
+    /// @param newUserWrapLimit New user wrap limit value.
+    /// @dev Access: Caller must satisfy `onlyController`, `onlyActiveMarket` access checks.
     function updateWrapLimits(uint256 marketId, uint256 newWrapLimit, uint256 newUserWrapLimit)
         external
         onlyController
@@ -109,6 +118,13 @@ contract MarketWrap {
 
     /// @notice Wrap `amount` of the market's configured token into a tracked wrapped balance.
     /// @dev Caller must have approved this contract to spend `amount` of the underlying token.
+    /// @param marketId Identifier of the relevant market.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyActiveMarket` access checks.
+    /// @dev Reverts: `MarketWrap__ZeroAmount` if `amount == 0` is true.
+    ///     `MarketWrap__MarketLimitExceeded` if `cfg.wrapLimit != 0 && cfg.totalWrapped + amount >
+    ///     cfg.wrapLimit` is true. `MarketWrap__UserLimitExceeded` if `cfg.userWrapLimit != 0 &&
+    ///     pos.wrappedBalance + amount > cfg.userWrapLimit` is true.
     function wrap(uint256 marketId, uint256 amount) external onlyActiveMarket(marketId) {
         if (amount == 0) revert MarketWrap__ZeroAmount();
 
@@ -144,6 +160,11 @@ contract MarketWrap {
     }
 
     /// @notice Unwrap `amount` from the caller's wrapped balance, returning the underlying token.
+    /// @param marketId Identifier of the relevant market.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyActiveMarket` access checks.
+    /// @dev Reverts: `MarketWrap__ZeroAmount` if `amount == 0` is true.
+    ///     `MarketWrap__InsufficientWrappedBalance` if `pos.wrappedBalance < amount` is true.
     function unwrap(uint256 marketId, uint256 amount) external onlyActiveMarket(marketId) {
         if (amount == 0) revert MarketWrap__ZeroAmount();
 
@@ -178,22 +199,44 @@ contract MarketWrap {
     // Queries
     // ---------------------------------------------------------------
 
+    /// @notice Returns market config.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Market config returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketConfig(uint256 marketId) external view returns (MarketWrapConfig memory) {
         return _configs[marketId];
     }
 
+    /// @notice Executes wrappedBalanceOf.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function wrappedBalanceOf(uint256 marketId, address participant) external view returns (uint256) {
         return _positions[marketId][participant].wrappedBalance;
     }
 
+    /// @notice Returns position.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Position returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPosition(uint256 marketId, address participant) external view returns (WrapPosition memory) {
         return _positions[marketId][participant];
     }
 
+    /// @notice Executes totalWrapped.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalWrapped(uint256 marketId) external view returns (uint256) {
         return _configs[marketId].totalWrapped;
     }
 
+    /// @notice Executes remainingMarketCapacity.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingMarketCapacity(uint256 marketId) external view returns (uint256) {
         MarketWrapConfig storage cfg = _configs[marketId];
         if (cfg.wrapLimit == 0) return type(uint256).max;
@@ -201,6 +244,11 @@ contract MarketWrap {
         return cfg.wrapLimit - cfg.totalWrapped;
     }
 
+    /// @notice Executes remainingUserCapacity.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingUserCapacity(uint256 marketId, address participant) external view returns (uint256) {
         MarketWrapConfig storage cfg = _configs[marketId];
         if (cfg.userWrapLimit == 0) return type(uint256).max;
@@ -209,14 +257,26 @@ contract MarketWrap {
         return cfg.userWrapLimit - balance;
     }
 
+    /// @notice Returns wrap history.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Wrap history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWrapHistory(uint256 marketId) external view returns (WrapRecord[] memory) {
         return _wrapHistory[marketId];
     }
 
+    /// @notice Returns wrap operation count.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Wrap operation count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWrapOperationCount(uint256 marketId) external view returns (uint256) {
         return _wrapHistory[marketId].length;
     }
 
+    /// @notice Reports whether market active is satisfied.
+    /// @param marketId Identifier of the relevant market.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isMarketActive(uint256 marketId) external view returns (bool) {
         return _configs[marketId].active;
     }

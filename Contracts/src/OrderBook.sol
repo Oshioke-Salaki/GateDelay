@@ -139,6 +139,9 @@ contract OrderBook is Ownable, ReentrancyGuard {
      * @param hint     An existing price level near the insertion point to
      *                 reduce traversal cost. Pass 0 to start from the best price.
      * @return orderId Unique order identifier.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `InvalidPrice` if `price == 0` is true. `InvalidQuantity` if `quantity == 0` is
+     *     true.
      */
     function placeLimitOrder(
         bool    isBuy,
@@ -173,6 +176,10 @@ contract OrderBook is Ownable, ReentrancyGuard {
      * @param quantity    Base-token amount to trade.
      * @param maxSpend    Maximum quote tokens to spend (buy orders only; ignored for sells).
      * @return filled     Base-token amount filled (always equals quantity on success).
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `InvalidQuantity` if `quantity == 0` is true. `InvalidQuantity` if `isBuy` is
+     *     true. `InvalidQuantity` if `maxSpend == 0` is true. `InsufficientLiquidity` if `remaining
+     *     > 0` is true.
      */
     function placeMarketOrder(
         bool    isBuy,
@@ -212,6 +219,11 @@ contract OrderBook is Ownable, ReentrancyGuard {
      * @notice Cancel a resting order and refund escrowed tokens.
      *         Uses lazy deletion: the order stays in its FIFO queue but is
      *         skipped by the matching engine.
+     * @param orderId Identifier of the relevant order.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `OrderNotFound` if `o.id == 0` is true. `NotOrderOwner` if `o.trader !=
+     *     msg.sender` is true. `OrderNotCancellable` if `o.status == OrderStatus.FILLED || o.status
+     *     == OrderStatus.CANCELLED` is true.
      */
     function cancelOrder(uint256 orderId) external nonReentrant {
         Order storage o = _orders[orderId];
@@ -246,20 +258,37 @@ contract OrderBook is Ownable, ReentrancyGuard {
 
     // ── Queries ────────────────────────────────────────────────────────────────
 
+    /// @notice Returns order.
+    /// @param orderId Identifier of the relevant order.
+    /// @return Order returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `OrderNotFound` if `_orders[orderId].id == 0` is true.
     function getOrder(uint256 orderId) external view returns (Order memory) {
         if (_orders[orderId].id == 0) revert OrderNotFound(orderId);
         return _orders[orderId];
     }
 
+    /// @notice Returns trader orders.
+    /// @param trader Address associated with trader.
+    /// @return Trader orders returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTraderOrders(address trader) external view returns (uint256[] memory) {
         return _traderOrders[trader];
     }
 
+    /// @notice Returns spread.
+    /// @return Spread returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSpread() external view returns (uint256) {
         if (bestBid == 0 || bestAsk == 0) return 0;
         return bestAsk > bestBid ? bestAsk - bestBid : 0;
     }
 
+    /// @notice Returns level depth.
+    /// @param isBuy Whether is buy is enabled or selected.
+    /// @param price Numeric price used by this operation.
+    /// @return Level depth returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getLevelDepth(bool isBuy, uint256 price) external view returns (uint256) {
         return isBuy ? _buyLevels[price].totalQuantity : _sellLevels[price].totalQuantity;
     }
@@ -270,6 +299,8 @@ contract OrderBook is Ownable, ReentrancyGuard {
      * @return buyQtys    Total unfilled quantity at each buy price.
      * @return sellPrices Prices ascending (best ask first).
      * @return sellQtys   Total unfilled quantity at each sell price.
+     * @param levels Numeric levels used by this operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getOrderBookDepth(uint256 levels)
         external

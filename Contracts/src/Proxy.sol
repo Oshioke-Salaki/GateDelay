@@ -47,6 +47,9 @@ contract Proxy {
 
     /// @notice Upgrade the implementation contract.
     /// @param newImplementation Address of the new implementation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidProxyAdmin` if `msg.sender != _proxyAdmin` is true.
+    ///     `ZeroImplementation` if `newImplementation == address(0)` is true.
     function upgradeTo(address newImplementation) external {
         if (msg.sender != _proxyAdmin) revert InvalidProxyAdmin();
         if (newImplementation == address(0)) revert ZeroImplementation();
@@ -59,6 +62,9 @@ contract Proxy {
 
     /// @notice Change the proxy admin.
     /// @param newAdmin Address of the new admin.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidProxyAdmin` if `msg.sender != _proxyAdmin` is true. `InvalidProxyAdmin`
+    ///     if `newAdmin == address(0)` is true.
     function changeAdmin(address newAdmin) external {
         if (msg.sender != _proxyAdmin) revert InvalidProxyAdmin();
         if (newAdmin == address(0)) revert InvalidProxyAdmin();
@@ -74,21 +80,29 @@ contract Proxy {
     // -------------------------------------------------------------------------
 
     /// @notice Get the current implementation address.
+    /// @return Implementation returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getImplementation() external view returns (address) {
         return _implementation;
     }
 
     /// @notice Get the current proxy admin.
+    /// @return Admin returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAdmin() external view returns (address) {
         return _proxyAdmin;
     }
 
     /// @notice Get the upgrade history.
+    /// @return Upgrade history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeHistory() external view returns (address[] memory) {
         return _upgradeHistory;
     }
 
     /// @notice Get the number of upgrades.
+    /// @return Upgrade count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeCount() external view returns (uint256) {
         return _upgradeHistory.length;
     }

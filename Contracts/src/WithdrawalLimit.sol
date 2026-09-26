@@ -84,6 +84,11 @@ contract WithdrawalLimit is Ownable {
     // -------------------------------------------------------------------------
     // Enforcer registry
     // -------------------------------------------------------------------------
+    /// @notice Executes addEnforcer.
+    /// @param enforcer Address associated with enforcer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `enforcer == address(0)` is true. `AlreadyEnforcer` if
+    ///     `_enforcers[enforcer]` is true.
     function addEnforcer(address enforcer) external onlyOwner {
         if (enforcer == address(0)) revert ZeroAddress();
         if (_enforcers[enforcer]) revert AlreadyEnforcer();
@@ -92,6 +97,10 @@ contract WithdrawalLimit is Ownable {
         emit EnforcerAdded(enforcer);
     }
 
+    /// @notice Executes removeEnforcer.
+    /// @param enforcer Address associated with enforcer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NotEnforcer` if `!_enforcers[enforcer]` is true.
     function removeEnforcer(address enforcer) external onlyOwner {
         if (!_enforcers[enforcer]) revert NotEnforcer();
         _enforcers[enforcer] = false;
@@ -107,6 +116,10 @@ contract WithdrawalLimit is Ownable {
         emit EnforcerRemoved(enforcer);
     }
 
+    /// @notice Reports whether enforcer is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isEnforcer(address account) external view returns (bool) {
         return _enforcers[account];
     }
@@ -116,6 +129,12 @@ contract WithdrawalLimit is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Configure the default limit applied to a token.
+    /// @param token Token contract address used by the operation.
+    /// @param windowAmount Numeric window amount used by this operation.
+    /// @param perTxCap Numeric per tx cap used by this operation.
+    /// @param windowSeconds Numeric window seconds used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true.
     function setDefaultLimit(
         address token,
         uint256 windowAmount,
@@ -133,6 +152,13 @@ contract WithdrawalLimit is Ownable {
     }
 
     /// @notice Override the limit for a specific user and token.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @param windowAmount Numeric window amount used by this operation.
+    /// @param perTxCap Numeric per tx cap used by this operation.
+    /// @param windowSeconds Numeric window seconds used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `user == address(0) || token == address(0)` is true.
     function setUserLimit(
         address user,
         address token,
@@ -151,12 +177,18 @@ contract WithdrawalLimit is Ownable {
     }
 
     /// @notice Remove a per-user override; falls back to default.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @dev Access: Caller must be the contract owner.
     function clearUserLimit(address user, address token) external onlyOwner {
         delete _userLimits[user][token];
         emit UserLimitCleared(user, token);
     }
 
     /// @notice Reset a user's usage counter for a token (e.g. after support review).
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @dev Access: Caller must be the contract owner.
     function resetUsage(address user, address token) external onlyOwner {
         delete _usage[user][token];
         emit UsageReset(user, token);
@@ -168,6 +200,12 @@ contract WithdrawalLimit is Ownable {
 
     /// @notice Reverts iff `amount` is over the configured limits for `user`/`token`.
     /// @dev Pure preview helper that does not mutate usage.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PerTxCapExceeded` if `lim.perTxCap != 0 && amount > lim.perTxCap` is true.
+    ///     `LimitExceeded` if `amount > remaining` is true.
     function check(address user, address token, uint256 amount) public view {
         Limit memory lim = effectiveLimit(user, token);
 
@@ -184,6 +222,13 @@ contract WithdrawalLimit is Ownable {
 
     /// @notice Validate then commit a withdrawal against the rolling window.
     /// @dev Callable only by enforcers (e.g. the vault contract).
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyEnforcer` access checks.
+    /// @dev Reverts: `PerTxCapExceeded` if `lim.perTxCap != 0 && amount > lim.perTxCap` is true.
+    ///     `LimitExceeded` if `lim.windowAmount != 0` is true. `LimitExceeded` if `amount >
+    ///     remaining` is true.
     function record(address user, address token, uint256 amount) external onlyEnforcer {
         Limit memory lim = effectiveLimit(user, token);
 
@@ -213,21 +258,41 @@ contract WithdrawalLimit is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice The limit applied to a (user, token) pair: per-user override else default.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function effectiveLimit(address user, address token) public view returns (Limit memory) {
         Limit memory lim = _userLimits[user][token];
         if (lim.set) return lim;
         return _defaultLimits[token];
     }
 
+    /// @notice Returns default limit.
+    /// @param token Token contract address used by the operation.
+    /// @return Default limit returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDefaultLimit(address token) external view returns (Limit memory) {
         return _defaultLimits[token];
     }
 
+    /// @notice Returns user limit.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @return User limit returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserLimit(address user, address token) external view returns (Limit memory) {
         return _userLimits[user][token];
     }
 
     /// @notice Current rolling-window usage and remaining budget.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @return used used produced by the operation.
+    /// @return remaining remaining produced by the operation.
+    /// @return windowStart window start produced by the operation.
+    /// @return windowEnd window end produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUsage(address user, address token)
         external
         view
@@ -247,6 +312,10 @@ contract WithdrawalLimit is Ownable {
     }
 
     /// @notice Convenience: amount the user may still withdraw right now.
+    /// @param user User address affected by this operation.
+    /// @param token Token contract address used by the operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remaining(address user, address token) external view returns (uint256) {
         Limit memory lim = effectiveLimit(user, token);
         if (lim.windowAmount == 0) return type(uint256).max;

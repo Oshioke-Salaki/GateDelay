@@ -156,6 +156,13 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @param marketId Market ID (0 for global delegation)
     /// @param duration Duration in seconds (0 for no expiration)
     /// @return delegationId Unique identifier for the delegation
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `delegatee == address(0)` is true. `SelfDelegation` if
+    ///     `delegatee == msg.sender` is true. `InvalidPermission` if `duration >
+    ///     MAX_DELEGATION_DURATION` is true. `MaxDelegationsExceeded` if
+    ///     `_delegatorDelegations[msg.sender].length >= MAX_DELEGATIONS_PER_DELEGATOR` is true.
+    ///     `DelegationAlreadyExists` if `_delegations[delegationId].delegator != address(0)` is
+    ///     true.
     function requestDelegation(
         address delegatee,
         uint256 marketId,
@@ -209,6 +216,12 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Activate a pending delegation
     /// @param delegationId ID of the delegation to activate
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `UnauthorizedDelegator` if `delegation.delegator != msg.sender` is true.
+    ///     `DelegationNotActive` if `delegation.status != DelegationStatus.PENDING` is true.
+    ///     `DelegationNotActive` if `delegation.expiresAt > 0 && block.timestamp >=
+    ///     delegation.expiresAt` is true.
     function activateDelegation(bytes32 delegationId) external nonReentrant {
         Delegation storage delegation = _delegations[delegationId];
         
@@ -233,6 +246,11 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Revoke an active delegation
     /// @param delegationId ID of the delegation to revoke
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `UnauthorizedDelegator` if `delegation.delegator != msg.sender` is true.
+    ///     `DelegationNotActive` if `delegation.status != DelegationStatus.ACTIVE &&
+    ///     delegation.status != DelegationStatus.PENDING` is true.
     function revokeDelegation(bytes32 delegationId) external nonReentrant {
         Delegation storage delegation = _delegations[delegationId];
         
@@ -265,6 +283,11 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Grant a permission to a delegation
     /// @param delegationId ID of the delegation
     /// @param permission Permission to grant
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `UnauthorizedDelegator` if `delegation.delegator != msg.sender` is true.
+    ///     `DelegationNotActive` if `delegation.status != DelegationStatus.ACTIVE` is true.
+    ///     `PermissionAlreadyGranted` if `permGrant.granted` is true.
     function grantPermission(bytes32 delegationId, Permission permission) external nonReentrant {
         Delegation storage delegation = _delegations[delegationId];
         
@@ -287,6 +310,10 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Revoke a permission from a delegation
     /// @param delegationId ID of the delegation
     /// @param permission Permission to revoke
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `UnauthorizedDelegator` if `delegation.delegator != msg.sender` is true.
+    ///     `PermissionNotGranted` if `!permGrant.granted` is true.
     function revokePermission(bytes32 delegationId, Permission permission) external nonReentrant {
         Delegation storage delegation = _delegations[delegationId];
         
@@ -304,6 +331,10 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Grant multiple permissions at once
     /// @param delegationId ID of the delegation
     /// @param permissions Array of permissions to grant
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `UnauthorizedDelegator` if `delegation.delegator != msg.sender` is true.
+    ///     `DelegationNotActive` if `delegation.status != DelegationStatus.ACTIVE` is true.
     function grantPermissions(
         bytes32 delegationId,
         Permission[] calldata permissions
@@ -334,6 +365,8 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get delegation details
     /// @param delegationId ID of the delegation
     /// @return delegation Delegation struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
     function getDelegation(bytes32 delegationId) external view returns (Delegation memory) {
         Delegation memory delegation = _delegations[delegationId];
         if (delegation.delegator == address(0)) revert DelegationNotFound();
@@ -343,6 +376,8 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get delegation status
     /// @param delegationId ID of the delegation
     /// @return status Current status of the delegation
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
     function getDelegationStatus(bytes32 delegationId) external view returns (DelegationStatus) {
         Delegation memory delegation = _delegations[delegationId];
         if (delegation.delegator == address(0)) revert DelegationNotFound();
@@ -360,6 +395,7 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Check if a delegation is active
     /// @param delegationId ID of the delegation
     /// @return active True if delegation is active
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isDelegationActive(bytes32 delegationId) external view returns (bool) {
         Delegation memory delegation = _delegations[delegationId];
         if (delegation.delegator == address(0)) return false;
@@ -372,6 +408,7 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @param delegationId ID of the delegation
     /// @param permission Permission to check
     /// @return hasPermission True if permission is granted
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasPermission(
         bytes32 delegationId,
         Permission permission
@@ -387,6 +424,9 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get all permissions for a delegation
     /// @param delegationId ID of the delegation
     /// @return permissions Array of granted permissions
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `DelegationNotFound` if `_delegations[delegationId].delegator == address(0)` is
+    ///     true.
     function getGrantedPermissions(bytes32 delegationId) external view returns (Permission[] memory) {
         if (_delegations[delegationId].delegator == address(0)) revert DelegationNotFound();
         return _grantedPermissions[delegationId];
@@ -395,6 +435,7 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get all delegations by a delegator
     /// @param delegator Address of the delegator
     /// @return delegationIds Array of delegation IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationsByDelegator(address delegator) external view returns (bytes32[] memory) {
         return _delegatorDelegations[delegator];
     }
@@ -402,6 +443,7 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get all delegations to a delegatee
     /// @param delegatee Address of the delegatee
     /// @return delegationIds Array of delegation IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationsByDelegatee(address delegatee) external view returns (bytes32[] memory) {
         return _delegateeDelegations[delegatee];
     }
@@ -409,12 +451,14 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
     /// @notice Get all delegations for a market
     /// @param marketId Market ID
     /// @return delegationIds Array of delegation IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationsByMarket(uint256 marketId) external view returns (bytes32[] memory) {
         return _marketDelegations[marketId];
     }
 
     /// @notice Get delegation statistics
     /// @return stats DelegationStats struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDelegationStats() external view returns (DelegationStats memory stats) {
         uint256 revoked = 0;
         uint256 expired = 0;
@@ -430,12 +474,14 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Get total number of delegations
     /// @return total Total delegations created
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalDelegations() external view returns (uint256) {
         return _totalDelegations;
     }
 
     /// @notice Get number of active delegations
     /// @return active Active delegations count
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getActiveDelegations() external view returns (uint256) {
         return _activeDelegations;
     }
@@ -444,6 +490,9 @@ contract MarketDelegation is Ownable, ReentrancyGuard {
 
     /// @notice Emergency function to expire a delegation (admin only)
     /// @param delegationId ID of the delegation to expire
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `DelegationNotFound` if `delegation.delegator == address(0)` is true.
+    ///     `DelegationNotActive` if `delegation.status != DelegationStatus.ACTIVE` is true.
     function expireDelegation(bytes32 delegationId) external onlyOwner {
         Delegation storage delegation = _delegations[delegationId];
         

@@ -66,20 +66,32 @@ contract Whitelist is Ownable {
     // -------------------------------------------------------------------------
     // Whitelist management
     // -------------------------------------------------------------------------
+    /// @notice Executes whitelist.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function whitelist(address account) external onlyOwner {
         _whitelist(account);
     }
 
+    /// @notice Executes unwhitelist.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function unwhitelist(address account) external onlyOwner {
         _unwhitelist(account);
     }
 
+    /// @notice Executes whitelistBatch.
+    /// @param accounts Address associated with accounts.
+    /// @dev Access: Caller must be the contract owner.
     function whitelistBatch(address[] calldata accounts) external onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             _whitelist(accounts[i]);
         }
     }
 
+    /// @notice Executes unwhitelistBatch.
+    /// @param accounts Address associated with accounts.
+    /// @dev Access: Caller must be the contract owner.
     function unwhitelistBatch(address[] calldata accounts) external onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             _unwhitelist(accounts[i]);
@@ -87,11 +99,15 @@ contract Whitelist is Ownable {
     }
 
     /// @notice Alias for integrations that prefer allowlist-style naming.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function addToWhitelist(address account) external onlyOwner {
         _whitelist(account);
     }
 
     /// @notice Alias for integrations that prefer allowlist-style naming.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function removeFromWhitelist(address account) external onlyOwner {
         _unwhitelist(account);
     }
@@ -99,10 +115,18 @@ contract Whitelist is Ownable {
     // -------------------------------------------------------------------------
     // Access checks
     // -------------------------------------------------------------------------
+    /// @notice Reports whether access allowed is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isAccessAllowed(address account) public view returns (bool) {
         return _whitelisted[account];
     }
 
+    /// @notice Executes requireWhitelisted.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `NotWhitelisted` if `!_whitelisted[account]` is true.
     function requireWhitelisted(address account) external view {
         if (!_whitelisted[account]) revert NotWhitelisted(account);
     }
@@ -110,26 +134,48 @@ contract Whitelist is Ownable {
     // -------------------------------------------------------------------------
     // Queries
     // -------------------------------------------------------------------------
+    /// @notice Reports whether whitelisted is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isWhitelisted(address account) public view returns (bool) {
         return _whitelisted[account];
     }
 
+    /// @notice Returns whitelisted accounts.
+    /// @return Whitelisted accounts returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWhitelistedAccounts() external view returns (address[] memory) {
         return _whitelistedAccounts;
     }
 
+    /// @notice Returns whitelisted count.
+    /// @return Whitelisted count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWhitelistedCount() external view returns (uint256) {
         return _whitelistedAccounts.length;
     }
 
+    /// @notice Returns whitelist change count.
+    /// @return Whitelist change count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWhitelistChangeCount() external view returns (uint256) {
         return _changes.length;
     }
 
+    /// @notice Returns whitelist change.
+    /// @param index Numeric index used by this operation.
+    /// @return Whitelist change returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWhitelistChange(uint256 index) external view returns (WhitelistChange memory) {
         return _changes[index];
     }
 
+    /// @notice Returns whitelist changes.
+    /// @param offset Numeric offset used by this operation.
+    /// @param limit Numeric limit used by this operation.
+    /// @return page page produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function listWhitelistChanges(uint256 offset, uint256 limit)
         external
         view
@@ -147,14 +193,28 @@ contract Whitelist is Ownable {
         }
     }
 
+    /// @notice Executes lastUpdatedAt.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function lastUpdatedAt(address account) external view returns (uint64) {
         return _lastUpdatedAt[account];
     }
 
+    /// @notice Executes lastUpdatedBy.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function lastUpdatedBy(address account) external view returns (address) {
         return _lastUpdatedBy[account];
     }
 
+    /// @notice Returns whitelist metadata.
+    /// @param account Account address affected by this operation.
+    /// @return whitelisted whitelisted produced by the operation.
+    /// @return updatedAt Unix timestamp of the event.
+    /// @return updatedBy updated by produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWhitelistMetadata(address account)
         external
         view

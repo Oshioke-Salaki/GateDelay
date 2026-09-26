@@ -73,6 +73,10 @@ contract MarketReward is Ownable, ReentrancyGuard {
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
+    /// @notice Executes addRewardType.
+    /// @param typeId Identifier of the relevant type.
+    /// @param name name used by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function addRewardType(bytes32 typeId, string calldata name) external onlyOwner {
         rewardTypes[typeId] = RewardType({
             name: name,
@@ -85,12 +89,21 @@ contract MarketReward is Ownable, ReentrancyGuard {
         emit RewardTypeAdded(typeId, name);
     }
 
+    /// @notice Executes deactivateRewardType.
+    /// @param typeId Identifier of the relevant type.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `UnknownRewardType` if `!rewardTypes[typeId].active` is true.
     function deactivateRewardType(bytes32 typeId) external onlyOwner {
         if (!rewardTypes[typeId].active) revert UnknownRewardType();
         rewardTypes[typeId].active = false;
         emit RewardTypeDeactivated(typeId);
     }
 
+    /// @notice Executes setDistributor.
+    /// @param distributor Address associated with distributor.
+    /// @param enabled Whether the configuration is enabled.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `distributor == address(0)` is true.
     function setDistributor(address distributor, bool enabled) external onlyOwner {
         if (distributor == address(0)) revert ZeroAddress();
         distributors[distributor] = enabled;
@@ -98,6 +111,11 @@ contract MarketReward is Ownable, ReentrancyGuard {
     }
 
     /// @notice Fund a reward pool with tokens.
+    /// @param typeId Identifier of the relevant type.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true. `UnknownRewardType` if
+    ///     `!rewardTypes[typeId].active` is true.
     function fundPool(bytes32 typeId, uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();
         if (!rewardTypes[typeId].active) revert UnknownRewardType();
@@ -113,6 +131,10 @@ contract MarketReward is Ownable, ReentrancyGuard {
      * @param typeId  Reward type identifier.
      * @param user    Recipient address.
      * @param amount  Reward amount to allocate.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `NotDistributor` if `!distributors[msg.sender]` is true. `ZeroAddress` if `user
+     *     == address(0)` is true. `ZeroAmount` if `amount == 0` is true. `UnknownRewardType` if
+     *     `!rt.active` is true. `InsufficientPool` if `rt.poolBalance < amount` is true.
      */
     function recordParticipation(bytes32 typeId, address user, uint256 amount) external {
         if (!distributors[msg.sender]) revert NotDistributor();
@@ -133,6 +155,9 @@ contract MarketReward is Ownable, ReentrancyGuard {
     // ── Claiming ───────────────────────────────────────────────────────────────
 
     /// @notice Claim all pending rewards for a specific reward type.
+    /// @param typeId Identifier of the relevant type.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NoRewardsToClaim` if `pending == 0` is true.
     function claim(bytes32 typeId) external nonReentrant {
         ClaimRecord storage rec = claimRecords[typeId][msg.sender];
         uint256 pending = rec.totalEarned - rec.totalClaimed;
@@ -147,6 +172,8 @@ contract MarketReward is Ownable, ReentrancyGuard {
     }
 
     /// @notice Claim rewards across all reward types in one transaction.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NoRewardsToClaim` if `total == 0` is true.
     function claimAll() external nonReentrant {
         uint256 total;
         for (uint256 i; i < rewardTypeIds.length; ++i) {
@@ -167,22 +194,35 @@ contract MarketReward is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Pending claimable reward for a user under a specific type.
+    /// @param typeId Identifier of the relevant type.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pendingReward(bytes32 typeId, address user) external view returns (uint256) {
         ClaimRecord storage rec = claimRecords[typeId][user];
         return rec.totalEarned - rec.totalClaimed;
     }
 
     /// @notice Full claim record for a user under a specific type.
+    /// @param typeId Identifier of the relevant type.
+    /// @param user User address affected by this operation.
+    /// @return Claim record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimRecord(bytes32 typeId, address user) external view returns (ClaimRecord memory) {
         return claimRecords[typeId][user];
     }
 
     /// @notice Returns all registered reward type IDs.
+    /// @return Reward type ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRewardTypeIds() external view returns (bytes32[] memory) {
         return rewardTypeIds;
     }
 
     /// @notice Returns reward type details.
+    /// @param typeId Identifier of the relevant type.
+    /// @return Reward type returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRewardType(bytes32 typeId) external view returns (RewardType memory) {
         return rewardTypes[typeId];
     }

@@ -140,23 +140,37 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
 
     // ─── Admin ───────────────────────────────────────────────────────────────
 
+    /// @notice Executes setPaused.
+    /// @param _paused Whether paused is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
         emit Paused(_paused);
     }
 
+    /// @notice Executes setRedemptionRate.
+    /// @param rateWad Numeric rate wad used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidRedemptionRate` if `rateWad == 0` is true.
     function setRedemptionRate(uint256 rateWad) external onlyOwner {
         if (rateWad == 0) revert InvalidRedemptionRate();
         redemptionRateWad = rateWad;
         emit RateUpdated(rateWad);
     }
 
+    /// @notice Executes setFee.
+    /// @param _feeBps fee bps expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidPartialFraction` if `_feeBps > MAX_FEE_BPS` is true.
     function setFee(uint256 _feeBps) external onlyOwner {
         if (_feeBps > MAX_FEE_BPS) revert InvalidPartialFraction();
         feeBps = _feeBps;
         emit FeeUpdated(_feeBps);
     }
 
+    /// @notice Executes setFeeRecipient.
+    /// @param _feeRecipient Address associated with fee recipient.
+    /// @dev Access: Caller must be the contract owner.
     function setFeeRecipient(address _feeRecipient) external onlyOwner {
         feeRecipient = _feeRecipient;
         emit FeeRecipientUpdated(_feeRecipient);
@@ -170,6 +184,11 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
     /// @param partialBps   Fraction to actually redeem (1–10 000 bps).
     ///                     Use 10 000 for a full redemption of `shares`.
     /// @return id          Redemption record identifier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `ZeroAmount` if `shares == 0` is true.
+    ///     `InvalidPartialFraction` if `partialBps < MIN_PARTIAL_BPS || partialBps >
+    ///     BPS_DENOMINATOR` is true. `InsufficientShares` if `shareToken.balanceOf(msg.sender) <
+    ///     shares` is true. `ZeroAmount` if `sharesRedeemed == 0` is true.
     function requestRedemption(uint256 shares, uint256 partialBps)
         external
         nonReentrant
@@ -228,6 +247,13 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
 
     /// @notice Finalise a pending redemption: burn shares and pay out underlying.
     /// @dev    Callable by the redemption owner or the contract owner.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `UnknownRedemption` if `r.status ==
+    ///     RedemptionStatus.NONE` is true. `NotRedemptionOwner` if `r.user != msg.sender &&
+    ///     msg.sender != owner()` is true. `RedemptionNotPending` if `r.status !=
+    ///     RedemptionStatus.PENDING` is true. `InsufficientPoolLiquidity` if
+    ///     `underlyingToken.balanceOf(address(this)) < grossValue` is true.
     function executeRedemption(uint256 id) external nonReentrant {
         if (paused) revert ContractPaused();
         RedemptionRequest storage r = _redemptions[id];
@@ -268,6 +294,11 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
     // ─── Core: cancel ────────────────────────────────────────────────────────
 
     /// @notice Cancel a pending redemption and return the locked shares.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `UnknownRedemption` if `r.status == RedemptionStatus.NONE` is true.
+    ///     `NotRedemptionOwner` if `r.user != msg.sender` is true. `RedemptionNotPending` if
+    ///     `r.status != RedemptionStatus.PENDING` is true.
     function cancelRedemption(uint256 id) external nonReentrant {
         RedemptionRequest storage r = _redemptions[id];
         if (r.status == RedemptionStatus.NONE)    revert UnknownRedemption();
@@ -286,21 +317,38 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
     // ─── Queries ─────────────────────────────────────────────────────────────
 
     /// @notice Full details of a single redemption.
+    /// @param id Numeric id used by this operation.
+    /// @return Redemption returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRedemption(uint256 id) external view returns (RedemptionRequest memory) {
         return _redemptions[id];
     }
 
     /// @notice Status of a redemption.
+    /// @param id Numeric id used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function statusOf(uint256 id) external view returns (RedemptionStatus) {
         return _redemptions[id].status;
     }
 
     /// @notice All redemption ids for a user (any status).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userRedemptionIds(address user) external view returns (uint256[] memory) {
         return _userRedemptions[user];
     }
 
     /// @notice Preview gross redemption value for `shares` at current rate.
+    /// @param shares Numeric shares used by this operation.
+    /// @param partialBps partial bps expressed in basis points.
+    /// @return grossValue gross value produced by the operation.
+    /// @return netValue net value produced by the operation.
+    /// @return feeAmount Amount in the relevant token units.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidPartialFraction` if `partialBps < MIN_PARTIAL_BPS || partialBps >
+    ///     BPS_DENOMINATOR` is true.
     function previewRedemptionValue(uint256 shares, uint256 partialBps)
         external
         view
@@ -321,6 +369,9 @@ contract ShareRedemption is Ownable, ReentrancyGuard {
     }
 
     /// @notice Number of redemptions in history for a given user.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userRedemptionCount(address user) external view returns (uint256) {
         return _userRedemptions[user].length;
     }

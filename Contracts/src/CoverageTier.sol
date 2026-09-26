@@ -81,6 +81,8 @@ contract CoverageTier is Ownable, ReentrancyGuard {
      * @param price     Cost in payment token.
      * @param duration  Subscription duration in seconds.
      * @param benefits  Packed benefit flags.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `InvalidDuration` if `duration == 0` is true.
      */
     function defineTier(
         bytes32 tierId,
@@ -103,18 +105,31 @@ contract CoverageTier is Ownable, ReentrancyGuard {
         emit TierDefined(tierId, name, price, duration);
     }
 
+    /// @notice Executes deactivateTier.
+    /// @param tierId Identifier of the relevant tier.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `TierNotFound` if `!tiers[tierId].active` is true.
     function deactivateTier(bytes32 tierId) external onlyOwner {
         if (!tiers[tierId].active) revert TierNotFound();
         tiers[tierId].active = false;
         emit TierDeactivated(tierId);
     }
 
+    /// @notice Executes updateTierPrice.
+    /// @param tierId Identifier of the relevant tier.
+    /// @param newPrice New price value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `TierNotFound` if `!tiers[tierId].active` is true.
     function updateTierPrice(bytes32 tierId, uint256 newPrice) external onlyOwner {
         if (!tiers[tierId].active) revert TierNotFound();
         tiers[tierId].price = newPrice;
         emit TierPriceUpdated(tierId, newPrice);
     }
 
+    /// @notice Executes setTreasury.
+    /// @param newTreasury New treasury value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `newTreasury == address(0)` is true.
     function setTreasury(address newTreasury) external onlyOwner {
         if (newTreasury == address(0)) revert ZeroAddress();
         treasury = newTreasury;
@@ -123,6 +138,10 @@ contract CoverageTier is Ownable, ReentrancyGuard {
     // ── Subscriptions ──────────────────────────────────────────────────────────
 
     /// @notice Subscribe to a tier. Reverts if user already has an active subscription.
+    /// @param tierId Identifier of the relevant tier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `TierInactive` if `!tier.active` is true. `AlreadyOnHigherTier` if `sub.active
+    ///     && block.timestamp < sub.expiryTime` is true.
     function subscribe(bytes32 tierId) external nonReentrant {
         Tier storage tier = tiers[tierId];
         if (!tier.active) revert TierInactive();
@@ -151,6 +170,10 @@ contract CoverageTier is Ownable, ReentrancyGuard {
     /**
      * @notice Upgrade to a higher-priced tier. User pays the price difference.
      * @param newTierId  Target tier (must have a higher price than current).
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `SubscriptionNotFound` if `!sub.active` is true. `TierInactive` if
+     *     `!newTier.active` is true. `SameTier` if `sub.tierId == newTierId` is true.
+     *     `AlreadyOnHigherTier` if `newTier.price <= currentTier.price` is true.
      */
     function upgrade(bytes32 newTierId) external nonReentrant {
         Subscription storage sub = subscriptions[msg.sender];
@@ -179,6 +202,10 @@ contract CoverageTier is Ownable, ReentrancyGuard {
     }
 
     /// @notice Renew an existing subscription for another full period.
+    /// @param tierId Identifier of the relevant tier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `TierInactive` if `!tier.active` is true. `SubscriptionNotFound` if
+    ///     `!sub.active || sub.tierId != tierId` is true.
     function renew(bytes32 tierId) external nonReentrant {
         Tier storage tier = tiers[tierId];
         if (!tier.active) revert TierInactive();
@@ -200,27 +227,42 @@ contract CoverageTier is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns whether a user has an active (non-expired) subscription.
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isSubscribed(address user) external view returns (bool) {
         Subscription storage sub = subscriptions[user];
         return sub.active && block.timestamp < sub.expiryTime;
     }
 
     /// @notice Returns the user's current subscription details.
+    /// @param user User address affected by this operation.
+    /// @return Subscription returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSubscription(address user) external view returns (Subscription memory) {
         return subscriptions[user];
     }
 
     /// @notice Returns tier details.
+    /// @param tierId Identifier of the relevant tier.
+    /// @return Tier returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTier(bytes32 tierId) external view returns (Tier memory) {
         return tiers[tierId];
     }
 
     /// @notice Returns all registered tier IDs.
+    /// @return Tier ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTierIds() external view returns (bytes32[] memory) {
         return tierIds;
     }
 
     /// @notice Returns whether a user's subscription has a specific benefit flag set.
+    /// @param user User address affected by this operation.
+    /// @param benefitFlag Encoded data used for benefit flag.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasBenefit(address user, bytes32 benefitFlag) external view returns (bool) {
         Subscription storage sub = subscriptions[user];
         if (!sub.active || block.timestamp >= sub.expiryTime) return false;

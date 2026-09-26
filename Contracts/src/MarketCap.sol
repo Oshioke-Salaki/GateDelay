@@ -105,6 +105,10 @@ contract MarketCap is Ownable, ReentrancyGuard {
     /// @param price Current price per token (18 decimals)
     /// @param totalSupply Total token supply (18 decimals)
     /// @return cap The calculated market cap (18 decimals)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroMarketId` if `marketId == 0` is true. `ZeroPrice` if `price == 0` is true.
+    ///     `ZeroSupply` if `totalSupply == 0` is true. `CapLimitExceeded` if
+    ///     `data.capLimit.gt(ud(0)) && calculatedCap.gt(data.capLimit)` is true.
     function calculateMarketCap(
         uint256 marketId,
         uint256 price,
@@ -157,6 +161,10 @@ contract MarketCap is Ownable, ReentrancyGuard {
     /// @param marketId The market identifier
     /// @param price New price per token (18 decimals)
     /// @param totalSupply New total supply (18 decimals)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroMarketId` if `marketId == 0` is true. `ZeroPrice` if `price == 0` is true.
+    ///     `ZeroSupply` if `totalSupply == 0` is true. `MarketNotFound` if `!data.exists` is true.
+    ///     `CapLimitExceeded` if `data.capLimit.gt(ud(0)) && newCap.gt(data.capLimit)` is true.
     function updateMarketCap(
         uint256 marketId,
         uint256 price,
@@ -195,6 +203,9 @@ contract MarketCap is Ownable, ReentrancyGuard {
     /// @param price Price per token (18 decimals)
     /// @param totalSupply Total supply (18 decimals)
     /// @return cap Calculated market cap (price * supply / 1e18)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroPrice` if `price == 0` is true. `ZeroSupply` if `totalSupply == 0` is
+    ///     true.
     function calculateCap(uint256 price, uint256 totalSupply) external pure returns (uint256 cap) {
         if (price == 0) revert ZeroPrice();
         if (totalSupply == 0) revert ZeroSupply();
@@ -208,6 +219,11 @@ contract MarketCap is Ownable, ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Set cap limit (owner only, 0 = no limit)
+    /// @param marketId Identifier of the relevant market.
+    /// @param capLimit Numeric cap limit used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroMarketId` if `marketId == 0` is true. `MarketNotFound` if
+    ///     `!_marketCaps[marketId].exists` is true.
     function setCapLimit(uint256 marketId, uint256 capLimit) external onlyOwner {
         if (marketId == 0) revert ZeroMarketId();
         if (!_marketCaps[marketId].exists) revert MarketNotFound();
@@ -217,6 +233,11 @@ contract MarketCap is Ownable, ReentrancyGuard {
     }
 
     /// @notice Set a threshold alert for a market (owner only)
+    /// @param marketId Identifier of the relevant market.
+    /// @param threshold Numeric threshold used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroMarketId` if `marketId == 0` is true. `InvalidThreshold` if `threshold ==
+    ///     0` is true. `MarketNotFound` if `!_marketCaps[marketId].exists` is true.
     function setCapThreshold(uint256 marketId, uint256 threshold) external onlyOwner {
         if (marketId == 0) revert ZeroMarketId();
         if (threshold == 0) revert InvalidThreshold();
@@ -226,12 +247,24 @@ contract MarketCap is Ownable, ReentrancyGuard {
     }
 
     /// @notice Remove a threshold alert (owner only)
+    /// @param marketId Identifier of the relevant market.
+    /// @param threshold Numeric threshold used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroMarketId` if `marketId == 0` is true.
     function removeCapThreshold(uint256 marketId, uint256 threshold) external onlyOwner {
         if (marketId == 0) revert ZeroMarketId();
         _thresholds[marketId][threshold] = false;
     }
 
     /// @notice Batch calculate market caps for multiple markets (max 50)
+    /// @param marketIds Numeric market ids used by this operation.
+    /// @param prices Numeric prices used by this operation.
+    /// @param supplies Numeric supplies used by this operation.
+    /// @return results results produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidBatchSize` if `marketIds.length != prices.length || marketIds.length !=
+    ///     supplies.length` is true. `InvalidBatchSize` if `marketIds.length == 0 ||
+    ///     marketIds.length > 50` is true.
     function batchCalculateMarketCap(
         uint256[] calldata marketIds,
         uint256[] calldata prices,
@@ -261,6 +294,16 @@ contract MarketCap is Ownable, ReentrancyGuard {
     // View Functions
     // -------------------------------------------------------------------------
 
+    /// @notice Returns market cap.
+    /// @param marketId Identifier of the relevant market.
+    /// @return currentCap current cap produced by the operation.
+    /// @return previousCap previous cap produced by the operation.
+    /// @return capLimit cap limit produced by the operation.
+    /// @return totalSupply total supply produced by the operation.
+    /// @return price price produced by the operation.
+    /// @return lastUpdateTime last update time produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data.exists` is true.
     function getMarketCap(uint256 marketId)
         external
         view
@@ -286,6 +329,12 @@ contract MarketCap is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Returns cap change.
+    /// @param marketId Identifier of the relevant market.
+    /// @return change change produced by the operation.
+    /// @return isIncrease is increase produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data.exists` is true.
     function getCapChange(uint256 marketId) external view returns (uint256 change, bool isIncrease) {
         MarketCapData storage data = _marketCaps[marketId];
         if (!data.exists) revert MarketNotFound();
@@ -302,6 +351,11 @@ contract MarketCap is Ownable, ReentrancyGuard {
     }
 
     /// @notice Percentage change (18 decimals, 5e18 = 5%)
+    /// @param marketId Identifier of the relevant market.
+    /// @return percentageChange percentage change produced by the operation.
+    /// @return isIncrease is increase produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data.exists` is true.
     function getCapChangePercentage(uint256 marketId)
         external
         view
@@ -324,6 +378,11 @@ contract MarketCap is Ownable, ReentrancyGuard {
     }
 
     /// @notice Get peak and lowest caps
+    /// @param marketId Identifier of the relevant market.
+    /// @return peakCap peak cap produced by the operation.
+    /// @return lowestCap lowest cap produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data.exists` is true.
     function getCapExtremes(uint256 marketId) external view returns (uint256 peakCap, uint256 lowestCap) {
         MarketCapData storage data = _marketCaps[marketId];
         if (!data.exists) revert MarketNotFound();
@@ -331,24 +390,42 @@ contract MarketCap is Ownable, ReentrancyGuard {
         lowestCap = data.lowestCap.unwrap();
     }
 
+    /// @notice Returns all market ids.
+    /// @return All market ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAllMarketIds() external view returns (uint256[] memory) {
         return _marketIds;
     }
 
+    /// @notice Executes marketExists.
+    /// @param marketId Identifier of the relevant market.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function marketExists(uint256 marketId) external view returns (bool) {
         return _marketCaps[marketId].exists;
     }
 
+    /// @notice Returns market count.
+    /// @return Market count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketCount() external view returns (uint256) {
         return _marketIds.length;
     }
 
+    /// @notice Returns update count.
+    /// @param marketId Identifier of the relevant market.
+    /// @return count Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data.exists` is true.
     function getUpdateCount(uint256 marketId) external view returns (uint256 count) {
         MarketCapData storage data = _marketCaps[marketId];
         if (!data.exists) revert MarketNotFound();
         count = data.updateCount;
     }
 
+    /// @notice Returns total market cap.
+    /// @return Total market cap returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalMarketCap() external view returns (uint256) {
         UD60x18 total = ud(0);
         for (uint256 i = 0; i < _marketIds.length; i++) {
@@ -357,16 +434,32 @@ contract MarketCap is Ownable, ReentrancyGuard {
         return total.unwrap();
     }
 
+    /// @notice Returns snapshots.
+    /// @param marketId Identifier of the relevant market.
+    /// @return snapshots snapshots produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSnapshots(uint256 marketId) external view returns (CapSnapshot[] memory snapshots) {
         return _snapshots[marketId];
     }
 
+    /// @notice Returns latest snapshot.
+    /// @param marketId Identifier of the relevant market.
+    /// @return snapshot snapshot produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getLatestSnapshot(uint256 marketId) external view returns (CapSnapshot memory snapshot) {
         CapSnapshot[] storage snaps = _snapshots[marketId];
         if (snaps.length == 0) return CapSnapshot(0, 0, 0, 0);
         return snaps[snaps.length - 1];
     }
 
+    /// @notice Executes compareMarketCaps.
+    /// @param marketId1 Numeric market id1 used by this operation.
+    /// @param marketId2 Numeric market id2 used by this operation.
+    /// @return difference difference produced by the operation.
+    /// @return market1IsLarger market1 is larger produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotFound` if `!data1.exists` is true. `MarketNotFound` if
+    ///     `!data2.exists` is true.
     function compareMarketCaps(uint256 marketId1, uint256 marketId2)
         external
         view
@@ -386,6 +479,11 @@ contract MarketCap is Ownable, ReentrancyGuard {
         }
     }
 
+    /// @notice Returns top markets by cap.
+    /// @param limit Numeric limit used by this operation.
+    /// @return marketIds market ids produced by the operation.
+    /// @return caps caps produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTopMarketsByCap(uint256 limit)
         external
         view

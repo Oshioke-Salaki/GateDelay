@@ -1,5 +1,6 @@
 import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { CacheService } from './cache.service';
+import { CacheRefreshService } from './cache-refresh.service';
 import { CacheController } from './cache.controller';
 import { CacheMiddleware } from './cache.middleware';
 
@@ -33,11 +34,13 @@ import { CacheMiddleware } from './cache.middleware';
  * - L1: In-memory Map (500 entries, 30s TTL)
  * - L2: Redis (distributed cache)
  * - Middleware: Caches GET requests to /api/market-data*
+ * - Refresh: CacheRefreshService evicts market-domain keys after writes;
+ *   see cache-refresh.policy.ts for the event → eviction table
  */
 @Module({
-  providers: [CacheService],
+  providers: [CacheService, CacheRefreshService],
   controllers: [CacheController],
-  exports: [CacheService],
+  exports: [CacheService, CacheRefreshService],
 })
 export class AppCacheModule {
   configure(consumer: MiddlewareConsumer) {

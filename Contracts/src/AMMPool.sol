@@ -63,6 +63,9 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
     event FeeRateSet(uint256 feeRateBps);
     event ProtocolShareSet(uint256 protocolSharePct);
     event FeeRecipientSet(address indexed recipient);
+    event FeeRateUpdated(uint256 indexed oldFeeRateBps, uint256 indexed newFeeRateBps);
+    event ProtocolShareUpdated(uint256 indexed oldProtocolSharePct, uint256 indexed newProtocolSharePct);
+    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
     event ProtocolFeesCollected(uint256 amount0, uint256 amount1);
 
     // ── Errors ─────────────────────────────────────────────────────────────────
@@ -110,6 +113,10 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
     // ── Pool Queries ───────────────────────────────────────────────────────────
 
     /// @notice Returns the current reserves and the timestamp of the last update.
+    /// @return _reserve0 reserve0 produced by the operation.
+    /// @return _reserve1 reserve1 produced by the operation.
+    /// @return _blockTimestampLast block timestamp last produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getReserves() public view returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) {
         return (reserve0, reserve1, blockTimestampLast);
     }
@@ -118,6 +125,9 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @notice Spot price of token0 denominated in token1, as a UD60x18 value.
      *         E.g. if 1 token0 = 2 token1, returns ud(2e18).
      *         Uses PRBMath for 18-decimal fixed-point precision.
+     * @return Price0 returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InsufficientLiquidity` if `r0 == 0` is true.
      */
     function getPrice0() external view returns (UD60x18) {
         (uint112 r0, uint112 r1,) = getReserves();
@@ -127,6 +137,9 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
 
     /**
      * @notice Spot price of token1 denominated in token0, as a UD60x18 value.
+     * @return Price1 returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InsufficientLiquidity` if `r1 == 0` is true.
      */
     function getPrice1() external view returns (UD60x18) {
         (uint112 r0, uint112 r1,) = getReserves();
@@ -138,6 +151,13 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @notice Returns the maximum output for a given input, accounting for the
      *         pool fee. Implements the standard CPMM formula:
      *         amountOut = reserveOut * amountIn * (1 - fee) / (reserveIn + amountIn * (1 - fee))
+     * @param amountIn Numeric amount in used by this operation.
+     * @param reserveIn Input reserve used to calculate the swap output.
+     * @param reserveOut Output reserve used to calculate the swap output.
+     * @return amountOut amount out produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InsufficientInputAmount` if `amountIn == 0` is true. `InsufficientLiquidity` if
+     *     `reserveIn == 0 || reserveOut == 0` is true.
      */
     function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut)
         public
@@ -154,6 +174,14 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
     /**
      * @notice Returns the minimum input needed to receive a given output.
      *         amountIn = reserveIn * amountOut / ((reserveOut - amountOut) * (1 - fee)) + 1
+     * @param amountOut Numeric amount out used by this operation.
+     * @param reserveIn Input reserve used to calculate the swap output.
+     * @param reserveOut Output reserve used to calculate the swap output.
+     * @return amountIn amount in produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InsufficientOutputAmount` if `amountOut == 0` is true. `InsufficientLiquidity`
+     *     if `reserveIn == 0 || reserveOut == 0` is true. `InsufficientLiquidity` if `amountOut >=
+     *     reserveOut` is true.
      */
     function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut)
         public
@@ -183,6 +211,10 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @return amount0    Actual token0 deposited.
      * @return amount1    Actual token1 deposited.
      * @return liquidity  LP tokens minted.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAddress` if `to == address(0)` is true. `SlippageExceeded` if
+     *     `amount1Optimal <= amount1Desired` is true. `SlippageExceeded` if `amount1Optimal <
+     *     amount1Min` is true. `SlippageExceeded` if `amount0Optimal < amount0Min` is true.
      */
     function addLiquidity(
         uint256 amount0Desired,
@@ -229,6 +261,10 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @param to          Recipient of withdrawn tokens.
      * @return amount0  token0 returned.
      * @return amount1  token1 returned.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAddress` if `to == address(0)` is true. `InsufficientLiquidityBurned` if
+     *     `amount0 == 0 || amount1 == 0` is true. `SlippageExceeded` if `amount0 < amount0Min ||
+     *     amount1 < amount1Min` is true.
      */
     function removeLiquidity(uint256 liquidity, uint256 amount0Min, uint256 amount1Min, address to)
         external
@@ -267,6 +303,10 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @param minOut     Minimum output tokens to receive (slippage guard).
      * @param to         Recipient of the output tokens.
      * @return amountOut Tokens received.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `InvalidToken` if `tokenIn != token0 && tokenIn != token1` is true.
+     *     `InsufficientInputAmount` if `amountIn == 0` is true. `ZeroAddress` if `to == address(0)`
+     *     is true. `SlippageExceeded` if `amountOut < minOut` is true.
      */
     function swapExactInput(address tokenIn, uint256 amountIn, uint256 minOut, address to)
         external
@@ -304,6 +344,10 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
      * @param maxIn      Maximum input tokens willing to spend (slippage guard).
      * @param to         Recipient of the output tokens.
      * @return amountIn  Tokens spent.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `InvalidToken` if `tokenOut != token0 && tokenOut != token1` is true.
+     *     `InsufficientOutputAmount` if `amountOut == 0` is true. `ZeroAddress` if `to ==
+     *     address(0)` is true. `SlippageExceeded` if `amountIn > maxIn` is true.
      */
     function swapExactOutput(address tokenOut, uint256 amountOut, uint256 maxIn, address to)
         external
@@ -336,6 +380,9 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
     // ── Fee Collection ─────────────────────────────────────────────────────────
 
     /// @notice Transfer all accumulated protocol fees to feeRecipient.
+    /// @return amount0 amount0 produced by the operation.
+    /// @return amount1 amount1 produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function collectProtocolFees() external returns (uint256 amount0, uint256 amount1) {
         (amount0, amount1) = (protocolFees0, protocolFees1);
         protocolFees0 = 0;
@@ -348,22 +395,40 @@ contract AMMPool is ERC20, Ownable, ReentrancyGuard {
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
+    /// @notice Executes setFeeRate.
+    /// @param feeBps Fee rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `FeeTooHigh` if `feeBps > MAX_FEE_BPS` is true.
     function setFeeRate(uint256 feeBps) external onlyOwner {
         if (feeBps > MAX_FEE_BPS) revert FeeTooHigh();
+        uint256 oldFeeRateBps = feeRateBps;
         feeRateBps = feeBps;
         emit FeeRateSet(feeBps);
+        emit FeeRateUpdated(oldFeeRateBps, feeBps);
     }
 
+    /// @notice Executes setProtocolShare.
+    /// @param sharePct Numeric share pct used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidProtocolShare` if `sharePct > 100` is true.
     function setProtocolShare(uint256 sharePct) external onlyOwner {
         if (sharePct > 100) revert InvalidProtocolShare();
+        uint256 oldProtocolSharePct = protocolSharePct;
         protocolSharePct = sharePct;
         emit ProtocolShareSet(sharePct);
+        emit ProtocolShareUpdated(oldProtocolSharePct, sharePct);
     }
 
+    /// @notice Executes setFeeRecipient.
+    /// @param recipient Address that receives the transfer or result.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `recipient == address(0)` is true.
     function setFeeRecipient(address recipient) external onlyOwner {
         if (recipient == address(0)) revert ZeroAddress();
+        address oldRecipient = feeRecipient;
         feeRecipient = recipient;
         emit FeeRecipientSet(recipient);
+        emit FeeRecipientUpdated(oldRecipient, recipient);
     }
 
     // ── Internal ───────────────────────────────────────────────────────────────

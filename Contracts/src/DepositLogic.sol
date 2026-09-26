@@ -134,6 +134,9 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     /// @param token          The ERC-20 token address.
     /// @param depositCap     Maximum total deposits allowed (0 = uncapped).
     /// @param minimumDeposit Minimum deposit amount (0 = no minimum).
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `AssetAlreadySupported` if
+    ///     `assetConfigs[token].isActive` is true.
     function addAsset(address token, uint256 depositCap, uint256 minimumDeposit)
         external
         onlyOwner
@@ -153,6 +156,10 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Remove a supported asset. Reverts if there are active deposits.
     /// @param token The ERC-20 token address to remove.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `AssetNotSupported` if
+    ///     `!assetConfigs[token].isActive` is true. `InsufficientBalance` if
+    ///     `assetTotalDeposited[token] > 0` is true.
     function removeAsset(address token) external onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (!assetConfigs[token].isActive) revert AssetNotSupported(token);
@@ -174,6 +181,11 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Update the deposit cap for an asset.
+    /// @param token Token contract address used by the operation.
+    /// @param newCap New cap value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `AssetNotSupported` if
+    ///     `!assetConfigs[token].isActive` is true.
     function setDepositCap(address token, uint256 newCap) external onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (!assetConfigs[token].isActive) revert AssetNotSupported(token);
@@ -182,6 +194,11 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Update the minimum deposit for an asset.
+    /// @param token Token contract address used by the operation.
+    /// @param newMinimum New minimum value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `AssetNotSupported` if
+    ///     `!assetConfigs[token].isActive` is true.
     function setMinimumDeposit(address token, uint256 newMinimum) external onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (!assetConfigs[token].isActive) revert AssetNotSupported(token);
@@ -198,6 +215,12 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     /// @param assets  Amount of underlying token to deposit.
     /// @param receiver Address that will receive the shares credit.
     /// @return shares Number of shares minted for the deposit.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `ZeroAssets` if `assets == 0`
+    ///     is true. `InvalidRecipient` if `receiver == address(0)` is true. `AssetNotSupported` if
+    ///     `!config.isActive` is true. `DepositTooSmall` if `assets < config.minimumDeposit` is
+    ///     true. `ZeroShares` if `shares == 0` is true. `DepositCapExceeded` if `config.depositCap
+    ///     > 0 && newAssetTotal > config.depositCap` is true.
     function deposit(address token, uint256 assets, address receiver)
         external
         nonReentrant
@@ -242,6 +265,12 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     /// @param shares  Number of shares to redeem.
     /// @param receiver Address that will receive the underlying tokens.
     /// @return assets Amount of underlying tokens returned.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `ZeroShares` if `shares == 0`
+    ///     is true. `InvalidRecipient` if `receiver == address(0)` is true. `AssetNotSupported` if
+    ///     `!assetConfigs[token].isActive` is true. `InsufficientShares` if `position.shares <
+    ///     shares` is true. `ZeroAssets` if `assets == 0` is true. `InsufficientBalance` if
+    ///     `balance < assets` is true.
     function withdraw(address token, uint256 shares, address receiver)
         external
         nonReentrant
@@ -340,21 +369,33 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Get the number of supported assets.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function supportedAssetsCount() external view returns (uint256) {
         return supportedAssets.length;
     }
 
     /// @notice Check if an asset is supported.
+    /// @param token Token contract address used by the operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isAssetSupported(address token) external view returns (bool) {
         return assetConfigs[token].isActive;
     }
 
     /// @notice Get the full asset configuration for a token.
+    /// @param token Token contract address used by the operation.
+    /// @return Asset config returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAssetConfig(address token) external view returns (AssetConfig memory) {
         return assetConfigs[token];
     }
 
     /// @notice Get the deposit position of a user for a specific asset.
+    /// @param token Token contract address used by the operation.
+    /// @param user User address affected by this operation.
+    /// @return Asset position returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAssetPosition(address token, address user)
         external
         view
@@ -364,6 +405,9 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Get the full deposit history for a user.
+    /// @param user User address affected by this operation.
+    /// @return Deposit history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDepositHistory(address user)
         external
         view
@@ -373,21 +417,35 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Get the number of deposits made by a user.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function depositCount(address user) external view returns (uint256) {
         return _depositHistory[user].length;
     }
 
     /// @notice Preview how many shares `assets` would currently mint for a given token.
+    /// @param token Token contract address used by the operation.
+    /// @param assets Numeric assets used by this operation.
+    /// @return Deposit returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewDeposit(address token, uint256 assets) external view returns (uint256) {
         return _convertToShares(token, assets);
     }
 
     /// @notice Preview how many assets `shares` would currently redeem for a given token.
+    /// @param token Token contract address used by the operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Redeem returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewRedeem(address token, uint256 shares) external view returns (uint256) {
         return _convertToAssets(token, shares);
     }
 
     /// @notice Get the price per share for a given token (PRECISION-scaled).
+    /// @param token Token contract address used by the operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pricePerShare(address token) external view returns (uint256) {
         uint256 supply = assetTotalShares[token];
         if (supply == 0) return PRECISION;
@@ -395,16 +453,26 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Get the total value locked for a specific asset.
+    /// @param token Token contract address used by the operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function assetTVL(address token) external view returns (uint256) {
         return assetTotalDeposited[token];
     }
 
     /// @notice Get all supported asset addresses.
+    /// @return Supported assets returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSupportedAssets() external view returns (address[] memory) {
         return supportedAssets;
     }
 
     /// @notice Get summary statistics for a user across all assets.
+    /// @param user User address affected by this operation.
+    /// @return totalDeposits total deposits produced by the operation.
+    /// @return totalWithdrawals total withdrawals produced by the operation.
+    /// @return positionCount Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserSummary(address user)
         external
         view
@@ -427,12 +495,20 @@ contract DepositLogic is Ownable, ReentrancyGuard, Pausable {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Pause all deposit/withdraw operations.
+    /// @dev Access: Caller must be the contract owner.
     function pause() external onlyOwner { _pause(); }
 
     /// @notice Unpause all deposit/withdraw operations.
+    /// @dev Access: Caller must be the contract owner.
     function unpause() external onlyOwner { _unpause(); }
 
     /// @notice Recover accidentally sent tokens (non-managed).
+    /// @param token Token contract address used by the operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @param to Destination address for the transfer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `token == address(0)` is true. `ZeroAddress` if `to ==
+    ///     address(0)` is true. `ZeroAssets` if `amount == 0` is true.
     function recoverToken(address token, uint256 amount, address to) external onlyOwner {
         if (token == address(0)) revert ZeroAddress();
         if (to == address(0))    revert ZeroAddress();

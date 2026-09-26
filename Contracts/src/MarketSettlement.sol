@@ -62,6 +62,15 @@ contract MarketSettlement {
         uint256 amountDistributed,
         uint256 remainingAmount
     );
+    event SettlementStatusUpdated(
+        address indexed market,
+        SettlementStatus oldStatus,
+        SettlementStatus newStatus,
+        uint256 oldDistributedAmount,
+        uint256 newDistributedAmount,
+        uint256 oldRemainingAmount,
+        uint256 newRemainingAmount
+    );
 
     // -------------------------------------------------------------------------
     // Storage
@@ -100,6 +109,11 @@ contract MarketSettlement {
     // -------------------------------------------------------------------------
 
     /// @notice Initiate settlement for a resolved market
+    /// @param market Market address associated with this operation.
+    /// @param pool Address associated with pool.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketNotResolved` if `status != MarketFactory.MarketStatus.RESOLVED` is true.
+    ///     `AlreadySettled` if `_settlements[market].status == SettlementStatus.COMPLETE` is true.
     function initiateSettlement(address market, address pool) external {
         // Check market is resolved
         MarketFactory.MarketStatus status = resolution.getMarketStatus(market);
@@ -124,6 +138,12 @@ contract MarketSettlement {
     }
 
     /// @notice Process payout for a single user
+    /// @param market Market address associated with this operation.
+    /// @param user User address affected by this operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `AlreadySettled` if `settlement.status == SettlementStatus.COMPLETE` is true.
+    ///     `InvalidSettlementAmount` if `amount > settlement.remainingAmount` is true.
     function processPayout(
         address market,
         address user,
@@ -133,6 +153,9 @@ contract MarketSettlement {
         
         if (settlement.status == SettlementStatus.COMPLETE) revert AlreadySettled();
         if (amount > settlement.remainingAmount) revert InvalidSettlementAmount();
+        SettlementStatus oldStatus = settlement.status;
+        uint256 oldDistributedAmount = settlement.distributedAmount;
+        uint256 oldRemainingAmount = settlement.remainingAmount;
 
         // Record payout
         _payoutRecords[market].push(PayoutRecord({
@@ -157,11 +180,27 @@ contract MarketSettlement {
             settlement.status = SettlementStatus.PARTIAL;
             emit PartialSettlementProcessed(market, amount, settlement.remainingAmount);
         }
+        emit SettlementStatusUpdated(
+            market,
+            oldStatus,
+            settlement.status,
+            oldDistributedAmount,
+            settlement.distributedAmount,
+            oldRemainingAmount,
+            settlement.remainingAmount
+        );
 
         emit PayoutDistributed(market, user, amount);
     }
 
     /// @notice Process batch payouts
+    /// @param market Market address associated with this operation.
+    /// @param users Address associated with users.
+    /// @param amounts Numeric amounts used by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `AlreadySettled` if `settlement.status == SettlementStatus.COMPLETE` is true.
+    ///     `InvalidSettlementAmount` if `totalBatchAmount > settlement.remainingAmount` is true.
+    ///     "Array length mismatch" if `users.length == amounts.length` is false.
     function processBatchPayouts(
         address market,
         address[] calldata users,
@@ -171,6 +210,9 @@ contract MarketSettlement {
 
         Settlement storage settlement = _settlements[market];
         if (settlement.status == SettlementStatus.COMPLETE) revert AlreadySettled();
+        SettlementStatus oldStatus = settlement.status;
+        uint256 oldDistributedAmount = settlement.distributedAmount;
+        uint256 oldRemainingAmount = settlement.remainingAmount;
 
         uint256 totalBatchAmount = 0;
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -202,34 +244,62 @@ contract MarketSettlement {
             settlement.status = SettlementStatus.PARTIAL;
             emit PartialSettlementProcessed(market, totalBatchAmount, settlement.remainingAmount);
         }
+        emit SettlementStatusUpdated(
+            market,
+            oldStatus,
+            settlement.status,
+            oldDistributedAmount,
+            settlement.distributedAmount,
+            oldRemainingAmount,
+            settlement.remainingAmount
+        );
     }
 
     /// @notice Get settlement info for a market
+    /// @param market Market address associated with this operation.
+    /// @return Settlement returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSettlement(address market) external view returns (Settlement memory) {
         return _settlements[market];
     }
 
     /// @notice Get payout records for a market
+    /// @param market Market address associated with this operation.
+    /// @return Payout records returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPayoutRecords(address market) external view returns (PayoutRecord[] memory) {
         return _payoutRecords[market];
     }
 
     /// @notice Get claimed payout for a user in a market
+    /// @param market Market address associated with this operation.
+    /// @param user User address affected by this operation.
+    /// @return Claimed payout returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimedPayout(address market, address user) external view returns (uint256) {
         return _claimedPayouts[market][user];
     }
 
     /// @notice Check if settlement is complete
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isSettlementComplete(address market) external view returns (bool) {
         return _settlements[market].status == SettlementStatus.COMPLETE;
     }
 
     /// @notice Get settlement status
+    /// @param market Market address associated with this operation.
+    /// @return Settlement status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSettlementStatus(address market) external view returns (SettlementStatus) {
         return _settlements[market].status;
     }
 
     /// @notice Calculate remaining settlement amount
+    /// @param market Market address associated with this operation.
+    /// @return Remaining settlement returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRemainingSettlement(address market) external view returns (uint256) {
         return _settlements[market].remainingAmount;
     }

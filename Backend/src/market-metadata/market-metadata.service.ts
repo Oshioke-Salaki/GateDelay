@@ -15,6 +15,9 @@ import {
   UpdateMarketMetadataDto,
   SearchMarketMetadataDto,
 } from './dto/market-metadata.dto';
+import { CacheService } from '../cache/cache.service';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
+import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
 
 @Injectable()
 export class MarketMetadataService {
@@ -23,6 +26,8 @@ export class MarketMetadataService {
   constructor(
     @InjectModel(MarketMetadata.name)
     private readonly metadataModel: Model<MarketMetadataDocument>,
+    private readonly cache: CacheService,
+    private readonly cacheRefresh: CacheRefreshService,
   ) {}
 
   async create(dto: CreateMarketMetadataDto): Promise<MarketMetadata> {
@@ -38,23 +43,42 @@ export class MarketMetadataService {
 
     const metadata = new this.metadataModel({ ...dto, version: 1 });
     await metadata.save();
+    await this.cacheRefresh.refresh({
+      type: 'market.metadata_edited',
+      marketId: dto.marketId,
+    });
     this.logger.log(`Created metadata for market ${dto.marketId}`);
     return metadata;
   }
 
   async findByMarketId(marketId: string): Promise<MarketMetadata> {
+    const cached = await this.cache.get<MarketMetadata>(
+      CacheKeys.metadata(marketId),
+    );
+    if (cached) return cached;
+
     const metadata = await this.metadataModel
       .findOne({ marketId, isActive: true })
-      .sort({ version: -1 });
+      .sort({ version: -1 })
+      .lean();
 
     if (!metadata) {
       throw new NotFoundException(`Metadata for market ${marketId} not found`);
     }
+    await this.cache.set(
+      CacheKeys.metadata(marketId),
+      metadata,
+      CacheTtl.metadata,
+    );
     return metadata;
   }
 
   async findVersions(marketId: string): Promise<MarketMetadata[]> {
-    return this.metadataModel.find({ marketId }).sort({ version: -1 }).exec();
+    return this.cache.getOrSet(
+      CacheKeys.metadataVersions(marketId),
+      () => this.metadataModel.find({ marketId }).sort({ version: -1 }).lean(),
+      CacheTtl.metadata,
+    );
   }
 
   async update(
@@ -82,6 +106,10 @@ export class MarketMetadataService {
     });
 
     await newVersion.save();
+    await this.cacheRefresh.refresh({
+      type: 'market.metadata_edited',
+      marketId,
+    });
     this.logger.log(
       `Created version ${newVersion.version} for market ${marketId}`,
     );
@@ -96,10 +124,27 @@ export class MarketMetadataService {
     if (result.matchedCount === 0) {
       throw new NotFoundException(`Metadata for market ${marketId} not found`);
     }
+    await this.cacheRefresh.refresh({
+      type: 'market.metadata_edited',
+      marketId,
+    });
     this.logger.log(`Deactivated metadata for market ${marketId}`);
   }
 
   async search(dto: SearchMarketMetadataDto): Promise<{
+    data: MarketMetadata[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    return this.cache.getOrSet(
+      CacheKeys.metadataSearch(dto),
+      () => this.runSearch(dto),
+      CacheTtl.metadataSearch,
+    );
+  }
+
+  private async runSearch(dto: SearchMarketMetadataDto): Promise<{
     data: MarketMetadata[];
     total: number;
     page: number;
@@ -124,7 +169,7 @@ export class MarketMetadataService {
         .sort({ version: -1 })
         .skip(skip)
         .limit(limit)
-        .exec(),
+        .lean(),
       this.metadataModel.countDocuments(filter),
     ]);
 

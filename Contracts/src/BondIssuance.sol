@@ -68,6 +68,12 @@ contract BondIssuance is Ownable, Pausable, ReentrancyGuard {
 
     constructor(address initialOwner) Ownable(initialOwner) {}
 
+    /// @notice Executes createBond.
+    /// @param marketId Identifier of the relevant market.
+    /// @param annualRateBps annual rate bps expressed in basis points.
+    /// @param tenorSeconds Numeric tenor seconds used by this operation.
+    /// @return bondId Identifier of the relevant bond.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function createBond(
         uint256 marketId,
         uint256 annualRateBps,
@@ -133,6 +139,16 @@ contract BondIssuance is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
+    /// @notice Executes setIssuanceLimits.
+    /// @param _minPrincipal Numeric min principal used by this operation.
+    /// @param _maxPrincipal Numeric max principal used by this operation.
+    /// @param _minAnnualRateBps min annual rate bps expressed in basis points.
+    /// @param _maxAnnualRateBps max annual rate bps expressed in basis points.
+    /// @param _minTenorSeconds Numeric min tenor seconds used by this operation.
+    /// @param _maxTenorSeconds Numeric max tenor seconds used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BondIssuance__InvalidLimits` if `_minPrincipal > _maxPrincipal ||
+    ///     _minAnnualRateBps > _maxAnnualRateBps || _minTenorSeconds > _maxTenorSeconds` is true.
     function setIssuanceLimits(
         uint256 _minPrincipal,
         uint256 _maxPrincipal,
@@ -160,38 +176,73 @@ contract BondIssuance is Ownable, Pausable, ReentrancyGuard {
         );
     }
 
+    /// @notice Executes setMarketIssuanceCap.
+    /// @param marketId Identifier of the relevant market.
+    /// @param cap Numeric cap used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BondIssuance__InvalidMarket` if `marketId == 0` is true.
     function setMarketIssuanceCap(uint256 marketId, uint256 cap) external onlyOwner {
         if (marketId == 0) revert BondIssuance__InvalidMarket();
         marketIssuanceCap[marketId] = cap;
         emit MarketCapUpdated(marketId, cap);
     }
 
+    /// @notice Pauses.
+    /// @dev Access: Caller must be the contract owner.
     function pause() external onlyOwner { _pause(); }
+    /// @notice Resumes.
+    /// @dev Access: Caller must be the contract owner.
     function unpause() external onlyOwner { _unpause(); }
 
+    /// @notice Sweeps.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BondIssuance__ZeroValue` if `to == address(0)` is true. "BondIssuance: sweep
+    ///     failed" if `ok` is false.
     function sweep(address to, uint256 amount) external onlyOwner nonReentrant {
         if (to == address(0)) revert BondIssuance__ZeroValue();
         (bool ok, ) = payable(to).call{value: amount}("");
         require(ok, "BondIssuance: sweep failed");
     }
 
+    /// @notice Returns bond params.
+    /// @param bondId Identifier of the relevant bond.
+    /// @return Bond params returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BondIssuance__BondNotFound` if `bondId == 0 || bondId > _nextBondId` is true.
     function getBondParams(uint256 bondId) external view returns (BondParams memory) {
         if (bondId == 0 || bondId > _nextBondId) revert BondIssuance__BondNotFound(bondId);
         return _bonds[bondId];
     }
 
+    /// @notice Returns bonds by issuer.
+    /// @param issuer Address associated with issuer.
+    /// @return Bonds by issuer returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBondsByIssuer(address issuer) external view returns (uint256[] memory) {
         return _issuerBonds[issuer];
     }
 
+    /// @notice Returns bonds by market.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Bond IDs issued for the market.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBondsByMarket(uint256 marketId) external view returns (uint256[] memory) {
         return _marketBonds[marketId];
     }
 
+    /// @notice Executes totalBondsIssued.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalBondsIssued() external view returns (uint256) {
         return _nextBondId;
     }
 
+    /// @notice Executes remainingMarketCapacity.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingMarketCapacity(uint256 marketId) external view returns (uint256) {
         uint256 cap = marketIssuanceCap[marketId];
         if (cap == 0) return type(uint256).max;
@@ -199,6 +250,13 @@ contract BondIssuance is Ownable, Pausable, ReentrancyGuard {
         return issued >= cap ? 0 : cap - issued;
     }
 
+    /// @notice Executes wouldPassValidation.
+    /// @param marketId Identifier of the relevant market.
+    /// @param principal Numeric principal used by this operation.
+    /// @param annualRateBps annual rate bps expressed in basis points.
+    /// @param tenorSeconds Numeric tenor seconds used by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function wouldPassValidation(
         uint256 marketId,
         uint256 principal,

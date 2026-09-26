@@ -107,6 +107,44 @@ contract MarketBridgeTest is Test {
         bridge.confirmBridgeCompleted(transferId);
     }
 
+    function test_EveryOwnerRestrictedFunctionRejectsNonOwner() public {
+        bytes[] memory calls = new bytes[](6);
+        calls[0] = abi.encodeCall(bridge.removeSupportedChain, (CHAIN_BASE));
+        calls[1] = abi.encodeCall(bridge.updateChainFee, (CHAIN_BASE, 1 ether, 25));
+        calls[2] = abi.encodeCall(bridge.setRelayer, (relayer));
+        calls[3] = abi.encodeCall(bridge.setFeeRecipient, (feeRecipient));
+        calls[4] = abi.encodeCall(bridge.setCcipRouter, (address(router)));
+        calls[5] = abi.encodeCall(bridge.withdrawFees, (owner, 1 ether));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(bridge).call(calls[i]);
+
+            assertFalse(success, "non-owner call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice)
+            );
+        }
+    }
+
+    function test_EveryRelayerRestrictedFunctionRejectsNonRelayer() public {
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeCall(bridge.markBridgeFailed, (1));
+        calls[1] = abi.encodeCall(bridge.refundFailedTransfer, (1));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(alice);
+            (bool success, bytes memory returnData) = address(bridge).call(calls[i]);
+
+            assertFalse(success, "non-relayer call unexpectedly succeeded");
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(MarketBridge.MarketBridge__NotRelayer.selector, alice)
+            );
+        }
+    }
+
     // ---------------------------------------------------------------
     // Chain support
     // ---------------------------------------------------------------
