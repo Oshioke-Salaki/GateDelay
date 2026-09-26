@@ -1,7 +1,7 @@
 # Phase 2: Core market wiring
 
 > **Theme:** Core market wiring
-> **Goal:** End-to-end wiring for MarketFactory, the canonical MarketMaker/LMSR flow, resolution, and backend trade integration. Keep any CLOB venue separate from prediction-market execution.
+> **Goal:** End-to-end wiring for MarketFactory, MarketMaker, LMSR, Trading, OrderBook/CLOB decision, resolution, and backend trade engine.
 
 Parent index: [PHASES.md](PHASES.md)
 
@@ -11,11 +11,11 @@ Parent index: [PHASES.md](PHASES.md)
 |---|---|
 | **Phase owner** | Phase 2 (GitHub label `phase-2`) — core market wiring |
 | **Roadmap** | [PHASES.md](PHASES.md) |
-| **Trading model** | [ADR 0001: LMSR vs CLOB](../adr/0001-lmsr-vs-clob-ambiguity.md) — accepted; this phase implements LMSR ownership |
+| **Trading model** | [ADR 0001: LMSR vs CLOB](docs/adr/0001-lmsr-vs-clob-ambiguity.md) — proposed; **this phase decides** |
 | **Foundations** | [PHASE_1.md](PHASE_1.md) |
 | **Local env / ports** | [`Backend/.env.example`](Backend/.env.example) (`PORT=4000`, `FRONTEND_URL=http://localhost:3000`, `HEARTBEAT_PORT=4001`, `RPC_URL=http://127.0.0.1:8545`) |
 
-`MarketMaker` + `LMSR` (`Contracts/src/`) is the canonical prediction-market path. `OrderBook.sol` and backend CLOB matchers are separate venues, not fallback execution paths. See ADR 0001 for backend/frontend routing expectations and the current non-live integration status.
+Until ADR 0001 is closed, treat `MarketMaker` + `Trading` + `LMSR` (`Contracts/src/`) as the canonical prediction-market path. `Contracts/src/OrderBook.sol` is isolated CLOB code, not the live market lifecycle.
 
 ---
 
@@ -41,9 +41,9 @@ Copy any issue below into GitHub using the template in [PHASES.md](PHASES.md#fil
 - [ ] Error states surfaced to UI
 **Related:** `Backend/COLLATERAL.md`
 
-### P2-003: Document canonical LMSR routing in DEPOSIT_SERVICE_DOCUMENTATION.md
+### P2-003: Resolve LMSR vs CLOB for DEPOSIT_SERVICE_DOCUMENTATION.md
 **Labels:** `phase-2`, `backend`
-**Description:** Document the LMSR flow: create market → quote → wallet-signed buy/sell → index events → resolve, touching Backend/DEPOSIT_SERVICE_DOCUMENTATION.md.
+**Description:** End-to-end trade: create market → place order → settle → resolve, touching Backend/DEPOSIT_SERVICE_DOCUMENTATION.md.
 **Acceptance criteria:**
 - [ ] Event indexing or polling documented
 - [ ] Error states surfaced to UI

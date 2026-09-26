@@ -4,21 +4,6 @@ The backend mixes a lightweight Express layer (`routes/`, `services/`, `models/`
 
 > **Canonical startup docs.** Use [RUNBOOK.md](./RUNBOOK.md) for backend entrypoints, ports, health endpoints, request IDs, error envelopes, and environment setup. `npm run start:dev` (`nest start --watch`) is the canonical dev server. `Backend/server.js` is the legacy Express entrypoint for unmigrated CommonJS routes only.
 
-## Prediction-market trade routing
-
-LMSR through the on-chain `MarketMaker` is the canonical execution and
-settlement path for prediction-market trades. The backend may expose read-only
-quotes, market metadata, indexed contract events, and transaction status, but
-must not independently match or settle these trades. The Nest `trade-engine`
-and `order-matcher` are off-chain CLOB implementations; they are not LMSR
-adapters and must not receive prediction-market orders as a fallback. CLOB
-matching is only for a separately identified/configured token pair. See the
-[accepted trading-model ADR](../docs/adr/0001-lmsr-vs-clob-ambiguity.md).
-
-This routing is an architectural decision, not a claim of completed wiring:
-contract addresses, LMSR transaction handling, and event indexing still need
-to be implemented before the backend exposes live core trading.
-
 ## Required environment variables
 
 These values should always be reviewed before local development or deployment:

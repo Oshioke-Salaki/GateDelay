@@ -1,7 +1,7 @@
-# ADR 0001: LMSR vs CLOB / OrderBook ownership
+# ADR 0001: LMSR vs CLOB / OrderBook ambiguity
 
-- **Status:** Accepted
-- **Date:** 2026-09-26
+- **Status:** Proposed (decision deferred to Phase 2)
+- **Date:** 2026-07-29
 - **Issue:** P1-020 / #580
 
 ## Context
@@ -23,64 +23,40 @@ Documentation and UI elsewhere sometimes refer to “hybrid AMM” or order matc
 
 ## Decision
 
-**LMSR via `MarketMaker` is the canonical execution model for GateDelay
-prediction-market trades.** Outcome shares are bought and sold against the
-market's collateral pool at LMSR-derived prices. `Trading` is not the canonical
-settlement boundary until its sell quote/proceeds logic is corrected and
-audited; integrations must not route sells through its current
-`executeSell` implementation.
+**Defer the architecture choice to Phase 2** (core market wiring — see [PHASE_2.md](../reports/PHASE_2.md)).
 
-`OrderBook` is a separate, optional CLOB venue for explicitly configured
-generic base/quote token pairs. It is not an alternative execution path for a
-GateDelay prediction market. It has no shared outcome positions, market IDs,
-pricing, resolution, or settlement with `MarketMaker`. A market must never
-silently switch between LMSR and CLOB, and there is no hybrid LMSR-quote/CLOB-
-fill behavior.
+Until Phase 2 closes that gate:
 
-This closes the model-selection gate in [PHASE_2.md](../reports/PHASE_2.md).
-End-to-end implementation remains tracked work; accepting the model does not
-mean the backend or frontend is already wired to it.
+1. Treat **`MarketMaker` + `Trading` + `LMSR` as the canonical prediction-market trading path** for new integration work (backend trade-engine, frontend trade widgets, deployment).
+2. Treat **`OrderBook` as isolated contract code** — useful for CLOB experiments and Forge tests, but not part of the live market lifecycle.
+3. Do **not** assume hybrid behaviour (e.g. LMSR quotes backed by an order book) exists in the codebase; it does not.
 
 ## Current intended usage (as implemented)
 
-### Canonical prediction-market flow: LMSR
+### LMSR stack
 
 - Create markets via `MarketMaker.createMarket(description, numOutcomes, b)`.
 - Quote prices with `MarketMaker.getPrice` / `getCostToBuy` (delegates to `LMSR.price` / `LMSR.cost`).
-- Execute buys and sells against the configured market's `MarketMaker.buy` / `sell`; the trader's wallet signs the state-changing transaction. `MarketMaker` owns positions and collateral settlement.
-- Backend services may provide market metadata, read-only quotes, transaction status, and indexed contract events. They must not independently match, settle, or represent an off-chain order as a successful on-chain trade.
-- Frontend trade controls must identify the LMSR market/outcome, show the contract quote and transaction state, and submit only the corresponding wallet transaction. Missing configuration or a failed/unavailable contract must fail closed with an unavailable/error state, never fall back to CLOB or demo values as executable prices.
+- Trade via `MarketMaker.buy` / `sell` or the `Trading` wrapper for fee/rebate handling.
 - Resolve and redeem through `MarketMaker.resolve` / `redeem`.
 
-`Trading.executeBuy` may only be introduced as an explicit fee-wrapped buy route
-after its deployment and fee policy are configured. Do not use
-`Trading.executeSell` for canonical sells until its proceeds calculation is
-fixed and tested against `MarketMaker.sell`.
-
-### Separate CLOB flow
+### OrderBook (standalone)
 
 - Deploy with two ERC-20 addresses (`token0` base, `token1` quote).
 - Place limit/market orders via `placeLimitOrder` / `placeMarketOrder`.
-- Route only an explicitly identified CLOB venue/pair through this contract. Its orders and fills must be labeled as CLOB activity and must not mutate or imply prediction-market outcome positions.
-- Backend CLOB matching services and CLOB UI are separate from the LMSR route; do not forward prediction-market order submissions to them.
-
-### Current integration status
-
-- The Nest `trade-engine` persists and matches off-chain orders; `order-matcher` is in-memory. Neither is an LMSR adapter or proof of on-chain settlement. Keep them out of the canonical prediction-market execution path until replaced or explicitly scoped to a separate CLOB venue.
-- Frontend `/trade/[id]` currently uses a local demo market catalog and fixture order book. Its submit handler shows a local toast; it makes no backend or contract call. It is not a live LMSR or CLOB integration.
-- Contract addresses, chain configuration, transaction submission, and event indexing must be explicitly wired before presenting the core trading flow as live.
+- No shared state with `MarketMaker` markets or outcome shares.
 
 ## Known ambiguity / gaps
 
-- **Dual models in one repo** have no bridge contract or shared market ID space; this is an intentional separation, not a hybrid.
-- **`Trading.executeSell`** uses `getCostToBuy` as a proceeds proxy (documented in-contract); sell-side fee logic is intentionally skipped and the wrapper is excluded from canonical sells until fixed.
-- **Backend and frontend execution wiring remains incomplete.** Existing off-chain CLOB services and UI fixtures must not be presented as live LMSR trades.
-- Remove or qualify legacy “Hybrid AMM” claims unless a concrete, separately reviewed integration is implemented.
+- **Dual models in one repo** with no bridge contract or shared market ID space.
+- **`Trading.executeSell`** uses `getCostToBuy` as a proceeds proxy (documented in-contract); sell-side fee logic is intentionally skipped.
+- **Frontend / backend** may expose order-book or matcher concepts while on-chain wiring still targets LMSR — Phase 2 must align or disable conflicting surfaces.
+- **README** describes “Hybrid AMM”; only the LMSR side is integrated end-to-end today.
 
 ## Consequences
 
-- New core prediction-market integrations must follow LMSR ownership and the routing rules above.
-- Phase 2 implements the accepted LMSR flow end-to-end and keeps CLOB paths explicitly separate or disabled for prediction markets.
+- Phase 1 work should document this split (this ADR) and avoid inventing CLOB+LMSR behaviour in new code.
+- Phase 2 must pick one primary model (or define an explicit hybrid with concrete integration points) and remove or gate the other from product paths.
 - Tests: `Contracts/test/LMSR.t.sol`, `MarketMaker.t.sol`, `Trading.t.sol` cover the LMSR path; `Contracts/test/OrderBook.t.sol` covers CLOB in isolation.
 
 ## References
@@ -90,4 +66,4 @@ fixed and tested against `MarketMaker.sell`.
 - `Contracts/src/Trading.sol`
 - `Contracts/src/OrderBook.sol`
 - [PHASES.md](../reports/PHASES.md) — project phase index
-- [PHASE_2.md](../reports/PHASE_2.md) — Phase 2 implements the accepted LMSR model (`phase-2`)
+- [PHASE_2.md](../reports/PHASE_2.md) — Phase 2 owns the LMSR vs CLOB decision (`phase-2`)
