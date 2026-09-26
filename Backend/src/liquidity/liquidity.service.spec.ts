@@ -1,6 +1,8 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test, TestingModule } from '@nestjs/testing';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import { CacheService } from '../cache/cache.service';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
 import { LiquidityService } from './liquidity.service';
 
 describe('LiquidityService', () => {
@@ -32,6 +34,8 @@ describe('LiquidityService', () => {
       providers: [
         LiquidityService,
         MarketResolverService,
+        CacheService,
+        CacheRefreshService,
         {
           provide: CACHE_MANAGER,
           useValue: cacheMock,

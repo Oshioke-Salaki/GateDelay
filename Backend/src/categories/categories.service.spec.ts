@@ -3,6 +3,8 @@ import { getModelToken } from '@nestjs/mongoose';
 import { CategoriesService } from './categories.service';
 import { Category } from './schemas/category.schema';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import { CacheService } from '../cache/cache.service';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { Types } from 'mongoose';
 
@@ -41,7 +43,17 @@ describe('CategoriesService', () => {
 
   const mockMarketResolverService = {
     getMarketsByIds: jest.fn(),
+    getMarket: jest.fn(),
+    updateMarketCategory: jest.fn(),
   };
+
+  // Pass-through cache so the tests exercise the underlying queries.
+  const mockCacheService = {
+    getOrSet: jest.fn((_key: string, factory: () => Promise<unknown>) =>
+      factory(),
+    ),
+  };
+  const mockCacheRefresh = { refresh: jest.fn().mockResolvedValue(undefined) };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -55,6 +67,8 @@ describe('CategoriesService', () => {
           provide: MarketResolverService,
           useValue: mockMarketResolverService,
         },
+        { provide: CacheService, useValue: mockCacheService },
+        { provide: CacheRefreshService, useValue: mockCacheRefresh },
       ],
     }).compile();
 
@@ -70,6 +84,7 @@ describe('CategoriesService', () => {
     };
     model = (service as any).categoryModel;
     marketResolver = mockMarketResolverService;
+    mockCacheRefresh.refresh.mockClear();
   });
 
   it('should be defined', () => {
@@ -101,6 +116,11 @@ describe('CategoriesService', () => {
       });
 
       const tree = await service.getTree();
+      expect(mockCacheService.getOrSet).toHaveBeenCalledWith(
+        'categories:tree',
+        expect.any(Function),
+        expect.any(Number),
+      );
       expect(tree).toHaveLength(1);
       expect(tree[0].name).toBe('Parent');
       expect(tree[0].children).toHaveLength(1);
@@ -207,6 +227,39 @@ describe('CategoriesService', () => {
       expect(model.deleteOne).toHaveBeenCalledWith({
         _id: expect.any(Types.ObjectId),
       });
+      expect(mockCacheRefresh.refresh).toHaveBeenCalledWith({
+        type: 'category.updated',
+        categoryId: id,
+      });
+    });
+  });
+
+  describe('assignMarket', () => {
+    it('refreshes category caches with the previous category', async () => {
+      const categoryId = '123456789012123456789012';
+      model.updateOne.mockResolvedValue({ matchedCount: 1 });
+      marketResolver.getMarket.mockReturnValue({ id: 'm1', categoryId: 'old' });
+
+      await service.assignMarket(categoryId, 'm1');
+
+      expect(marketResolver.updateMarketCategory).toHaveBeenCalledWith(
+        'm1',
+        categoryId,
+      );
+      expect(mockCacheRefresh.refresh).toHaveBeenCalledWith({
+        type: 'market.category_changed',
+        marketId: 'm1',
+        categoryId,
+        previousCategoryId: 'old',
+      });
+    });
+
+    it('does not refresh when the category does not exist', async () => {
+      model.updateOne.mockResolvedValue({ matchedCount: 0 });
+      await expect(
+        service.assignMarket('123456789012123456789012', 'm1'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockCacheRefresh.refresh).not.toHaveBeenCalled();
     });
   });
 });
