@@ -80,7 +80,14 @@ function getSyncStatus() {
 }
 
 async function queueSyncJob(options = {}) {
-  return syncQueue.add(options);
+  // Bounded retries: without `attempts`, Bull fails a sync job on the first
+  // error and the missed market-data window is only noticed by a user (#913).
+  return syncQueue.add(options, {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 1000 },
+    removeOnComplete: 100,
+    removeOnFail: false,
+  });
 }
 
 module.exports = {

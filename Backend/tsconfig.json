@@ -21,6 +21,14 @@
   //   BLOCKCHAIN_RPC_URL  → Backend/jobs/* and oracle routes
   //   AVIATION_STACK_API_KEY → Backend/routes/oracle.js
   //   BETA_INVITE_SECRET  → Backend/services/betaAccess.js (HMAC key)
+  //   RATE_LIMIT_WHITELIST → Backend/config/rateLimits.js (validated at startup
+  //                          by config/rateLimitsValidation.js)
+  //   PRICE_GATEWAY_HEARTBEAT_INTERVAL_MS → Backend/src/websocket/price-gateway.metrics.ts
+  //   PRICE_GATEWAY_HEARTBEAT_TIMEOUT_MS  → Backend/src/websocket/price-gateway.metrics.ts
+  //   PRICE_GATEWAY_RECONNECT_WINDOW_MS   → Backend/src/websocket/price-gateway.metrics.ts
+  //   IDEMPOTENCY_TTL_SECONDS → Backend/services/idempotencyService.js
+  //   JOB_MAX_ATTEMPTS / JOB_RETRY_BASE_DELAY_MS / JOB_RETRY_MAX_DELAY_MS /
+  //   JOB_RETRY_FACTOR → Backend/services/jobRetryService.js
   //
   // Toolchain versions (pinned — keep in sync with .github/workflows/ci.yml):
   //   Node.js   : 20.x  (LTS; minimum 20.11 per Backend/README.md)
