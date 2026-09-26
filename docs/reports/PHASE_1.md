@@ -9,7 +9,7 @@ Parent index: [PHASES.md](PHASES.md)
 
 This section answers: **how do I run the wallet + trade flow locally?**
 
-**Phase ownership:** The runbook is a Phase 2 documentation task (`phase-2`). It describes **Phase 1 surfaces** (app boot, NestJS API, Next.js shell, Particle wallet chrome) plus the **Phase 2 pieces you need for a local trade attempt** (Nest `trade-engine` HTTP API, LMSR `MarketMaker.buy` from the UI when a contract address is set). Live market wiring and the LMSR vs CLOB choice remain Phase 2 — see [PHASE_2.md](PHASE_2.md) and [PHASES.md](PHASES.md).
+**Phase ownership:** The runbook is a Phase 2 documentation task (`phase-2`). It describes **Phase 1 surfaces** (app boot, NestJS API, Next.js shell, Particle wallet chrome) and prototype local trade surfaces. The Nest `trade-engine` is an off-chain CLOB matcher, and the current UI does not call it or `MarketMaker`; neither is a live canonical trade flow. LMSR ownership is decided in [ADR 0001](../adr/0001-lmsr-vs-clob-ambiguity.md); Phase 2 implements that route. See [PHASE_2.md](PHASE_2.md) and [PHASES.md](PHASES.md).
 
 Full install notes: [CONTRIBUTING.md](CONTRIBUTING.md). Env source of truth: [`Backend/.env.example`](Backend/.env.example). Frontend has no `.env.example`; use the template in CONTRIBUTING.md.
 
