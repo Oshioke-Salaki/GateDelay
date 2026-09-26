@@ -1,8 +1,14 @@
 const { HeartbeatService } = require('../services/heartbeat');
+const { withRetry } = require('../services/jobRetryService');
 
 const CONFIG = {
   CHECK_INTERVAL_MS: 15000,
   AUTO_START: false,
+  // A liveness check that hits Redis/RPC is the classic transient failure, so
+  // a single blip should not count as an issue — but an endless retry must not
+  // overlap the next cycle either (#913).
+  MAX_ATTEMPTS: 3,
+  RETRY_DELAY_MS: 2000,
 };
 
 let monitorActive = false;
@@ -25,7 +31,14 @@ async function runMonitorCycle(service) {
     lastCheckTime = new Date();
     logEvent('info', `Monitor cycle ${checksRun} starting`);
 
-    const results = await service.checkLiveness();
+    const results = await withRetry(() => service.checkLiveness(), {
+      job: 'heartbeat-liveness-check',
+      maxAttempts: CONFIG.MAX_ATTEMPTS,
+      baseDelayMs: CONFIG.RETRY_DELAY_MS,
+      maxDelayMs: CONFIG.RETRY_DELAY_MS,
+      jitter: false,
+      context: { component: 'heartbeatMonitor', cycle: checksRun },
+    });
 
     const staleOrDown = results.filter(r => r.status === 'stale' || r.status === 'down');
     if (staleOrDown.length > 0) {

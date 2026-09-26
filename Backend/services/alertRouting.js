@@ -1,5 +1,7 @@
 const Bull = require('bull');
 const Redis = require('ioredis');
+const { log } = require('../utils/correlation');
+const { recordQueueFailure, withRetry } = require('./jobRetryService');
 
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
@@ -89,7 +91,29 @@ async function processAlert(job) {
   return { status: 'delivered', entry: historyEntry };
 }
 
-alertQueue.process(processAlert);
+alertQueue.process((job) =>
+  // A single channel failing used to fail the whole alert and lose the other
+  // channels' deliveries with it. Bound the retries and, on the last one,
+  // dead-letter the alert so an operator can re-send it (#913).
+  withRetry(() => processAlert(job), {
+    job: 'alert-delivery',
+    queue: 'alerts',
+    jobId: String(job.id),
+    payload: job.data,
+  }),
+);
+
+alertQueue.on('failed', (job, err) => {
+  log('error', 'Alert delivery failed', {
+    jobId: job.id,
+    attemptsMade: job.attemptsMade,
+    maxAttempts: job.opts?.attempts,
+    alertId: job.data?.id,
+    error: err.message,
+  });
+  // Bull emits `failed` on every attempt; only the last one is terminal.
+  recordQueueFailure(job, err, { queue: 'alerts', job: 'alert-delivery' });
+});
 
 async function createAlert(alertData) {
   const alert = {
@@ -103,7 +127,14 @@ async function createAlert(alertData) {
   };
 
   const job = await alertQueue.add(alert, {
-    priority: alert.priority === 'high' ? 1 : alert.priority === 'medium' ? 2 : 3
+    priority:
+      alert.priority === 'high' ? 1 : alert.priority === 'medium' ? 2 : 3,
+    // High-priority alerts get more attempts because dropping one is far more
+    // costly than re-sending it.
+    attempts: alert.priority === 'high' ? 5 : 3,
+    backoff: { type: 'exponential', delay: 1000 },
+    removeOnComplete: 500,
+    removeOnFail: false,
   });
 
   return { success: true, alert, jobId: job.id };

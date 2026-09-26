@@ -15,8 +15,25 @@ const { throttle } = require('../middleware/throttle');
 const { versionMiddleware } = require('../middleware/version');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { backwardCompatMiddleware } = require('../middleware/backwardCompat');
+// Rate-limit tables + startup validation (Backend/config/rateLimitsValidation.js)
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const rateLimitConfig = require('../config/rateLimits');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { assertValidRateLimits } = require('../config/rateLimitsValidation');
 
 async function bootstrap() {
+  // Fail the boot on an unsafe rate-limit configuration before the app starts
+  // listening — an invalid table that boots is a limiter that silently does
+  // nothing. Throws RateLimitConfigError on failure.
+  const rateLimitReport = assertValidRateLimits(rateLimitConfig) as {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+  };
+  for (const warning of rateLimitReport.warnings) {
+    console.warn(`[main] ${warning}`);
+  }
+
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({ origin: process.env.FRONTEND_URL || '*' });
