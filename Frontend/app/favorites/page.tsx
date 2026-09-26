@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StatusBadge, { MarketStatus } from "@/components/market/StatusBadge";
+import { useToast } from "@/hooks/useToast";
 
 interface FavoritedMarket {
   id: string;
@@ -18,6 +19,7 @@ interface FavoritedMarket {
 
 export default function FavoritesPage() {
   const router = useRouter();
+  const { success } = useToast();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [markets, setMarkets] = useState<FavoritedMarket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,11 +53,12 @@ export default function FavoritesPage() {
     setMarkets(mockMarkets);
   }, [favorites]);
 
-  const handleRemoveFavorite = (marketId: string) => {
+  const handleRemoveFavorite = useCallback((marketId: string) => {
     const updated = favorites.filter((id) => id !== marketId);
     localStorage.setItem("market_favorites", JSON.stringify(updated));
     setFavorites(updated);
-  };
+    success("Removed from favorites", undefined, { duration: 2500 });
+  }, [favorites, success]);
 
   if (isLoading) {
     return (

@@ -22,7 +22,7 @@ export default function PriceDisplay({
     className = "",
     size = "md",
 }: PriceDisplayProps) {
-    const { price, isLoading, isConnected } = useSinglePriceUpdate(marketId);
+    const { price, isLoading, isConnected, isStale } = useSinglePriceUpdate(marketId);
     const [flashClass, setFlashClass] = useState("");
 
     // ─── Flash Animation on Price Change ──────────────────────────────────────
@@ -73,9 +73,25 @@ export default function PriceDisplay({
                 <span className={`font-mono ${sizeClasses[size]} ${flashClass} transition-colors`}>
                     ${price.currentPrice.toFixed(4)}
                 </span>
+                {/* Offline: WebSocket is fully disconnected */}
                 {!isConnected && (
-                    <span className="text-xs text-yellow-600" title="Offline mode">
+                    <span
+                        className="text-xs text-yellow-600"
+                        title="Offline — price feed disconnected"
+                        aria-label="Price feed offline"
+                    >
                         ⚠
+                    </span>
+                )}
+                {/* Stale: connected but no update has arrived recently */}
+                {isConnected && isStale && (
+                    <span
+                        className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium"
+                        style={{ background: "#f59e0b18", color: "#f59e0b", border: "1px solid #f59e0b44" }}
+                        title="Price data may be outdated — last update was more than 30 seconds ago"
+                        aria-label="Stale price data"
+                    >
+                        ⚠ stale
                     </span>
                 )}
             </div>
