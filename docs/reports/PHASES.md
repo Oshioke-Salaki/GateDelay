@@ -6,8 +6,7 @@ High-level sequencing for collaborators. Each phase file contains **â‰¥200**
 
 | Area | Status |
 |------|--------|
-| **Trading model** | **Ambiguous** â€” LMSR (`Contracts/src/MarketMaker.sol`, `Contracts/src/Trading.sol`) and CLOB (`Contracts/src/OrderBook.sol`) both exist; see [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md). **[Phase 2](PHASE_2.md) decides.** |
-| **Trading model** | **Ambiguous** â€” LMSR (`Contracts/src/MarketMaker.sol`, `Contracts/src/Trading.sol`) and CLOB (`Contracts/src/OrderBook.sol`) both exist; see [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md). **Phase 2 decides.** |
+| **Trading model** | LMSR via `MarketMaker` is canonical for prediction-market execution; CLOB is a separate venue. Backend/frontend wiring remains Phase 2 work; see [ADR 0001](../adr/0001-lmsr-vs-clob-ambiguity.md). |
 | Backends | NestJS modules under `Backend/src/` plus legacy Express `Backend/server.js` â€” single runtime path unified in **Phase 1** |
 | Frontend | Next.js app under `Frontend/`; some market/trade UI still mock-driven â€” **Phase 3** completes surfaces |
 | Contracts | Foundry project under `Contracts/` â€” wired end-to-end in **Phase 2**, hardened in **Phase 4** |
@@ -140,7 +139,7 @@ Phase 5 (deployment & shipping)
 ```
 
 - **Phase 1** must land before market wiring: broken boot paths block all later work.
-- **Phase 2** depends on stable Backend/Contracts build; resolves LMSR vs CLOB (ADR 0001).
+- **Phase 2** depends on stable Backend/Contracts build; implements the accepted LMSR route (ADR 0001).
 - **Phase 3** depends on live market data from Phase 2; replaces mocks in `Frontend/data/mockMarkets.ts`.
 - **Phase 4** runs in parallel with late Phase 3 but must gate **Phase 5** production deploy.
 - **Phase 5** assumes CI green, security sign-off, and staging validation from Phases 1â€“4.
@@ -192,7 +191,7 @@ Apply these GitHub labels when filing issues from phase files:
 
 | ADR | Title | Status |
 |-----|-------|--------|
-| [0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) | LMSR vs CLOB / OrderBook ambiguity | Proposed — decision owned by [PHASE_2.md](PHASE_2.md) |
+| [0001](../adr/0001-lmsr-vs-clob-ambiguity.md) | LMSR vs CLOB / OrderBook ownership | Accepted — implementation tracked in [PHASE_2.md](PHASE_2.md) |
 
 ## Regenerating phase files
 
