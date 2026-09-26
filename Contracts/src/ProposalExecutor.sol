@@ -67,6 +67,9 @@ contract ProposalExecutor {
     /// @param actions Array of encoded function calls.
     /// @param description Description of the proposal.
     /// @return proposalId The ID of the created proposal.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidProposal` if `targets.length == 0 || targets.length != values.length ||
+    ///     targets.length != actions.length` is true.
     function createProposal(
         address[] calldata targets,
         uint256[] calldata values,
@@ -97,6 +100,9 @@ contract ProposalExecutor {
 
     /// @notice Approve a proposal.
     /// @param proposalId The ID of the proposal to approve.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true. `InvalidProposal`
+    ///     if `proposal.status != ProposalStatus.PENDING` is true.
     function approveProposal(uint256 proposalId) external {
         if (proposalId >= proposalCount) revert ProposalNotFound();
 
@@ -111,6 +117,12 @@ contract ProposalExecutor {
 
     /// @notice Execute an approved proposal.
     /// @param proposalId The ID of the proposal to execute.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true.
+    ///     `ProposalNotApproved` if `proposal.status != ProposalStatus.APPROVED` is true.
+    ///     `ProposalAlreadyExecuted` if `proposal.executedAt != 0` is true. `TimelockNotReady` if
+    ///     `block.timestamp < proposal.timelockUntil` is true. `ExecutionFailed` if `!success` is
+    ///     true.
     function executeProposal(uint256 proposalId) external {
         if (proposalId >= proposalCount) revert ProposalNotFound();
 
@@ -139,6 +151,8 @@ contract ProposalExecutor {
 
     /// @notice Cancel a proposal.
     /// @param proposalId The ID of the proposal to cancel.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true.
     function cancelProposal(uint256 proposalId) external {
         if (msg.sender != admin) revert();
         if (proposalId >= proposalCount) revert ProposalNotFound();
@@ -152,6 +166,8 @@ contract ProposalExecutor {
     /// @notice Get proposal details.
     /// @param proposalId The ID of the proposal.
     /// @return proposal The proposal struct.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true.
     function getProposal(uint256 proposalId) external view returns (Proposal memory proposal) {
         if (proposalId >= proposalCount) revert ProposalNotFound();
         return proposals[proposalId];
@@ -161,6 +177,8 @@ contract ProposalExecutor {
     /// @param proposalId The ID of the proposal.
     /// @return status The current status of the proposal.
     /// @return executedAt The timestamp when the proposal was executed (0 if not executed).
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true.
     function getExecutionStatus(uint256 proposalId)
         external
         view
@@ -174,6 +192,8 @@ contract ProposalExecutor {
     /// @notice Check if timelock is ready for a proposal.
     /// @param proposalId The ID of the proposal.
     /// @return ready True if timelock delay has passed.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProposalNotFound` if `proposalId >= proposalCount` is true.
     function isTimelockReady(uint256 proposalId) external view returns (bool ready) {
         if (proposalId >= proposalCount) revert ProposalNotFound();
         return block.timestamp >= proposals[proposalId].timelockUntil;

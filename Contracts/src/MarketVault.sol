@@ -143,6 +143,8 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     /// @param assets   Amount of underlying token to deposit.
     /// @param receiver Address that will receive the minted shares.
     /// @return shares  Number of shares minted.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAssets` if `assets == 0` is true. `ZeroShares` if `shares == 0` is true.
     function deposit(uint256 assets, address receiver)
         external
         nonReentrant
@@ -179,6 +181,9 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     ///         immediately; otherwise it queues the request for `withdrawalDelay`
     ///         seconds.
     /// @param shares  Number of vault shares to redeem.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroShares` if `shares == 0` is true. `InsufficientShares` if
+    ///     `balanceOf(msg.sender) < shares` is true.
     function requestWithdrawal(uint256 shares) external nonReentrant whenNotPaused {
         if (shares == 0) revert ZeroShares();
         if (balanceOf(msg.sender) < shares) revert InsufficientShares();
@@ -198,6 +203,9 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Execute a previously queued withdrawal after the delay has elapsed.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NoPendingWithdrawal` if `pw.shares == 0` is true. `WithdrawalLocked` if
+    ///     `block.timestamp < pw.unlocksAt` is true.
     function executeWithdrawal() external nonReentrant whenNotPaused {
         PendingWithdrawal memory pw = pendingWithdrawals[msg.sender];
         if (pw.shares == 0) revert NoPendingWithdrawal();
@@ -212,11 +220,17 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Preview how many assets `shares` would currently redeem for.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Redeem returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewRedeem(uint256 shares) external view returns (uint256) {
         return _convertToAssets(shares);
     }
 
     /// @notice Preview how many shares `assets` would currently mint.
+    /// @param assets Numeric assets used by this operation.
+    /// @return Deposit returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewDeposit(uint256 assets) external view returns (uint256) {
         return _convertToShares(assets);
     }
@@ -228,6 +242,9 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     /// @notice Owner injects `amount` of yield (e.g. from a strategy) into the vault.
     ///         This increases `totalAssets()` without minting new shares, thus
     ///         raising the share price.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAssets` if `amount == 0` is true.
     function addYield(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAssets();
         asset.safeTransferFrom(msg.sender, address(this), amount);
@@ -241,16 +258,25 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     // Admin
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Executes setWithdrawalDelay.
+    /// @param delay Numeric delay used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidDelay` if `delay > 30 days` is true.
     function setWithdrawalDelay(uint256 delay) external onlyOwner {
         if (delay > 30 days) revert InvalidDelay();
         withdrawalDelay = delay;
         emit WithdrawalDelaySet(delay);
     }
 
+    /// @notice Pauses.
+    /// @dev Access: Caller must be the contract owner.
     function pause()   external onlyOwner { _pause();   emit VaultPaused(); }
+    /// @notice Resumes.
+    /// @dev Access: Caller must be the contract owner.
     function unpause() external onlyOwner { _unpause(); emit VaultUnpaused(); }
 
     /// @notice Take a manual performance snapshot.
+    /// @dev Access: Caller must be the contract owner.
     function snapshot() external onlyOwner { _takeSnapshot(); }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -258,11 +284,15 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Total underlying tokens currently held by the vault.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalAssets() public view returns (uint256) {
         return asset.balanceOf(address(this));
     }
 
     /// @notice Net assets (totalAssets adjusted for escrowed withdrawal shares).
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function netAssets() public view returns (uint256) {
         uint256 escrowedShares = balanceOf(address(this));
         uint256 escrowedAssets = escrowedShares > 0 ? _convertToAssets(escrowedShares) : 0;
@@ -271,6 +301,8 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     }
 
     /// @notice Price of one vault share in underlying tokens (PRECISION-scaled).
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pricePerShare() public view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0) return PRECISION;
@@ -283,12 +315,16 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Total return since inception as a fraction of initial deposit
     ///         (PRECISION-scaled). E.g. 1.05e18 = 5% gain.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalReturn() external view returns (uint256) {
         return pricePerShare(); // starts at PRECISION (1.0)
     }
 
     /// @notice Gain above the high-water mark (PRECISION-scaled).
     ///         Zero if current price ≤ high-water mark.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function gainAboveHighWaterMark() external view returns (uint256) {
         uint256 pps = pricePerShare();
         return pps > highWaterMark ? pps - highWaterMark : 0;
@@ -296,6 +332,8 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Annualised return since vault creation (PRECISION-scaled).
     ///         Uses simple (non-compound) annualisation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function annualisedReturn() external view returns (uint256) {
         uint256 elapsed = block.timestamp - vaultCreatedAt;
         if (elapsed == 0) return 0;
@@ -307,6 +345,9 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Absolute profit for a specific user based on their average cost.
     /// @dev    Simple estimation: current value of remaining shares minus net deposited.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userProfit(address user) external view returns (int256) {
         uint256 remainingShares = balanceOf(user);
         uint256 currentValue    = _convertToAssets(remainingShares);
@@ -320,6 +361,10 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
     // User history queries
     // ─────────────────────────────────────────────────────────────────────────
 
+    /// @notice Returns deposit history.
+    /// @param user User address affected by this operation.
+    /// @return Deposit history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDepositHistory(address user)
         external
         view
@@ -328,6 +373,10 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
         return _depositHistory[user];
     }
 
+    /// @notice Returns withdrawal history.
+    /// @param user User address affected by this operation.
+    /// @return Withdrawal history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getWithdrawalHistory(address user)
         external
         view
@@ -336,10 +385,21 @@ contract MarketVault is ERC20, Ownable, ReentrancyGuard, Pausable {
         return _withdrawalHistory[user];
     }
 
+    /// @notice Executes depositCount.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function depositCount(address user)  external view returns (uint256) { return _depositHistory[user].length;    }
+    /// @notice Executes withdrawalCount.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function withdrawalCount(address user) external view returns (uint256) { return _withdrawalHistory[user].length; }
 
     /// @notice Max assets the user could withdraw right now.
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function maxWithdraw(address user) external view returns (uint256) {
         return _convertToAssets(balanceOf(user));
     }

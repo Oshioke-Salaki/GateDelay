@@ -95,6 +95,9 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
 
     // ─── Admin ───────────────────────────────────────────────────────────────
 
+    /// @notice Executes setPaused.
+    /// @param _paused Whether paused is enabled or selected.
+    /// @dev Access: Caller must be the contract owner.
     function setPaused(bool _paused) external onlyOwner {
         paused = _paused;
         emit Paused(_paused);
@@ -104,6 +107,9 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
 
     /// @notice Deposit `amount` of underlying and receive proportional WS.
     /// @return shares  WS minted to the caller.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `ZeroAmount` if `amount == 0` is true.
     function deposit(uint256 amount) external nonReentrant returns (uint256 shares) {
         if (paused) revert ContractPaused();
         if (amount == 0) revert ZeroAmount();
@@ -123,6 +129,9 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
     ///         Tokens are locked (transferred to this contract) until execution.
     /// @param  shares  Amount of WS to redeem.
     /// @return id      Redemption record id.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `ZeroAmount` if `shares == 0` is true.
+    ///     `InsufficientShares` if `balanceOf(msg.sender) < shares` is true.
     function requestRedemption(uint256 shares) external nonReentrant returns (uint256 id) {
         if (paused) revert ContractPaused();
         if (shares == 0) revert ZeroAmount();
@@ -153,6 +162,13 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
     /// @notice Execute a pending redemption: burn the locked shares and
     ///         transfer the underlying to the user.
     /// @dev    Callable by the redemption owner or the contract owner.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ContractPaused` if `paused` is true. `UnknownRedemption` if `r.status ==
+    ///     RedemptionStatus.NONE` is true. `NotRedemptionOwner` if `r.user != msg.sender &&
+    ///     msg.sender != owner()` is true. `RedemptionNotPending` if `r.status !=
+    ///     RedemptionStatus.PENDING` is true. `InsufficientPoolBalance` if `totalUnderlying <
+    ///     r.underlyingAmount` is true.
     function executeRedemption(uint256 id) external nonReentrant {
         if (paused) revert ContractPaused();
 
@@ -178,6 +194,11 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
     // ─── Redemption: cancel ───────────────────────────────────────────────────
 
     /// @notice Cancel a pending redemption and return locked shares to the caller.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `UnknownRedemption` if `r.status == RedemptionStatus.NONE` is true.
+    ///     `NotRedemptionOwner` if `r.user != msg.sender` is true. `RedemptionNotPending` if
+    ///     `r.status != RedemptionStatus.PENDING` is true.
     function cancelRedemption(uint256 id) external nonReentrant {
         RedemptionRecord storage r = _redemptions[id];
         if (r.status == RedemptionStatus.NONE)    revert UnknownRedemption();
@@ -195,31 +216,48 @@ contract WithdrawalShares is ERC20, Ownable, ReentrancyGuard {
     // ─── Queries ─────────────────────────────────────────────────────────────
 
     /// @notice Full details of a redemption record.
+    /// @param id Numeric id used by this operation.
+    /// @return Redemption returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRedemption(uint256 id) external view returns (RedemptionRecord memory) {
         return _redemptions[id];
     }
 
     /// @notice Status of a redemption.
+    /// @param id Numeric id used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function statusOf(uint256 id) external view returns (RedemptionStatus) {
         return _redemptions[id].status;
     }
 
     /// @notice All redemption ids for a user (any status).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userRedemptionIds(address user) external view returns (uint256[] memory) {
         return _userRedemptions[user];
     }
 
     /// @notice How many WS would be minted for a given underlying amount.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return Deposit returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewDeposit(uint256 amount) external view returns (uint256) {
         return _calculateShares(amount);
     }
 
     /// @notice How much underlying would be returned for `shares` WS.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Redemption returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function previewRedemption(uint256 shares) external view returns (uint256) {
         return _calculateUnderlying(shares);
     }
 
     /// @notice Current share price expressed as underlying per WS (18 decimals).
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function sharePrice() external view returns (uint256) {
         if (totalSupply() == 0) return 1e18;
         return (totalUnderlying * 1e18) / totalSupply();

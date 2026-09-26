@@ -12,6 +12,14 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @dev Minimal LayerZero endpoint interface for cross-chain message passing.
 interface ILayerZeroEndpoint {
     /// @notice Send a cross-chain message.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _destination Encoded data used for destination.
+    /// @param _payload Encoded data used for payload.
+    /// @param _refundAddress Address associated with refund address.
+    /// @param _zroPaymentAddress Address associated with zro payment address.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function send(
         uint16 _dstChainId,
         bytes calldata _destination,
@@ -22,6 +30,15 @@ interface ILayerZeroEndpoint {
     ) external payable;
 
     /// @notice Estimate fees before sending.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _userApplication Address associated with user application.
+    /// @param _payload Encoded data used for payload.
+    /// @param _payInZRO Whether pay in zro is enabled or selected.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @return nativeFee native fee produced by the operation.
+    /// @return zroFee zro fee produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function estimateFees(
         uint16 _dstChainId,
         address _userApplication,
@@ -31,12 +48,23 @@ interface ILayerZeroEndpoint {
     ) external view returns (uint256 nativeFee, uint256 zroFee);
 
     /// @notice Get the nonce for an outbound message.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @return Outbound nonce returned by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function getOutboundNonce(uint16 _dstChainId, address _srcAddress) external view returns (uint64);
 }
 
 /// @dev Minimal LayerZero receiver interface.
 interface ILayerZeroReceiver {
     /// @notice Called by the LayerZero endpoint when a cross-chain message arrives.
+    /// @param _srcChainId Identifier of the relevant src chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @param _nonce Numeric nonce used by this operation.
+    /// @param _payload Encoded data used for payload.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function lzReceive(
         uint16 _srcChainId,
         bytes calldata _srcAddress,
@@ -259,6 +287,9 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     /// @notice Register a remote bridge protocol / chain.
     /// @param chainId         LayerZero chain identifier.
     /// @param remoteAddress   Packed address of the counterpart on the remote chain.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ProtocolAlreadyRegistered` if `_protocols[chainId].active` is
+    ///     true. `BridgeConnector__EmptyPayload` if `remoteAddress.length == 0` is true.
     function registerProtocol(uint16 chainId, bytes calldata remoteAddress) external onlyOwner {
         if (_protocols[chainId].active) revert BridgeConnector__ProtocolAlreadyRegistered(chainId);
         if (remoteAddress.length == 0) revert BridgeConnector__EmptyPayload();
@@ -275,6 +306,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Remove a previously-registered protocol, disabling further sends.
+    /// @param chainId Identifier of the relevant chain.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ProtocolNotRegistered` if `!_protocols[chainId].active` is
+    ///     true.
     function removeProtocol(uint16 chainId) external onlyOwner {
         if (!_protocols[chainId].active) revert BridgeConnector__ProtocolNotRegistered(chainId);
         _protocols[chainId].active = false;
@@ -282,6 +317,11 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Update the remote address of an existing protocol registration.
+    /// @param chainId Identifier of the relevant chain.
+    /// @param newRemoteAddress New remote address value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ProtocolNotRegistered` if `!_protocols[chainId].active` is
+    ///     true. `BridgeConnector__EmptyPayload` if `newRemoteAddress.length == 0` is true.
     function updateProtocol(uint16 chainId, bytes calldata newRemoteAddress) external onlyOwner {
         if (!_protocols[chainId].active) revert BridgeConnector__ProtocolNotRegistered(chainId);
         if (newRemoteAddress.length == 0) revert BridgeConnector__EmptyPayload();
@@ -298,6 +338,9 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     /// @param payload         Message payload.
     /// @param adapterParams   Optional LayerZero adapter parameters (gas, airdrops, etc.).
     /// @return messageId      Internal message identifier.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `BridgeConnector__ProtocolNotRegistered` if `!proto.active` is true.
+    ///     `BridgeConnector__EmptyPayload` if `payload.length == 0` is true.
     function sendMessage(uint16 dstChainId, bytes calldata payload, bytes calldata adapterParams)
         external
         payable
@@ -339,6 +382,12 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Estimate the native fee required to send a message via LayerZero.
+    /// @param dstChainId Identifier of the relevant dst chain.
+    /// @param payload Payload to send or process.
+    /// @param adapterParams Encoded data used for adapter params.
+    /// @return nativeFee native fee produced by the operation.
+    /// @return zroFee zro fee produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function estimateFee(uint16 dstChainId, bytes calldata payload, bytes calldata adapterParams)
         external
         view
@@ -348,6 +397,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Mark an outbound message as delivered (called by owner/relayer after confirmation).
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__MessageNotFound` if `m.messageId == 0` is true.
+    ///     `BridgeConnector__MessageNotPending` if `m.status != MessageStatus.Pending` is true.
     function markDelivered(uint256 messageId) external onlyOwner {
         BridgeMessage storage m = _outbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__MessageNotFound(messageId);
@@ -360,6 +413,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Mark an outbound message as failed.
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__MessageNotFound` if `m.messageId == 0` is true.
+    ///     `BridgeConnector__MessageNotPending` if `m.status != MessageStatus.Pending` is true.
     function markFailed(uint256 messageId) external onlyOwner {
         BridgeMessage storage m = _outbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__MessageNotFound(messageId);
@@ -373,6 +430,12 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Retry a failed outbound message.
+    /// @param messageId Identifier of the relevant message.
+    /// @param adapterParams Encoded data used for adapter params.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__MessageNotFound` if `m.messageId == 0` is true.
+    ///     `BridgeConnector__MessageNotFailed` if `m.status != MessageStatus.Failed` is true.
+    ///     `BridgeConnector__ProtocolInactive` if `!proto.active` is true.
     function retryMessage(uint256 messageId, bytes calldata adapterParams)
         external
         payable
@@ -408,6 +471,11 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
 
     /// @notice Called by the LayerZero endpoint when a cross-chain message arrives.
     /// @dev    Overridable: subclasses can override `_processPayload` for custom logic.
+    /// @param _srcChainId Identifier of the relevant src chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @param _nonce Numeric nonce used by this operation.
+    /// @param _payload Encoded data used for payload.
+    /// @dev Access: Caller must satisfy `onlyEndpoint` access checks.
     function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload)
         external
         override
@@ -417,6 +485,11 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Simulate inbound delivery without a live endpoint (owner only; for testing / staging).
+    /// @param srcChainId Identifier of the relevant src chain.
+    /// @param srcAddress Address associated with src address.
+    /// @param nonce Nonce associated with this request.
+    /// @param payload Payload to send or process.
+    /// @dev Access: Caller must be the contract owner.
     function confirmInbound(uint16 srcChainId, bytes calldata srcAddress, uint64 nonce, bytes calldata payload)
         external
         onlyOwner
@@ -425,6 +498,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Mark an inbound message as successfully processed.
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__InboundNotFound` if `m.messageId == 0` is true.
+    ///     `BridgeConnector__InboundNotPending` if `m.status != MessageStatus.Pending` is true.
     function acknowledgeInbound(uint256 messageId) external onlyOwner {
         InboundMessage storage m = _inbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__InboundNotFound(messageId);
@@ -436,6 +513,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Mark an inbound message as failed.
+    /// @param messageId Identifier of the relevant message.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__InboundNotFound` if `m.messageId == 0` is true.
+    ///     `BridgeConnector__InboundNotPending` if `m.status != MessageStatus.Pending` is true.
     function failInbound(uint256 messageId) external onlyOwner {
         InboundMessage storage m = _inbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__InboundNotFound(messageId);
@@ -478,6 +559,8 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     /// @param implementation  Address of the replacement connector / logic contract.
     /// @param reason          Human-readable justification.
     /// @return proposalId
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ZeroAddress` if `implementation == address(0)` is true.
     function proposeUpgrade(address implementation, string calldata reason)
         external
         onlyOwner
@@ -503,6 +586,12 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Execute a proposed upgrade after the timelock has elapsed.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__UpgradeNotFound` if `p.proposalId == 0` is true.
+    ///     `BridgeConnector__UpgradeNotProposed` if `p.status != UpgradeStatus.Proposed` is true.
+    ///     `BridgeConnector__UpgradeTimelockActive` if `block.timestamp < p.effectiveAfter` is
+    ///     true.
     function executeUpgrade(uint256 proposalId) external onlyOwner {
         UpgradeProposal storage p = _upgrades[proposalId];
         if (p.proposalId == 0) revert BridgeConnector__UpgradeNotFound(proposalId);
@@ -518,6 +607,10 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Cancel a pending upgrade proposal.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__UpgradeNotFound` if `p.proposalId == 0` is true.
+    ///     `BridgeConnector__UpgradeNotProposed` if `p.status != UpgradeStatus.Proposed` is true.
     function cancelUpgrade(uint256 proposalId) external onlyOwner {
         UpgradeProposal storage p = _upgrades[proposalId];
         if (p.proposalId == 0) revert BridgeConnector__UpgradeNotFound(proposalId);
@@ -534,6 +627,9 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Pause the connector (blocks new outbound sends and retries).
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ConnectorDeprecated` if `connectorStatus ==
+    ///     ConnectorStatus.Deprecated` is true.
     function pause() external onlyOwner {
         if (connectorStatus == ConnectorStatus.Deprecated) revert BridgeConnector__ConnectorDeprecated();
         connectorStatus = ConnectorStatus.Paused;
@@ -541,6 +637,9 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Resume a paused connector.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ConnectorPaused` if `connectorStatus !=
+    ///     ConnectorStatus.Paused` is true.
     function resume() external onlyOwner {
         if (connectorStatus != ConnectorStatus.Paused) revert BridgeConnector__ConnectorPaused();
         connectorStatus = ConnectorStatus.Active;
@@ -548,12 +647,16 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
     }
 
     /// @notice Permanently deprecate the connector (irreversible).
+    /// @dev Access: Caller must be the contract owner.
     function deprecate() external onlyOwner {
         connectorStatus = ConnectorStatus.Deprecated;
         emit ConnectorDeprecated(msg.sender);
     }
 
     /// @notice Update the LayerZero endpoint address.
+    /// @param newEndpoint New endpoint value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `BridgeConnector__ZeroAddress` if `newEndpoint == address(0)` is true.
     function setEndpoint(address newEndpoint) external onlyOwner {
         if (newEndpoint == address(0)) revert BridgeConnector__ZeroAddress();
         lzEndpoint = ILayerZeroEndpoint(newEndpoint);
@@ -566,70 +669,124 @@ contract BridgeConnector is Ownable, ReentrancyGuard, ILayerZeroReceiver {
 
     // --- Protocol queries ---
 
+    /// @notice Returns protocol.
+    /// @param chainId Identifier of the relevant chain.
+    /// @return Protocol returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProtocol(uint16 chainId) external view returns (ProtocolConfig memory) {
         return _protocols[chainId];
     }
 
+    /// @notice Reports whether protocol active is satisfied.
+    /// @param chainId Identifier of the relevant chain.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isProtocolActive(uint16 chainId) external view returns (bool) {
         return _protocols[chainId].active;
     }
 
+    /// @notice Returns registered chain ids.
+    /// @return Registered chain ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRegisteredChainIds() external view returns (uint16[] memory) {
         return _registeredChainIds;
     }
 
     // --- Outbound message queries ---
 
+    /// @notice Returns outbound message.
+    /// @param messageId Identifier of the relevant message.
+    /// @return Outbound message returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BridgeConnector__MessageNotFound` if `m.messageId == 0` is true.
     function getOutboundMessage(uint256 messageId) external view returns (BridgeMessage memory) {
         BridgeMessage memory m = _outbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__MessageNotFound(messageId);
         return m;
     }
 
+    /// @notice Returns outbound messages by sender.
+    /// @param sender Address associated with sender.
+    /// @return Outbound messages by sender returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getOutboundMessagesBySender(address sender) external view returns (uint256[] memory) {
         return _outboundBySender[sender];
     }
 
+    /// @notice Returns outbound message status.
+    /// @param messageId Identifier of the relevant message.
+    /// @return Outbound message status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BridgeConnector__MessageNotFound` if `m.messageId == 0` is true.
     function getOutboundMessageStatus(uint256 messageId) external view returns (MessageStatus) {
         BridgeMessage memory m = _outbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__MessageNotFound(messageId);
         return m.status;
     }
 
+    /// @notice Executes outboundMessageCount.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function outboundMessageCount() external view returns (uint256) {
         return _nextOutboundId - 1;
     }
 
     // --- Inbound message queries ---
 
+    /// @notice Returns inbound message.
+    /// @param messageId Identifier of the relevant message.
+    /// @return Inbound message returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BridgeConnector__InboundNotFound` if `m.messageId == 0` is true.
     function getInboundMessage(uint256 messageId) external view returns (InboundMessage memory) {
         InboundMessage memory m = _inbound[messageId];
         if (m.messageId == 0) revert BridgeConnector__InboundNotFound(messageId);
         return m;
     }
 
+    /// @notice Returns inbound messages by chain.
+    /// @param chainId Identifier of the relevant chain.
+    /// @return Inbound messages by chain returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getInboundMessagesByChain(uint16 chainId) external view returns (uint256[] memory) {
         return _inboundByChain[chainId];
     }
 
+    /// @notice Executes inboundMessageCount.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function inboundMessageCount() external view returns (uint256) {
         return _nextInboundId - 1;
     }
 
     // --- Upgrade queries ---
 
+    /// @notice Returns upgrade proposal.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return Upgrade proposal returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BridgeConnector__UpgradeNotFound` if `p.proposalId == 0` is true.
     function getUpgradeProposal(uint256 proposalId) external view returns (UpgradeProposal memory) {
         UpgradeProposal memory p = _upgrades[proposalId];
         if (p.proposalId == 0) revert BridgeConnector__UpgradeNotFound(proposalId);
         return p;
     }
 
+    /// @notice Returns upgrade proposal ids.
+    /// @return Upgrade proposal ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeProposalIds() external view returns (uint256[] memory) {
         return _upgradeIds;
     }
 
     // --- Aggregate stats ---
 
+    /// @notice Returns stats.
+    /// @return sent sent produced by the operation.
+    /// @return received received produced by the operation.
+    /// @return failed failed produced by the operation.
+    /// @return status Current status of the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getStats()
         external
         view

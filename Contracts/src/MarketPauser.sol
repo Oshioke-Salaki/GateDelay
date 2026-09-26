@@ -80,6 +80,9 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Pause the market with a reason.
     /// @dev Can be called by any account with PAUSER_ROLE or EMERGENCY_PAUSER_ROLE.
     /// @param reason The reason for pausing the market.
+    /// @dev Access: Caller must have the pauser role.
+    /// @dev Reverts: "Market already paused" if `!paused()` is false. "Reason required" if
+    ///     `bytes(reason).length > 0` is false.
     function pause(string calldata reason) external onlyPauser {
         require(!paused(), "Market already paused");
         require(bytes(reason).length > 0, "Reason required");
@@ -102,6 +105,8 @@ contract MarketPauser is Pausable, AccessControl {
 
     /// @notice Unpause the market.
     /// @dev Can only be called by accounts with PAUSER_ROLE or EMERGENCY_PAUSER_ROLE.
+    /// @dev Access: Caller must have the pauser role.
+    /// @dev Reverts: "Market not paused" if `paused()` is false.
     function unpause() external onlyPauser {
         require(paused(), "Market not paused");
 
@@ -113,6 +118,8 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Emergency pause the market without a reason.
     /// @dev Can only be called by accounts with EMERGENCY_PAUSER_ROLE.
     /// This is for critical situations where speed is essential.
+    /// @dev Access: Caller must satisfy `onlyEmergencyPauser` access checks.
+    /// @dev Reverts: "Market already paused" if `!paused()` is false.
     function emergencyPause() external onlyEmergencyPauser {
         require(!paused(), "Market already paused");
 
@@ -137,6 +144,8 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Grant PAUSER_ROLE to an account.
     /// @dev Can only be called by DEFAULT_ADMIN_ROLE.
     /// @param account The account to grant the role to.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
+    /// @dev Reverts: "Invalid address" if `account != address(0)` is false.
     function grantPauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(account != address(0), "Invalid address");
         grantRole(PAUSER_ROLE, account);
@@ -146,6 +155,9 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Revoke PAUSER_ROLE from an account.
     /// @dev Can only be called by DEFAULT_ADMIN_ROLE.
     /// @param account The account to revoke the role from.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
+    /// @dev Reverts: "Account does not have pauser role" if `hasRole(PAUSER_ROLE, account)` is
+    ///     false.
     function revokePauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(hasRole(PAUSER_ROLE, account), "Account does not have pauser role");
         revokeRole(PAUSER_ROLE, account);
@@ -155,6 +167,8 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Grant EMERGENCY_PAUSER_ROLE to an account.
     /// @dev Can only be called by DEFAULT_ADMIN_ROLE.
     /// @param account The account to grant the role to.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
+    /// @dev Reverts: "Invalid address" if `account != address(0)` is false.
     function grantEmergencyPauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(account != address(0), "Invalid address");
         grantRole(EMERGENCY_PAUSER_ROLE, account);
@@ -164,6 +178,9 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Revoke EMERGENCY_PAUSER_ROLE from an account.
     /// @dev Can only be called by DEFAULT_ADMIN_ROLE.
     /// @param account The account to revoke the role from.
+    /// @dev Access: Caller must hold the DEFAULT_ADMIN_ROLE role.
+    /// @dev Reverts: "Account does not have emergency pauser role" if
+    ///     `hasRole(EMERGENCY_PAUSER_ROLE, account)` is false.
     function revokeEmergencyPauserRole(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(hasRole(EMERGENCY_PAUSER_ROLE, account), "Account does not have emergency pauser role");
         revokeRole(EMERGENCY_PAUSER_ROLE, account);
@@ -176,36 +193,42 @@ contract MarketPauser is Pausable, AccessControl {
     
     /// @notice Check if the market is currently paused.
     /// @return True if paused, false otherwise.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isPaused() external view returns (bool) {
         return paused();
     }
 
     /// @notice Check if the market is in emergency pause state.
     /// @return True if emergency paused, false otherwise.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isEmergencyPaused() external view returns (bool) {
         return _emergencyPaused;
     }
 
     /// @notice Get the address that last paused the market.
     /// @return The address of the last pauser.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPausedBy() external view returns (address) {
         return _lastPauseInfo.pausedBy;
     }
 
     /// @notice Get the timestamp when the market was last paused.
     /// @return The timestamp of the last pause.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPausedAt() external view returns (uint256) {
         return _lastPauseInfo.pausedAt;
     }
 
     /// @notice Get the reason for the last pause.
     /// @return The reason string.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPauseReason() external view returns (string memory) {
         return _lastPauseInfo.reason;
     }
 
     /// @notice Check if the last pause was an emergency pause.
     /// @return True if the last pause was emergency, false otherwise.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getLastPauseIsEmergency() external view returns (bool) {
         return _lastPauseInfo.isEmergency;
     }
@@ -215,6 +238,7 @@ contract MarketPauser is Pausable, AccessControl {
     /// @return pausedAt The timestamp of pause.
     /// @return reason The reason for pause.
     /// @return isEmergency Whether it was an emergency pause.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getLastPauseInfo() external view returns (
         address pausedBy,
         uint256 pausedAt,
@@ -231,6 +255,7 @@ contract MarketPauser is Pausable, AccessControl {
 
     /// @notice Get the total number of pause operations.
     /// @return The count of pause operations.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalPauseCount() external view returns (uint256) {
         return _totalPauseCount;
     }
@@ -238,6 +263,7 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Check if an account has PAUSER_ROLE.
     /// @param account The account to check.
     /// @return True if the account has pauser role.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function isPauser(address account) external view returns (bool) {
         return hasRole(PAUSER_ROLE, account);
     }
@@ -245,6 +271,7 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Check if an account has EMERGENCY_PAUSER_ROLE.
     /// @param account The account to check.
     /// @return True if the account has emergency pauser role.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function isEmergencyPauser(address account) external view returns (bool) {
         return hasRole(EMERGENCY_PAUSER_ROLE, account);
     }
@@ -252,6 +279,7 @@ contract MarketPauser is Pausable, AccessControl {
     /// @notice Check if an account has either pauser or emergency pauser role.
     /// @param account The account to check.
     /// @return True if the account can pause.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function canPause(address account) external view returns (bool) {
         return hasRole(PAUSER_ROLE, account) || hasRole(EMERGENCY_PAUSER_ROLE, account);
     }

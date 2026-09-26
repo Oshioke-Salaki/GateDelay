@@ -60,6 +60,15 @@ contract RateLimiter is AccessControl {
     }
 
     // Configuration Management
+    /// @notice Executes configureRateLimit.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param maxOperations Maximum operations allowed.
+    /// @param timeWindow time window as a Unix timestamp.
+    /// @param enabled Whether the configuration is enabled.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RateLimiter: invalid limitId" if `limitId != bytes32(0)` is false.
+    ///     "RateLimiter: maxOperations must be positive" if `maxOperations > 0` is false.
+    ///     "RateLimiter: timeWindow must be positive" if `timeWindow > 0` is false.
     function configureRateLimit(
         bytes32 limitId,
         uint256 maxOperations,
@@ -84,6 +93,11 @@ contract RateLimiter is AccessControl {
         );
     }
 
+    /// @notice Executes enableRateLimit.
+    /// @param limitId Identifier of the relevant limit.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `rateLimitConfigs[limitId].timeWindow >
+    ///     0` is false.
     function enableRateLimit(bytes32 limitId) external onlyAdmin {
         require(rateLimitConfigs[limitId].timeWindow > 0, "RateLimiter: limit not configured");
         bool oldEnabled = rateLimitConfigs[limitId].enabled;
@@ -105,6 +119,11 @@ contract RateLimiter is AccessControl {
         );
     }
 
+    /// @notice Executes disableRateLimit.
+    /// @param limitId Identifier of the relevant limit.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `rateLimitConfigs[limitId].timeWindow >
+    ///     0` is false.
     function disableRateLimit(bytes32 limitId) external onlyAdmin {
         require(rateLimitConfigs[limitId].timeWindow > 0, "RateLimiter: limit not configured");
         bool oldEnabled = rateLimitConfigs[limitId].enabled;
@@ -127,21 +146,45 @@ contract RateLimiter is AccessControl {
     }
 
     // Rate Limiting Operations
+    /// @notice Reports whether rate limit is satisfied.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return allowed allowed produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkRateLimit(bytes32 limitId, address user) external returns (bool allowed) {
         return _checkAndUpdate(limitId, user);
     }
 
+    /// @notice Executes recordOperation.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @dev Access: Caller must have the operator role.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
+    ///     "RateLimiter: rate limit exceeded" if `!_checkAndUpdate(limitId, user)` is false.
     function recordOperation(bytes32 limitId, address user) external onlyOperator {
         require(limitsExist(limitId), "RateLimiter: limit not configured");
         require(!_checkAndUpdate(limitId, user), "RateLimiter: rate limit exceeded");
     }
 
+    /// @notice Executes recordOperationIfAllowed.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller must have the operator role.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function recordOperationIfAllowed(bytes32 limitId, address user) external onlyOperator returns (bool) {
         require(limitsExist(limitId), "RateLimiter: limit not configured");
         return _checkAndUpdate(limitId, user);
     }
 
     // Permission Overrides
+    /// @notice Executes setLimitOverride.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @param overridden Whether overridden is enabled or selected.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RateLimiter: invalid user address" if `user != address(0)` is false.
+    ///     "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function setLimitOverride(bytes32 limitId, address user, bool overridden) external onlyAdmin {
         require(user != address(0), "RateLimiter: invalid user address");
         require(limitsExist(limitId), "RateLimiter: limit not configured");
@@ -150,11 +193,22 @@ contract RateLimiter is AccessControl {
         emit LimitOverrideSet(limitId, user, overridden);
     }
 
+    /// @notice Reports whether user exempt is satisfied.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isUserExempt(bytes32 limitId, address user) external view returns (bool) {
         return userLimitOverrides[user][limitId];
     }
 
     // Status and Metrics Queries
+    /// @notice Returns rate limit config.
+    /// @param limitId Identifier of the relevant limit.
+    /// @return maxOperations max operations produced by the operation.
+    /// @return timeWindow time window produced by the operation.
+    /// @return enabled True if enabled.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRateLimitConfig(bytes32 limitId) 
         external 
         view 
@@ -164,6 +218,11 @@ contract RateLimiter is AccessControl {
         return (config.maxOperations, config.timeWindow, config.enabled);
     }
 
+    /// @notice Returns operation count.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return count Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getOperationCount(bytes32 limitId, address user) 
         external 
         view 
@@ -179,6 +238,16 @@ contract RateLimiter is AccessControl {
         return tracker.operationCount;
     }
 
+    /// @notice Returns operation status.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return currentCount Number of items tracked by the contract.
+    /// @return maxAllowed max allowed produced by the operation.
+    /// @return remainingOperations remaining operations produced by the operation.
+    /// @return timeUntilReset time until reset produced by the operation.
+    /// @return isLimited is limited produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function getOperationStatus(bytes32 limitId, address user) 
         external 
         view 
@@ -209,6 +278,12 @@ contract RateLimiter is AccessControl {
         isLimited = config.enabled && currentCount >= maxAllowed;
     }
 
+    /// @notice Returns time to next window.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return secondsUntilReset seconds until reset produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function getTimeToNextWindow(bytes32 limitId, address user) 
         external 
         view 
@@ -227,6 +302,12 @@ contract RateLimiter is AccessControl {
         return windowEnd > block.timestamp ? windowEnd - block.timestamp : 0;
     }
 
+    /// @notice Reports whether rate limited is satisfied.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function isRateLimited(bytes32 limitId, address user) external view returns (bool) {
         require(limitsExist(limitId), "RateLimiter: limit not configured");
         
@@ -249,11 +330,21 @@ contract RateLimiter is AccessControl {
         return tracker.operationCount >= config.maxOperations;
     }
 
+    /// @notice Executes limitsExist.
+    /// @param limitId Identifier of the relevant limit.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function limitsExist(bytes32 limitId) public view returns (bool) {
         return rateLimitConfigs[limitId].timeWindow > 0;
     }
 
     // Management Functions
+    /// @notice Executes resetUserLimits.
+    /// @param limitId Identifier of the relevant limit.
+    /// @param user User address affected by this operation.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "RateLimiter: invalid user address" if `user != address(0)` is false.
+    ///     "RateLimiter: limit not configured" if `limitsExist(limitId)` is false.
     function resetUserLimits(bytes32 limitId, address user) external onlyAdmin {
         require(user != address(0), "RateLimiter: invalid user address");
         require(limitsExist(limitId), "RateLimiter: limit not configured");

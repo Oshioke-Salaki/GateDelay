@@ -35,6 +35,7 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Initialize the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function initialize() public initializer {
         _version = 1;
         _upgradeHistory.push(address(this));
@@ -47,6 +48,10 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
 
     /// @notice Authorize an upgrade to a new implementation.
     /// @param newImplementation The address of the new implementation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Invalid implementation" if `newImplementation != address(0)` is false. "Same
+    ///     implementation" if `newImplementation != _getImplementation()` is false. "Upgrade
+    ///     locked" if `!_upgradeLocked` is false.
     function authorizeUpgrade(address newImplementation) public onlyOwner {
         require(newImplementation != address(0), "Invalid implementation");
         require(newImplementation != _getImplementation(), "Same implementation");
@@ -62,6 +67,10 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
 
     /// @notice Execute the upgrade to a new implementation.
     /// @param newImplementation The address of the new implementation.
+    /// @param data Encoded data supplied to the operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Invalid implementation" if `newImplementation != address(0)` is false.
+    ///     "Upgrade locked" if `!_upgradeLocked` is false.
     function upgradeToAndCall(address newImplementation, bytes memory data) public payable override onlyProxy onlyOwner {
         require(newImplementation != address(0), "Invalid implementation");
         require(!_upgradeLocked, "Upgrade locked");
@@ -83,39 +92,53 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
     }
 
     /// @notice Lock upgrades to prevent further changes.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Already locked" if `!_upgradeLocked` is false.
     function lockUpgrades() external onlyOwner {
         require(!_upgradeLocked, "Already locked");
         _upgradeLocked = true;
     }
 
     /// @notice Unlock upgrades to allow changes.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Not locked" if `_upgradeLocked` is false.
     function unlockUpgrades() external onlyOwner {
         require(_upgradeLocked, "Not locked");
         _upgradeLocked = false;
     }
 
     /// @notice Check if upgrades are locked.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isUpgradeLocked() external view returns (bool) {
         return _upgradeLocked;
     }
 
     /// @notice Get the current version.
+    /// @return Version returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVersion() external view returns (uint256) {
         return _version;
     }
 
     /// @notice Get the upgrade history.
+    /// @return Upgrade history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeHistory() external view returns (address[] memory) {
         return _upgradeHistory;
     }
 
     /// @notice Get the timestamp of an upgrade.
     /// @param implementation The implementation address.
+    /// @return Upgrade timestamp returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeTimestamp(address implementation) external view returns (uint256) {
         return _upgradeTimestamps[implementation];
     }
 
     /// @notice Get the current implementation address.
+    /// @return Implementation returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getImplementation() external view returns (address) {
         return _getImplementation();
     }
@@ -149,11 +172,16 @@ contract UpgradeableMarket is Initializable, UUPSUpgradeable, Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Example market operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function executeMarketOperation() external returns (bool) {
         return true;
     }
 
     /// @notice Get contract state for validation.
+    /// @return version version produced by the operation.
+    /// @return locked locked produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getContractState() external view returns (uint256 version, bool locked) {
         return (_version, _upgradeLocked);
     }

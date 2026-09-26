@@ -41,6 +41,9 @@ contract StrategyVault is Ownable {
 
     /**
      * @notice Handle strategy deposits
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `ZeroAmount` if `amount == 0` is true.
      */
     function deposit(uint256 amount) external {
         if (amount == 0) revert ZeroAmount();
@@ -53,6 +56,10 @@ contract StrategyVault is Ownable {
 
     /**
      * @notice Handle strategy withdrawals
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAmount` if `amount == 0` is true. `InsufficientBalance` if `totalAssets <
+     *     amount` is true.
      */
     function withdraw(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();
@@ -66,6 +73,9 @@ contract StrategyVault is Ownable {
 
     /**
      * @notice Approve target for trading
+     * @param target Address associated with target.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller must be the contract owner.
      */
     function approveTarget(address target, uint256 amount) external onlyOwner {
         asset.forceApprove(target, amount);
@@ -73,6 +83,10 @@ contract StrategyVault is Ownable {
 
     /**
      * @notice Execute strategy trades and track strategy performance
+     * @param target Address associated with target.
+     * @param data Encoded data supplied to the operation.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAddress` if `target == address(0)` is true.
      */
     function executeTrade(address target, bytes calldata data) external onlyOwner {
         if (target == address(0)) revert ZeroAddress();
@@ -105,11 +119,18 @@ contract StrategyVault is Ownable {
 
     /**
      * @notice Provide vault queries
+     * @return Performance returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPerformance() external view returns (TradePerformance memory) {
         return performance;
     }
 
+    /// @notice Returns vault details.
+    /// @return _totalAssets total assets produced by the operation.
+    /// @return _totalProfits total profits produced by the operation.
+    /// @return _totalLosses total losses produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVaultDetails() external view returns (uint256 _totalAssets, uint256 _totalProfits, uint256 _totalLosses) {
         return (totalAssets, totalProfits, totalLosses);
     }

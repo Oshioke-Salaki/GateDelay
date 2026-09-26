@@ -138,6 +138,14 @@ contract CoverageCalculation {
     // -------------------------------------------------------------------------
 
     /// @notice Configure coverage parameters for a coverage type
+    /// @param coverageType coverage type used by this operation.
+    /// @param baseCoverage Numeric base coverage used by this operation.
+    /// @param maxCoverage Maximum coverage allowed.
+    /// @param riskMultiplier Numeric risk multiplier used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Not admin" if `msg.sender == admin` is false. require condition `baseCoverage
+    ///     > 0 && maxCoverage >= baseCoverage` must hold. require condition `riskMultiplier > 0 &&
+    ///     riskMultiplier <= BPS_DENOMINATOR` must hold.
     function configureCoverageType(
         CoverageType coverageType,
         uint256 baseCoverage,
@@ -170,6 +178,10 @@ contract CoverageCalculation {
     }
 
     /// @notice Update admin address
+    /// @param newAdmin Address of the new administrator.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Not admin" if `msg.sender == admin` is false. "Invalid admin" if `newAdmin !=
+    ///     address(0)` is false.
     function updateAdmin(address newAdmin) external {
         require(msg.sender == admin, "Not admin");
         require(newAdmin != address(0), "Invalid admin");
@@ -183,6 +195,8 @@ contract CoverageCalculation {
     /// @notice Calculate base coverage for a coverage type
     /// @param coverageType The coverage type
     /// @return baseCoverage The base coverage amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `params.active` must hold.
     function getBaseCoverage(
         CoverageType coverageType
     ) external view returns (uint256 baseCoverage) {
@@ -195,6 +209,9 @@ contract CoverageCalculation {
     /// @param coverageType The coverage type
     /// @param riskScore Risk score (0-10000, representing 0-100%)
     /// @return calculation Struct containing base, adjustment, and final coverage
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `params.active` must hold. require condition `riskScore <=
+    ///     MAX_RISK_SCORE` must hold.
     function calculateCoverage(
         CoverageType coverageType,
         uint256 riskScore
@@ -234,6 +251,10 @@ contract CoverageCalculation {
     /// @param coverageType Type of coverage to allocate
     /// @param riskScore Risk score for adjustment (0-10000)
     /// @return allocatedAmount The final allocated coverage amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `user != address(0)` must hold. require condition `market !=
+    ///     address(0)` must hold. require condition `riskScore <= MAX_RISK_SCORE` must hold.
+    ///     require condition `params.active` must hold.
     function allocateCoverage(
         address user,
         address market,
@@ -290,6 +311,9 @@ contract CoverageCalculation {
     /// @param user Address of the user
     /// @param market Address of the market
     /// @param utilizationAmount Amount of coverage being utilized
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "Allocation not active" if `allocation.active` is false. require condition
+    ///     `utilizationAmount <= allocation.allocatedAmount` must hold.
     function updateUtilization(
         address user,
         address market,
@@ -327,6 +351,9 @@ contract CoverageCalculation {
     /// @param user Address of the user
     /// @param market Address of the market
     /// @param newRiskScore New risk score (0-10000)
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `newRiskScore <= MAX_RISK_SCORE` must hold. "Allocation not
+    ///     active" if `allocation.active` is false.
     function updateRiskScore(
         address user,
         address market,
@@ -370,6 +397,7 @@ contract CoverageCalculation {
     /// @param user Address of the user
     /// @param market Address of the market
     /// @return allocation The coverage allocation
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAllocation(
         address user,
         address market
@@ -380,6 +408,7 @@ contract CoverageCalculation {
     /// @notice Get total allocated coverage for a user
     /// @param user Address of the user
     /// @return totalAllocated Total allocated coverage
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalAllocated(
         address user
     ) external view returns (uint256 totalAllocated) {
@@ -398,6 +427,7 @@ contract CoverageCalculation {
     /// @notice Get total utilization for a user
     /// @param user Address of the user
     /// @return totalUtilization Total utilization
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalUtilization(
         address user
     ) external view returns (uint256 totalUtilization) {
@@ -416,6 +446,7 @@ contract CoverageCalculation {
     /// @notice Get remaining capacity for a user
     /// @param user Address of the user
     /// @return totalRemaining Total remaining capacity
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalRemainingCapacity(
         address user
     ) external view returns (uint256 totalRemaining) {
@@ -434,6 +465,7 @@ contract CoverageCalculation {
     /// @notice Get markets covered by a user
     /// @param user Address of the user
     /// @return markets Array of market addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserMarkets(
         address user
     ) external view returns (address[] memory markets) {
@@ -443,6 +475,7 @@ contract CoverageCalculation {
     /// @notice Get users covering a market
     /// @param market Address of the market
     /// @return users Array of user addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketUsers(
         address market
     ) external view returns (address[] memory users) {
@@ -454,6 +487,7 @@ contract CoverageCalculation {
     /// @param market Address of the market
     /// @param requestedAmount Amount requested for utilization
     /// @return available True if coverage is available
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isCoverageAvailable(
         address user,
         address market,
@@ -474,6 +508,7 @@ contract CoverageCalculation {
     /// @notice Get coverage type configuration
     /// @param coverageType The coverage type
     /// @return params The coverage parameters
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCoverageConfig(
         CoverageType coverageType
     ) external view returns (CoverageParams memory params) {
@@ -483,6 +518,7 @@ contract CoverageCalculation {
     /// @notice Get all active allocations for a user
     /// @param user Address of the user
     /// @return allocations Array of active allocations
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserAllocations(
         address user
     ) external view returns (CoverageAllocation[] memory allocations) {
@@ -514,6 +550,7 @@ contract CoverageCalculation {
     /// @notice Get portfolio utilization for a user
     /// @param user Address of the user
     /// @return utilization Average utilization percentage across all allocations
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPortfolioUtilization(
         address user
     ) external view returns (uint256 utilization) {

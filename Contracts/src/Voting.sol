@@ -77,6 +77,7 @@ contract Voting is Ownable, ReentrancyGuard {
     /// @param description  Human-readable description of the proposal.
     /// @param duration     Voting period in seconds.
     /// @return proposalId  The new proposal's ID.
+    /// @dev Access: Caller must be the contract owner.
     function createProposal(string calldata description, uint256 duration)
         external
         onlyOwner
@@ -97,6 +98,10 @@ contract Voting is Ownable, ReentrancyGuard {
     }
 
     /// @notice Close a proposal after voting ends.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidProposal` if `!p.active` is true. `VotingNotEnded` if `block.timestamp
+    ///     < p.endTime` is true.
     function closeProposal(uint256 proposalId) external onlyOwner {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert InvalidProposal();
@@ -110,6 +115,10 @@ contract Voting is Ownable, ReentrancyGuard {
     /// @notice Cast a vote on a proposal.
     /// @param proposalId  The proposal to vote on.
     /// @param choice      FOR, AGAINST, or ABSTAIN.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ProposalNotActive` if `!p.active` is true. `VotingEnded` if `block.timestamp >
+    ///     p.endTime` is true. `AlreadyVoted` if `votes[proposalId][msg.sender].choice !=
+    ///     VoteChoice.NONE` is true. `ZeroVotingPower` if `weight == 0` is true.
     function castVote(uint256 proposalId, VoteChoice choice) external nonReentrant {
         Proposal storage p = proposals[proposalId];
         if (!p.active) revert ProposalNotActive();
@@ -136,6 +145,10 @@ contract Voting is Ownable, ReentrancyGuard {
 
     /// @notice Delegate your voting power to another address.
     /// @param delegatee  Address to delegate to. Pass address(0) to remove delegation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `SelfDelegation` if `delegatee == msg.sender` is true. `DelegationLoop` if
+    ///     `delegatee != address(0)` is true. `DelegationLoop` if `delegates[delegatee] ==
+    ///     msg.sender` is true.
     function delegate(address delegatee) external {
         if (delegatee == msg.sender) revert SelfDelegation();
 
@@ -164,17 +177,29 @@ contract Voting is Ownable, ReentrancyGuard {
     // ── Queries ────────────────────────────────────────────────────────────────
 
     /// @notice Returns the effective voting power of an address (own balance + delegated).
+    /// @param account Account address affected by this operation.
+    /// @return Voting power returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotingPower(address account) public view returns (uint256) {
         uint256 own = delegates[account] == address(0) ? governanceToken.balanceOf(account) : 0;
         return own + delegatedPower[account];
     }
 
     /// @notice Returns the vote record of a voter for a proposal.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @param voter Address associated with voter.
+    /// @return Vote returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVote(uint256 proposalId, address voter) external view returns (VoteRecord memory) {
         return votes[proposalId][voter];
     }
 
     /// @notice Returns the current tally for a proposal.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return forVotes for votes produced by the operation.
+    /// @return againstVotes against votes produced by the operation.
+    /// @return abstainVotes abstain votes produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getResults(uint256 proposalId)
         external
         view
@@ -185,6 +210,9 @@ contract Voting is Ownable, ReentrancyGuard {
     }
 
     /// @notice Returns full proposal data.
+    /// @param proposalId Identifier of the governance proposal.
+    /// @return Metadata for the proposal.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProposal(uint256 proposalId) external view returns (Proposal memory) {
         return proposals[proposalId];
     }

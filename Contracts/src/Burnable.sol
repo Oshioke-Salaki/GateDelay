@@ -42,6 +42,10 @@ contract Burnable is ERC20, AccessControl {
     /**
      * @dev Burns tokens from the caller's balance.
      * @param amount Amount of tokens to burn
+     * @notice Burns.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: "Burnable: amount must be greater than 0" if `amount > 0` is false. "Burnable:
+     *     insufficient balance" if `balanceOf(msg.sender) >= amount` is false.
      */
     function burn(uint256 amount) public {
         require(amount > 0, "Burnable: amount must be greater than 0");
@@ -58,6 +62,12 @@ contract Burnable is ERC20, AccessControl {
      * Requires approval from the account owner.
      * @param account Account to burn tokens from
      * @param amount Amount of tokens to burn
+     * @notice Executes burnFrom.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: "Burnable: amount must be greater than 0" if `amount > 0` is false. "Burnable:
+     *     burn from zero address" if `account != address(0)` is false. "Burnable: insufficient
+     *     balance" if `balanceOf(account) >= amount` is false. "Burnable: insufficient allowance"
+     *     if `currentAllowance >= amount` is false.
      */
     function burnFrom(address account, uint256 amount) public {
         require(amount > 0, "Burnable: amount must be greater than 0");
@@ -79,6 +89,13 @@ contract Burnable is ERC20, AccessControl {
      * Caller must have BURNER_ROLE.
      * @param accounts Array of addresses to burn tokens from
      * @param amounts Array of amounts to burn from each account
+     * @notice Executes batchBurn.
+     * @dev Access: Caller must hold the BURNER_ROLE role.
+     * @dev Reverts: "Burnable: accounts and amounts length mismatch" if `accounts.length ==
+     *     amounts.length` is false. "Burnable: empty batch" if `accounts.length > 0` is false.
+     *     "Burnable: burn from zero address" if `account != address(0)` is false. "Burnable: amount
+     *     must be greater than 0" if `amount > 0` is false. "Burnable: insufficient balance" if
+     *     `balanceOf(account) >= amount` is false.
      */
     function batchBurn(address[] calldata accounts, uint256[] calldata amounts)
         external
@@ -116,6 +133,8 @@ contract Burnable is ERC20, AccessControl {
     /**
      * @dev Returns the total number of tokens burned.
      * @return Total amount of tokens burned
+     * @notice Executes totalBurned.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function totalBurned() public view returns (uint256) {
         return _totalBurned;
@@ -124,6 +143,8 @@ contract Burnable is ERC20, AccessControl {
     /**
      * @dev Returns the remaining supply (total supply minus burned).
      * @return Remaining token supply
+     * @notice Executes circulatingSupply.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function circulatingSupply() public view returns (uint256) {
         return totalSupply() + _totalBurned;
@@ -131,6 +152,10 @@ contract Burnable is ERC20, AccessControl {
 
     /**
      * @dev Required override for AccessControl.
+     * @notice Reports whether interface is satisfied.
+     * @param interfaceId Identifier of the relevant interface.
+     * @return True when the requested condition is met.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function supportsInterface(bytes4 interfaceId)
         public

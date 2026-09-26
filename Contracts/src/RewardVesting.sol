@@ -81,6 +81,10 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @param vestingDuration Total vesting period in seconds
     /// @param revocable Whether the owner can revoke this schedule
     /// @return scheduleId Identifier of the created schedule
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `beneficiary == address(0)` is true. `ZeroAmount` if `amount
+    ///     == 0` is true. `ZeroDuration` if `vestingDuration == 0` is true. `CliffExceedsDuration`
+    ///     if `cliffDuration > vestingDuration` is true.
     function createSchedule(
         address beneficiary,
         uint256 amount,
@@ -115,6 +119,11 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Claim all currently vested tokens for a schedule
     /// @dev Anyone may call on behalf of the beneficiary; tokens always go to beneficiary
     /// @param scheduleId Schedule to claim from
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true. `AlreadyRevoked`
+    ///     if `schedule.revoked` is true. `CliffNotReached` if `block.timestamp <
+    ///     schedule.startTime + schedule.cliffDuration` is true. `NothingToClaim` if `claimable ==
+    ///     0` is true.
     function claim(uint256 scheduleId) external nonReentrant {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
 
@@ -134,6 +143,9 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Revoke a revocable schedule and return unvested tokens to the owner
     /// @dev Vested-but-unclaimed tokens are sent to the beneficiary before revocation
     /// @param scheduleId Schedule to revoke
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true. `NotRevocable` if
+    ///     `!schedule.revocable` is true. `AlreadyRevoked` if `schedule.revoked` is true.
     function revoke(uint256 scheduleId) external onlyOwner {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
 
@@ -176,6 +188,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Get the full vesting schedule by ID
     /// @param scheduleId Schedule to query
     /// @return VestingSchedule struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function getSchedule(uint256 scheduleId) external view returns (VestingSchedule memory) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         return _schedules[scheduleId];
@@ -184,6 +198,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Amount claimable right now for a given schedule
     /// @param scheduleId Schedule to query
     /// @return Tokens available for immediate claim
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function getClaimableAmount(uint256 scheduleId) external view returns (uint256) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         VestingSchedule storage schedule = _schedules[scheduleId];
@@ -195,6 +211,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Total tokens vested so far (including already claimed)
     /// @param scheduleId Schedule to query
     /// @return Cumulative vested amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function getVestedAmount(uint256 scheduleId) external view returns (uint256) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         return _vestedAmount(_schedules[scheduleId]);
@@ -203,6 +221,7 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice All schedule IDs belonging to a beneficiary
     /// @param beneficiary Address to query
     /// @return Array of schedule IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBeneficiarySchedules(address beneficiary) external view returns (uint256[] memory) {
         return _beneficiarySchedules[beneficiary];
     }
@@ -210,6 +229,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Seconds remaining until the cliff is reached (0 if already passed)
     /// @param scheduleId Schedule to query
     /// @return Seconds until cliff
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function getTimeToCliff(uint256 scheduleId) external view returns (uint256) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         VestingSchedule storage schedule = _schedules[scheduleId];
@@ -221,6 +242,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Seconds remaining until the schedule is fully vested (0 if complete)
     /// @param scheduleId Schedule to query
     /// @return Seconds until full vesting
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function getTimeToFullVest(uint256 scheduleId) external view returns (uint256) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         VestingSchedule storage schedule = _schedules[scheduleId];
@@ -232,6 +255,8 @@ contract RewardVesting is Ownable, ReentrancyGuard {
     /// @notice Whether the cliff period has been reached for a schedule
     /// @param scheduleId Schedule to query
     /// @return True if cliff has passed
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ScheduleNotFound` if `scheduleId >= scheduleCount` is true.
     function isCliffReached(uint256 scheduleId) external view returns (bool) {
         if (scheduleId >= scheduleCount) revert ScheduleNotFound();
         VestingSchedule storage schedule = _schedules[scheduleId];
@@ -240,6 +265,7 @@ contract RewardVesting is Ownable, ReentrancyGuard {
 
     /// @notice Total number of schedules ever created
     /// @return scheduleCount
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getScheduleCount() external view returns (uint256) {
         return scheduleCount;
     }

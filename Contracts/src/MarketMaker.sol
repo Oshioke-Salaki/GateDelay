@@ -65,6 +65,10 @@ contract MarketMaker {
     /// @param description  Human-readable description
     /// @param numOutcomes  Number of outcomes (>= 2)
     /// @param b            Liquidity parameter in WAD (e.g. 100e18)
+    /// @return marketId Identifier of the relevant market.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "MM: need >= 2 outcomes" if `numOutcomes >= 2` is false. "MM: b must be > 0" if
+    ///     `b > 0` is false.
     function createMarket(
         string calldata description,
         uint256 numOutcomes,
@@ -87,6 +91,12 @@ contract MarketMaker {
     // ── Trading ───────────────────────────────────────────────────────────────
 
     /// @notice Buy `shares` of `outcome` in market `marketId`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. "MM: non-positive cost" if `netCost > 0`
+    ///     is false.
     function buy(uint256 marketId, uint256 outcome, uint256 shares) external {
         if (shares == 0) revert ZeroAmount();
         Market storage m = _activeMarket(marketId, outcome);
@@ -106,6 +116,13 @@ contract MarketMaker {
     }
 
     /// @notice Sell `shares` of `outcome` in market `marketId`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `InsufficientShares` if
+    ///     `positions[msg.sender][marketId][outcome] < shares` is true. "MM: non-negative proceeds"
+    ///     if `netCost < 0` is false.
     function sell(uint256 marketId, uint256 outcome, uint256 shares) external {
         if (shares == 0) revert ZeroAmount();
         if (positions[msg.sender][marketId][outcome] < shares) revert InsufficientShares();
@@ -128,6 +145,12 @@ contract MarketMaker {
     // ── Resolution & redemption ───────────────────────────────────────────────
 
     /// @notice Resolve a market (owner or creator only).
+    /// @param marketId Identifier of the relevant market.
+    /// @param winningOutcome Numeric winning outcome used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidMarket` if `marketId >= marketCount` is true. `MarketAlreadyResolved`
+    ///     if `m.resolved` is true. `Unauthorized` if `msg.sender != owner && msg.sender !=
+    ///     m.creator` is true. `InvalidOutcome` if `winningOutcome >= m.numOutcomes` is true.
     function resolve(uint256 marketId, uint256 winningOutcome) external {
         Market storage m = markets[marketId];
         if (marketId >= marketCount) revert InvalidMarket();
@@ -141,6 +164,10 @@ contract MarketMaker {
     }
 
     /// @notice Redeem winning shares after resolution.
+    /// @param marketId Identifier of the relevant market.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketNotResolved` if `!m.resolved` is true. `ZeroAmount` if `shares == 0` is
+    ///     true.
     function redeem(uint256 marketId) external {
         Market storage m = markets[marketId];
         if (!m.resolved) revert MarketNotResolved();
@@ -156,6 +183,12 @@ contract MarketMaker {
     // ── Price queries ─────────────────────────────────────────────────────────
 
     /// @notice Spot price of outcome `i` in WAD.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @return Price returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidMarket` if `marketId >= marketCount` is true. `InvalidOutcome` if
+    ///     `outcome >= m.numOutcomes` is true.
     function getPrice(uint256 marketId, uint256 outcome) external view returns (uint256) {
         Market storage m = markets[marketId];
         if (marketId >= marketCount) revert InvalidMarket();
@@ -164,6 +197,11 @@ contract MarketMaker {
     }
 
     /// @notice Cost to buy `shares` of `outcome`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Cost to buy returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCostToBuy(uint256 marketId, uint256 outcome, uint256 shares) external view returns (uint256) {
         Market storage m = markets[marketId];
         uint256[] memory qNew = _copyQuantities(m);

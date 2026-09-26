@@ -118,6 +118,13 @@ contract ClaimContract {
     /// @param amountRequested Requested payout amount.
     /// @param incidentTimestamp Timestamp when the incident occurred.
     /// @param reason Text description of the claim.
+    /// @return claimId Identifier of the relevant claim.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidMarket` if `market == address(0)` is true. `InvalidAmount` if
+    ///     `amountRequested == 0 || amountRequested > MAX_CLAIM_AMOUNT` is true. `InvalidReason` if
+    ///     `bytes(reason).length == 0` is true. `InvalidIncidentTime` if `incidentTimestamp == 0 ||
+    ///     incidentTimestamp > block.timestamp` is true. `InvalidIncidentTime` if `block.timestamp
+    ///     - incidentTimestamp > MAX_INCIDENT_WINDOW` is true.
     function submitClaim(
         address market,
         ClaimType claimType,
@@ -155,6 +162,10 @@ contract ClaimContract {
 
     /// @notice Validate claim eligibility and calculate the expected payout.
     /// @param claimId ID of the claim to validate.
+    /// @return eligible eligible produced by the operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ClaimNotPending` if `claim.status != ClaimStatus.PENDING` is true.
+    ///     `InvalidPayout` if `payout == 0` is true.
     function validateClaim(uint256 claimId) external onlyOwner returns (bool eligible) {
         Claim storage claim = _getClaim(claimId);
         if (claim.status != ClaimStatus.PENDING) revert ClaimNotPending();
@@ -184,6 +195,8 @@ contract ClaimContract {
 
     /// @notice Approve a validated claim.
     /// @param claimId ID of the claim to approve.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ClaimNotValidated` if `claim.status != ClaimStatus.VALIDATED` is true.
     function approveClaim(uint256 claimId) external onlyOwner {
         Claim storage claim = _getClaim(claimId);
         if (claim.status != ClaimStatus.VALIDATED) revert ClaimNotValidated();
@@ -196,6 +209,8 @@ contract ClaimContract {
 
     /// @notice Mark an approved claim as paid.
     /// @param claimId ID of the claim to pay.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ClaimNotApproved` if `claim.status != ClaimStatus.APPROVED` is true.
     function payClaim(uint256 claimId) external onlyOwner {
         Claim storage claim = _getClaim(claimId);
         if (claim.status != ClaimStatus.APPROVED) revert ClaimNotApproved();
@@ -209,6 +224,8 @@ contract ClaimContract {
     /// @notice Update the payout rate for a claim type.
     /// @param claimType Claim type to update.
     /// @param newRateBps New payout rate in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidPayout` if `newRateBps == 0 || newRateBps > BPS_DENOMINATOR` is true.
     function updatePayoutRate(ClaimType claimType, uint256 newRateBps) external onlyOwner {
         if (newRateBps == 0 || newRateBps > BPS_DENOMINATOR) revert InvalidPayout();
 
@@ -218,6 +235,8 @@ contract ClaimContract {
 
     /// @notice Transfer ownership of the contract.
     /// @param newOwner New owner address.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidMarket` if `newOwner == address(0)` is true.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidMarket();
 
@@ -230,27 +249,42 @@ contract ClaimContract {
     // -------------------------------------------------------------------------
 
     /// @notice Fetch a claim by its ID.
+    /// @param claimId Identifier of the relevant claim.
+    /// @return Claim returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaim(uint256 claimId) external view returns (Claim memory) {
         return _getClaim(claimId);
     }
 
     /// @notice Get all claims submitted by a user.
+    /// @param claimant Address associated with claimant.
+    /// @return Claims by user returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimsByUser(address claimant) external view returns (uint256[] memory) {
         return _claimsByUser[claimant];
     }
 
     /// @notice Get all claims submitted for a market.
+    /// @param market Market address associated with this operation.
+    /// @return Claims by market returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimsByMarket(address market) external view returns (uint256[] memory) {
         return _claimsByMarket[market];
     }
 
     /// @notice Get the current status of a claim.
+    /// @param claimId Identifier of the relevant claim.
+    /// @return Claim status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimStatus(uint256 claimId) external view returns (ClaimStatus) {
         Claim storage claim = _getClaim(claimId);
         return claim.status;
     }
 
     /// @notice Get expected payout for a claim.
+    /// @param claimId Identifier of the relevant claim.
+    /// @return Claim payout returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimPayout(uint256 claimId) external view returns (uint256) {
         Claim storage claim = _getClaim(claimId);
         if (claim.status == ClaimStatus.PAID || claim.status == ClaimStatus.APPROVED || claim.status == ClaimStatus.VALIDATED) {
@@ -266,12 +300,17 @@ contract ClaimContract {
     }
 
     /// @notice Check whether a claim is eligible.
+    /// @param claimId Identifier of the relevant claim.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isClaimEligible(uint256 claimId) external view returns (bool) {
         Claim storage claim = _getClaim(claimId);
         return _isEligible(claim);
     }
 
     /// @notice Get total number of claims submitted.
+    /// @return Claim count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimCount() external view returns (uint256) {
         return nextClaimId;
     }

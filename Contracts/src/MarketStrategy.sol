@@ -38,6 +38,13 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Define market strategies
+     * @param id Encoded data used for id.
+     * @param name name used by this operation.
+     * @param target Address associated with target.
+     * @param defaultData Encoded data used for default data.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAddress` if `target == address(0)` is true. `StrategyExists` if
+     *     `bytes(strategies[id].name).length > 0` is true.
      */
     function defineStrategy(bytes32 id, string calldata name, address target, bytes calldata defaultData) external onlyOwner {
         if (target == address(0)) revert ZeroAddress();
@@ -56,6 +63,13 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Handle strategy changes
+     * @param id Encoded data used for id.
+     * @param target Address associated with target.
+     * @param defaultData Encoded data used for default data.
+     * @param active Whether active is enabled or selected.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `StrategyNotFound` if `bytes(strategies[id].name).length == 0` is true.
+     *     `ZeroAddress` if `target == address(0)` is true.
      */
     function updateStrategy(bytes32 id, address target, bytes calldata defaultData, bool active) external onlyOwner {
         if (bytes(strategies[id].name).length == 0) revert StrategyNotFound();
@@ -70,6 +84,11 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Execute strategy actions and track strategy performance
+     * @param id Encoded data used for id.
+     * @param executionData Encoded data used for execution data.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `StrategyNotFound` if `bytes(strategies[id].name).length == 0` is true.
+     *     `StrategyNotActive` if `!strategies[id].active` is true.
      */
     function executeStrategy(bytes32 id, bytes calldata executionData) external onlyOwner {
         if (bytes(strategies[id].name).length == 0) revert StrategyNotFound();
@@ -96,6 +115,9 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Provide strategy queries
+     * @param id Encoded data used for id.
+     * @return Strategy returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getStrategy(bytes32 id) external view returns (Strategy memory) {
         return strategies[id];
@@ -103,6 +125,9 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Provide strategy queries for performance
+     * @param id Encoded data used for id.
+     * @return Performance returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPerformance(bytes32 id) external view returns (Performance memory) {
         return performance[id];
@@ -110,6 +135,8 @@ contract MarketStrategy is Ownable {
 
     /**
      * @notice Provide strategy queries for all IDs
+     * @return All strategy ids returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getAllStrategyIds() external view returns (bytes32[] memory) {
         return strategyIds;

@@ -65,6 +65,10 @@ contract Timelock {
     /// @param data The encoded function call.
     /// @param delay The delay period for this operation (must be >= minDelay).
     /// @return operationId The ID of the queued operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidOperation` if `target == address(0)` is true. `InvalidDelay` if `delay
+    ///     < minDelay` is true. `OperationAlreadyQueued` if `operations[operationId].status !=
+    ///     OperationStatus.NONE` is true.
     function queueOperation(address target, uint256 value, bytes calldata data, uint256 delay)
         external
         returns (bytes32 operationId)
@@ -94,6 +98,11 @@ contract Timelock {
 
     /// @notice Execute a queued operation.
     /// @param operationId The ID of the operation to execute.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `OperationNotFound` if `operation.status == OperationStatus.NONE` is true.
+    ///     `OperationNotQueued` if `operation.status != OperationStatus.QUEUED` is true.
+    ///     `DelayNotPassed` if `block.timestamp < readyTime` is true. `ExecutionFailed` if
+    ///     `!success` is true.
     function executeOperation(bytes32 operationId) external {
         Operation storage operation = operations[operationId];
 
@@ -114,6 +123,9 @@ contract Timelock {
 
     /// @notice Cancel a pending operation.
     /// @param operationId The ID of the operation to cancel.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `OperationNotFound` if `operation.status == OperationStatus.NONE` is true.
+    ///     `OperationNotQueued` if `operation.status == OperationStatus.EXECUTED` is true.
     function cancelOperation(bytes32 operationId) external {
         if (msg.sender != admin) revert();
 
@@ -127,6 +139,8 @@ contract Timelock {
 
     /// @notice Update the minimum delay for operations.
     /// @param _minDelay The new minimum delay.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidDelay` if `_minDelay == 0` is true.
     function updateMinDelay(uint256 _minDelay) external {
         if (msg.sender != admin) revert();
         if (_minDelay == 0) revert InvalidDelay();
@@ -140,6 +154,9 @@ contract Timelock {
     /// @notice Get operation details.
     /// @param operationId The ID of the operation.
     /// @return operation The operation struct.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `OperationNotFound` if `operations[operationId].status == OperationStatus.NONE`
+    ///     is true.
     function getOperation(bytes32 operationId) external view returns (Operation memory operation) {
         if (operations[operationId].status == OperationStatus.NONE) revert OperationNotFound();
         return operations[operationId];
@@ -148,6 +165,8 @@ contract Timelock {
     /// @notice Check if an operation is ready for execution.
     /// @param operationId The ID of the operation.
     /// @return ready True if the operation is ready to execute.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `OperationNotFound` if `operation.status == OperationStatus.NONE` is true.
     function isOperationReady(bytes32 operationId) external view returns (bool ready) {
         Operation storage operation = operations[operationId];
         if (operation.status == OperationStatus.NONE) revert OperationNotFound();
@@ -161,6 +180,8 @@ contract Timelock {
     /// @notice Get the ready time for an operation.
     /// @param operationId The ID of the operation.
     /// @return readyTime The timestamp when the operation becomes ready.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `OperationNotFound` if `operation.status == OperationStatus.NONE` is true.
     function getOperationReadyTime(bytes32 operationId) external view returns (uint256 readyTime) {
         Operation storage operation = operations[operationId];
         if (operation.status == OperationStatus.NONE) revert OperationNotFound();

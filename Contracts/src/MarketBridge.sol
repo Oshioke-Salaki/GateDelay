@@ -34,11 +34,28 @@ library Client {
 
 /// @dev Chainlink CCIP router interface (matches the real `IRouterClient`).
 interface IRouterClient {
+    /// @notice Reports whether a destination chain is supported.
+    /// @param destChainSelector CCIP selector of the destination chain.
+    /// @return supported True if supported.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function isChainSupported(uint64 destChainSelector) external view returns (bool supported);
+    /// @notice Returns the fee required to execute the operation.
+    /// @param destinationChainSelector CCIP selector of the destination chain.
+    /// @param message message used by this operation.
+    /// @return fee Fee amount in the units used by this contract.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function getFee(uint64 destinationChainSelector, Client.EVM2AnyMessage memory message)
         external
         view
         returns (uint256 fee);
+    /// @notice Sends a message to the destination chain through CCIP.
+    /// @param destinationChainSelector CCIP selector of the destination chain.
+    /// @param message message used by this operation.
+    /// @return messageId Identifier of the relevant message.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function ccipSend(uint64 destinationChainSelector, Client.EVM2AnyMessage calldata message)
         external
         payable
@@ -164,6 +181,13 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     // Admin: chains, fees, relayer, router
     // ---------------------------------------------------------------
 
+    /// @notice Executes addSupportedChain.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @param flatFee Numeric flat fee used by this operation.
+    /// @param feeBps Fee rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ChainAlreadySupported` if `_chains[chainSelector].supported` is
+    ///     true. `MarketBridge__InvalidFee` if `feeBps > MAX_FEE_BPS` is true.
     function addSupportedChain(uint64 chainSelector, uint256 flatFee, uint256 feeBps) external onlyOwner {
         if (_chains[chainSelector].supported) revert MarketBridge__ChainAlreadySupported(chainSelector);
         if (feeBps > MAX_FEE_BPS) revert MarketBridge__InvalidFee(feeBps);
@@ -180,6 +204,11 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit ChainSupportUpdated(chainSelector, false, true, flatFee, feeBps);
     }
 
+    /// @notice Executes removeSupportedChain.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ChainNotSupported` if `!_chains[chainSelector].supported` is
+    ///     true.
     function removeSupportedChain(uint64 chainSelector) external onlyOwner {
         if (!_chains[chainSelector].supported) revert MarketBridge__ChainNotSupported(chainSelector);
         _chains[chainSelector].supported = false;
@@ -190,6 +219,13 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         );
     }
 
+    /// @notice Executes updateChainFee.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @param flatFee Numeric flat fee used by this operation.
+    /// @param feeBps Fee rate expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ChainNotSupported` if `!_chains[chainSelector].supported` is
+    ///     true. `MarketBridge__InvalidFee` if `feeBps > MAX_FEE_BPS` is true.
     function updateChainFee(uint64 chainSelector, uint256 flatFee, uint256 feeBps) external onlyOwner {
         if (!_chains[chainSelector].supported) revert MarketBridge__ChainNotSupported(chainSelector);
         if (feeBps > MAX_FEE_BPS) revert MarketBridge__InvalidFee(feeBps);
@@ -203,6 +239,10 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit ChainFeeConfigurationUpdated(chainSelector, oldFlatFee, flatFee, oldFeeBps, feeBps);
     }
 
+    /// @notice Executes setRelayer.
+    /// @param newRelayer Address of the new relayer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ZeroAddress` if `newRelayer == address(0)` is true.
     function setRelayer(address newRelayer) external onlyOwner {
         if (newRelayer == address(0)) revert MarketBridge__ZeroAddress();
         address oldRelayer = relayer;
@@ -211,6 +251,10 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit RelayerConfigurationUpdated(oldRelayer, newRelayer);
     }
 
+    /// @notice Executes setFeeRecipient.
+    /// @param newFeeRecipient Address of the new fee recipient.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ZeroAddress` if `newFeeRecipient == address(0)` is true.
     function setFeeRecipient(address newFeeRecipient) external onlyOwner {
         if (newFeeRecipient == address(0)) revert MarketBridge__ZeroAddress();
         address oldFeeRecipient = feeRecipient;
@@ -219,6 +263,10 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit FeeRecipientConfigurationUpdated(oldFeeRecipient, newFeeRecipient);
     }
 
+    /// @notice Executes setCcipRouter.
+    /// @param newRouter Address of the new router.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ZeroAddress` if `newRouter == address(0)` is true.
     function setCcipRouter(address newRouter) external onlyOwner {
         if (newRouter == address(0)) revert MarketBridge__ZeroAddress();
         address oldRouter = address(ccipRouter);
@@ -231,6 +279,12 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     // Outbound bridging
     // ---------------------------------------------------------------
 
+    /// @notice Calculates the fee for the requested transfer.
+    /// @param destChainSelector CCIP selector of the destination chain.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return Fee returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketBridge__ChainNotSupported` if `!cfg.supported` is true.
     function calculateFee(uint64 destChainSelector, uint256 amount) public view returns (uint256) {
         ChainConfig storage cfg = _chains[destChainSelector];
         if (!cfg.supported) revert MarketBridge__ChainNotSupported(destChainSelector);
@@ -242,6 +296,14 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     /// on `destChainSelector`. The proportional + flat fee is deducted from `amount` before
     /// the net amount is reflected in the transfer record; actual token movement across
     /// chains depends on the CCIP router's own token-transfer mechanics in production use.
+    /// @param destChainSelector CCIP selector of the destination chain.
+    /// @param recipient Address that receives the transfer or result.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return transferId Identifier of the relevant transfer.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketBridge__ChainNotSupported` if `!_chains[destChainSelector].supported` is
+    ///     true. `MarketBridge__ZeroAmount` if `amount == 0` is true. `MarketBridge__ZeroAddress`
+    ///     if `recipient == address(0)` is true.
     function bridgeOut(uint64 destChainSelector, address recipient, uint256 amount)
         external
         payable
@@ -305,6 +367,11 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     // the router/endpoint contract. The relayer pattern below is a placeholder so transfer
     // status and accounting can be exercised and tested without a live cross-chain router.
 
+    /// @notice Executes confirmBridgeCompleted.
+    /// @param transferId Identifier of the relevant transfer.
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketBridge__TransferNotFound` if `t.transferId == 0` is true.
+    ///     `MarketBridge__TransferNotPending` if `t.status != BridgeStatus.Pending` is true.
     function confirmBridgeCompleted(uint256 transferId) external onlyRelayer {
         BridgeTransfer storage t = _transfers[transferId];
         if (t.transferId == 0) revert MarketBridge__TransferNotFound(transferId);
@@ -317,6 +384,11 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit BridgeCompleted(transferId, block.timestamp);
     }
 
+    /// @notice Executes markBridgeFailed.
+    /// @param transferId Identifier of the relevant transfer.
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketBridge__TransferNotFound` if `t.transferId == 0` is true.
+    ///     `MarketBridge__TransferNotPending` if `t.status != BridgeStatus.Pending` is true.
     function markBridgeFailed(uint256 transferId) external onlyRelayer {
         BridgeTransfer storage t = _transfers[transferId];
         if (t.transferId == 0) revert MarketBridge__TransferNotFound(transferId);
@@ -330,6 +402,11 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     /// @notice Refund a failed transfer's net amount back to the original sender.
     /// @dev Requires the contract to hold sufficient bridge-token balance, e.g. funds that
     /// were never actually consumed by the router on a failed send.
+    /// @param transferId Identifier of the relevant transfer.
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `MarketBridge__TransferNotFound` if `t.transferId == 0` is true.
+    ///     `MarketBridge__TransferNotPending` if `t.status != BridgeStatus.Failed` is true.
+    ///     `MarketBridge__InsufficientFeeFunds` if `available < t.amount` is true.
     function refundFailedTransfer(uint256 transferId) external onlyRelayer nonReentrant {
         BridgeTransfer storage t = _transfers[transferId];
         if (t.transferId == 0) revert MarketBridge__TransferNotFound(transferId);
@@ -344,6 +421,11 @@ contract MarketBridge is Ownable, ReentrancyGuard {
         emit BridgeRefunded(transferId, t.sender, t.amount);
     }
 
+    /// @notice Executes withdrawFees.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `MarketBridge__ZeroAddress` if `to == address(0)` is true.
     function withdrawFees(address to, uint256 amount) external onlyOwner nonReentrant {
         if (to == address(0)) revert MarketBridge__ZeroAddress();
         bridgeToken.safeTransfer(to, amount);
@@ -354,34 +436,62 @@ contract MarketBridge is Ownable, ReentrancyGuard {
     // Queries
     // ---------------------------------------------------------------
 
+    /// @notice Returns bridge transfer.
+    /// @param transferId Identifier of the relevant transfer.
+    /// @return Bridge transfer returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketBridge__TransferNotFound` if `t.transferId == 0` is true.
     function getBridgeTransfer(uint256 transferId) external view returns (BridgeTransfer memory) {
         BridgeTransfer memory t = _transfers[transferId];
         if (t.transferId == 0) revert MarketBridge__TransferNotFound(transferId);
         return t;
     }
 
+    /// @notice Returns transfers by sender.
+    /// @param sender Address associated with sender.
+    /// @return Transfers by sender returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTransfersBySender(address sender) external view returns (uint256[] memory) {
         return _transfersBySender[sender];
     }
 
+    /// @notice Returns chain config.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @return Chain config returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getChainConfig(uint64 chainSelector) external view returns (ChainConfig memory) {
         return _chains[chainSelector];
     }
 
+    /// @notice Reports whether a destination chain is supported.
+    /// @param chainSelector CCIP selector for the relevant chain.
+    /// @return True if the destination chain is supported.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isChainSupported(uint64 chainSelector) external view returns (bool) {
         return _chains[chainSelector].supported;
     }
 
+    /// @notice Returns supported chains.
+    /// @return Supported chains returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSupportedChains() external view returns (uint64[] memory) {
         return _supportedChainList;
     }
 
+    /// @notice Returns transfer status.
+    /// @param transferId Identifier of the relevant transfer.
+    /// @return Transfer status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketBridge__TransferNotFound` if `t.transferId == 0` is true.
     function getTransferStatus(uint256 transferId) external view returns (BridgeStatus) {
         BridgeTransfer memory t = _transfers[transferId];
         if (t.transferId == 0) revert MarketBridge__TransferNotFound(transferId);
         return t.status;
     }
 
+    /// @notice Executes transferCount.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function transferCount() external view returns (uint256) {
         return _nextTransferId - 1;
     }

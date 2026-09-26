@@ -98,6 +98,9 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
     /// @param annualRateBps  Annual percentage yield in basis points (100 bps = 1%).
     /// @param compounding    True → yield is added back to principal each harvest.
     /// @return sourceId      The newly created source's ID.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroPrincipal` if `principal == 0` is true. `ZeroRate` if `annualRateBps == 0`
+    ///     is true.
     function registerSource(
         address asset,
         uint256 principal,
@@ -132,6 +135,8 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
 
     /// @notice Accrue and optionally compound pending yield for a source.
     ///         Anyone may trigger this; only the owner can harvest.
+    /// @param sourceId Identifier of the relevant source.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function accrueYield(uint256 sourceId) public {
         YieldSource storage src = _getActiveSource(sourceId);
         uint256 pending = _pendingYield(src);
@@ -148,6 +153,9 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
 
     /// @notice Harvest (claim) all accrued yield for a source.
     /// @return harvested  Amount of yield claimed (UD60x18 units).
+    /// @param sourceId Identifier of the relevant source.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSourceOwner` if `sourceOwner[sourceId] != msg.sender` is true.
     function harvestYield(uint256 sourceId)
         external
         nonReentrant
@@ -165,6 +173,10 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
     }
 
     /// @notice Deactivate a yield source (owner or contract owner).
+    /// @param sourceId Identifier of the relevant source.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSourceOwner` if `sourceOwner[sourceId] != msg.sender && owner() !=
+    ///     msg.sender` is true.
     function deactivateSource(uint256 sourceId) external {
         if (sourceOwner[sourceId] != msg.sender && owner() != msg.sender) {
             revert NotSourceOwner();
@@ -177,6 +189,10 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
 
     /// @notice Update the annual rate of an active source (owner only).
     /// @param newAnnualRateBps  New rate in basis points.
+    /// @param sourceId Identifier of the relevant source.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSourceOwner` if `sourceOwner[sourceId] != msg.sender` is true. `ZeroRate`
+    ///     if `newAnnualRateBps == 0` is true.
     function updateRate(uint256 sourceId, uint256 newAnnualRateBps) external {
         if (sourceOwner[sourceId] != msg.sender) revert NotSourceOwner();
         if (newAnnualRateBps == 0) revert ZeroRate();
@@ -195,18 +211,27 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
     // ─────────────────────────────────────────────────────────────────────────
 
     /// @notice Pending (not yet accrued) yield for a source.
+    /// @param sourceId Identifier of the relevant source.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pendingYield(uint256 sourceId) external view returns (uint256) {
         YieldSource storage src = yieldSources[sourceId];
         return _pendingYield(src);
     }
 
     /// @notice Total claimable yield for a source (accrued + pending).
+    /// @param sourceId Identifier of the relevant source.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function claimableYield(uint256 sourceId) external view returns (uint256) {
         YieldSource storage src = yieldSources[sourceId];
         return src.accruedYield + _pendingYield(src);
     }
 
     /// @notice Current effective annual rate for a source, in basis points.
+    /// @param sourceId Identifier of the relevant source.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function currentRateBps(uint256 sourceId) external view returns (uint256) {
         YieldSource storage src = yieldSources[sourceId];
         // ratePerSecond * SECONDS_PER_YEAR / 1e18 * 10_000
@@ -214,11 +239,17 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
     }
 
     /// @notice All source IDs belonging to a user.
+    /// @param user User address affected by this operation.
+    /// @return User sources returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserSources(address user) external view returns (uint256[] memory) {
         return _userSources[user];
     }
 
     /// @notice Full details for a source.
+    /// @param sourceId Identifier of the relevant source.
+    /// @return Source returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSource(uint256 sourceId) external view returns (YieldSource memory) {
         return yieldSources[sourceId];
     }
@@ -226,6 +257,8 @@ contract YieldGenerator is Ownable, ReentrancyGuard {
     /// @notice Summary across all active sources for a user.
     /// @return totalPrincipal  Sum of all active principals (UD60x18).
     /// @return totalPending    Sum of all pending + accrued yield (UD60x18).
+    /// @param user User address affected by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserYieldSummary(address user)
         external
         view

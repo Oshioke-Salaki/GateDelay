@@ -102,6 +102,8 @@ contract MarketArbitration {
 
     /// @notice Approve an arbitrator
     /// @param arbitrator The arbitrator address
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function approveArbitrator(address arbitrator) external {
         if (msg.sender != admin) revert NotAuthorized();
         approvedArbitrators[arbitrator] = true;
@@ -109,6 +111,8 @@ contract MarketArbitration {
 
     /// @notice Revoke arbitrator approval
     /// @param arbitrator The arbitrator address
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function revokeArbitrator(address arbitrator) external {
         if (msg.sender != admin) revert NotAuthorized();
         approvedArbitrators[arbitrator] = false;
@@ -119,6 +123,10 @@ contract MarketArbitration {
     /// @param market The market address
     /// @param arbitrators Array of selected arbitrators
     /// @return arbitrationId The created arbitration ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `InvalidArbitratorCount` if
+    ///     `arbitrators.length < MIN_ARBITRATORS || arbitrators.length > MAX_ARBITRATORS` is true.
+    ///     "Arbitrator not approved" if `approvedArbitrators[arbitrators[i]]` is false.
     function createArbitration(
         uint256 disputeId,
         address market,
@@ -160,6 +168,10 @@ contract MarketArbitration {
 
     /// @notice Start voting phase
     /// @param arbitrationId The arbitration ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `ArbitrationNotFound` if
+    ///     `arb.createdAt == 0` is true. `ArbitrationAlreadyResolved` if `arb.status !=
+    ///     ArbitrationStatus.PENDING` is true.
     function startVoting(uint256 arbitrationId) external {
         if (msg.sender != admin) revert NotAuthorized();
         
@@ -175,6 +187,12 @@ contract MarketArbitration {
     /// @param arbitrationId The arbitration ID
     /// @param decision The vote decision
     /// @param reasoning Optional reasoning for the vote
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ArbitrationNotFound` if `arb.createdAt == 0` is true. `VotingNotActive` if
+    ///     `arb.status != ArbitrationStatus.VOTING` is true. `NotArbitrator` if
+    ///     `!_isArbitrator(arbitrationId, msg.sender)` is true. `AlreadyVoted` if
+    ///     `hasVoted[arbitrationId][msg.sender]` is true. "Invalid decision" if `decision !=
+    ///     Decision.NONE` is false.
     function vote(
         uint256 arbitrationId,
         Decision decision,
@@ -212,6 +230,8 @@ contract MarketArbitration {
 
     /// @notice Manually resolve arbitration (admin only, for edge cases)
     /// @param arbitrationId The arbitration ID
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function manualResolve(uint256 arbitrationId) external {
         if (msg.sender != admin) revert NotAuthorized();
         _resolveArbitration(arbitrationId);
@@ -251,6 +271,7 @@ contract MarketArbitration {
     /// @notice Get arbitration details
     /// @param arbitrationId The arbitration ID
     /// @return arbitration The arbitration struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getArbitration(uint256 arbitrationId) 
         external 
         view 
@@ -262,6 +283,7 @@ contract MarketArbitration {
     /// @notice Get all votes for an arbitration
     /// @param arbitrationId The arbitration ID
     /// @return votes Array of votes
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVotes(uint256 arbitrationId) external view returns (Vote[] memory) {
         return arbitrationVotes[arbitrationId];
     }
@@ -269,6 +291,7 @@ contract MarketArbitration {
     /// @notice Get arbitration ID for a dispute
     /// @param disputeId The dispute ID
     /// @return arbitrationId The arbitration ID
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getArbitrationForDispute(uint256 disputeId) 
         external 
         view 
@@ -280,6 +303,7 @@ contract MarketArbitration {
     /// @notice Get all arbitrations assigned to an arbitrator
     /// @param arbitrator The arbitrator address
     /// @return arbitrationIds Array of arbitration IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getArbitratorAssignments(address arbitrator) 
         external 
         view 
@@ -291,6 +315,7 @@ contract MarketArbitration {
     /// @notice Check if address is approved arbitrator
     /// @param arbitrator The arbitrator address
     /// @return approved True if approved
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isApprovedArbitrator(address arbitrator) external view returns (bool) {
         return approvedArbitrators[arbitrator];
     }
@@ -298,6 +323,7 @@ contract MarketArbitration {
     /// @notice Get arbitration status
     /// @param arbitrationId The arbitration ID
     /// @return status The current status
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getStatus(uint256 arbitrationId) external view returns (ArbitrationStatus) {
         return arbitrations[arbitrationId].status;
     }
@@ -306,6 +332,7 @@ contract MarketArbitration {
     /// @param arbitrationId The arbitration ID
     /// @return upholdVotes Number of uphold votes
     /// @return rejectVotes Number of reject votes
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVoteCounts(uint256 arbitrationId) 
         external 
         view 

@@ -47,16 +47,27 @@ contract Blacklist is Ownable {
     // -------------------------------------------------------------------------
     // Blacklist management
     // -------------------------------------------------------------------------
+    /// @notice Executes blacklist.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
     function blacklist(address account) external onlyOwner {
         _blacklist(account);
     }
 
+    /// @notice Executes blacklistBatch.
+    /// @param accounts Address associated with accounts.
+    /// @dev Access: Caller must be the contract owner.
     function blacklistBatch(address[] calldata accounts) external onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             _blacklist(accounts[i]);
         }
     }
 
+    /// @notice Executes unblacklist.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidAddress` if `account == address(0)` is true. `NotBlacklisted` if
+    ///     `!_blacklisted[account]` is true.
     function unblacklist(address account) public onlyOwner {
         if (account == address(0)) revert InvalidAddress();
         if (!_blacklisted[account]) revert NotBlacklisted(account);
@@ -67,6 +78,9 @@ contract Blacklist is Ownable {
         emit Unblacklisted(account, msg.sender);
     }
 
+    /// @notice Executes unblacklistBatch.
+    /// @param accounts Address associated with accounts.
+    /// @dev Access: Caller must be the contract owner.
     function unblacklistBatch(address[] calldata accounts) external onlyOwner {
         for (uint256 i = 0; i < accounts.length; i++) {
             unblacklist(accounts[i]);
@@ -76,18 +90,32 @@ contract Blacklist is Ownable {
     // -------------------------------------------------------------------------
     // Queries
     // -------------------------------------------------------------------------
+    /// @notice Reports whether blacklisted is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isBlacklisted(address account) public view returns (bool) {
         return _blacklisted[account];
     }
 
+    /// @notice Returns blacklisted accounts.
+    /// @return Blacklisted accounts returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBlacklistedAccounts() external view returns (address[] memory) {
         return _blacklistedAccounts;
     }
 
+    /// @notice Returns blacklisted count.
+    /// @return Blacklisted count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBlacklistedCount() external view returns (uint256) {
         return _blacklistedAccounts.length;
     }
 
+    /// @notice Executes requireNotBlacklisted.
+    /// @param account Account address affected by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `BlacklistedAccount` if `_blacklisted[account]` is true.
     function requireNotBlacklisted(address account) external view {
         if (_blacklisted[account]) revert BlacklistedAccount(account);
     }

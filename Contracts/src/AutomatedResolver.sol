@@ -62,6 +62,8 @@ contract AutomatedResolver {
     /// @param dataFeedId The data feed identifier
     /// @param threshold The threshold value
     /// @param isGreaterThan True if condition is >, false if <
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function registerCondition(
         address market,
         uint256 targetTimestamp,
@@ -85,6 +87,8 @@ contract AutomatedResolver {
     /// @notice Update data feed value (called by oracle or keeper)
     /// @param dataFeedId The data feed identifier
     /// @param value The latest value
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function updateDataFeed(bytes32 dataFeedId, int256 value) external {
         if (msg.sender != admin) revert NotAuthorized();
         latestDataFeeds[dataFeedId] = value;
@@ -94,6 +98,7 @@ contract AutomatedResolver {
     /// @param checkData Encoded market address
     /// @return upkeepNeeded True if automated resolution should be triggered
     /// @return performData Encoded data for performUpkeep
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkUpkeep(bytes calldata checkData) 
         external 
         view 
@@ -127,6 +132,9 @@ contract AutomatedResolver {
 
     /// @notice Execute automated resolution (Chainlink Automation compatible)
     /// @param performData Encoded market, outcome, and value data
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `MarketAlreadyResolved` if `!condition.isActive` is true. `ConditionNotMet` if
+    ///     `!conditionMet` is true. `ResolutionFailed` when its validation condition fails.
     function performUpkeep(bytes calldata performData) external {
         (address market, Resolution.Outcome outcome, int256 actualValue) = 
             abi.decode(performData, (address, Resolution.Outcome, int256));
@@ -163,6 +171,9 @@ contract AutomatedResolver {
 
     /// @notice Manually trigger resolution if conditions are met
     /// @param market The market address
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true. `MarketAlreadyResolved` if
+    ///     `!condition.isActive` is true. `ConditionNotMet` if `!conditionMet` is true.
     function manualTrigger(address market) external {
         if (msg.sender != admin) revert NotAuthorized();
         
@@ -195,6 +206,8 @@ contract AutomatedResolver {
 
     /// @notice Deactivate a condition
     /// @param market The market address
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `msg.sender != admin` is true.
     function deactivateCondition(address market) external {
         if (msg.sender != admin) revert NotAuthorized();
         conditions[market].isActive = false;
@@ -207,6 +220,7 @@ contract AutomatedResolver {
     /// @notice Get condition details for a market
     /// @param market The market address
     /// @return condition The resolution condition
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCondition(address market) external view returns (ResolutionCondition memory) {
         return conditions[market];
     }
@@ -214,6 +228,7 @@ contract AutomatedResolver {
     /// @notice Get latest value for a data feed
     /// @param dataFeedId The data feed identifier
     /// @return value The latest value
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDataFeedValue(bytes32 dataFeedId) external view returns (int256) {
         return latestDataFeeds[dataFeedId];
     }

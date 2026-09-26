@@ -94,6 +94,11 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Register a position for automatic compounding
+     * @param marketId Identifier of the relevant market.
+     * @param user User address affected by this operation.
+     * @param minYieldThreshold Minimum yield threshold required.
+     * @return positionId Identifier of the relevant position.
+     * @dev Access: Caller must be the contract owner.
      */
     function registerPosition(
         uint256 marketId,
@@ -117,6 +122,9 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Unregister a position from automatic compounding
+     * @param positionId Identifier of the relevant position.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `MarketNotRegistered` if `pos.positionId == 0` is true.
      */
     function unregisterPosition(uint256 positionId) external onlyOwner {
         AutoCompoundPosition storage pos = positions[positionId];
@@ -128,6 +136,10 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Update yield threshold for a position
+     * @param positionId Identifier of the relevant position.
+     * @param minYieldThreshold Minimum yield threshold required.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `MarketNotRegistered` if `pos.positionId == 0` is true.
      */
     function updateYieldThreshold(uint256 positionId, uint256 minYieldThreshold) external onlyOwner {
         AutoCompoundPosition storage pos = positions[positionId];
@@ -142,6 +154,9 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
     /**
      * @notice Check if a position is eligible for compounding
      * Used by Chainlink Keepers to determine if compound should be executed
+     * @param positionId Identifier of the relevant position.
+     * @return True when the requested condition is met.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function checkCompoundEligibility(uint256 positionId) public view returns (bool) {
         AutoCompoundPosition memory pos = positions[positionId];
@@ -154,6 +169,11 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
     /**
      * @notice Perform automatic compounding for a single position
      * Can be called by anyone (including bots/keepers)
+     * @param positionId Identifier of the relevant position.
+     * @return netAmount Amount in the relevant token units.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `MarketNotRegistered` if `!pos.isActive || pos.positionId == 0` is true.
+     *     `NoEligiblePositions` if `pendingYield < pos.minYieldThreshold` is true.
      */
     function performCompound(uint256 positionId) external nonReentrant returns (uint256 netAmount) {
         AutoCompoundPosition storage pos = positions[positionId];
@@ -189,6 +209,8 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
     /**
      * @notice Perform automatic compounding for all eligible positions
      * This is the main keeper function that can be called periodically
+     * @return compoundsExecuted compounds executed produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function performAllEligibleCompounds() external nonReentrant returns (uint256 compoundsExecuted) {
         for (uint256 i = 1; i <= positionCount; i++) {
@@ -207,6 +229,9 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get all position IDs for a user
+     * @param user User address affected by this operation.
+     * @return User positions returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getUserPositions(address user) external view returns (uint256[] memory) {
         return _userPositionIds[user];
@@ -214,6 +239,9 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get auto-compound history for a position
+     * @param positionId Identifier of the relevant position.
+     * @return Auto compound history returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getAutoCompoundHistory(uint256 positionId) external view returns (AutoCompoundRecord[] memory) {
         return _autoCompoundHistory[positionId];
@@ -221,6 +249,9 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get count of auto-compound records for a position
+     * @param positionId Identifier of the relevant position.
+     * @return Auto compound history count returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getAutoCompoundHistoryCount(uint256 positionId) external view returns (uint256) {
         return _autoCompoundHistory[positionId].length;
@@ -228,6 +259,10 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get a specific auto-compound record
+     * @param positionId Identifier of the relevant position.
+     * @param index Numeric index used by this operation.
+     * @return Auto compound record returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getAutoCompoundRecord(uint256 positionId, uint256 index) external view returns (AutoCompoundRecord memory) {
         return _autoCompoundHistory[positionId][index];
@@ -235,6 +270,10 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get performance metrics
+     * @return totalCompounds total compounds produced by the operation.
+     * @return totalYieldCompounded total yield compounded produced by the operation.
+     * @return totalFeesCollected total fees collected produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPerformanceMetrics() external view returns (
         uint256 totalCompounds,
@@ -246,6 +285,8 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Check triggers for all positions (for keeper monitoring)
+     * @return triggers triggers produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function checkAllTriggers() external view returns (CompoundTrigger[] memory triggers) {
         triggers = new CompoundTrigger[](positionCount);
@@ -263,6 +304,8 @@ contract AutoCompounder is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get count of eligible positions for compounding
+     * @return count Number of items tracked by the contract.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getEligiblePositionsCount() external view returns (uint256 count) {
         for (uint256 i = 1; i <= positionCount; i++) {

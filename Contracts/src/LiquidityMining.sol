@@ -97,6 +97,9 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @param stakingToken ERC20 token that providers deposit
     /// @param rewardRate Reward tokens emitted per second (in wei)
     /// @return poolId Identifier of the newly created pool
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `stakingToken == address(0)` is true. `InvalidRewardRate` if
+    ///     `rewardRate == 0` is true.
     function createPool(address stakingToken, uint256 rewardRate) external onlyOwner returns (uint256 poolId) {
         if (stakingToken == address(0)) revert ZeroAddress();
         if (rewardRate == 0) revert InvalidRewardRate();
@@ -117,6 +120,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Enable or disable new deposits into a pool
     /// @param poolId Pool to update
     /// @param active New active state
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function setPoolActive(uint256 poolId, bool active) external onlyOwner {
         if (poolId >= poolCount) revert PoolNotFound();
         _pools[poolId].active = active;
@@ -126,6 +131,9 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Update the per-second reward emission rate for a pool
     /// @param poolId Pool to update
     /// @param newRate New reward rate (wei per second)
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true. `InvalidRewardRate` if
+    ///     `newRate == 0` is true.
     function updateRewardRate(uint256 poolId, uint256 newRate) external onlyOwner {
         if (poolId >= poolCount) revert PoolNotFound();
         if (newRate == 0) revert InvalidRewardRate();
@@ -140,6 +148,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
 
     /// @notice Transfer reward tokens into the contract reserve
     /// @param amount Number of reward tokens to deposit
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAmount` if `amount == 0` is true.
     function fundRewards(uint256 amount) external onlyOwner {
         if (amount == 0) revert ZeroAmount();
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -152,6 +162,9 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Deposit staking tokens to start earning mining rewards
     /// @param poolId Pool to deposit into
     /// @param amount Amount of staking tokens to deposit
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true. `PoolNotActive` if
+    ///     `!_pools[poolId].active` is true. `ZeroAmount` if `amount == 0` is true.
     function provide(uint256 poolId, uint256 amount) external nonReentrant {
         if (poolId >= poolCount) revert PoolNotFound();
         if (!_pools[poolId].active) revert PoolNotActive();
@@ -181,6 +194,9 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Withdraw staking tokens from a pool
     /// @param poolId Pool to withdraw from
     /// @param amount Amount of staking tokens to withdraw
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true. `ZeroAmount` if `amount == 0`
+    ///     is true. `InsufficientBalance` if `pos.amount < amount` is true.
     function withdraw(uint256 poolId, uint256 amount) external nonReentrant {
         if (poolId >= poolCount) revert PoolNotFound();
         if (amount == 0) revert ZeroAmount();
@@ -204,6 +220,9 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
 
     /// @notice Claim all accumulated mining rewards for a pool
     /// @param poolId Pool to claim rewards from
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true. `NoPendingRewards` if `pending
+    ///     == 0` is true. `InsufficientRewardBalance` if `pending > rewardReserve` is true.
     function claimRewards(uint256 poolId) external nonReentrant {
         if (poolId >= poolCount) revert PoolNotFound();
 
@@ -260,6 +279,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Get the configuration and state of a pool
     /// @param poolId Pool to query
     /// @return Pool data struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function getPool(uint256 poolId) external view returns (Pool memory) {
         if (poolId >= poolCount) revert PoolNotFound();
         return _pools[poolId];
@@ -269,6 +290,7 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @param poolId Pool to query
     /// @param user Address to check
     /// @return UserPosition struct
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPosition(uint256 poolId, address user) external view returns (UserPosition memory) {
         return _positions[poolId][user];
     }
@@ -277,6 +299,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @param poolId Pool to query
     /// @param user Address to check
     /// @return Total pending reward tokens
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function getPendingRewards(uint256 poolId, address user) external view returns (uint256) {
         if (poolId >= poolCount) revert PoolNotFound();
 
@@ -297,6 +321,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Get every address that has ever deposited into a pool
     /// @param poolId Pool to query
     /// @return Array of participant addresses
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function getPoolParticipants(uint256 poolId) external view returns (address[] memory) {
         if (poolId >= poolCount) revert PoolNotFound();
         return _poolParticipants[poolId];
@@ -305,6 +331,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Get the total staked balance in a pool
     /// @param poolId Pool to query
     /// @return Total staked tokens
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function getTotalStaked(uint256 poolId) external view returns (uint256) {
         if (poolId >= poolCount) revert PoolNotFound();
         return _pools[poolId].totalStaked;
@@ -312,6 +340,7 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
 
     /// @notice Get the number of pools that have been created
     /// @return Total pool count
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPoolCount() external view returns (uint256) {
         return poolCount;
     }
@@ -319,6 +348,8 @@ contract LiquidityMining is Ownable, ReentrancyGuard {
     /// @notice Get the current reward emission rate for a pool
     /// @param poolId Pool to query
     /// @return Reward tokens emitted per second
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PoolNotFound` if `poolId >= poolCount` is true.
     function getRewardRate(uint256 poolId) external view returns (uint256) {
         if (poolId >= poolCount) revert PoolNotFound();
         return _pools[poolId].rewardRate;

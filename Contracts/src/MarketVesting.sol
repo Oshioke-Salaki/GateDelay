@@ -88,6 +88,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @param cliffDuration Seconds before any tokens can be released (0 = no cliff)
     /// @param revocable Whether owner may cancel this schedule
     /// @return vestingId The created vesting ID
+    /// @dev Access: Caller must be the contract owner.
     function createLinearVesting(
         address beneficiary,
         address token,
@@ -106,6 +107,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @param cliffDuration Seconds until the full token release
     /// @param revocable Whether owner may cancel this schedule
     /// @return vestingId The created vesting ID
+    /// @dev Access: Caller must be the contract owner.
     function createCliffVesting(
         address beneficiary,
         address token,
@@ -124,6 +126,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @param stepCount Number of equal release steps (1–1000)
     /// @param revocable Whether owner may cancel this schedule
     /// @return vestingId The created vesting ID
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidStepCount` if `stepCount == 0 || stepCount > 1000` is true.
     function createSteppedVesting(
         address beneficiary,
         address token,
@@ -139,6 +143,10 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Release all currently available tokens for a vesting record
     /// @dev Only the beneficiary may trigger a release
     /// @param vestingId Vesting to release from
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true. `VestingIsRevoked` if
+    ///     `v.revoked` is true. `NotBeneficiary` if `msg.sender != v.beneficiary` is true.
+    ///     `NothingToRelease` if `releasable == 0` is true.
     function release(uint256 vestingId) external nonReentrant {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
@@ -160,6 +168,9 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Cancel a revocable vesting schedule
     /// @dev Vested-but-unreleased tokens go to beneficiary; unvested tokens return to owner
     /// @param vestingId Vesting to cancel
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true. `NotRevocable` if
+    ///     `!v.revocable` is true. `AlreadyRevoked` if `v.revoked` is true.
     function revoke(uint256 vestingId) external onlyOwner {
         if (vestingId >= vestingCount) revert VestingNotFound();
 
@@ -263,6 +274,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Retrieve the full vesting record
     /// @param vestingId Vesting to query
     /// @return VestingRecord struct
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getVesting(uint256 vestingId) external view returns (VestingRecord memory) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return _vestings[vestingId];
@@ -271,6 +284,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Tokens available for immediate release
     /// @param vestingId Vesting to query
     /// @return Releasable token amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getReleasableAmount(uint256 vestingId) external view returns (uint256) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         VestingRecord storage v = _vestings[vestingId];
@@ -281,6 +296,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Total tokens vested so far (including already released)
     /// @param vestingId Vesting to query
     /// @return Cumulative vested amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getVestedAmount(uint256 vestingId) external view returns (uint256) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return _vestedAmount(_vestings[vestingId]);
@@ -289,6 +306,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Vesting progress as a fraction of totalAmount scaled to 1e18
     /// @param vestingId Vesting to query
     /// @return Progress where 1e18 represents 100% vested
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function getVestingProgress(uint256 vestingId) external view returns (uint256) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         VestingRecord storage v = _vestings[vestingId];
@@ -299,6 +318,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice All vesting IDs assigned to a beneficiary
     /// @param beneficiary Address to query
     /// @return Array of vesting IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBeneficiaryVestings(address beneficiary) external view returns (uint256[] memory) {
         return _beneficiaryVestings[beneficiary];
     }
@@ -306,6 +326,8 @@ contract MarketVesting is Ownable, ReentrancyGuard {
     /// @notice Whether the cliff timestamp has been reached
     /// @param vestingId Vesting to query
     /// @return True if cliff has passed
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `VestingNotFound` if `vestingId >= vestingCount` is true.
     function isCliffPassed(uint256 vestingId) external view returns (bool) {
         if (vestingId >= vestingCount) revert VestingNotFound();
         return block.timestamp >= _vestings[vestingId].cliffTime;
@@ -313,6 +335,7 @@ contract MarketVesting is Ownable, ReentrancyGuard {
 
     /// @notice Total number of vesting records created
     /// @return vestingCount
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getVestingCount() external view returns (uint256) {
         return vestingCount;
     }

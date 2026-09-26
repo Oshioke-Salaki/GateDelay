@@ -7,11 +7,30 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface AutomationCompatibleInterface {
+    /// @notice Reports whether upkeep is satisfied.
+    /// @param checkData Encoded data used for check data.
+    /// @return upkeepNeeded upkeep needed produced by the operation.
+    /// @return performData perform data produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData);
+    /// @notice Executes performUpkeep.
+    /// @param performData Encoded data used for perform data.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function performUpkeep(bytes calldata performData) external;
 }
 
 interface IRebalanceExecutor {
+    /// @notice Executes executeRebalance.
+    /// @param vault Address associated with vault.
+    /// @param assets Address associated with assets.
+    /// @param balances Numeric balances used by this operation.
+    /// @param targetWeightsBps target weights bps expressed in basis points.
+    /// @param data Encoded data supplied to the operation.
+    /// @return profitLoss profit loss produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function executeRebalance(
         address vault,
         address[] calldata assets,
@@ -84,32 +103,61 @@ contract AutoRebalancer is Ownable, ReentrancyGuard, AutomationCompatibleInterfa
         _setExecutor(executor_);
     }
 
+    /// @notice Executes setRebalanceParameters.
+    /// @param minDeviationBps Minimum deviation bps required.
+    /// @param minInterval Minimum interval required.
+    /// @param enabled Whether the configuration is enabled.
+    /// @dev Access: Caller must be the contract owner.
     function setRebalanceParameters(uint256 minDeviationBps, uint256 minInterval, bool enabled) external onlyOwner {
         _setRebalanceParameters(minDeviationBps, minInterval, enabled);
     }
 
+    /// @notice Executes setTargetWeights.
+    /// @param assets_ Address associated with assets_.
+    /// @param weightsBps_ weights bps_ expressed in basis points.
+    /// @dev Access: Caller must be the contract owner.
     function setTargetWeights(address[] calldata assets_, uint256[] calldata weightsBps_) external onlyOwner {
         _setTargetWeights(assets_, weightsBps_);
     }
 
+    /// @notice Executes setExecutor.
+    /// @param executor_ Address associated with executor_.
+    /// @dev Access: Caller must be the contract owner.
     function setExecutor(address executor_) external onlyOwner {
         _setExecutor(executor_);
     }
 
+    /// @notice Executes setExecutorData.
+    /// @param data Encoded data supplied to the operation.
+    /// @dev Access: Caller must be the contract owner.
     function setExecutorData(bytes calldata data) external onlyOwner {
         executorData = data;
         emit ExecutorDataSet(data);
     }
 
+    /// @notice Withdraws.
+    /// @param token Token contract address used by the operation.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `to == address(0)` is true.
     function withdraw(address token, address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         IERC20(token).safeTransfer(to, amount);
     }
 
+    /// @notice Reports whether upkeep is satisfied.
+    /// @return upkeepNeeded upkeep needed produced by the operation.
+    /// @return performData perform data produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function checkUpkeep(bytes calldata) external view returns (bool upkeepNeeded, bytes memory performData) {
         (upkeepNeeded, performData) = _checkRebalance();
     }
 
+    /// @notice Executes performUpkeep.
+    /// @param performData Encoded data used for perform data.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `RebalanceNotNeeded` if `!needed` is true.
     function performUpkeep(bytes calldata performData) external nonReentrant {
         (bool needed,) = _checkRebalance();
         if (!needed) revert RebalanceNotNeeded();
@@ -146,6 +194,10 @@ contract AutoRebalancer is Ownable, ReentrancyGuard, AutomationCompatibleInterfa
         emit RebalanceExecuted(rebalanceCount, executor, profitLoss, totalBefore, totalAfter);
     }
 
+    /// @notice Executes needsRebalance.
+    /// @return needed True if needed.
+    /// @return maxDeviationBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function needsRebalance() external view returns (bool needed, uint256 maxDeviationBps) {
         if (!config.enabled || block.timestamp < lastRebalanceAt + config.minInterval) {
             return (false, 0);
@@ -154,10 +206,18 @@ contract AutoRebalancer is Ownable, ReentrancyGuard, AutomationCompatibleInterfa
         needed = maxDeviationBps >= config.minDeviationBps;
     }
 
+    /// @notice Returns assets.
+    /// @return Assets returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAssets() external view returns (address[] memory) {
         return _assets;
     }
 
+    /// @notice Returns current weights.
+    /// @return assets_ assets_ produced by the operation.
+    /// @return balances Balances corresponding to the returned assets.
+    /// @return weightsBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCurrentWeights()
         external
         view
@@ -175,6 +235,9 @@ contract AutoRebalancer is Ownable, ReentrancyGuard, AutomationCompatibleInterfa
         }
     }
 
+    /// @notice Returns max deviation bps.
+    /// @return maxDeviationBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMaxDeviationBps() public view returns (uint256 maxDeviationBps) {
         (address[] memory assets_, uint256[] memory balances,) = _snapshot();
         uint256 total;
@@ -189,10 +252,19 @@ contract AutoRebalancer is Ownable, ReentrancyGuard, AutomationCompatibleInterfa
         }
     }
 
+    /// @notice Returns rebalance record.
+    /// @param id Numeric id used by this operation.
+    /// @return Rebalance record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRebalanceRecord(uint256 id) external view returns (RebalanceRecord memory) {
         return _records[id];
     }
 
+    /// @notice Returns performance.
+    /// @return count Number of items tracked by the contract.
+    /// @return totalProfitLoss total profit loss produced by the operation.
+    /// @return latestRebalanceAt Unix timestamp of the event.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPerformance()
         external
         view

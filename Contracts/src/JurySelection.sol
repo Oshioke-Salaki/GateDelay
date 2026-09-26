@@ -42,6 +42,11 @@ contract JurySelection {
     /// @param candidates  Pool of candidate addresses.
     /// @param size  Desired jury size.
     /// @param seed  Entropy seed for pseudo-random selection.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Jury exists" if `_juries[juryId].status == JuryStatus.NONE` is false. "Invalid
+    ///     size" if `size > 0` is false. "Not enough candidates" if `candidates.length >= size` is
+    ///     false. "Invalid candidate" if `cand != address(0)` is false. "Could not fill jury" if
+    ///     `count == size` is false.
     function selectJury(
         bytes32 juryId,
         address[] calldata candidates,
@@ -94,6 +99,11 @@ contract JurySelection {
     }
 
     /// @notice Record participation for a jury member.
+    /// @param juryId Identifier of the relevant jury.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Jury not selected" if `_juries[juryId].status == JuryStatus.SELECTED` is
+    ///     false. "Not a juror" if `_isMember[juryId][msg.sender]` is false. "Already participated"
+    ///     if `!_hasParticipated[juryId][msg.sender]` is false.
     function recordParticipation(bytes32 juryId) external {
         require(
             _juries[juryId].status == JuryStatus.SELECTED,
@@ -107,11 +117,18 @@ contract JurySelection {
     }
 
     /// @notice Returns jury members for a jury id.
+    /// @param juryId Identifier of the relevant jury.
+    /// @return Jury returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getJury(bytes32 juryId) external view returns (address[] memory) {
         return _juries[juryId].members;
     }
 
     /// @notice Check if address is member of a jury.
+    /// @param juryId Identifier of the relevant jury.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isMember(
         bytes32 juryId,
         address account
@@ -120,6 +137,10 @@ contract JurySelection {
     }
 
     /// @notice Check if member has participated.
+    /// @param juryId Identifier of the relevant jury.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasParticipated(
         bytes32 juryId,
         address account
@@ -128,6 +149,10 @@ contract JurySelection {
     }
 
     /// @notice Returns jury size and status.
+    /// @param juryId Identifier of the relevant jury.
+    /// @return size size produced by the operation.
+    /// @return status Current status of the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getJuryInfo(
         bytes32 juryId
     ) external view returns (uint256 size, JuryStatus status) {

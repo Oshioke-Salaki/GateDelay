@@ -7,6 +7,15 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 
 /// @dev Minimal LayerZero endpoint interface for cross-chain message relay.
 interface ILayerZeroEndpoint {
+    /// @notice Sends.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _destination Encoded data used for destination.
+    /// @param _payload Encoded data used for payload.
+    /// @param _refundAddress Address associated with refund address.
+    /// @param _zroPaymentAddress Address associated with zro payment address.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function send(
         uint16 _dstChainId,
         bytes calldata _destination,
@@ -16,6 +25,16 @@ interface ILayerZeroEndpoint {
         bytes calldata _adapterParams
     ) external payable;
 
+    /// @notice Executes estimateFees.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _userApplication Address associated with user application.
+    /// @param _payload Encoded data used for payload.
+    /// @param _payInZRO Whether pay in zro is enabled or selected.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @return nativeFee native fee produced by the operation.
+    /// @return zroFee zro fee produced by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function estimateFees(
         uint16 _dstChainId,
         address _userApplication,
@@ -24,8 +43,26 @@ interface ILayerZeroEndpoint {
         bytes calldata _adapterParams
     ) external view returns (uint256 nativeFee, uint256 zroFee);
 
+    /// @notice Executes retryPayload.
+    /// @param _srcChainId Identifier of the relevant src chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @param _payload Encoded data used for payload.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function retryPayload(uint16 _srcChainId, bytes calldata _srcAddress, bytes calldata _payload) external;
+    /// @notice Returns inbound nonce.
+    /// @param _chainId Identifier of the relevant chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @return Inbound nonce returned by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function getInboundNonce(uint16 _chainId, bytes calldata _srcAddress) external view returns (uint64);
+    /// @notice Returns outbound nonce.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @return Outbound nonce returned by the operation.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function getOutboundNonce(uint16 _dstChainId, address _srcAddress) external view returns (uint64);
 }
 
@@ -125,18 +162,30 @@ contract RelayContract is Ownable {
     // Admin
     // ---------------------------------------------------------------
 
+    /// @notice Executes setRelayer.
+    /// @param newRelayer Address of the new relayer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RelayContract__ZeroAddress` if `newRelayer == address(0)` is true.
     function setRelayer(address newRelayer) external onlyOwner {
         if (newRelayer == address(0)) revert RelayContract__ZeroAddress();
         relayer = newRelayer;
         emit RelayerUpdated(newRelayer);
     }
 
+    /// @notice Executes setFeeToken.
+    /// @param newFeeToken New fee token value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RelayContract__ZeroAddress` if `newFeeToken == address(0)` is true.
     function setFeeToken(address newFeeToken) external onlyOwner {
         if (newFeeToken == address(0)) revert RelayContract__ZeroAddress();
         feeToken = newFeeToken;
         emit FeeTokenUpdated(newFeeToken);
     }
 
+    /// @notice Executes setRelayFee.
+    /// @param newFeeBps New fee bps value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RelayContract__InvalidFeeBps` if `newFeeBps > BPS_DENOMINATOR` is true.
     function setRelayFee(uint256 newFeeBps) external onlyOwner {
         if (newFeeBps > BPS_DENOMINATOR) revert RelayContract__InvalidFeeBps(newFeeBps);
         relayFeeBps = newFeeBps;
@@ -150,6 +199,17 @@ contract RelayContract is Ownable {
     /// @notice Forward a message to a destination chain via LayerZero.
     /// @dev Fee is charged in the configured feeToken (standard ERC20). The caller must
     /// approve this contract to spend at least the calculated fee upfront.
+    /// @param _dstChainId Identifier of the relevant dst chain.
+    /// @param _recipient Address associated with recipient.
+    /// @param _payload Encoded data used for payload.
+    /// @param _refundAddress Address associated with refund address.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @return relayId Identifier of the relevant relay.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `RelayContract__ZeroAddress` if `_recipient == address(0)` is true.
+    ///     `RelayContract__EmptyPayload` if `_payload.length == 0` is true.
+    ///     `RelayContract__ZeroAddress` if `_refundAddress == address(0)` is true.
+    ///     `RelayContract__SelfRelay` if `msg.sender == _recipient` is true.
     function forwardMessage(
         uint16 _dstChainId,
         address _recipient,
@@ -203,6 +263,11 @@ contract RelayContract is Ownable {
 
     /// @notice Called by the LayerZero endpoint on the destination chain when a message arrives.
     /// Creates a relay record on this side so the receipt is tracked.
+    /// @param _srcChainId Identifier of the relevant src chain.
+    /// @param _srcAddress Address associated with src address.
+    /// @param _payload Encoded data used for payload.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `RelayContract__NotRelayer` if `msg.sender != address(lzEndpoint)` is true.
     function lzReceive(
         uint16 _srcChainId,
         bytes calldata _srcAddress,
@@ -238,6 +303,10 @@ contract RelayContract is Ownable {
     // ---------------------------------------------------------------
 
     /// @notice Mark a pending outbound relay as failed.
+    /// @param relayId Identifier of the relevant relay.
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `RelayContract__RelayNotFound` if `relay.relayId == 0` is true.
+    ///     `RelayContract__InvalidRelayStatus` if `relay.status != RelayStatus.Pending` is true.
     function confirmRelay(uint256 relayId) external onlyRelayer {
         RelayMessage storage relay = _relays[relayId];
         if (relay.relayId == 0) revert RelayContract__RelayNotFound(relayId);
@@ -251,6 +320,11 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Mark a pending outbound relay as failed.
+    /// @param relayId Identifier of the relevant relay.
+    /// @param _reason Encoded data used for reason.
+    /// @dev Access: Caller must be the configured relayer.
+    /// @dev Reverts: `RelayContract__RelayNotFound` if `relay.relayId == 0` is true.
+    ///     `RelayContract__InvalidRelayStatus` if `relay.status != RelayStatus.Pending` is true.
     function markRelayFailed(uint256 relayId, bytes calldata _reason) external onlyRelayer {
         RelayMessage storage relay = _relays[relayId];
         if (relay.relayId == 0) revert RelayContract__RelayNotFound(relayId);
@@ -271,6 +345,12 @@ contract RelayContract is Ownable {
     /// @notice Recover a failed relay by re-sending its message.
     /// @dev The caller must pay the LayerZero gas fee in native currency (msg.value).
     /// Fee token is not re-collected for recovery since the original fee was already paid.
+    /// @param relayId Identifier of the relevant relay.
+    /// @param _refundAddress Address associated with refund address.
+    /// @param _adapterParams Encoded data used for adapter params.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `RelayContract__RelayNotFound` if `relay.relayId == 0` is true.
+    ///     `RelayContract__InvalidRelayStatus` if `relay.status != RelayStatus.Failed` is true.
     function recoverRelay(
         uint256 relayId,
         address payable _refundAddress,
@@ -313,10 +393,18 @@ contract RelayContract is Ownable {
         totalFeesCollected += _amount;
     }
 
+    /// @notice Calculates the fee for the requested transfer.
+    /// @return Fee returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function calculateFee() external view returns (uint256) {
         return _calculateFee();
     }
 
+    /// @notice Executes withdrawFees.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RelayContract__ZeroAddress` if `to == address(0)` is true.
     function withdrawFees(address to, uint256 amount) external onlyOwner {
         if (to == address(0)) revert RelayContract__ZeroAddress();
         IERC20(feeToken).safeTransfer(to, amount);
@@ -328,6 +416,10 @@ contract RelayContract is Ownable {
     // ---------------------------------------------------------------
 
     /// @notice Get full relay details by ID.
+    /// @param relayId Identifier of the relevant relay.
+    /// @return Relay returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `RelayContract__RelayNotFound` if `relay.relayId == 0` is true.
     function getRelay(uint256 relayId) external view returns (RelayMessage memory) {
         RelayMessage memory relay = _relays[relayId];
         if (relay.relayId == 0) revert RelayContract__RelayNotFound(relayId);
@@ -335,6 +427,10 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Get the current status of a relay.
+    /// @param relayId Identifier of the relevant relay.
+    /// @return Relay status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `RelayContract__RelayNotFound` if `relay.relayId == 0` is true.
     function getRelayStatus(uint256 relayId) external view returns (RelayStatus) {
         RelayMessage memory relay = _relays[relayId];
         if (relay.relayId == 0) revert RelayContract__RelayNotFound(relayId);
@@ -342,22 +438,32 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Get all relay IDs for a given sender.
+    /// @param _sender Address associated with sender.
+    /// @return Relays by sender returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRelaysBySender(address _sender) external view returns (uint256[] memory) {
         return _relaysBySender[_sender];
     }
 
     /// @notice Get all relay IDs for a given recipient.
+    /// @param _recipient Address associated with recipient.
+    /// @return Relays by recipient returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRelaysByRecipient(address _recipient) external view returns (uint256[] memory) {
         return _relaysByRecipient[_recipient];
     }
 
     /// @notice Total number of relays created.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function relayCount() external view returns (uint256) {
         return _nextRelayId - 1;
     }
 
     /// @notice Iterate and return IDs of all relays currently in Pending status.
     /// @dev O(n) — suitable for off-chain or admin-only calls.
+    /// @return Pending relays returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPendingRelays() external view returns (uint256[] memory) {
         uint256 count;
         for (uint256 i = 1; i < _nextRelayId; i++) {
@@ -372,6 +478,8 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Iterate and return IDs of all relays currently in Failed status.
+    /// @return Failed relays returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFailedRelays() external view returns (uint256[] memory) {
         uint256 count;
         for (uint256 i = 1; i < _nextRelayId; i++) {
@@ -386,6 +494,8 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Iterate and return IDs of all relays currently in Relayed status.
+    /// @return Relayed relays returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRelayedRelays() external view returns (uint256[] memory) {
         uint256 count;
         for (uint256 i = 1; i < _nextRelayId; i++) {
@@ -400,6 +510,8 @@ contract RelayContract is Ownable {
     }
 
     /// @notice Iterate and return IDs of all relays currently in Recovered status.
+    /// @return Recovered relays returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRecoveredRelays() external view returns (uint256[] memory) {
         uint256 count;
         for (uint256 i = 1; i < _nextRelayId; i++) {

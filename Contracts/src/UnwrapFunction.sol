@@ -85,6 +85,12 @@ contract UnwrapFunction {
     /// @param maxUnwrapPerTx Maximum amount allowed in a single unwrap call. 0 = unlimited.
     /// @param maxUnwrapPerPeriod Maximum amount a participant may unwrap within `periodDuration`. 0 = unlimited.
     /// @param periodDuration Length of the rolling unwrap window in seconds. Ignored if maxUnwrapPerPeriod is 0.
+    /// @notice Executes configureMarket.
+    /// @param marketId Identifier of the relevant market.
+    /// @param token Token contract address used by the operation.
+    /// @dev Access: Caller must satisfy `onlyController` access checks.
+    /// @dev Reverts: `UnwrapFunction__MarketAlreadyConfigured` if `_configs[marketId].active` is
+    ///     true. `UnwrapFunction__InvalidToken` if `token == address(0)` is true.
     function configureMarket(
         uint256 marketId,
         address token,
@@ -106,6 +112,12 @@ contract UnwrapFunction {
         emit MarketConfigured(marketId, token, maxUnwrapPerTx, maxUnwrapPerPeriod, periodDuration);
     }
 
+    /// @notice Executes updateUnwrapLimits.
+    /// @param marketId Identifier of the relevant market.
+    /// @param maxUnwrapPerTx Maximum unwrap per tx allowed.
+    /// @param maxUnwrapPerPeriod Maximum unwrap per period allowed.
+    /// @param periodDuration period duration, in seconds.
+    /// @dev Access: Caller must satisfy `onlyController`, `onlyActiveMarket` access checks.
     function updateUnwrapLimits(
         uint256 marketId,
         uint256 maxUnwrapPerTx,
@@ -123,6 +135,11 @@ contract UnwrapFunction {
     /// @notice Credit a participant's wrapped balance, making it available to unwrap.
     /// @dev Called by the controller (e.g. the wrap-side contract) once the underlying asset
     /// has actually been deposited into this contract on the participant's behalf.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyController`, `onlyActiveMarket` access checks.
+    /// @dev Reverts: `UnwrapFunction__ZeroAmount` if `amount == 0` is true.
     function creditWrappedBalance(uint256 marketId, address participant, uint256 amount)
         external
         onlyController
@@ -142,6 +159,15 @@ contract UnwrapFunction {
 
     /// @notice Unwrap `amount` of the caller's wrapped balance, releasing the underlying asset.
     /// Supports partial unwraps: `amount` may be less than the full wrapped balance.
+    /// @param marketId Identifier of the relevant market.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyActiveMarket` access checks.
+    /// @dev Reverts: `UnwrapFunction__ZeroAmount` if `amount == 0` is true.
+    ///     `UnwrapFunction__InsufficientWrappedBalance` if `amount > pos.wrappedBalance` is true.
+    ///     `UnwrapFunction__ExceedsPerTxLimit` if `cfg.maxUnwrapPerTx != 0 && amount >
+    ///     cfg.maxUnwrapPerTx` is true. `UnwrapFunction__ExceedsPeriodLimit` if
+    ///     `cfg.maxUnwrapPerPeriod != 0` is true. `UnwrapFunction__ExceedsPeriodLimit` if `amount >
+    ///     periodAvailable` is true.
     function unwrap(uint256 marketId, uint256 amount) external onlyActiveMarket(marketId) {
         if (amount == 0) revert UnwrapFunction__ZeroAmount();
 
@@ -200,14 +226,28 @@ contract UnwrapFunction {
     // Queries
     // ---------------------------------------------------------------
 
+    /// @notice Returns market config.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Market config returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketConfig(uint256 marketId) external view returns (MarketUnwrapConfig memory) {
         return _configs[marketId];
     }
 
+    /// @notice Returns position.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Position returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPosition(uint256 marketId, address participant) external view returns (UnwrapPosition memory) {
         return _positions[marketId][participant];
     }
 
+    /// @notice Executes wrappedBalanceOf.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function wrappedBalanceOf(uint256 marketId, address participant) external view returns (uint256) {
         return _positions[marketId][participant].wrappedBalance;
     }
@@ -215,6 +255,10 @@ contract UnwrapFunction {
     /// @notice Amount the participant could still unwrap right now under the per-period limit,
     /// accounting for whether the current period has already elapsed. Does not account for
     /// the per-tx cap or the participant's wrapped balance — combine with those separately.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function remainingPeriodCapacity(uint256 marketId, address participant) external view returns (uint256) {
         MarketUnwrapConfig storage cfg = _configs[marketId];
         if (cfg.maxUnwrapPerPeriod == 0) return type(uint256).max;
@@ -229,19 +273,35 @@ contract UnwrapFunction {
         return cfg.maxUnwrapPerPeriod - pos.periodUnwrapped;
     }
 
+    /// @notice Executes maxSingleUnwrap.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function maxSingleUnwrap(uint256 marketId) external view returns (uint256) {
         uint256 cap = _configs[marketId].maxUnwrapPerTx;
         return cap == 0 ? type(uint256).max : cap;
     }
 
+    /// @notice Returns unwrap history.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Unwrap history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUnwrapHistory(uint256 marketId) external view returns (UnwrapRecord[] memory) {
         return _unwrapHistory[marketId];
     }
 
+    /// @notice Returns unwrap operation count.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Unwrap operation count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUnwrapOperationCount(uint256 marketId) external view returns (uint256) {
         return _unwrapHistory[marketId].length;
     }
 
+    /// @notice Reports whether market active is satisfied.
+    /// @param marketId Identifier of the relevant market.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isMarketActive(uint256 marketId) external view returns (bool) {
         return _configs[marketId].active;
     }

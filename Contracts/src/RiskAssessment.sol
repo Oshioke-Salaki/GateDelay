@@ -115,6 +115,10 @@ contract RiskAssessment {
     // -------------------------------------------------------------------------
 
     /// @notice Assess risk for a user's position
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function assessRisk(address user, address market) external returns (RiskMetrics memory) {
         uint256 yesId = positionToken.yesId(market);
         uint256 noId = positionToken.noId(market);
@@ -164,22 +168,40 @@ contract RiskAssessment {
     }
 
     /// @notice Get risk metrics for a user
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Risk metrics returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRiskMetrics(address user, address market) external view returns (RiskMetrics memory) {
         return _riskMetrics[user][market];
     }
 
     /// @notice Get risk alerts for a user
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Risk alerts returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRiskAlerts(address user, address market) external view returns (RiskAlert[] memory) {
         return _riskAlerts[user][market];
     }
 
     /// @notice Acknowledge a risk alert
+    /// @param market Market address associated with this operation.
+    /// @param alertIndex Numeric alert index used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Invalid alert index" if `alertIndex < _riskAlerts[msg.sender][market].length`
+    ///     is false.
     function acknowledgeAlert(address market, uint256 alertIndex) external {
         require(alertIndex < _riskAlerts[msg.sender][market].length, "Invalid alert index");
         _riskAlerts[msg.sender][market][alertIndex].acknowledged = true;
     }
 
     /// @notice Update risk thresholds (admin only)
+    /// @param maxExposure Maximum exposure allowed.
+    /// @param maxConcentration Maximum concentration allowed.
+    /// @param maxVolatility Maximum volatility allowed.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Not admin" if `msg.sender == admin` is false.
     function updateRiskThresholds(
         uint256 maxExposure,
         uint256 maxConcentration,
@@ -206,6 +228,10 @@ contract RiskAssessment {
     }
 
     /// @notice Check if position exceeds risk thresholds
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isRiskAcceptable(address user, address market) external view returns (bool) {
         RiskMetrics memory metrics = _riskMetrics[user][market];
         

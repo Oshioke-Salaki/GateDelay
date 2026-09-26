@@ -107,6 +107,12 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Add a new market for compounding
+     * @param name name used by this operation.
+     * @param baseYieldRate Numeric base yield rate used by this operation.
+     * @param feeBps Fee rate expressed in basis points.
+     * @return marketId Identifier of the relevant market.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `InvalidFeeBps` if `feeBps > MAX_FEE_BPS` is true.
      */
     function addMarket(
         string calldata name,
@@ -132,6 +138,13 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Update an existing market
+     * @param marketId Identifier of the relevant market.
+     * @param baseYieldRate Numeric base yield rate used by this operation.
+     * @param feeBps Fee rate expressed in basis points.
+     * @param isActive Whether is active is enabled or selected.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `MarketNotFound` if `market.id == 0` is true. `InvalidFeeBps` if `feeBps >
+     *     MAX_FEE_BPS` is true.
      */
     function updateMarket(
         uint256 marketId,
@@ -154,6 +167,9 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Set a new fee treasury address
+     * @param _feeTreasury Address associated with fee treasury.
+     * @dev Access: Caller must be the contract owner.
+     * @dev Reverts: `ZeroAddress` if `_feeTreasury == address(0)` is true.
      */
     function setFeeTreasury(address _feeTreasury) external onlyOwner {
         if (_feeTreasury == address(0)) revert ZeroAddress();
@@ -166,6 +182,11 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Deposit tokens into a market
+     * @param marketId Identifier of the relevant market.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `MarketNotFound` if `market.id == 0` is true. `MarketNotActive` if
+     *     `!market.isActive` is true. `ZeroAmount` if `amount == 0` is true.
      */
     function deposit(uint256 marketId, uint256 amount) external nonReentrant {
         Market storage market = markets[marketId];
@@ -184,6 +205,11 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Withdraw tokens from a market
+     * @param marketId Identifier of the relevant market.
+     * @param amount Amount to process, in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `MarketNotFound` if `market.id == 0` is true. `InsufficientBalance` if
+     *     `position.depositAmount < amount` is true. `ZeroAmount` if `amount == 0` is true.
      */
     function withdraw(uint256 marketId, uint256 amount) external nonReentrant {
         Market storage market = markets[marketId];
@@ -202,6 +228,10 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Emergency withdraw without caring about yield
+     * @param marketId Identifier of the relevant market.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `MarketNotFound` if `market.id == 0` is true. `ZeroAmount` if `amount == 0` is
+     *     true.
      */
     function emergencyWithdraw(uint256 marketId) external nonReentrant {
         Market storage market = markets[marketId];
@@ -222,6 +252,13 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Compound yield for a user in a market
+     * @param marketId Identifier of the relevant market.
+     * @param user User address affected by this operation.
+     * @return netAmount Amount in the relevant token units.
+     * @dev Access: Caller permissions are checked against the sender or assigned roles.
+     * @dev Reverts: `MarketNotFound` if `market.id == 0` is true. `MarketNotActive` if
+     *     `!market.isActive` is true. `ZeroAddress` if `user == address(0)` is true.
+     *     `NoYieldToCompound` if `totalYield == 0` is true.
      */
     function compound(uint256 marketId, address user) external nonReentrant returns (uint256 netAmount) {
         Market storage market = markets[marketId];
@@ -268,6 +305,10 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Compound yield across multiple markets for a user
+     * @param marketIds Numeric market ids used by this operation.
+     * @param user User address affected by this operation.
+     * @return netAmounts net amounts produced by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function compoundMultiple(uint256[] calldata marketIds, address user) external returns (uint256[] memory netAmounts) {
         netAmounts = new uint256[](marketIds.length);
@@ -280,6 +321,11 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Calculate compound fee for a given yield amount and fee BPS
+     * @param amount Amount to process, in the relevant token units.
+     * @param feeBps Fee rate expressed in basis points.
+     * @return Compound fee returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
+     * @dev Reverts: `InvalidFeeBps` if `feeBps > FEE_DENOMINATOR` is true.
      */
     function calculateCompoundFee(uint256 amount, uint256 feeBps) public pure returns (uint256) {
         if (feeBps > FEE_DENOMINATOR) revert InvalidFeeBps();
@@ -290,6 +336,10 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get pending yield to compound for a user
+     * @param marketId Identifier of the relevant market.
+     * @param user User address affected by this operation.
+     * @return Pending yield returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getPendingYield(uint256 marketId, address user) external view returns (uint256) {
         Market memory market = markets[marketId];
@@ -309,6 +359,10 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get compound history records for a specific market and user
+     * @param marketId Identifier of the relevant market.
+     * @param user User address affected by this operation.
+     * @return Compound history returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getCompoundHistory(uint256 marketId, address user) external view returns (CompoundRecord[] memory) {
         uint256[] memory indices = _userCompoundIndices[marketId][user];
@@ -321,6 +375,8 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get the total count of compound history records
+     * @return Compound history count returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getCompoundHistoryCount() external view returns (uint256) {
         return _compoundHistory.length;
@@ -328,6 +384,9 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Get a specific compound history record by index
+     * @param index Numeric index used by this operation.
+     * @return Compound history record returned by the operation.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getCompoundHistoryRecord(uint256 index) external view returns (CompoundRecord memory) {
         return _compoundHistory[index];
@@ -335,6 +394,8 @@ contract MarketCompound is Ownable, ReentrancyGuard {
 
     /**
      * @notice Query active markets count
+     * @return activeCount Number of items tracked by the contract.
+     * @dev Access: No caller-specific access restriction is imposed.
      */
     function getActiveMarketsCount() external view returns (uint256 activeCount) {
         for (uint256 i = 1; i <= marketCount; i++) {

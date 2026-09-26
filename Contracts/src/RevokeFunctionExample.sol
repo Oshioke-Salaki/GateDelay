@@ -107,6 +107,7 @@ contract RevokeFunctionExample {
     // -------------------------------------------------------------------------
     
     /// @notice Execute a function (requires EXECUTE_PERMISSION)
+    /// @dev Access: Caller must satisfy `onlyExecutor` access checks.
     function execute() external onlyExecutor notRevoked {
         userExecutions[msg.sender]++;
         totalExecutions++;
@@ -115,6 +116,11 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Transfer tokens (requires TRANSFER_PERMISSION)
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyTransferer` access checks.
+    /// @dev Reverts: `InsufficientBalance` if `balances[msg.sender] < amount` is true.
+    ///     `InvalidAmount` if `amount == 0` is true.
     function transfer(address to, uint256 amount) external onlyTransferer notRevoked {
         if (balances[msg.sender] < amount) revert InsufficientBalance();
         if (amount == 0) revert InvalidAmount();
@@ -129,6 +135,10 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Mint tokens (requires MINT_PERMISSION)
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be an authorized minter.
+    /// @dev Reverts: `InvalidAmount` if `amount == 0` is true.
     function mint(address to, uint256 amount) external onlyMinter notRevoked {
         if (amount == 0) revert InvalidAmount();
         
@@ -139,6 +149,10 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Burn tokens (requires BURN_PERMISSION)
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must satisfy `onlyBurner` access checks.
+    /// @dev Reverts: `InsufficientBalance` if `balances[msg.sender] < amount` is true.
+    ///     `InvalidAmount` if `amount == 0` is true.
     function burn(uint256 amount) external onlyBurner notRevoked {
         if (balances[msg.sender] < amount) revert InsufficientBalance();
         if (amount == 0) revert InvalidAmount();
@@ -154,6 +168,10 @@ contract RevokeFunctionExample {
     
     /// @notice Admin function requiring multiple permissions
     /// @dev Requires both ADMIN_PERMISSION and EXECUTE_PERMISSION
+    /// @param action action used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `!revokeFunction.hasAllPermissions(msg.sender, required)` is
+    ///     true.
     function adminExecute(string calldata action) external notRevoked {
         bytes32[] memory required = new bytes32[](2);
         required[0] = revokeFunction.ADMIN_PERMISSION();
@@ -168,6 +186,9 @@ contract RevokeFunctionExample {
     
     /// @notice Function requiring any of multiple permissions
     /// @dev Requires either ADMIN_PERMISSION or EXECUTE_PERMISSION
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAuthorized` if `!revokeFunction.hasAnyPermission(msg.sender, accepted)` is
+    ///     true.
     function flexibleExecute() external notRevoked {
         bytes32[] memory accepted = new bytes32[](2);
         accepted[0] = revokeFunction.ADMIN_PERMISSION();
@@ -182,6 +203,12 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Privileged transfer requiring admin permission
+    /// @param from Source address for the transfer.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `InsufficientBalance` if `balances[from] < amount` is true. `InvalidAmount` if
+    ///     `amount == 0` is true.
     function adminTransfer(address from, address to, uint256 amount) external onlyAdmin notRevoked {
         if (balances[from] < amount) revert InsufficientBalance();
         if (amount == 0) revert InvalidAmount();
@@ -197,51 +224,79 @@ contract RevokeFunctionExample {
     // -------------------------------------------------------------------------
     
     /// @notice Check if user can execute
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function canExecute(address user) external view returns (bool) {
         return revokeFunction.hasPermission(user, revokeFunction.EXECUTE_PERMISSION());
     }
     
     /// @notice Check if user can transfer
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function canTransfer(address user) external view returns (bool) {
         return revokeFunction.hasPermission(user, revokeFunction.TRANSFER_PERMISSION());
     }
     
     /// @notice Check if user can mint
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function canMint(address user) external view returns (bool) {
         return revokeFunction.hasPermission(user, revokeFunction.MINT_PERMISSION());
     }
     
     /// @notice Check if user can burn
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function canBurn(address user) external view returns (bool) {
         return revokeFunction.hasPermission(user, revokeFunction.BURN_PERMISSION());
     }
     
     /// @notice Check if user is admin
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isAdmin(address user) external view returns (bool) {
         return revokeFunction.hasPermission(user, revokeFunction.ADMIN_PERMISSION());
     }
     
     /// @notice Get all permissions for a user
+    /// @param user User address affected by this operation.
+    /// @return User permissions returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserPermissions(address user) external view returns (bytes32[] memory) {
         return revokeFunction.getAccountPermissions(user);
     }
     
     /// @notice Get user's permission count
+    /// @param user User address affected by this operation.
+    /// @return User permission count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserPermissionCount(address user) external view returns (uint256) {
         return revokeFunction.getAccountPermissionCount(user);
     }
     
     /// @notice Check if this contract is revoked
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isRevoked() external view returns (bool) {
         return revokeFunction.isContractRevoked(address(this));
     }
     
     /// @notice Get revocation details for this contract
+    /// @return ContractRevocation contract revocation produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRevocationDetails() external view returns (RevokeFunction.ContractRevocation memory) {
         return revokeFunction.getContractRevocation(address(this));
     }
     
     /// @notice Get user's revocation history
+    /// @param user User address affected by this operation.
+    /// @return PartialRevoke partial revoke produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserRevocationHistory(address user) 
         external 
         view 
@@ -251,6 +306,10 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Get user's recent revocations
+    /// @param user User address affected by this operation.
+    /// @param count Numeric count used by this operation.
+    /// @return PartialRevoke partial revoke produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserRecentRevocations(address user, uint256 count) 
         external 
         view 
@@ -264,6 +323,12 @@ contract RevokeFunctionExample {
     // -------------------------------------------------------------------------
     
     /// @notice Get user statistics
+    /// @param user User address affected by this operation.
+    /// @return executions executions produced by the operation.
+    /// @return transfers transfers produced by the operation.
+    /// @return balance Token balance, in the smallest token units.
+    /// @return permissionCount Number of items tracked by the contract.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserStats(address user) 
         external 
         view 
@@ -281,6 +346,11 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Get contract statistics
+    /// @return executions executions produced by the operation.
+    /// @return transfers transfers produced by the operation.
+    /// @return mints mints produced by the operation.
+    /// @return revoked revoked produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getContractStats() 
         external 
         view 
@@ -298,6 +368,9 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Check if user has elevated privileges
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasElevatedPrivileges(address user) external view returns (bool) {
         bytes32[] memory elevated = new bytes32[](2);
         elevated[0] = revokeFunction.ADMIN_PERMISSION();
@@ -307,6 +380,9 @@ contract RevokeFunctionExample {
     }
     
     /// @notice Check if user has full access
+    /// @param user User address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasFullAccess(address user) external view returns (bool) {
         bytes32[] memory allPerms = new bytes32[](5);
         allPerms[0] = revokeFunction.EXECUTE_PERMISSION();

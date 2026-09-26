@@ -72,6 +72,7 @@ abstract contract UUPSUpgradeable {
 
     /// @notice Upgrade to a new implementation.
     /// @param newImplementation Address of the new implementation.
+    /// @dev Access: Caller must satisfy `onlyProxy` access checks.
     function upgradeTo(address newImplementation) external onlyProxy {
         _authorizeUpgrade(newImplementation);
         _setImplementation(newImplementation);
@@ -81,6 +82,9 @@ abstract contract UUPSUpgradeable {
     /// @notice Upgrade to a new implementation and call a function.
     /// @param newImplementation Address of the new implementation.
     /// @param data Encoded function call data.
+    /// @dev Access: Caller must satisfy `onlyProxy` access checks.
+    /// @dev Reverts: `UpgradeFailed` if `data.length > 0` is true. `UpgradeFailed` if `!success` is
+    ///     true.
     function upgradeToAndCall(address newImplementation, bytes calldata data)
         external
         onlyProxy
@@ -96,21 +100,30 @@ abstract contract UUPSUpgradeable {
     }
 
     /// @notice Get the current implementation.
+    /// @return Implementation returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getImplementation() external view returns (address) {
         return _getImplementation();
     }
 
     /// @notice Get upgrade history.
+    /// @return Upgrade history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeHistory() external view returns (address[] memory) {
         return _upgradeHistory;
     }
 
     /// @notice Get the number of upgrades.
+    /// @return Upgrade count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUpgradeCount() external view returns (uint256) {
         return _upgradeHistory.length;
     }
 
     /// @notice Check if an address is the current implementation.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isImplementation(address account) external view returns (bool) {
         return account == _getImplementation();
     }

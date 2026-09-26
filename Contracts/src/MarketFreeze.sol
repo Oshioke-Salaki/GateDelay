@@ -70,6 +70,11 @@ contract MarketFreeze is Ownable {
     // -------------------------------------------------------------------------
     // Freezer registry
     // -------------------------------------------------------------------------
+    /// @notice Executes addFreezer.
+    /// @param freezer Address associated with freezer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `freezer == address(0)` is true. `AlreadyFreezer` if
+    ///     `_freezers[freezer]` is true.
     function addFreezer(address freezer) external onlyOwner {
         if (freezer == address(0)) revert ZeroAddress();
         if (_freezers[freezer]) revert AlreadyFreezer();
@@ -78,6 +83,10 @@ contract MarketFreeze is Ownable {
         emit FreezerAdded(freezer);
     }
 
+    /// @notice Executes removeFreezer.
+    /// @param freezer Address associated with freezer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NotFreezer` if `!_freezers[freezer]` is true.
     function removeFreezer(address freezer) external onlyOwner {
         if (!_freezers[freezer]) revert NotFreezer();
         _freezers[freezer] = false;
@@ -93,10 +102,17 @@ contract MarketFreeze is Ownable {
         emit FreezerRemoved(freezer);
     }
 
+    /// @notice Reports whether freezer is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isFreezer(address account) external view returns (bool) {
         return _freezers[account];
     }
 
+    /// @notice Returns freezers.
+    /// @return Freezers returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFreezers() external view returns (address[] memory) {
         return _freezerList;
     }
@@ -106,21 +122,33 @@ contract MarketFreeze is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Freeze every operation on a market.
+    /// @param market Market address associated with this operation.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller must satisfy `onlyFreezer` access checks.
     function freezeMarket(address market, string calldata reason) external onlyFreezer {
         _freeze(market, OP_ALL, reason);
     }
 
     /// @notice Freeze a single operation on a market (e.g. only withdrawals).
+    /// @param market Market address associated with this operation.
+    /// @param operation Encoded data used for operation.
+    /// @param reason reason used by this operation.
+    /// @dev Access: Caller must satisfy `onlyFreezer` access checks.
     function freezeOperation(address market, bytes32 operation, string calldata reason) external onlyFreezer {
         _freeze(market, operation, reason);
     }
 
     /// @notice Lift a market-wide freeze.
+    /// @param market Market address associated with this operation.
+    /// @dev Access: Caller must satisfy `onlyFreezer` access checks.
     function unfreezeMarket(address market) external onlyFreezer {
         _unfreeze(market, OP_ALL);
     }
 
     /// @notice Lift a per-operation freeze.
+    /// @param market Market address associated with this operation.
+    /// @param operation Encoded data used for operation.
+    /// @dev Access: Caller must satisfy `onlyFreezer` access checks.
     function unfreezeOperation(address market, bytes32 operation) external onlyFreezer {
         _unfreeze(market, operation);
     }
@@ -151,23 +179,38 @@ contract MarketFreeze is Ownable {
     // -------------------------------------------------------------------------
 
     /// @notice Whether the entire market is frozen via OP_ALL.
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isMarketFrozen(address market) public view returns (bool) {
         return _freezes[market][OP_ALL].frozen;
     }
 
     /// @notice Whether a specific operation is frozen.
     /// @dev A market-wide OP_ALL freeze also counts as frozen for any operation.
+    /// @param market Market address associated with this operation.
+    /// @param operation Encoded data used for operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isOperationFrozen(address market, bytes32 operation) public view returns (bool) {
         if (_freezes[market][OP_ALL].frozen) return true;
         return _freezes[market][operation].frozen;
     }
 
     /// @notice Read the freeze record for a given operation.
+    /// @param market Market address associated with this operation.
+    /// @param operation Encoded data used for operation.
+    /// @return Freeze info returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getFreezeInfo(address market, bytes32 operation) external view returns (FreezeInfo memory) {
         return _freezes[market][operation];
     }
 
     /// @notice Convenience guard helper for downstream contracts.
+    /// @param market Market address associated with this operation.
+    /// @param operation Encoded data used for operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `OperationFrozen` if `isOperationFrozen(market, operation)` is true.
     function requireOperationAllowed(address market, bytes32 operation) external view {
         if (isOperationFrozen(market, operation)) revert OperationFrozen(operation);
     }

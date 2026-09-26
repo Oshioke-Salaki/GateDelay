@@ -78,6 +78,12 @@ contract Payout is ReentrancyGuard {
     /// @notice Register a new market with a chosen payout model.
     /// @param floorPrice  Only used for SCALAR; ignored otherwise (pass 0).
     /// @param ceilPrice   Only used for SCALAR; ignored otherwise (pass 0).
+    /// @param marketId Identifier of the relevant market.
+    /// @param model model used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `AlreadyRegistered` if `markets[marketId].totalPool != 0 ||
+    ///     markets[marketId].resolved` is true. `InvalidPrice` if `model == PayoutModel.SCALAR` is
+    ///     true. `InvalidPrice` if `floorPrice >= ceilPrice` is true.
     function registerMarket(
         uint256    marketId,
         PayoutModel model,
@@ -102,6 +108,11 @@ contract Payout is ReentrancyGuard {
     }
 
     /// @notice Record shares purchased by a user (called by the trading layer).
+    /// @param marketId Identifier of the relevant market.
+    /// @param user User address affected by this operation.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be the contract owner.
     function recordShares(uint256 marketId, address user, uint256 outcome, uint256 amount) external onlyOwner {
         shares[marketId][user][outcome]  += amount;
         totalShares[marketId][outcome]   += amount;
@@ -112,6 +123,12 @@ contract Payout is ReentrancyGuard {
     /// @notice Resolve a market.
     /// @param settlementPrice  For SCALAR: final price in WAD within [floor, ceil].
     ///                         For other models: ignored (pass 0).
+    /// @param marketId Identifier of the relevant market.
+    /// @param winningOutcome Numeric winning outcome used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `AlreadyResolved` if `m.resolved` is true. `InvalidPrice` if `m.model ==
+    ///     PayoutModel.SCALAR` is true. `InvalidPrice` if `settlementPrice < m.floorPrice ||
+    ///     settlementPrice > m.ceilPrice` is true.
     function resolveMarket(
         uint256 marketId,
         uint256 winningOutcome,
@@ -136,6 +153,11 @@ contract Payout is ReentrancyGuard {
 
     /// @notice Calculate the payout owed to `user` for `marketId`.
     /// @dev    Pure view – does not transfer tokens.
+    /// @param marketId Identifier of the relevant market.
+    /// @param user User address affected by this operation.
+    /// @return payout payout produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `NotResolved` if `!m.resolved` is true.
     function calculatePayout(uint256 marketId, address user) public view returns (uint256 payout) {
         MarketPayout storage m = markets[marketId];
         if (!m.resolved) revert NotResolved();
@@ -166,6 +188,10 @@ contract Payout is ReentrancyGuard {
     // ── Claim processing ──────────────────────────────────────────────────────
 
     /// @notice Claim payout for the caller.
+    /// @param marketId Identifier of the relevant market.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `AlreadyClaimed` if `claimStatus[marketId][msg.sender] == ClaimStatus.CLAIMED`
+    ///     is true. `NothingToClaim` if `amount == 0` is true.
     function claim(uint256 marketId) external nonReentrant {
         if (claimStatus[marketId][msg.sender] == ClaimStatus.CLAIMED) revert AlreadyClaimed();
 
@@ -179,6 +205,10 @@ contract Payout is ReentrancyGuard {
     }
 
     /// @notice Check claim status for a user.
+    /// @param marketId Identifier of the relevant market.
+    /// @param user User address affected by this operation.
+    /// @return Claim status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimStatus(uint256 marketId, address user) external view returns (ClaimStatus) {
         return claimStatus[marketId][user];
     }

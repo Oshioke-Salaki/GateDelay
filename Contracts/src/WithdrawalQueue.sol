@@ -88,6 +88,11 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
     // -------------------------------------------------------------------------
     // Processor registry
     // -------------------------------------------------------------------------
+    /// @notice Executes addProcessor.
+    /// @param processor Address associated with processor.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `processor == address(0)` is true. `AlreadyProcessor` if
+    ///     `_processors[processor]` is true.
     function addProcessor(address processor) external onlyOwner {
         if (processor == address(0)) revert ZeroAddress();
         if (_processors[processor]) revert AlreadyProcessor();
@@ -96,6 +101,10 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
         emit ProcessorAdded(processor);
     }
 
+    /// @notice Executes removeProcessor.
+    /// @param processor Address associated with processor.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `NotProcessor` if `!_processors[processor]` is true.
     function removeProcessor(address processor) external onlyOwner {
         if (!_processors[processor]) revert NotProcessor();
         _processors[processor] = false;
@@ -111,6 +120,10 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
         emit ProcessorRemoved(processor);
     }
 
+    /// @notice Reports whether processor is satisfied.
+    /// @param account Account address affected by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isProcessor(address account) external view returns (bool) {
         return _processors[account];
     }
@@ -122,6 +135,12 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
     /// @notice Submit a withdrawal request. Caller's tokens must be available
     ///         off-contract (e.g. via vault accounting); this contract only
     ///         tracks order & metadata.
+    /// @param token Token contract address used by the operation.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return id Identifier of the relevant .
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `address(token) == address(0)` is true. `ZeroAmount` if
+    ///     `amount == 0` is true.
     function request(IERC20 token, uint256 amount) external returns (uint256 id) {
         if (address(token) == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
@@ -145,6 +164,10 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
     }
 
     /// @notice Cancel a pending request. Only the original requester may call.
+    /// @param id Numeric id used by this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `UnknownRequest` if `r.status == Status.NONE` is true. `NotRequestOwner` if
+    ///     `r.user != msg.sender` is true. `InvalidStatus` if `r.status != Status.PENDING` is true.
     function cancel(uint256 id) external nonReentrant {
         Request storage r = _requests[id];
         if (r.status == Status.NONE) revert UnknownRequest();
@@ -164,6 +187,9 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
 
     /// @notice Settle the next pending request in FIFO order, paying the user
     ///         from this contract's token balance.
+    /// @return id Identifier of the relevant .
+    /// @dev Access: Caller must satisfy `onlyProcessor` access checks.
+    /// @dev Reverts: `QueueEmpty` if `_queue.length == 0` is true.
     function processNext() external nonReentrant onlyProcessor returns (uint256 id) {
         if (_queue.length == 0) revert QueueEmpty();
         id = _queue[0];
@@ -219,31 +245,49 @@ contract WithdrawalQueue is Ownable, ReentrancyGuard {
     // Queries
     // -------------------------------------------------------------------------
 
+    /// @notice Returns request.
+    /// @param id Numeric id used by this operation.
+    /// @return Request returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRequest(uint256 id) external view returns (Request memory) {
         return _requests[id];
     }
 
+    /// @notice Executes statusOf.
+    /// @param id Numeric id used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function statusOf(uint256 id) external view returns (Status) {
         return _requests[id].status;
     }
 
     /// @notice Length of the active pending queue.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function queueLength() external view returns (uint256) {
         return _queue.length;
     }
 
     /// @notice Read the next request id without removing it.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `QueueEmpty` if `_queue.length == 0` is true.
     function head() external view returns (uint256) {
         if (_queue.length == 0) revert QueueEmpty();
         return _queue[0];
     }
 
     /// @notice Snapshot of current pending request ids in FIFO order.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function pendingIds() external view returns (uint256[] memory) {
         return _queue;
     }
 
     /// @notice All request ids submitted by `user` (any status).
+    /// @param user User address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function userRequests(address user) external view returns (uint256[] memory) {
         return _userRequests[user];
     }

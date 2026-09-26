@@ -76,6 +76,10 @@ contract RandomSelection is Ownable {
     // -------------------- Admin: Population --------------------
 
     /// @notice Defines the population for a given populationRoundId.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @param members Address associated with members.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroPopulation` if `members.length == 0` is true.
     function setPopulation(uint256 populationRoundId, address[] calldata members) external onlyOwner {
         if (members.length == 0) revert ZeroPopulation();
         Population storage p = _populations[populationRoundId];
@@ -87,11 +91,21 @@ contract RandomSelection is Ownable {
         emit PopulationSet(populationRoundId, members.length);
     }
 
+    /// @notice Executes populationSize.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function populationSize(uint256 populationRoundId) external view returns (uint256) {
         Population storage p = _populations[populationRoundId];
         return p.exists ? p.members.length : 0;
     }
 
+    /// @notice Returns population member.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @param index Numeric index used by this operation.
+    /// @return Population member returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidPopulation` if `!p.exists` is true.
     function getPopulationMember(uint256 populationRoundId, uint256 index) external view returns (address) {
         Population storage p = _populations[populationRoundId];
         if (!p.exists) revert InvalidPopulation();
@@ -102,6 +116,13 @@ contract RandomSelection is Ownable {
 
     /// @notice Request selection randomness.
     /// @dev Fairness: withReplacement=true selects indices uniformly.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @param selectionCount Numeric selection count used by this operation.
+    /// @param withReplacement Whether with replacement is enabled or selected.
+    /// @return requestId Identifier of the relevant request.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidPopulation` if `!p.exists` is true. `ZeroPopulation` if `size == 0` is
+    ///     true. `SelectionCountZero` if `selectionCount == 0` is true.
     function requestSelection(
         uint256 populationRoundId,
         uint256 selectionCount,
@@ -128,6 +149,12 @@ contract RandomSelection is Ownable {
 
     /// @notice VRF callback entrypoint.
     /// @dev Tests call this directly.
+    /// @param requestId Identifier of the relevant request.
+    /// @param randomSeed Numeric random seed used by this operation.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `RequestNotFound` if `req.populationRoundId == 0 && req.selectionCount == 0 &&
+    ///     !req.fulfilled` is true. `RequestAlreadyFulfilled` if `req.fulfilled` is true.
+    ///     `ZeroPopulation` if `size == 0` is true.
     function fulfillRandomWords(uint256 requestId, uint256 randomSeed) external onlyOwner {
         Request storage req = _requests[requestId];
         if (req.populationRoundId == 0 && req.selectionCount == 0 && !req.fulfilled) {
@@ -176,6 +203,14 @@ contract RandomSelection is Ownable {
 
     // -------------------- Queries --------------------
 
+    /// @notice Returns request.
+    /// @param requestId Identifier of the relevant request.
+    /// @return populationRoundId Identifier of the relevant population round.
+    /// @return selectionCount Number of items tracked by the contract.
+    /// @return withReplacement with replacement produced by the operation.
+    /// @return fulfilled fulfilled produced by the operation.
+    /// @return randomSeed random seed produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRequest(uint256 requestId)
         external
         view
@@ -191,14 +226,32 @@ contract RandomSelection is Ownable {
         return (req.populationRoundId, req.selectionCount, req.withReplacement, req.fulfilled, req.randomSeed);
     }
 
+    /// @notice Executes selectionHistoryCount.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function selectionHistoryCount(uint256 populationRoundId) external view returns (uint256) {
         return _historyRequestIds[populationRoundId].length;
     }
 
+    /// @notice Returns history request id.
+    /// @param populationRoundId Identifier of the relevant population round.
+    /// @param historyIndex Numeric history index used by this operation.
+    /// @return History request id returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getHistoryRequestId(uint256 populationRoundId, uint256 historyIndex) external view returns (uint256) {
         return _historyRequestIds[populationRoundId][historyIndex];
     }
 
+    /// @notice Returns selection history by request id.
+    /// @param requestId Identifier of the relevant request.
+    /// @return populationRoundId Identifier of the relevant population round.
+    /// @return selectionCount Number of items tracked by the contract.
+    /// @return randomSeed random seed produced by the operation.
+    /// @return selectedIndices selected indices produced by the operation.
+    /// @return selectedValues selected values produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `NothingToRequest` if `h.requestId == 0 && h.selectionCount == 0` is true.
     function getSelectionHistoryByRequestId(uint256 requestId)
         external
         view
@@ -216,10 +269,20 @@ contract RandomSelection is Ownable {
     }
 
 
+    /// @notice Returns selected index.
+    /// @param requestId Identifier of the relevant request.
+    /// @param selectionIndex Numeric selection index used by this operation.
+    /// @return Selected index returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSelectedIndex(uint256 requestId, uint256 selectionIndex) external view returns (uint256) {
         return _history[requestId].selectedIndices[selectionIndex];
     }
 
+    /// @notice Returns selected value.
+    /// @param requestId Identifier of the relevant request.
+    /// @param selectionIndex Numeric selection index used by this operation.
+    /// @return Selected value returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getSelectedValue(uint256 requestId, uint256 selectionIndex) external view returns (address) {
         return _history[requestId].selectedValues[selectionIndex];
     }

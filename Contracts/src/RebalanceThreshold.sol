@@ -4,6 +4,15 @@ pragma solidity ^0.8.20;
 import {UD60x18, convert} from "@prb/math/src/UD60x18.sol";
 
 interface IThresholdActionExecutor {
+    /// @notice Executes executeThresholdAction.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @param currentValue Numeric current value used by this operation.
+    /// @param minValue Minimum value required.
+    /// @param maxValue Maximum value allowed.
+    /// @param deviationBps deviation bps expressed in basis points.
+    /// @param actionData Encoded data used for action data.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function executeThresholdAction(
         bytes32 thresholdId,
         uint256 currentValue,
@@ -97,10 +106,23 @@ contract RebalanceThreshold {
         _setActionExecutor(actionExecutor_);
     }
 
+    /// @notice Executes setActionExecutor.
+    /// @param actionExecutor_ Address associated with action executor_.
+    /// @dev Access: Caller must be the contract owner.
     function setActionExecutor(address actionExecutor_) external onlyOwner {
         _setActionExecutor(actionExecutor_);
     }
 
+    /// @notice Executes setThreshold.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @param minValue Minimum value required.
+    /// @param maxValue Maximum value allowed.
+    /// @param enabled Whether the configuration is enabled.
+    /// @param autoTrigger Whether auto trigger is enabled or selected.
+    /// @param actionData Encoded data used for action data.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidThreshold` if `thresholdId == bytes32(0) || minValue >= maxValue` is
+    ///     true.
     function setThreshold(
         bytes32 thresholdId,
         uint256 minValue,
@@ -123,6 +145,14 @@ contract RebalanceThreshold {
         emit ThresholdSet(thresholdId, minValue, maxValue, enabled, autoTrigger, actionData);
     }
 
+    /// @notice Reports whether threshold is satisfied.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @param currentValue Numeric current value used by this operation.
+    /// @return breached breached produced by the operation.
+    /// @return deviationBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ThresholdNotFound` if `!_knownThreshold[thresholdId]` is true.
+    ///     `ThresholdDisabled` if `!threshold.enabled` is true.
     function checkThreshold(bytes32 thresholdId, uint256 currentValue)
         external
         nonReentrant
@@ -159,6 +189,13 @@ contract RebalanceThreshold {
         emit ThresholdChecked(thresholdId, currentValue, breached, deviationBps);
     }
 
+    /// @notice Executes calculateDeviationBps.
+    /// @param currentValue Numeric current value used by this operation.
+    /// @param minValue Minimum value required.
+    /// @param maxValue Maximum value allowed.
+    /// @return Deviation bps returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidThreshold` if `minValue >= maxValue` is true.
     function calculateDeviationBps(uint256 currentValue, uint256 minValue, uint256 maxValue)
         public
         pure
@@ -174,24 +211,46 @@ contract RebalanceThreshold {
         return _ratioBps(currentValue - maxValue, maxValue);
     }
 
+    /// @notice Returns threshold.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @return Threshold returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ThresholdNotFound` if `!_knownThreshold[thresholdId]` is true.
     function getThreshold(bytes32 thresholdId) external view returns (Threshold memory) {
         if (!_knownThreshold[thresholdId]) revert ThresholdNotFound(thresholdId);
         return _thresholds[thresholdId];
     }
 
+    /// @notice Returns threshold status.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @return Threshold status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ThresholdNotFound` if `!_knownThreshold[thresholdId]` is true.
     function getThresholdStatus(bytes32 thresholdId) external view returns (ThresholdStatus memory) {
         if (!_knownThreshold[thresholdId]) revert ThresholdNotFound(thresholdId);
         return _statuses[thresholdId];
     }
 
+    /// @notice Returns threshold ids.
+    /// @return Threshold ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getThresholdIds() external view returns (bytes32[] memory) {
         return _thresholdIds;
     }
 
+    /// @notice Returns history.
+    /// @param historyId Identifier of the relevant history.
+    /// @return History returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getHistory(uint256 historyId) external view returns (ThresholdHistory memory) {
         return _history[historyId];
     }
 
+    /// @notice Returns threshold history ids.
+    /// @param thresholdId Identifier of the relevant threshold.
+    /// @return Threshold history ids returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ThresholdNotFound` if `!_knownThreshold[thresholdId]` is true.
     function getThresholdHistoryIds(bytes32 thresholdId) external view returns (uint256[] memory) {
         if (!_knownThreshold[thresholdId]) revert ThresholdNotFound(thresholdId);
         return _historyByThreshold[thresholdId];

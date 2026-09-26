@@ -85,6 +85,11 @@ contract Trading {
 
     // ── Referrer setter ───────────────────────────────────────────────────────
 
+    /// @notice Executes setMyMarketReferrer.
+    /// @param referrer Address associated with referrer.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidReferrer` if `referrer == address(0) || referrer == msg.sender` is
+    ///     true.
     function setMyMarketReferrer(address referrer) external {
         if (referrer == address(0) || referrer == msg.sender) revert InvalidReferrer();
         marketReferrer[msg.sender] = referrer;
@@ -98,6 +103,9 @@ contract Trading {
     /// @param outcome  Outcome index
     /// @param shares   Number of shares (WAD)
     /// @param maxCost  Max collateral willing to spend
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `total > maxCost`
+    ///     is true.
     function executeBuy(
         uint256 marketId,
         uint256 outcome,
@@ -137,6 +145,13 @@ contract Trading {
 
     /// @notice Execute a sell order.
     /// @dev On-chain fee/rebate is skipped for sell to match MarketMaker.sell() collateral flow.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @param minProceeds Minimum proceeds required.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `rawProceeds <
+    ///     minProceeds` is true.
     function executeSell(
         uint256 marketId,
         uint256 outcome,
@@ -157,6 +172,12 @@ contract Trading {
 
     // ── Fee management ───────────────────────────────────────────────────────
 
+    /// @notice Executes setFeeSplit.
+    /// @param newFeeBps New fee bps value.
+    /// @param newRebateBps New rebate bps value.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidFee` if `newFeeBps > 1000` is true. `InvalidFee` if `newRebateBps >
+    ///     newFeeBps` is true.
     function setFeeSplit(uint256 newFeeBps, uint256 newRebateBps) external onlyOwner {
         if (newFeeBps > 1000) revert InvalidFee();
         if (newRebateBps > newFeeBps) revert InvalidFee();
@@ -166,12 +187,20 @@ contract Trading {
         emit FeeUpdated(feeBps, rebateBps, commissionBps);
     }
 
+    /// @notice Executes setCommissionRecipient.
+    /// @param to Destination address for the transfer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidRecipient` if `to == address(0)` is true.
     function setCommissionRecipient(address to) external onlyOwner {
         if (to == address(0)) revert InvalidRecipient();
         commissionRecipient = to;
         emit CommissionRecipientUpdated(to);
     }
 
+    /// @notice Executes withdrawFees.
+    /// @param to Destination address for the transfer.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `InvalidRecipient` if `to == address(0)` is true.
     function withdrawFees(address to) external onlyOwner {
         if (to == address(0)) revert InvalidRecipient();
         uint256 amount = accumulatedCommission;

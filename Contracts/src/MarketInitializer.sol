@@ -74,6 +74,9 @@ contract MarketInitializer {
     /// @notice Initialize a market with parameters.
     /// @param market Market address to initialize.
     /// @param params Market parameters.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidMarketParameters` if `market == address(0)` is true.
+    ///     `AlreadyInitialized` if `_marketState[market].initialized` is true.
     function initializeMarket(address market, MarketParameters calldata params)
         external
     {
@@ -105,6 +108,9 @@ contract MarketInitializer {
 
     /// @notice Activate an initialized market.
     /// @param market Market address to activate.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InitializationFailed` if `!state.initialized` is true.
+    ///     `InvalidMarketParameters` if `state.status != MarketStatus.INITIALIZED` is true.
     function activateMarket(address market) external {
         MarketState storage state = _marketState[market];
         if (!state.initialized) revert InitializationFailed();
@@ -120,6 +126,8 @@ contract MarketInitializer {
     /// @notice Set market liquidity.
     /// @param market Market address.
     /// @param liquidity Total liquidity amount.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InitializationFailed` if `!state.initialized` is true.
     function setMarketLiquidity(address market, uint256 liquidity) external {
         MarketState storage state = _marketState[market];
         if (!state.initialized) revert InitializationFailed();
@@ -134,6 +142,9 @@ contract MarketInitializer {
     // -------------------------------------------------------------------------
 
     /// @notice Get market parameters.
+    /// @param market Market address associated with this operation.
+    /// @return Market parameters returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketParameters(address market)
         external
         view
@@ -143,6 +154,9 @@ contract MarketInitializer {
     }
 
     /// @notice Get market state.
+    /// @param market Market address associated with this operation.
+    /// @return Market state returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketState(address market)
         external
         view
@@ -152,11 +166,17 @@ contract MarketInitializer {
     }
 
     /// @notice Check if market is initialized.
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isInitialized(address market) external view returns (bool) {
         return _marketState[market].initialized;
     }
 
     /// @notice Get market status.
+    /// @param market Market address associated with this operation.
+    /// @return Market status returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketStatus(address market)
         external
         view
@@ -166,6 +186,9 @@ contract MarketInitializer {
     }
 
     /// @notice Get initialization timestamp.
+    /// @param market Market address associated with this operation.
+    /// @return Initialization timestamp returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getInitializationTimestamp(address market)
         external
         view
@@ -175,16 +198,23 @@ contract MarketInitializer {
     }
 
     /// @notice Get all initialized markets.
+    /// @return Initialized markets returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getInitializedMarkets() external view returns (address[] memory) {
         return _initializedMarkets;
     }
 
     /// @notice Get initialized market count.
+    /// @return Initialized market count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getInitializedMarketCount() external view returns (uint256) {
         return _initializedMarkets.length;
     }
 
     /// @notice Validate market parameters.
+    /// @param params params used by this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function validateParameters(MarketParameters calldata params)
         external
         pure

@@ -65,6 +65,11 @@ contract MarketYield {
         _;
     }
 
+    /// @notice Executes recordShares.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @param newShares New shares value.
+    /// @dev Access: Caller must satisfy `onlyController` access checks.
     function recordShares(uint256 marketId, address participant, uint256 newShares)
         external onlyController
     {
@@ -92,6 +97,12 @@ contract MarketYield {
         pos.lastIndex = m.yieldPerShareIndex;
     }
 
+    /// @notice Executes depositYield.
+    /// @param marketId Identifier of the relevant market.
+    /// @param yieldType yield type used by this operation.
+    /// @dev Access: Caller must satisfy `onlyController` access checks.
+    /// @dev Reverts: `MarketYield__ZeroAmount` if `msg.value == 0` is true.
+    ///     `MarketYield__NoShareholders` if `m.totalShares == 0` is true.
     function depositYield(uint256 marketId, YieldType yieldType)
         external payable onlyController
     {
@@ -122,6 +133,11 @@ contract MarketYield {
         emit YieldDeposited(marketId, yieldType, msg.value, m.totalShares);
     }
 
+    /// @notice Executes claimableYield.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function claimableYield(uint256 marketId, address participant) public view returns (uint256) {
         ParticipantPosition storage pos = _positions[marketId][participant];
         MarketYieldState storage m = _markets[marketId];
@@ -135,6 +151,13 @@ contract MarketYield {
         return pos.owedUnclaimed + freshlyAccrued;
     }
 
+    /// @notice Executes claimYield.
+    /// @param marketId Identifier of the relevant market.
+    /// @return amount Amount in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketYield__NothingToClaim` if `amount == 0` is true.
+    ///     `MarketYield__InsufficientFunds` if `address(this).balance < amount` is true.
+    ///     "MarketYield: transfer failed" if `ok` is false.
     function claimYield(uint256 marketId) external returns (uint256 amount) {
         amount = claimableYield(marketId, msg.sender);
         if (amount == 0) revert MarketYield__NothingToClaim();
@@ -156,6 +179,10 @@ contract MarketYield {
         require(ok, "MarketYield: transfer failed");
     }
 
+    /// @notice Executes effectiveAnnualRate.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function effectiveAnnualRate(uint256 marketId) external view returns (uint256) {
         MarketYieldState storage m = _markets[marketId];
         if (m.totalShares == 0 || m.distributionCount == 0) return 0;
@@ -170,36 +197,66 @@ contract MarketYield {
         return yieldPerShare.mul(annualizationFactor).div(ONE);
     }
 
+    /// @notice Returns market yield state.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Market yield state returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketYieldState(uint256 marketId) external view returns (MarketYieldState memory) {
         return _markets[marketId];
     }
 
+    /// @notice Returns position.
+    /// @param marketId Identifier of the relevant market.
+    /// @param participant Address associated with participant.
+    /// @return Position returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPosition(uint256 marketId, address participant)
         external view returns (ParticipantPosition memory)
     {
         return _positions[marketId][participant];
     }
 
+    /// @notice Returns distribution history.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Distribution history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDistributionHistory(uint256 marketId)
         external view returns (DistributionRecord[] memory)
     {
         return _distributionHistory[marketId];
     }
 
+    /// @notice Returns distribution count.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Distribution count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDistributionCount(uint256 marketId) external view returns (uint256) {
         return _distributionHistory[marketId].length;
     }
 
+    /// @notice Executes totalYieldDistributed.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalYieldDistributed(uint256 marketId) external view returns (uint256) {
         return _markets[marketId].totalYieldDistributed;
     }
 
+    /// @notice Executes yieldDistributedByType.
+    /// @param marketId Identifier of the relevant market.
+    /// @param yieldType yield type used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function yieldDistributedByType(uint256 marketId, YieldType yieldType)
         external view returns (uint256)
     {
         return yieldByType[marketId][yieldType];
     }
 
+    /// @notice Executes totalShares.
+    /// @param marketId Identifier of the relevant market.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function totalShares(uint256 marketId) external view returns (uint256) {
         return _markets[marketId].totalShares;
     }

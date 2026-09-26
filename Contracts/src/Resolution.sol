@@ -98,6 +98,7 @@ contract Resolution is ReentrancyGuard {
     /// @param market  The market address.
     /// @param pool    The LiquidityPool address for this market.
     /// @param deadline  The resolution deadline (Unix timestamp).
+    /// @dev Access: No caller-specific access restriction is imposed.
     function registerMarket(address market, address pool, uint256 deadline) external {
         _pools[market] = pool;
         _deadlines[market] = deadline;
@@ -108,6 +109,11 @@ contract Resolution is ReentrancyGuard {
     /// @param market   The market address.
     /// @param outcome  The resolution outcome (YES or NO).
     /// @param data     Non-empty resolution data bytes.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotResolver` if `msg.sender != resolver` is true. `DeadlineNotPassed` if
+    ///     `block.timestamp <= _deadlines[market]` is true. `MarketNotOpen` if
+    ///     `_marketStatus[market] != MarketFactory.MarketStatus.OPEN` is true.
+    ///     `EmptyResolutionData` if `data.length == 0` is true.
     function resolve(address market, Outcome outcome, bytes calldata data) external {
         if (msg.sender != resolver) revert NotResolver();
         if (block.timestamp <= _deadlines[market]) revert DeadlineNotPassed();
@@ -134,6 +140,10 @@ contract Resolution is ReentrancyGuard {
     /// @notice Raise a dispute against a resolved market within the dispute window.
     /// @param market       The market address.
     /// @param evidenceURI  Non-empty URI pointing to dispute evidence.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketNotResolved` if `_marketStatus[market] !=
+    ///     MarketFactory.MarketStatus.RESOLVED` is true. `DisputeWindowElapsed` if `block.timestamp
+    ///     > _disputeWindowEnd[market]` is true.
     function dispute(address market, string calldata evidenceURI) external {
         if (_marketStatus[market] != MarketFactory.MarketStatus.RESOLVED) revert MarketNotResolved();
         if (block.timestamp > _disputeWindowEnd[market]) revert DisputeWindowElapsed();
@@ -149,6 +159,9 @@ contract Resolution is ReentrancyGuard {
     /// @notice Settle a disputed market with a final outcome. Only callable by admin.
     /// @param market        The market address.
     /// @param finalOutcome  The final resolution outcome.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAdmin` if `msg.sender != admin` is true. `MarketNotDisputed` if
+    ///     `_marketStatus[market] != MarketFactory.MarketStatus.DISPUTED` is true.
     function settleDispute(address market, Outcome finalOutcome) external {
         if (msg.sender != admin) revert NotAdmin();
         if (_marketStatus[market] != MarketFactory.MarketStatus.DISPUTED) revert MarketNotDisputed();
@@ -164,6 +177,11 @@ contract Resolution is ReentrancyGuard {
 
     /// @notice Claim payout for winning position tokens after the dispute window has elapsed.
     /// @param market  The market address.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `DisputeWindowActive` if `block.timestamp <= _disputeWindowEnd[market]` is
+    ///     true. `MarketNotResolved` if `_marketStatus[market] !=
+    ///     MarketFactory.MarketStatus.RESOLVED` is true. `NotWinningHolder` if `holderBalance == 0`
+    ///     is true.
     function claimPayout(address market) external nonReentrant {
         if (block.timestamp <= _disputeWindowEnd[market]) revert DisputeWindowActive();
         if (_marketStatus[market] != MarketFactory.MarketStatus.RESOLVED) revert MarketNotResolved();
@@ -193,6 +211,10 @@ contract Resolution is ReentrancyGuard {
 
     /// @notice Claim a refund for position tokens in a cancelled market.
     /// @param market  The market address.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `MarketNotCancelled` if `_marketStatus[market] !=
+    ///     MarketFactory.MarketStatus.CANCELLED` is true. "No tokens to refund" if `totalTokens >
+    ///     0` is false.
     function claimRefund(address market) external nonReentrant {
         if (_marketStatus[market] != MarketFactory.MarketStatus.CANCELLED) revert MarketNotCancelled();
 
@@ -220,6 +242,8 @@ contract Resolution is ReentrancyGuard {
 
     /// @notice Cancel a market. Only callable by admin.
     /// @param market  The market address.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAdmin` if `msg.sender != admin` is true.
     function cancelMarket(address market) external {
         if (msg.sender != admin) revert NotAdmin();
         MarketFactory.MarketStatus oldStatus = _marketStatus[market];
@@ -233,16 +257,25 @@ contract Resolution is ReentrancyGuard {
     // -------------------------------------------------------------------------
 
     /// @notice Returns the current market status tracked by Resolution.
+    /// @param market Market address associated with this operation.
+    /// @return MarketStatus market status produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketStatus(address market) external view returns (MarketFactory.MarketStatus) {
         return _marketStatus[market];
     }
 
     /// @notice Returns the resolution record for a market.
+    /// @param market Market address associated with this operation.
+    /// @return Resolution record returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getResolutionRecord(address market) external view returns (ResolutionRecord memory) {
         return _records[market];
     }
 
     /// @notice Returns the dispute window end timestamp for a market.
+    /// @param market Market address associated with this operation.
+    /// @return Dispute window end returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getDisputeWindowEnd(address market) external view returns (uint256) {
         return _disputeWindowEnd[market];
     }
