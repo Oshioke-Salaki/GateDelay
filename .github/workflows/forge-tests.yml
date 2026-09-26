@@ -44,6 +44,9 @@ jobs:
       - name: Show Forge version
         run: forge --version
 
+      - name: Run isolated LMSR invariant suite
+        run: bash ./verify_lmsr_invariants.sh
+
       - name: Build MarketFactory foundation
         run: forge build --sizes src/MarketFactory.sol
 
