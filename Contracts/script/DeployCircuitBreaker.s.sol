@@ -3,7 +3,6 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../src/CircuitBreaker.sol";
-import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 
 /// @notice Deploy CircuitBreaker, optionally delegate roles and tune configuration
 ///         parameters, then write a JSON artifact.
@@ -284,7 +283,7 @@ contract VerifyCircuitBreaker is Script {
                 // Role holders — CircuitBreaker uses plain AccessControl (not
         // AccessControlEnumerable), so membership can't be listed. Instead we
         // report whether the deployer/admin still holds each role.
-        
+
         bytes32 adminRole   = cb.DEFAULT_ADMIN_ROLE();
         bytes32 breakerRole = cb.BREAKER_ROLE();
         bytes32 monitorRole = cb.MONITOR_ROLE();
