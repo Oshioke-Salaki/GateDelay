@@ -6,6 +6,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
+import { createRequire } from 'module';
 import {
   MarketResolution,
   ResolutionDispute,
@@ -18,6 +19,29 @@ import {
   DisputeResolutionDto,
   ReviewDisputeDto,
 } from './dto/resolution.dto';
+
+// Durable audit trail for market lifecycle actions (#914) — the CommonJS
+// services/auditTrail.js writing to the `audit_logs` collection. Bridged the same
+// way market-audit.module.ts and markets.controller.ts do.
+const nodeRequire = createRequire(__filename);
+const auditTrail = nodeRequire('../../services/auditTrail') as {
+  MARKET_AUDIT_ACTIONS: Record<string, string>;
+  logMarketAction(params: {
+    action: string;
+    marketId: string;
+    description: string;
+    severity?: string;
+    metadata?: Record<string, unknown>;
+    changes?: { before: unknown; after: unknown };
+  }): Promise<unknown>;
+  logMarketResolved(params: {
+    marketId: string;
+    actor?: string;
+    outcome: string;
+    totalPayout: bigint;
+    resolvedAt: Date;
+  }): Promise<unknown>;
+};
 
 @Injectable()
 export class ResolutionService {
@@ -155,7 +179,21 @@ export class ResolutionService {
 
   // ── Finalise resolution ───────────────────────────────────────────────────────
 
-  finaliseResolution(resolutionId: string): MarketResolution {
+  /**
+   * Finalise a confirmed resolution, recording it in the audit trail (#914).
+   *
+   * This is the manual counterpart to `MarketResolverService.resolveMarket` and
+   * settles real stakes, so the outcome and the evidence trail behind it are
+   * captured durably rather than only in the in-memory resolution store — which
+   * is discarded on restart along with the entire dispute history.
+   *
+   * @param resolutionId - The resolution to finalise.
+   * @param actor - Optional finaliser identifier for the audit entry.
+   */
+  async finaliseResolution(
+    resolutionId: string,
+    actor?: string,
+  ): Promise<MarketResolution> {
     const resolution = this.getResolutionById(resolutionId);
 
     if (resolution.status !== 'confirmed') {
@@ -173,11 +211,44 @@ export class ResolutionService {
       );
     }
 
+    const previousStatus = resolution.status;
+    // Bound to a local so the audit entry below gets a `Date`, not
+    // `Date | undefined` — `resolvedAt` is optional on the entity and
+    // strictNullChecks is on.
+    const resolvedAt = new Date();
     resolution.status = 'resolved';
-    resolution.resolvedAt = new Date();
+    resolution.resolvedAt = resolvedAt;
     this.logger.log(
       `Resolution ${resolutionId} finalised — market ${resolution.marketId} resolved as ${resolution.outcome}`,
     );
+
+    await auditTrail.logMarketResolved({
+      marketId: resolution.marketId,
+      actor: actor ?? resolution.requestedBy,
+      outcome: resolution.outcome,
+      // A manual finalisation has no computed payout of its own; the oracle /
+      // resolver pipeline records that in MARKET_RESOLVED.
+      totalPayout: 0n,
+      resolvedAt,
+    });
+    void auditTrail.logMarketAction({
+      action: auditTrail.MARKET_AUDIT_ACTIONS.RESOLUTION_FINALISED,
+      marketId: resolution.marketId,
+      description: `Resolution ${resolutionId} finalised for market ${resolution.marketId} as ${resolution.outcome}`,
+      severity: 'HIGH',
+      metadata: {
+        resolutionId,
+        requestedBy: resolution.requestedBy,
+        txHash: resolution.txHash ?? null,
+        confirmations: this.getConfirmations(resolutionId).length,
+        disputes: this.getDisputes(resolutionId).length,
+      },
+      changes: {
+        before: { status: previousStatus },
+        after: { status: resolution.status, outcome: resolution.outcome },
+      },
+    });
+
     return resolution;
   }
 

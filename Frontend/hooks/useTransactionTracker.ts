@@ -7,6 +7,7 @@ export interface TrackedTransaction {
   hash: `0x${string}`;
   description: string;
   timestamp: number;
+  chainId?: number;
 }
 
 const STORAGE_KEY = "gate_delay_txs";
@@ -45,7 +46,13 @@ export function useTransactionTracker() {
   }, [address, chainId]);
 
   useEffect(() => {
-    loadTransactions();
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) loadTransactions();
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadTransactions]);
 
   const addTransaction = useCallback((hash: `0x${string}`, description: string) => {
@@ -54,7 +61,8 @@ export function useTransactionTracker() {
     const newTx: TrackedTransaction = {
       hash,
       description,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      chainId,
     };
 
     setTransactions(prev => {
@@ -91,4 +99,14 @@ export function useTransactionTracker() {
     clearTransactions,
     refresh: loadTransactions
   };
+}
+
+export function useTrackTransaction(hash: `0x${string}` | undefined, description: string) {
+  const { addTransaction } = useTransactionTracker();
+
+  useEffect(() => {
+    if (hash) {
+      addTransaction(hash, description);
+    }
+  }, [addTransaction, description, hash]);
 }

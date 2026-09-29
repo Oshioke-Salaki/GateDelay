@@ -27,6 +27,9 @@ contract MarketMakerTest is Test {
         token.mint(alice, 10_000 * WAD);
         token.mint(bob, 10_000 * WAD);
 
+        // Fund the MarketMaker contract with enough collateral for redemptions
+        token.mint(address(mm), 100_000 * WAD);
+
         // Create a binary market
         marketId = mm.createMarket("Will flight be delayed?", 2, B);
     }

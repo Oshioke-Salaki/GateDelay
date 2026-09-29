@@ -3,12 +3,20 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/useToast";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
+import { API_KEY_SCOPE_COPY, maskApiKey } from "@/lib/apiKeyDisplay";
+import ApiKeySecretField from "@/components/api/ApiKeySecretField";
+import ApiKeyRevokeDialog, {
+  type RevokeDialogState,
+} from "@/components/api/ApiKeyRevokeDialog";
 
 interface ApiKey {
   id: string;
   name: string;
-  key: string;
+  key?: string;
   maskedKey: string;
+  keyPrefix?: string;
+  scopes?: string[];
+  permissions?: string[];
   createdAt: string;
   lastUsed?: string;
   usageCount: number;
@@ -32,6 +40,9 @@ function ApiKeysPageContent() {
   const [creating, setCreating] = useState(false);
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<ApiKey | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
+  const [revokeState, setRevokeState] = useState<RevokeDialogState>("confirm");
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   useEffect(() => {
     loadApiKeys();
@@ -76,8 +87,20 @@ function ApiKeysPageContent() {
       });
 
       if (response.ok) {
-        const newKey = await response.json();
-        setApiKeys([newKey, ...apiKeys]);
+        const payload = await response.json();
+        const created: ApiKey = payload.key
+          ? {
+              ...payload.key,
+              key: payload.apiKey,
+              maskedKey: maskApiKey(payload.apiKey, payload.key?.keyPrefix),
+              isActive: payload.key.status !== "revoked",
+              usageCount: payload.key.usageCount ?? 0,
+            }
+          : {
+              ...payload,
+              maskedKey: payload.maskedKey || maskApiKey(payload.key, payload.keyPrefix),
+            };
+        setApiKeys([created, ...apiKeys]);
         setNewKeyName("");
         setShowCreateForm(false);
         toast.success("Key Created", "Your API key has been created");
@@ -93,25 +116,54 @@ function ApiKeysPageContent() {
   };
 
   const handleDeleteKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to delete this API key? This action cannot be undone.")) {
-      return;
-    }
+    const target = apiKeys.find((k) => k.id === keyId);
+    if (!target) return;
+    setRevokeTarget(target);
+    setRevokeState("confirm");
+    setRevokeError(null);
+  };
 
+  const confirmRevoke = async () => {
+    if (!revokeTarget) return;
+    setRevokeState("revoking");
     try {
-      const response = await fetch(`/api/api-keys/${keyId}`, {
-        method: "DELETE",
+      const response = await fetch(`/api/api-keys/${revokeTarget.id}/revoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Revoked from API key management" }),
       });
 
-      if (response.ok) {
-        setApiKeys(apiKeys.filter((k) => k.id !== keyId));
+      if (response.ok || response.status === 200) {
+        setApiKeys(
+          apiKeys.map((k) =>
+            k.id === revokeTarget.id ? { ...k, isActive: false, key: undefined } : k,
+          ),
+        );
         setSelectedKey(null);
-        toast.success("Key Deleted", "Your API key has been deleted");
-      } else {
-        toast.error("Error", "Failed to delete API key");
+        setRevokeState("revoked");
+        toast.success("Key revoked", "This secret can no longer authenticate.");
+        return;
       }
+
+      const fallback = await fetch(`/api/api-keys/${revokeTarget.id}`, {
+        method: "DELETE",
+      });
+      if (fallback.ok) {
+        setApiKeys(apiKeys.filter((k) => k.id !== revokeTarget.id));
+        setSelectedKey(null);
+        setRevokeState("revoked");
+        toast.success("Key revoked", "This secret can no longer authenticate.");
+        return;
+      }
+
+      setRevokeState("error");
+      setRevokeError("Failed to revoke API key");
+      toast.error("Error", "Failed to revoke API key");
     } catch (error) {
-      console.error("Failed to delete API key:", error);
-      toast.error("Error", "An error occurred while deleting the key");
+      console.error("Failed to revoke API key:", error);
+      setRevokeState("error");
+      setRevokeError("An error occurred while revoking the key");
+      toast.error("Error", "An error occurred while revoking the key");
     }
   };
 
@@ -192,6 +244,9 @@ function ApiKeysPageContent() {
           <p className="text-gray-600 dark:text-gray-400">
             Manage your API keys for third-party integrations
           </p>
+          <p className="mt-3 max-w-3xl text-sm text-gray-600 dark:text-gray-400">
+            {API_KEY_SCOPE_COPY}
+          </p>
         </div>
 
         {/* Usage Statistics */}
@@ -232,6 +287,9 @@ function ApiKeysPageContent() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Create New API Key
             </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {API_KEY_SCOPE_COPY}
+            </p>
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -305,24 +363,38 @@ function ApiKeysPageContent() {
                 {selectedKey?.id === key.id && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 space-y-4">
                     {/* Key Display */}
+                    <ApiKeySecretField
+                      name={key.name}
+                      secret={key.key}
+                      prefix={key.keyPrefix}
+                      maskedKey={key.maskedKey}
+                    />
                     <div>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        API Key
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Scope
                       </p>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 px-3 py-2 bg-gray-100 dark:bg-slate-700 rounded text-sm text-gray-900 dark:text-white break-all">
-                          {copiedKeyId === key.id ? "Copied!" : key.maskedKey}
-                        </code>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {(key.scopes && key.scopes.length > 0
+                          ? key.scopes.join(", ")
+                          : "read")}
+                        {key.permissions?.length
+                          ? ` · permissions: ${key.permissions.join(", ")}`
+                          : ""}
+                        . {API_KEY_SCOPE_COPY}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (key.key) {
                             copyToClipboard(key.key, key.id);
-                          }}
-                          className="px-3 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-900 dark:text-white rounded font-medium text-sm transition-colors"
-                        >
-                          Copy
-                        </button>
-                      </div>
+                          }
+                        }}
+                        disabled={!key.key}
+                        className="mt-2 px-3 py-2 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-900 dark:text-white rounded font-medium text-sm transition-colors"
+                      >
+                        {copiedKeyId === key.id ? "Copied" : "Copy secret"}
+                      </button>
                     </div>
 
                     {/* Usage Stats */}
@@ -370,7 +442,7 @@ function ApiKeysPageContent() {
                         }}
                         className="flex-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded text-sm transition-colors"
                       >
-                        Delete
+                        Revoke
                       </button>
                     </div>
                   </div>
@@ -380,6 +452,20 @@ function ApiKeysPageContent() {
           )}
         </div>
       </div>
+      {revokeTarget && (
+        <ApiKeyRevokeDialog
+          keyName={revokeTarget.name}
+          maskedSecret={maskApiKey(revokeTarget.key, revokeTarget.keyPrefix)}
+          state={revokeState}
+          errorMessage={revokeError ?? undefined}
+          onCancel={() => {
+            setRevokeTarget(null);
+            setRevokeState("confirm");
+            setRevokeError(null);
+          }}
+          onConfirm={confirmRevoke}
+        />
+      )}
     </div>
   );
 }

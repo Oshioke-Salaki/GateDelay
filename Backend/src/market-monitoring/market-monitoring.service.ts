@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomUUID } from 'crypto';
-import { MarketHealth, MarketMetric, MonitoringAlert } from './market-monitoring.entity';
+import {
+  MarketHealth,
+  MarketMetric,
+  MonitoringAlert,
+} from './market-monitoring.entity';
 
 @Injectable()
 export class MarketMonitoringService {
@@ -35,8 +39,12 @@ export class MarketMonitoringService {
 
   getDashboard() {
     const health = this.getHealthReport();
-    const critical = health.filter((entry) => entry.status === 'CRITICAL').length;
-    const degraded = health.filter((entry) => entry.status === 'DEGRADED').length;
+    const critical = health.filter(
+      (entry) => entry.status === 'CRITICAL',
+    ).length;
+    const degraded = health.filter(
+      (entry) => entry.status === 'DEGRADED',
+    ).length;
 
     return {
       marketsMonitored: health.length,
@@ -79,7 +87,11 @@ export class MarketMonitoringService {
     let status: MarketHealth['status'] = 'HEALTHY';
     if (latest.latencyMs > 1500 || latest.spreadBps > 250 || anomalies >= 3) {
       status = 'CRITICAL';
-    } else if (latest.latencyMs > 700 || latest.spreadBps > 120 || anomalies > 0) {
+    } else if (
+      latest.latencyMs > 700 ||
+      latest.spreadBps > 120 ||
+      anomalies > 0
+    ) {
       status = 'DEGRADED';
     }
 
@@ -103,11 +115,14 @@ export class MarketMonitoringService {
 
     const historical = series.slice(-6, -1);
     const avgPrice =
-      historical.reduce((sum, point) => sum + point.price, 0) / historical.length;
+      historical.reduce((sum, point) => sum + point.price, 0) /
+      historical.length;
     const avgVolume =
-      historical.reduce((sum, point) => sum + point.volume, 0) / historical.length;
+      historical.reduce((sum, point) => sum + point.volume, 0) /
+      historical.length;
 
-    const priceMove = avgPrice === 0 ? 0 : Math.abs((latest.price - avgPrice) / avgPrice);
+    const priceMove =
+      avgPrice === 0 ? 0 : Math.abs((latest.price - avgPrice) / avgPrice);
     const volumeMove =
       avgVolume === 0 ? 0 : Math.abs((latest.volume - avgVolume) / avgVolume);
 

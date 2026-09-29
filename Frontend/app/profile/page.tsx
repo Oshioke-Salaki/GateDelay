@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../components/ConnectKitBridgeContext";
+import { useTransactionTracker } from "@/hooks/useTransactionTracker";
 
 type ProfileForm = {
   displayName: string;
@@ -12,7 +13,6 @@ type ProfileForm = {
   notifyResolutions: boolean;
 };
 
-// Mock stats — replace with real data fetching
 const STATS = [
   { label: "Total Trades", value: 42 },
   { label: "Win Rate", value: "61%" },
@@ -20,8 +20,23 @@ const STATS = [
   { label: "Markets Joined", value: 18 },
 ];
 
+const BACKUP_STORAGE_KEY = "wallet_backup_status";
+
+type BackupStatus = "pending" | "dismissed" | "completed";
+
 function truncate(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function timeAgo(ms: number): string {
+  const diff = Date.now() - ms;
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (mins > 0) return `${mins}m ago`;
+  return "just now";
 }
 
 function Avatar({ name }: { name: string }) {
@@ -43,9 +58,19 @@ function Avatar({ name }: { name: string }) {
 }
 
 export default function ProfilePage() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnectKitBridge();
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus>("pending");
+
+  const { transactions } = useTransactionTracker();
+
+  useEffect(() => {
+    setMounted(true);
+    const stored = localStorage.getItem(BACKUP_STORAGE_KEY) as BackupStatus | null;
+    if (stored) setBackupStatus(stored);
+  }, []);
 
   const { register, handleSubmit, reset, formState: { isDirty } } = useForm<ProfileForm>({
     defaultValues: {
@@ -58,7 +83,6 @@ export default function ProfilePage() {
   });
 
   function onSubmit(data: ProfileForm) {
-    // TODO: persist to backend
     console.log("Saved profile:", data);
     setSaved(true);
     setEditing(false);
@@ -69,6 +93,13 @@ export default function ProfilePage() {
     reset();
     setEditing(false);
   }
+
+  function markBackupDone() {
+    localStorage.setItem(BACKUP_STORAGE_KEY, "completed");
+    setBackupStatus("completed");
+  }
+
+  const recentActivity = transactions.slice(0, 5);
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-10 space-y-6">
@@ -119,6 +150,135 @@ export default function ProfilePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Recent wallet activity */}
+      <section
+        className="rounded-xl p-6 space-y-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+          RECENT WALLET ACTIVITY
+        </p>
+        {!isConnected ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Connect your wallet to see recent activity.
+          </p>
+        ) : !mounted || recentActivity.length === 0 ? (
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            No recent transactions in the last 24 hours.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {recentActivity.map((tx) => (
+              <li
+                key={tx.hash}
+                className="flex items-center justify-between text-sm gap-2"
+              >
+                <span
+                  className="font-mono truncate max-w-[140px]"
+                  style={{ color: "#3b82f6" }}
+                  title={tx.hash}
+                >
+                  <a
+                    href={`https://etherscan.io/tx/${tx.hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {tx.hash.slice(0, 8)}…{tx.hash.slice(-6)}
+                  </a>
+                </span>
+                <span className="flex-1 truncate" style={{ color: "var(--foreground)" }}>
+                  {tx.description || "Contract interaction"}
+                </span>
+                <span className="shrink-0 text-xs" style={{ color: "var(--muted)" }}>
+                  {timeAgo(tx.timestamp)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Account safety */}
+      <section
+        className="rounded-xl p-6 space-y-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>
+          ACCOUNT SAFETY
+        </p>
+
+        {/* Backup status */}
+        {mounted && isConnected && (
+          <div
+            className="rounded-lg px-4 py-3 flex items-start justify-between gap-3"
+            style={
+              backupStatus === "completed"
+                ? { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)" }
+                : { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }
+            }
+          >
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-sm font-medium"
+                style={{ color: backupStatus === "completed" ? "#10b981" : "#f59e0b" }}
+              >
+                {backupStatus === "completed" ? "✓ Wallet backed up" : "Wallet backup not confirmed"}
+              </p>
+              {backupStatus !== "completed" && (
+                <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+                  Save your seed phrase in a safe, offline location. Without it you cannot
+                  recover your wallet if your device is lost.
+                </p>
+              )}
+            </div>
+            {backupStatus !== "completed" && (
+              <button
+                onClick={markBackupDone}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ background: "#f59e0b" }}
+              >
+                Mark done
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Safety reminders */}
+        <ul className="space-y-3">
+          {[
+            {
+              icon: "🔑",
+              title: "Never share your seed phrase",
+              description: "No legitimate service will ever ask for your secret recovery phrase.",
+            },
+            {
+              icon: "🔍",
+              title: "Verify contract addresses before signing",
+              description: "Always confirm you are interacting with the correct contract address.",
+            },
+            {
+              icon: "🔒",
+              title: "Use a hardware wallet for large holdings",
+              description: "Hardware wallets keep private keys offline and protect against phishing.",
+            },
+            {
+              icon: "🌐",
+              title: "Check the URL before connecting",
+              description: "Bookmark the official site and always verify the domain before approving transactions.",
+            },
+          ].map(({ icon, title, description }) => (
+            <li key={title} className="flex items-start gap-3">
+              <span className="text-base shrink-0" aria-hidden="true">{icon}</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>{title}</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>{description}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
       {/* Edit form */}

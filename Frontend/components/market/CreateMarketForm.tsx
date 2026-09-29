@@ -2,8 +2,15 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useTrackTransaction } from "@/hooks/useTransactionTracker";
+import {
+  MARKET_RULES,
+  validateResolutionDeadline,
+  validateOutcomesDistinct,
+  validateMinLiquidity,
+} from "@/lib/validationRules";
 
 // ── ABI (only the createMarket function) ─────────────────────────────────────
 const MARKET_FACTORY_ABI = [
@@ -22,7 +29,8 @@ const MARKET_FACTORY_ABI = [
 ] as const;
 
 const MARKET_FACTORY_ADDRESS =
-  (process.env.NEXT_PUBLIC_MARKET_FACTORY_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
+  (process.env.NEXT_PUBLIC_MARKET_FACTORY_ADDRESS as `0x${string}`) ??
+  "0x0000000000000000000000000000000000000000";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormValues {
@@ -61,7 +69,23 @@ function parseMinLiquidity(val: string): bigint {
   return BigInt(Math.floor(parseFloat(val) * 1_000_000));
 }
 
+/**
+ * Attempt an EIP-55 checksum. Returns the checksummed address if the library
+ * is available, otherwise returns the input unchanged.
+ */
+function toChecksumAddress(addr: string): string {
+  try {
+    // viem ships with the project and exports getAddress for checksumming
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { getAddress } = require("viem");
+    return getAddress(addr);
+  } catch {
+    return addr;
+  }
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
+
 function StepIndicator({ current }: { current: Step }) {
   return (
     <div className="flex items-center gap-0 mb-8">
@@ -80,7 +104,10 @@ function StepIndicator({ current }: { current: Step }) {
               >
                 {done ? "✓" : i + 1}
               </div>
-              <span className="text-xs hidden sm:block" style={{ color: active ? "var(--foreground)" : "var(--muted)" }}>
+              <span
+                className="text-xs hidden sm:block"
+                style={{ color: active ? "var(--foreground)" : "var(--muted)" }}
+              >
                 {label}
               </span>
             </div>
@@ -99,67 +126,139 @@ function StepIndicator({ current }: { current: Step }) {
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
-  return <p className="text-xs mt-1" style={{ color: "#ef4444" }}>{message}</p>;
+  return (
+    <p role="alert" className="text-xs mt-1" style={{ color: "#ef4444" }}>
+      {message}
+    </p>
+  );
 }
 
-function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+function FieldWarning({ message }: { message?: string }) {
+  if (!message) return null;
   return (
-    <label className="block text-xs font-medium mb-1" style={{ color: "var(--muted)" }}>
-      {children}{required && <span style={{ color: "#ef4444" }}> *</span>}
+    <p role="status" className="text-xs mt-1" style={{ color: "#f59e0b" }}>
+      ⚠ {message}
+    </p>
+  );
+}
+
+function Label({
+  children,
+  required,
+  htmlFor,
+}: {
+  children: React.ReactNode;
+  required?: boolean;
+  htmlFor?: string;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="block text-xs font-medium mb-1"
+      style={{ color: "var(--muted)" }}
+    >
+      {children}
+      {required && <span style={{ color: "#ef4444" }}> *</span>}
     </label>
   );
 }
 
-const inputCls = "w-full rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500";
-const inputStyle = { background: "var(--background)", color: "var(--foreground)", border: "1px solid var(--border)" };
+const inputCls =
+  "w-full rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500";
+const inputStyle = {
+  background: "var(--background)",
+  color: "var(--foreground)",
+  border: "1px solid var(--border)",
+};
 
 // ── Step 1: Market Details ────────────────────────────────────────────────────
-function StepDetails({ register, errors }: { register: ReturnType<typeof useForm<FormValues>>["register"]; errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"] }) {
+
+function StepDetails({
+  register,
+  errors,
+}: {
+  register: ReturnType<typeof useForm<FormValues>>["register"];
+  errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"];
+}) {
   return (
     <div className="space-y-4">
       <div>
-        <Label required>Market Title</Label>
+        <Label required htmlFor="cmf-title">
+          Market Title
+        </Label>
         <input
-          {...register("title", { required: "Title is required", minLength: { value: 10, message: "At least 10 characters" } })}
+          id="cmf-title"
+          {...register("title", {
+            required: "Title is required",
+            minLength: {
+              value: MARKET_RULES.TITLE_MIN_LENGTH,
+              message: `At least ${MARKET_RULES.TITLE_MIN_LENGTH} characters`,
+            },
+          })}
           placeholder="Will AA123 arrive on time on Apr 25?"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.title}
         />
         <FieldError message={errors.title?.message} />
       </div>
+
       <div>
-        <Label required>Description</Label>
+        <Label required htmlFor="cmf-desc">
+          Description
+        </Label>
         <textarea
-          {...register("description", { required: "Description is required", minLength: { value: 20, message: "At least 20 characters" } })}
+          id="cmf-desc"
+          {...register("description", {
+            required: "Description is required",
+            minLength: {
+              value: MARKET_RULES.DESCRIPTION_MIN_LENGTH,
+              message: `At least ${MARKET_RULES.DESCRIPTION_MIN_LENGTH} characters`,
+            },
+          })}
           rows={3}
           placeholder="Describe the market resolution criteria…"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.description}
         />
         <FieldError message={errors.description?.message} />
       </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label required>Flight Number</Label>
+          <Label required htmlFor="cmf-flight">
+            Flight Number
+          </Label>
           <input
+            id="cmf-flight"
             {...register("flightNumber", {
               required: "Flight number is required",
-              pattern: { value: /^[A-Z]{2}\d{1,4}$/i, message: "e.g. AA123" },
+              pattern: {
+                value: MARKET_RULES.FLIGHT_NUMBER_PATTERN,
+                message: "Format: 2 letters + 1–4 digits (e.g. AA123)",
+              },
             })}
             placeholder="AA123"
             className={inputCls}
             style={inputStyle}
+            aria-invalid={!!errors.flightNumber}
           />
           <FieldError message={errors.flightNumber?.message} />
         </div>
+
         <div>
-          <Label required>Flight Date</Label>
+          <Label required htmlFor="cmf-fdate">
+            Flight Date
+          </Label>
           <input
+            id="cmf-fdate"
             {...register("flightDate", { required: "Flight date is required" })}
             type="date"
             min={new Date().toISOString().split("T")[0]}
             className={inputCls}
             style={inputStyle}
+            aria-invalid={!!errors.flightDate}
           />
           <FieldError message={errors.flightDate?.message} />
         </div>
@@ -169,39 +268,80 @@ function StepDetails({ register, errors }: { register: ReturnType<typeof useForm
 }
 
 // ── Step 2: Outcomes ──────────────────────────────────────────────────────────
-function StepOutcomes({ register, errors }: { register: ReturnType<typeof useForm<FormValues>>["register"]; errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"] }) {
+
+function StepOutcomes({
+  register,
+  errors,
+  getValues,
+}: {
+  register: ReturnType<typeof useForm<FormValues>>["register"];
+  errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"];
+  getValues: ReturnType<typeof useForm<FormValues>>["getValues"];
+}) {
   return (
     <div className="space-y-4">
       <p className="text-sm" style={{ color: "var(--muted)" }}>
         Define the two possible outcomes for this market. Traders will buy YES or NO shares.
       </p>
+
       <div>
-        <Label required>YES Outcome</Label>
+        <Label required htmlFor="cmf-yes">
+          YES Outcome
+        </Label>
         <input
-          {...register("outcomeYes", { required: "YES outcome is required" })}
+          id="cmf-yes"
+          {...register("outcomeYes", {
+            required: "YES outcome is required",
+            validate: (v) => {
+              const noVal = getValues("outcomeNo");
+              if (!noVal) return true; // no cross-check yet if NO is empty
+              const result = validateOutcomesDistinct(v, noVal);
+              return result === true ? true : result;
+            },
+          })}
           placeholder="Flight arrives on time (within 15 min)"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.outcomeYes}
         />
         <FieldError message={errors.outcomeYes?.message} />
       </div>
+
       <div>
-        <Label required>NO Outcome</Label>
+        <Label required htmlFor="cmf-no">
+          NO Outcome
+        </Label>
         <input
-          {...register("outcomeNo", { required: "NO outcome is required" })}
+          id="cmf-no"
+          {...register("outcomeNo", {
+            required: "NO outcome is required",
+            validate: (v) => {
+              const yesVal = getValues("outcomeYes");
+              if (!yesVal) return true;
+              const result = validateOutcomesDistinct(yesVal, v);
+              return result === true ? true : result;
+            },
+          })}
           placeholder="Flight is delayed more than 15 min"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.outcomeNo}
         />
         <FieldError message={errors.outcomeNo?.message} />
       </div>
+
       <div
         className="rounded-lg p-3 text-xs space-y-1"
-        style={{ background: "#3b82f618", border: "1px solid #3b82f644", color: "var(--foreground)" }}
+        style={{
+          background: "#3b82f618",
+          border: "1px solid #3b82f644",
+          color: "var(--foreground)",
+        }}
       >
         <p className="font-medium">How outcomes work</p>
         <p style={{ color: "var(--muted)" }}>
-          When the market resolves, one outcome wins. YES holders receive 1 USDC per share; NO holders receive nothing, and vice versa.
+          When the market resolves, one outcome wins. YES holders receive 1 USDC per share; NO
+          holders receive nothing, and vice versa.
         </p>
       </div>
     </div>
@@ -209,64 +349,128 @@ function StepOutcomes({ register, errors }: { register: ReturnType<typeof useFor
 }
 
 // ── Step 3: Settings ──────────────────────────────────────────────────────────
-function StepSettings({ register, errors }: { register: ReturnType<typeof useForm<FormValues>>["register"]; errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"] }) {
+
+function StepSettings({
+  register,
+  errors,
+  getValues,
+  liquidityWarning,
+}: {
+  register: ReturnType<typeof useForm<FormValues>>["register"];
+  errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"];
+  getValues: ReturnType<typeof useForm<FormValues>>["getValues"];
+  liquidityWarning: string | undefined;
+}) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const minDate = tomorrow.toISOString().slice(0, 16);
 
   return (
     <div className="space-y-4">
+      {/* Resolution Deadline */}
       <div>
-        <Label required>Resolution Deadline</Label>
+        <Label required htmlFor="cmf-deadline">
+          Resolution Deadline
+        </Label>
         <input
+          id="cmf-deadline"
           {...register("resolutionDeadline", {
             required: "Resolution deadline is required",
-            validate: (v) => new Date(v) > new Date() || "Deadline must be in the future",
+            validate: (v) => {
+              const flightDate = getValues("flightDate");
+              const result = validateResolutionDeadline(v, flightDate);
+              return result === true ? true : result;
+            },
           })}
           type="datetime-local"
           min={minDate}
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.resolutionDeadline}
         />
         <FieldError message={errors.resolutionDeadline?.message} />
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>When the market will be resolved by an oracle.</p>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          Must be in the future and after the flight date. This is when the oracle resolves the
+          market.
+        </p>
       </div>
+
+      {/* Collateral Token */}
       <div>
-        <Label required>Collateral Token Address</Label>
+        <Label required htmlFor="cmf-collateral">
+          Collateral Token Address
+        </Label>
         <input
+          id="cmf-collateral"
           {...register("collateralToken", {
             required: "Collateral token is required",
-            pattern: { value: /^0x[0-9a-fA-F]{40}$/, message: "Must be a valid EVM address" },
+            pattern: {
+              value: MARKET_RULES.EVM_ADDRESS_PATTERN,
+              message: "Must be a valid EVM address (0x followed by 40 hex characters)",
+            },
+            validate: (v) => {
+              // Warn user if the address is not checksummed (all lower / all upper)
+              try {
+                const checksummed = toChecksumAddress(v);
+                // getAddress throws on invalid addresses, so we're fine here
+                if (checksummed !== v && v !== v.toLowerCase()) {
+                  // Address is mixed-case but doesn't match EIP-55 checksum
+                  return "Address checksum mismatch — please use the exact address from your token contract";
+                }
+              } catch {
+                return "Must be a valid EVM address (0x followed by 40 hex characters)";
+              }
+              return true;
+            },
           })}
-          placeholder="0x..."
+          placeholder="0x…"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.collateralToken}
         />
         <FieldError message={errors.collateralToken?.message} />
-        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>ERC-20 token used as collateral (e.g. USDC on Mantle).</p>
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          ERC-20 token used as collateral (e.g. USDC on Mantle). You can paste a lowercase address
+          — the checksum will be verified.
+        </p>
       </div>
+
+      {/* Minimum Liquidity */}
       <div>
-        <Label required>Minimum Liquidity (USDC)</Label>
+        <Label required htmlFor="cmf-liquidity">
+          Minimum Liquidity (USDC)
+        </Label>
         <input
+          id="cmf-liquidity"
           {...register("minLiquidity", {
             required: "Minimum liquidity is required",
-            min: { value: 1, message: "Must be at least 1 USDC" },
-            validate: (v) => !isNaN(parseFloat(v)) || "Must be a number",
+            validate: (v) => {
+              const { error } = validateMinLiquidity(v);
+              return error === true ? true : (error as string);
+            },
           })}
           type="number"
-          min="1"
+          min={MARKET_RULES.MIN_LIQUIDITY_USDC}
           step="1"
           placeholder="100"
           className={inputCls}
           style={inputStyle}
+          aria-invalid={!!errors.minLiquidity}
         />
         <FieldError message={errors.minLiquidity?.message} />
+        {/* Liquidity health warning shown inline without blocking submission */}
+        <FieldWarning message={liquidityWarning} />
+        <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+          Minimum {MARKET_RULES.MIN_LIQUIDITY_USDC} USDC. We recommend at least{" "}
+          {MARKET_RULES.SUGGESTED_LIQUIDITY_USDC} USDC for meaningful trading activity.
+        </p>
       </div>
     </div>
   );
 }
 
 // ── Step 4: Preview ───────────────────────────────────────────────────────────
+
 function StepPreview({ values }: { values: FormValues }) {
   const rows: [string, string][] = [
     ["Title", values.title],
@@ -274,7 +478,12 @@ function StepPreview({ values }: { values: FormValues }) {
     ["Flight", `${values.flightNumber} on ${values.flightDate}`],
     ["YES Outcome", values.outcomeYes],
     ["NO Outcome", values.outcomeNo],
-    ["Resolution Deadline", values.resolutionDeadline ? new Date(values.resolutionDeadline).toLocaleString() : "—"],
+    [
+      "Resolution Deadline",
+      values.resolutionDeadline
+        ? new Date(values.resolutionDeadline).toLocaleString()
+        : "—",
+    ],
     ["Collateral Token", values.collateralToken],
     ["Min Liquidity", `${values.minLiquidity} USDC`],
   ];
@@ -294,18 +503,30 @@ function StepPreview({ values }: { values: FormValues }) {
               borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none",
             }}
           >
-            <span className="w-40 shrink-0 font-medium" style={{ color: "var(--muted)" }}>{label}</span>
-            <span className="break-all" style={{ color: "var(--foreground)" }}>{value || "—"}</span>
+            <span
+              className="w-40 shrink-0 font-medium"
+              style={{ color: "var(--muted)" }}
+            >
+              {label}
+            </span>
+            <span className="break-all" style={{ color: "var(--foreground)" }}>
+              {value || "—"}
+            </span>
           </div>
         ))}
       </div>
       <div
         className="rounded-lg p-3 text-xs"
-        style={{ background: "#f59e0b18", border: "1px solid #f59e0b44", color: "var(--foreground)" }}
+        style={{
+          background: "#f59e0b18",
+          border: "1px solid #f59e0b44",
+          color: "var(--foreground)",
+        }}
       >
         <span className="font-medium">Gas fees apply.</span>{" "}
         <span style={{ color: "var(--muted)" }}>
-          Submitting will trigger a wallet transaction on Mantle. Make sure your wallet is connected and funded.
+          Submitting will trigger a wallet transaction on Mantle. Make sure your wallet is
+          connected and funded.
         </span>
       </div>
     </div>
@@ -313,22 +534,35 @@ function StepPreview({ values }: { values: FormValues }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
+
 export default function CreateMarketForm() {
   const router = useRouter();
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
   const [step, setStep] = useState<Step>(0);
   const [txError, setTxError] = useState<string | null>(null);
 
   const { writeContract, data: txHash, isPending: isSigning } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  useTrackTransaction(txHash, "Create market");
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash: txHash,
+  });
 
   const {
     register,
     handleSubmit,
     trigger,
     getValues,
+    watch,
     formState: { errors },
   } = useForm<FormValues>({ mode: "onTouched" });
+
+  // ── Liquidity warning (computed live so it appears as user types) ───────────
+  const minLiquidityValue = watch("minLiquidity");
+  const liquidityWarning: string | undefined = (() => {
+    if (!minLiquidityValue) return undefined;
+    const { warning } = validateMinLiquidity(minLiquidityValue);
+    return warning;
+  })();
 
   // Fields validated per step
   const STEP_FIELDS: (keyof FormValues)[][] = [
@@ -346,7 +580,10 @@ export default function CreateMarketForm() {
   const back = () => setStep((s) => Math.max(s - 1, 0) as Step);
 
   const onSubmit = async (values: FormValues) => {
-    if (!isConnected) { setTxError("Please connect your wallet first."); return; }
+    if (!isConnected) {
+      setTxError("Please connect your wallet first.");
+      return;
+    }
     setTxError(null);
     try {
       writeContract({
@@ -388,25 +625,43 @@ export default function CreateMarketForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         {step === 0 && <StepDetails register={register} errors={errors} />}
-        {step === 1 && <StepOutcomes register={register} errors={errors} />}
-        {step === 2 && <StepSettings register={register} errors={errors} />}
+        {step === 1 && (
+          <StepOutcomes register={register} errors={errors} getValues={getValues} />
+        )}
+        {step === 2 && (
+          <StepSettings
+            register={register}
+            errors={errors}
+            getValues={getValues}
+            liquidityWarning={liquidityWarning}
+          />
+        )}
         {step === 3 && <StepPreview values={getValues()} />}
 
         {/* Tx error */}
         {txError && (
           <div
+            role="alert"
             className="mt-4 rounded-lg px-4 py-3 text-sm"
-            style={{ background: "#ef444418", border: "1px solid #ef444444", color: "#ef4444" }}
+            style={{
+              background: "#ef444418",
+              border: "1px solid #ef444444",
+              color: "#ef4444",
+            }}
           >
             {txError}
           </div>
         )}
 
-        {/* Tx hash pending */}
+        {/* Pending tx hash */}
         {txHash && !isSuccess && (
           <div
             className="mt-4 rounded-lg px-4 py-3 text-xs break-all"
-            style={{ background: "#3b82f618", border: "1px solid #3b82f644", color: "var(--foreground)" }}
+            style={{
+              background: "#3b82f618",
+              border: "1px solid #3b82f644",
+              color: "var(--foreground)",
+            }}
           >
             <span className="font-medium">Transaction submitted:</span>{" "}
             <span style={{ color: "var(--muted)" }}>{txHash}</span>
@@ -421,7 +676,11 @@ export default function CreateMarketForm() {
               onClick={back}
               disabled={isSubmitting}
               className="rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-              style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+              style={{
+                background: "var(--background)",
+                border: "1px solid var(--border)",
+                color: "var(--foreground)",
+              }}
             >
               Back
             </button>

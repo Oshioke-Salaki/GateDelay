@@ -1,6 +1,10 @@
 const express = require('express');
 const Order = require('../models/Order');
 const mongoose = require('mongoose');
+const {
+  normalizePagination,
+  buildPaginationMeta,
+} = require('../utils/pagination');
 
 const router = express.Router();
 
@@ -27,13 +31,14 @@ router.get(
   '/history/:pair',
   handleErrors(async (req, res) => {
     const { pair } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const { page, limit, skip } = normalizePagination({
+      ...req.query,
+      defaultLimit: 20,
+      maxLimit: 200,
+    });
     const side = req.query.side;
     const startDate = req.query.startDate;
     const endDate = req.query.endDate;
-
-    const skip = (page - 1) * limit;
 
     // Build query filter
     const filter = { pair, status: 'Filled' };
@@ -67,6 +72,8 @@ router.get(
 
     const totalPages = Math.ceil(total / limit);
 
+    // `totalPages` predates the shared meta block and is still read by the
+    // frontend history table; `meta` is additive so both clients keep working.
     res.json({
       success: true,
       data: {
@@ -74,6 +81,13 @@ router.get(
         total,
         page,
         totalPages,
+        meta: buildPaginationMeta({
+          total,
+          count: trades.length,
+          page,
+          limit,
+          offset: skip,
+        }),
       },
     });
   })
@@ -87,10 +101,11 @@ router.get(
   '/history/user/:userId',
   handleErrors(async (req, res) => {
     const { userId } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = normalizePagination({
+      ...req.query,
+      defaultLimit: 20,
+      maxLimit: 200,
+    });
 
     const [trades, total] = await Promise.all([
       Order.find({ userId, status: 'Filled' })
@@ -111,6 +126,13 @@ router.get(
         total,
         page,
         totalPages,
+        meta: buildPaginationMeta({
+          total,
+          count: trades.length,
+          page,
+          limit,
+          offset: skip,
+        }),
       },
     });
   })

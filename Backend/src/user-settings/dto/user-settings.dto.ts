@@ -38,7 +38,9 @@ export class UpdateCategoryDto {
 
 export class BulkUpdateSettingsDto {
   @IsObject()
-  updates: Partial<Record<SettingCategory, Record<string, string | number | boolean>>>;
+  updates: Partial<
+    Record<SettingCategory, Record<string, string | number | boolean>>
+  >;
 }
 
 export class SyncSettingsDto {
@@ -47,5 +49,7 @@ export class SyncSettingsDto {
   syncToken: string;
 
   @IsObject()
-  snapshot: Partial<Record<SettingCategory, Record<string, string | number | boolean>>>;
+  snapshot: Partial<
+    Record<SettingCategory, Record<string, string | number | boolean>>
+  >;
 }

@@ -118,7 +118,13 @@ export class CacheService {
     return value;
   }
 
-  async warm(entries: Array<{ key: string; factory: () => Promise<unknown>; ttlMs: number }>) {
+  async warm(
+    entries: Array<{
+      key: string;
+      factory: () => Promise<unknown>;
+      ttlMs: number;
+    }>,
+  ) {
     this.logger.log(`Warming ${entries.length} cache entries...`);
     await Promise.allSettled(
       entries.map(({ key, factory, ttlMs }) =>
@@ -134,7 +140,8 @@ export class CacheService {
     const total = this.metrics.hits + this.metrics.misses;
     return {
       ...this.metrics,
-      hitRate: total > 0 ? ((this.metrics.hits / total) * 100).toFixed(2) + '%' : '0%',
+      hitRate:
+        total > 0 ? ((this.metrics.hits / total) * 100).toFixed(2) + '%' : '0%',
       l1Size: this.l1.size,
     };
   }

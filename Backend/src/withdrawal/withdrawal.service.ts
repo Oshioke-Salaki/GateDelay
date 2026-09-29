@@ -170,7 +170,10 @@ export class WithdrawalService {
 
     // fire-and-forget confirmation tracking
     this.trackConfirmations(withdrawalId, dto.txHash).catch((err) =>
-      this.logger.error(`Confirmation tracking failed for ${withdrawalId}`, err),
+      this.logger.error(
+        `Confirmation tracking failed for ${withdrawalId}`,
+        err,
+      ),
     );
 
     return record;
@@ -199,7 +202,10 @@ export class WithdrawalService {
   }
 
   /** List all withdrawals for the authenticated user, optionally filtered by status. */
-  listWithdrawals(userId: string, query: WithdrawalQueryDto): WithdrawalRecord[] {
+  listWithdrawals(
+    userId: string,
+    query: WithdrawalQueryDto,
+  ): WithdrawalRecord[] {
     let results = [...this.withdrawals.values()].filter(
       (w) => w.userId === userId,
     );
@@ -209,7 +215,9 @@ export class WithdrawalService {
       results = results.filter((w) => w.status === normalised);
     }
 
-    return results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return results.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    );
   }
 
   /** Cancel a pending withdrawal that has not yet been submitted on-chain. */
@@ -332,7 +340,9 @@ export class WithdrawalService {
       return { from, to: tokenAddress, data, value: '0x0' };
     } catch {
       // if encoding fails due to bad inputs, surface at service boundary
-      throw new BadRequestException('Failed to encode ERC-20 transfer calldata');
+      throw new BadRequestException(
+        'Failed to encode ERC-20 transfer calldata',
+      );
     }
   }
 
@@ -445,7 +455,9 @@ export class WithdrawalService {
       }
     } catch (err) {
       if (err instanceof BadRequestException) throw err;
-      throw new BadRequestException('Amount must be a valid positive integer string (in smallest unit)');
+      throw new BadRequestException(
+        'Amount must be a valid positive integer string (in smallest unit)',
+      );
     }
   }
 

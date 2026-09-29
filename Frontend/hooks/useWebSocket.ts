@@ -49,7 +49,7 @@ export function useWebSocket(config: WebSocketConfig) {
     });
 
     const socketRef = useRef<Socket | null>(null);
-    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const subscriptionRetryTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
     const reconnectAttemptsRef = useRef(0);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const subscribedMarketsRef = useRef<Set<string>>(new Set());
@@ -58,21 +58,83 @@ export function useWebSocket(config: WebSocketConfig) {
     const maxReconnectAttempts = config.reconnectionAttempts ?? 5;
     const reconnectionDelay = config.reconnectionDelay ?? 1000;
     const pollingInterval = config.pollingInterval ?? 30000;
+    const url = config.url;
+    const namespace = config.namespace;
+    const authToken = config.auth?.token;
+    const autoConnect = config.autoConnect;
+    const fallbackToPolling = config.fallbackToPolling;
+
+    const startPollingFallback = useCallback(() => {
+        console.log("[WebSocket] Starting polling fallback");
+
+        pollingIntervalRef.current = setInterval(() => {
+            const markets = Array.from(subscribedMarketsRef.current);
+            if (markets.length > 0) {
+                const pollingListeners = listenersRef.current.get("polling");
+                pollingListeners?.forEach((listener) => listener({ marketIds: markets }));
+            }
+        }, pollingInterval);
+    }, [pollingInterval]);
+
+    const emitSubscriptions = useCallback((socket: Socket, marketIds: string[], attempt = 0) => {
+        const activeMarketIds = marketIds.filter((id) => subscribedMarketsRef.current.has(id));
+        if (activeMarketIds.length === 0 || !socket.connected) return;
+
+        socket.timeout(reconnectionDelay).emit(
+            "subscribe",
+            { marketIds: activeMarketIds },
+            (timeoutError: Error | null, response: any) => {
+                const error = timeoutError || (response?.error ? new Error(String(response.error)) : null);
+                if (error) {
+                    setState((prev) => ({ ...prev, status: "error", error, isConnected: socket.connected }));
+                    if (fallbackToPolling && !pollingIntervalRef.current) {
+                        startPollingFallback();
+                    }
+                    if (attempt < maxReconnectAttempts) {
+                        const retryTimeout = setTimeout(() => {
+                            subscriptionRetryTimeoutsRef.current.delete(retryTimeout);
+                            emitSubscriptions(socket, activeMarketIds, attempt + 1);
+                        }, reconnectionDelay * 2 ** attempt);
+                        subscriptionRetryTimeoutsRef.current.add(retryTimeout);
+                    }
+                    return;
+                }
+
+                if (pollingIntervalRef.current) {
+                    clearInterval(pollingIntervalRef.current);
+                    pollingIntervalRef.current = null;
+                }
+                setState((prev) => ({
+                    ...prev,
+                    status: socket.connected ? "connected" : "disconnected",
+                    error: null,
+                    isConnected: socket.connected,
+                }));
+            },
+        );
+    }, [fallbackToPolling, maxReconnectAttempts, reconnectionDelay, startPollingFallback]);
 
     // ─── Connect ──────────────────────────────────────────────────────────────
 
     const connect = useCallback(() => {
-        if (socketRef.current?.connected) {
+        if (socketRef.current) {
+            if (socketRef.current.connected) {
+                emitSubscriptions(socketRef.current, Array.from(subscribedMarketsRef.current));
+                return;
+            }
+
+            setState((prev) => ({ ...prev, status: "connecting", error: null }));
+            socketRef.current.connect();
             return;
         }
 
         setState((prev) => ({ ...prev, status: "connecting", error: null }));
 
         try {
-            const socketUrl = `${config.url}${config.namespace || ""}`;
+            const socketUrl = `${url}${namespace || ""}`;
             const socket = io(socketUrl, {
-                auth: config.auth || {},
-                autoConnect: config.autoConnect ?? true,
+                auth: authToken ? { token: authToken } : {},
+                autoConnect: autoConnect ?? true,
                 reconnection: true,
                 reconnectionAttempts: maxReconnectAttempts,
                 reconnectionDelay,
@@ -91,9 +153,7 @@ export function useWebSocket(config: WebSocketConfig) {
 
                 // Resubscribe to markets after reconnection
                 if (subscribedMarketsRef.current.size > 0) {
-                    socket.emit("subscribe", {
-                        marketIds: Array.from(subscribedMarketsRef.current),
-                    });
+                    emitSubscriptions(socket, Array.from(subscribedMarketsRef.current));
                 }
 
                 // Clear polling fallback if active
@@ -112,7 +172,7 @@ export function useWebSocket(config: WebSocketConfig) {
                 }));
 
                 // Start polling fallback if enabled
-                if (config.fallbackToPolling && !pollingIntervalRef.current) {
+                if (fallbackToPolling && !pollingIntervalRef.current) {
                     startPollingFallback();
                 }
             });
@@ -133,7 +193,7 @@ export function useWebSocket(config: WebSocketConfig) {
                     socket.disconnect();
 
                     // Start polling fallback if enabled
-                    if (config.fallbackToPolling) {
+                    if (fallbackToPolling) {
                         startPollingFallback();
                     }
                 }
@@ -148,6 +208,9 @@ export function useWebSocket(config: WebSocketConfig) {
             });
 
             socketRef.current = socket;
+            if (autoConnect === false) {
+                socket.connect();
+            }
         } catch (error) {
             console.error("[WebSocket] Failed to create socket:", error);
             setState({
@@ -157,7 +220,7 @@ export function useWebSocket(config: WebSocketConfig) {
                 lastUpdate: null,
             });
         }
-    }, [config, maxReconnectAttempts, reconnectionDelay]);
+    }, [url, namespace, authToken, autoConnect, fallbackToPolling, maxReconnectAttempts, reconnectionDelay, emitSubscriptions, startPollingFallback]);
 
     // ─── Disconnect ───────────────────────────────────────────────────────────
 
@@ -167,10 +230,8 @@ export function useWebSocket(config: WebSocketConfig) {
             socketRef.current = null;
         }
 
-        if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-        }
+        subscriptionRetryTimeoutsRef.current.forEach(clearTimeout);
+        subscriptionRetryTimeoutsRef.current.clear();
 
         if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -185,42 +246,18 @@ export function useWebSocket(config: WebSocketConfig) {
         });
     }, []);
 
-    // ─── Polling Fallback ─────────────────────────────────────────────────────
-
-    const startPollingFallback = useCallback(() => {
-        console.log("[WebSocket] Starting polling fallback");
-
-        pollingIntervalRef.current = setInterval(() => {
-            // Trigger polling event for subscribed markets
-            const markets = Array.from(subscribedMarketsRef.current);
-            if (markets.length > 0) {
-                const pollingListeners = listenersRef.current.get("polling");
-                if (pollingListeners) {
-                    pollingListeners.forEach((listener) => listener({ marketIds: markets }));
-                }
-            }
-        }, pollingInterval);
-    }, [pollingInterval]);
-
     // ─── Subscribe to Markets ─────────────────────────────────────────────────
 
     const subscribe = useCallback((marketIds: string[]) => {
+        marketIds.forEach((id) => subscribedMarketsRef.current.add(id));
+
         if (!socketRef.current?.connected) {
             console.warn("[WebSocket] Cannot subscribe: not connected");
-            marketIds.forEach((id) => subscribedMarketsRef.current.add(id));
             return;
         }
 
-        marketIds.forEach((id) => subscribedMarketsRef.current.add(id));
-
-        socketRef.current.emit("subscribe", { marketIds }, (response: any) => {
-            if (response?.error) {
-                console.error("[WebSocket] Subscribe error:", response.error);
-            } else {
-                console.log("[WebSocket] Subscribed to:", response?.subscribed || marketIds);
-            }
-        });
-    }, []);
+        emitSubscriptions(socketRef.current, marketIds);
+    }, [emitSubscriptions]);
 
     // ─── Unsubscribe from Markets ─────────────────────────────────────────────
 
@@ -281,14 +318,14 @@ export function useWebSocket(config: WebSocketConfig) {
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     useEffect(() => {
-        if (config.autoConnect !== false) {
+        if (autoConnect !== false) {
             connect();
         }
 
         return () => {
             disconnect();
         };
-    }, [connect, disconnect, config.autoConnect]);
+    }, [connect, disconnect, autoConnect]);
 
     // ─── Return ───────────────────────────────────────────────────────────────
 

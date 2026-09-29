@@ -13,6 +13,7 @@ import {
   type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { format, parseISO } from "date-fns";
+import CloseConfirmation from "../position/CloseConfirmation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -98,81 +99,6 @@ function fmt(n: number, decimals = 2): string {
   return n.toFixed(decimals);
 }
 
-// ── Close confirmation modal ──────────────────────────────────────────────────
-
-interface CloseModalProps {
-  position: Position;
-  onConfirm: (id: string) => void;
-  onCancel: () => void;
-  loading: boolean;
-}
-
-function CloseModal({ position, onConfirm, onCancel, loading }: CloseModalProps) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)" }}
-      onClick={onCancel}
-    >
-      <div
-        className="rounded-2xl p-6 w-full max-w-sm space-y-4 shadow-xl"
-        style={{ background: "var(--background)", border: "1px solid var(--border)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-base font-semibold" style={{ color: "var(--foreground)" }}>
-          Close Position
-        </h3>
-        <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Close your <strong style={{ color: "var(--foreground)" }}>{position.side}</strong> position
-          on <strong style={{ color: "var(--foreground)" }}>{position.market}</strong>?
-        </p>
-        <div
-          className="rounded-xl p-3 space-y-1 text-sm"
-          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
-        >
-          <div className="flex justify-between">
-            <span style={{ color: "var(--muted)" }}>Shares</span>
-            <span style={{ color: "var(--foreground)" }}>{fmt(position.shares)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span style={{ color: "var(--muted)" }}>Current price</span>
-            <span style={{ color: "var(--foreground)" }}>${fmt(position.currentPrice, 4)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span style={{ color: "var(--muted)" }}>Est. value</span>
-            <span style={{ color: "var(--foreground)" }}>
-              ${fmt(position.currentPrice * position.shares)}
-            </span>
-          </div>
-          <div className="flex justify-between font-semibold">
-            <span style={{ color: "var(--muted)" }}>Unrealised P&amp;L</span>
-            <span style={{ color: pnlColor(position.pnl) }}>
-              {position.pnl >= 0 ? "+" : ""}${fmt(position.pnl)} ({position.pnl >= 0 ? "+" : ""}{fmt(position.pnlPct)}%)
-            </span>
-          </div>
-        </div>
-        <div className="flex gap-3 pt-1">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 rounded-xl py-2 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-            style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onConfirm(position.id)}
-            disabled={loading}
-            className="flex-1 rounded-xl py-2 text-sm font-medium transition-opacity hover:opacity-80 disabled:opacity-40"
-            style={{ background: "#ef4444", color: "#fff", border: "none" }}
-          >
-            {loading ? "Closing…" : "Close Position"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Column definitions ────────────────────────────────────────────────────────
 
@@ -281,8 +207,8 @@ function buildColumns(onClose: (pos: Position) => void) {
 export interface PositionsTableProps {
   /** Live positions from API; falls back to mock data */
   data?: Position[];
-  /** Called when user confirms closing a position */
-  onClosePosition?: (positionId: string, currentPrice: number) => Promise<void>;
+  /** Called when user confirms closing a position, with optional shares count for partial closing */
+  onClosePosition?: (positionId: string, currentPrice: number, sharesToClose?: number) => Promise<void>;
 }
 
 export default function PositionsTable({
@@ -302,11 +228,11 @@ export default function PositionsTable({
   }, []);
 
   const handleCloseConfirm = useCallback(
-    async (id: string) => {
+    async (sharesToClose: number) => {
       if (!closingPos) return;
       setCloseLoading(true);
       try {
-        await onClosePosition?.(id, closingPos.currentPrice);
+        await onClosePosition?.(closingPos.id, closingPos.currentPrice, sharesToClose);
       } finally {
         setCloseLoading(false);
         setClosingPos(null);
@@ -356,11 +282,18 @@ export default function PositionsTable({
   return (
     <>
       {closingPos && (
-        <CloseModal
-          position={closingPos}
+        <CloseConfirmation
+          isOpen={!!closingPos}
+          onClose={() => setClosingPos(null)}
           onConfirm={handleCloseConfirm}
-          onCancel={() => setClosingPos(null)}
-          loading={closeLoading}
+          position={{
+            id: closingPos.id,
+            marketName: closingPos.market,
+            side: closingPos.side,
+            shares: closingPos.shares,
+            entryPrice: closingPos.entryPrice,
+            currentPrice: closingPos.currentPrice,
+          }}
         />
       )}
 

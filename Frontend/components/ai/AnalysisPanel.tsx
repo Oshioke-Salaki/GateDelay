@@ -16,8 +16,17 @@ interface TradingSignal {
 
 interface RiskAssessment {
   level: RiskLevel;
-  score: number;        // 0–100
+  score: number;        // 0-100
   factors: string[];
+  reasons: string[];    // Human-readable explanations for the risk score
+  confidence: number;   // 0-100, confidence in the risk assessment
+  inputSignals: Array<{
+    signal: string;
+    value: string;
+    weight: string;
+    contribution: string;
+  }>;                   // Signals used to compute the risk score
+  providerTimestamp: string; // ISO timestamp of when the assessment was generated
 }
 
 export interface MarketAnalysis {

@@ -35,7 +35,12 @@ export class TradingPairService {
       const createdPair = new this.tradingPairModel(createDto);
       return await createdPair.save();
     } catch (error: any) {
-      if (error && typeof error === 'object' && 'code' in error && error.code === 11000) {
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        error.code === 11000
+      ) {
         throw new ConflictException('Trading pair already exists');
       }
       throw error;

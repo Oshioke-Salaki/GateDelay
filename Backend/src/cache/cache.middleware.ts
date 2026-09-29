@@ -30,9 +30,9 @@ export class CacheMiddleware implements NestMiddleware {
     const originalJson = res.json.bind(res);
     res.json = (body: unknown) => {
       if (res.statusCode === 200) {
-        this.cacheService.set(key, body, DEFAULT_TTL).catch((err) =>
-          this.logger.warn(`Failed to cache response: ${err}`),
-        );
+        this.cacheService
+          .set(key, body, DEFAULT_TTL)
+          .catch((err) => this.logger.warn(`Failed to cache response: ${err}`));
       }
       res.setHeader('X-Cache', 'MISS');
       return originalJson(body);

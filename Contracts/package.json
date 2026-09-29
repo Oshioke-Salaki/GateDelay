@@ -1,0 +1,8 @@
+{
+  "name": "gatedelay-contracts",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@openzeppelin/contracts": "5.6.1"
+  }
+}

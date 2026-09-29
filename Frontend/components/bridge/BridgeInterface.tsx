@@ -5,6 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits } from "viem";
 import { useToast } from "../../hooks/useToast";
+import {
+  getBridgeTransaction,
+  getBridgeRouteQuotes,
+  initiateBridgeTransaction,
+  updateBridgeTransaction,
+  type BridgeProtocol as ApiProtocol,
+} from "../../lib/bridgeApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +60,8 @@ export type BridgeStatus =
   | "bridging"
   | "confirming"
   | "success"
-  | "failed";
+  | "failed"
+  | "refunded";
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
@@ -122,7 +130,7 @@ const SUPPORTED_TOKENS: Token[] = [
   { symbol: "DAI", name: "Dai Stablecoin", decimals: 18, logoUrl: "" },
 ];
 
-// Simulated routes — in production these come from a bridge aggregator API
+// Simulated routes — used as fallback when the backend is unreachable
 function getMockRoutes(
   amount: string,
   token: string,
@@ -131,6 +139,14 @@ function getMockRoutes(
 ): BridgeRoute[] {
   const amt = parseFloat(amount) || 0;
   if (amt <= 0 || fromChain.id === toChain.id) return [];
+
+  const PROTOCOL_ICONS: Record<string, string> = {
+    stargate: "⭐",
+    across: "🌉",
+    hop: "🐇",
+    cbridge: "🌐",
+    socket: "🔌",
+  };
 
   return [
     {
@@ -144,15 +160,7 @@ function getMockRoutes(
       gasUsd: 2.04,
       outputAmount: `${(amt * 0.9994 - 0.0012 * 1700).toFixed(4)} ${token}`,
       recommended: true,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Stargate",
-          estimatedTime: "~3 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Stargate", estimatedTime: "~3 min" }],
     },
     {
       id: "route-2",
@@ -165,15 +173,7 @@ function getMockRoutes(
       gasUsd: 1.36,
       outputAmount: `${(amt * 0.999 - 0.0008 * 1700).toFixed(4)} ${token}`,
       recommended: false,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Across",
-          estimatedTime: "~1 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Across", estimatedTime: "~1 min" }],
     },
     {
       id: "route-3",
@@ -186,17 +186,11 @@ function getMockRoutes(
       gasUsd: 2.55,
       outputAmount: `${(amt * 0.9996 - 0.0015 * 1700).toFixed(4)} ${token}`,
       recommended: false,
-      steps: [
-        {
-          type: "bridge",
-          fromChain: fromChain.name,
-          toChain: toChain.name,
-          protocol: "Hop",
-          estimatedTime: "~8 min",
-        },
-      ],
+      steps: [{ type: "bridge", fromChain: fromChain.name, toChain: toChain.name, protocol: "Hop", estimatedTime: "~8 min" }],
     },
   ];
+
+  void PROTOCOL_ICONS; // suppress unused warning
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -382,15 +376,25 @@ function StatusStep({
   status,
   txHash,
   explorerUrl,
+  isLast = false,
 }: {
   label: string;
-  status: "pending" | "active" | "done" | "failed";
+  status: "pending" | "active" | "done" | "failed" | "refunded";
   txHash?: string;
   explorerUrl?: string;
+  isLast?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex-shrink-0">
+    <div className="flex min-h-12 items-stretch gap-3 pb-4">
+      <div className="relative flex w-6 flex-shrink-0 justify-center">
+        {!isLast && (
+          <span
+            aria-hidden="true"
+            className="absolute bottom-0 top-7 w-0.5"
+            style={{ background: status === "done" ? "#22c55e" : "var(--border)" }}
+          />
+        )}
+        <div className="z-10 mt-0.5 h-6 w-6">
         {status === "done" && (
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-500">
             <svg className="h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
@@ -414,6 +418,15 @@ function StatusStep({
             </svg>
           </div>
         )}
+        {status === "refunded" && (
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500">
+            <svg className="h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+              <polyline points="3 3 3 8 8 8" />
+            </svg>
+          </div>
+        )}
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         <p
@@ -426,6 +439,8 @@ function StatusStep({
                 ? "#22c55e"
                 : status === "failed"
                 ? "#ef4444"
+                : status === "refunded"
+                ? "#d97706"
                 : "var(--muted)",
           }}
         >
@@ -467,9 +482,12 @@ export default function BridgeInterface() {
 
   // Transaction state
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>("idle");
+  const [timelineStep, setTimelineStep] = useState(0);
   const [sourceTxHash, setSourceTxHash] = useState<string | null>(null);
   const [destTxHash, setDestTxHash] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  /** ID of the backend bridge transaction record for status updates */
+  const [activeBridgeTxId, setActiveBridgeTxId] = useState<string | null>(null);
 
   // Wagmi balance hook (reads native balance on connected chain)
   const { data: balanceData } = useBalance({
@@ -486,8 +504,8 @@ export default function BridgeInterface() {
     setSelectedRouteId(null);
   }, [fromChain, toChain]);
 
-  // Fetch routes whenever inputs change
-  const handleFetchRoutes = useCallback(() => {
+  // Fetch routes via backend API, fall back to mock on error
+  const handleFetchRoutes = useCallback(async () => {
     const amt = parseFloat(amount);
     if (!amt || amt <= 0 || fromChain.id === toChain.id) {
       setRoutes([]);
@@ -497,57 +515,168 @@ export default function BridgeInterface() {
     setLoadingRoutes(true);
     setRoutes([]);
     setSelectedRouteId(null);
-    // Simulate async API call
-    setTimeout(() => {
+
+    try {
+      // Attempt real API call — no auth token needed for public quotes
+      const quotes = await getBridgeRouteQuotes(
+        { fromChainId: fromChain.id, toChainId: toChain.id, tokenSymbol: selectedToken.symbol, amount },
+        "", // public endpoint; pass token here when auth is wired
+      );
+
+      const PROTOCOL_ICONS: Record<string, string> = {
+        stargate: "⭐", across: "🌉", hop: "🐇", cbridge: "🌐", socket: "🔌",
+      };
+
+      const apiRoutes: BridgeRoute[] = quotes
+        .filter((q) => q.supported)
+        .map((q, i) => ({
+          id: `api-route-${i}`,
+          provider: q.protocolName,
+          providerIcon: PROTOCOL_ICONS[q.protocol] ?? "🔗",
+          estimatedTime: q.estimatedTime,
+          fee: `${q.bridgeFee} ${selectedToken.symbol}`,
+          feeUsd: parseFloat(q.bridgeFee) * 1, // approx 1 USD/token
+          gasEstimate: "~gas",
+          gasUsd: 0,
+          outputAmount: `${q.outputAmount} ${selectedToken.symbol}`,
+          recommended: q.recommended,
+          steps: [{ type: "bridge" as const, fromChain: fromChain.name, toChain: toChain.name, protocol: q.protocolName, estimatedTime: q.estimatedTime }],
+        }));
+
+      setRoutes(apiRoutes);
+      setSelectedRouteId(apiRoutes[0]?.id ?? null);
+    } catch {
+      // Backend not reachable — fall back to mock data
       const r = getMockRoutes(amount, selectedToken.symbol, fromChain, toChain);
       setRoutes(r);
       setSelectedRouteId(r[0]?.id ?? null);
+    } finally {
       setLoadingRoutes(false);
-    }, 900);
+    }
   }, [amount, selectedToken, fromChain, toChain]);
 
-  // Simulate bridge transaction
+  // Bridge transaction — creates backend record and tracks status
   const handleBridge = useCallback(async () => {
-    if (!selectedRoute || !isConnected) return;
+    if (!selectedRoute || !isConnected || !address) return;
     setShowConfirmModal(false);
     setBridgeStatus("approving");
+    setTimelineStep(0);
+
+    // Resolve protocol from route provider name
+    const PROVIDER_TO_PROTOCOL: Record<string, ApiProtocol> = {
+      "Stargate": "stargate",
+      "Across": "across",
+      "Hop Protocol": "hop",
+      "cBridge": "cbridge",
+      "Socket": "socket",
+    };
+    const protocol: ApiProtocol = PROVIDER_TO_PROTOCOL[selectedRoute.provider] ?? "stargate";
+
+    let txId: string | null = null;
+    const hasReachedTerminalStatus = async () => {
+      if (!txId) return false;
+      const transaction = await getBridgeTransaction(txId, "").catch(() => null);
+      if (transaction?.status !== "failed" && transaction?.status !== "refunded") return false;
+      setBridgeStatus(transaction.status);
+      if (transaction.status === "failed") {
+        toastError("Bridge failed", transaction.errorMessage ?? "The bridge transaction failed.");
+      }
+      return true;
+    };
 
     try {
-      // Step 1: Token approval
+      // Step 1: create backend transaction record
+      let backendTx = null;
+      try {
+        backendTx = await initiateBridgeTransaction(
+          {
+            protocol,
+            fromChainId: fromChain.id,
+            toChainId: toChain.id,
+            tokenSymbol: selectedToken.symbol,
+            tokenAddress: "0x0000000000000000000000000000000000000000",
+            amount,
+            senderAddress: useCustomRecipient && recipient ? recipient : address,
+            recipientAddress: useCustomRecipient && recipient ? recipient : address,
+            slippageBps: 50,
+          },
+          "", // pass JWT token here when auth is wired
+        );
+        txId = backendTx.id;
+        setActiveBridgeTxId(txId);
+      } catch {
+        // Backend unavailable — proceed with simulation only
+      }
+
+      // Step 2: Token approval simulation
       await new Promise((res) => setTimeout(res, 1500));
       info("Approval submitted", "Waiting for confirmation…");
 
-      // Step 2: Bridge transaction
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "bridging" }, "").catch(() => {});
+      }
+
+      // Step 3: Bridge transaction
       setBridgeStatus("bridging");
       await new Promise((res) => setTimeout(res, 2000));
-      const mockSourceHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      const mockSourceHash = "0x" + Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join("");
       setSourceTxHash(mockSourceHash);
       info("Bridge transaction sent", "Waiting for destination confirmation…");
 
-      // Step 3: Destination confirmation
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "confirming", sourceTxHash: mockSourceHash }, "").catch(() => {});
+      }
+
+      // Step 4: Destination confirmation
       setBridgeStatus("confirming");
-      await new Promise((res) => setTimeout(res, 3000));
-      const mockDestHash = "0x" + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+      setTimelineStep(1);
+      await new Promise((res) => setTimeout(res, 1000));
+      if (await hasReachedTerminalStatus()) return;
+      setTimelineStep(2);
+      await new Promise((res) => setTimeout(res, 1000));
+      if (await hasReachedTerminalStatus()) return;
+      setTimelineStep(3);
+      await new Promise((res) => setTimeout(res, 1000));
+      if (await hasReachedTerminalStatus()) return;
+      const mockDestHash = "0x" + Array.from({ length: 64 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join("");
       setDestTxHash(mockDestHash);
 
+      if (txId) {
+        await updateBridgeTransaction(
+          txId,
+          { status: "completed", destinationTxHash: mockDestHash, receivedAmount: amount },
+          "",
+        ).catch(() => {});
+      }
+
+      setTimelineStep(4);
       setBridgeStatus("success");
-      success(
-        "Bridge complete!",
-        `${amount} ${selectedToken.symbol} arrived on ${toChain.name}.`
-      );
+      success("Bridge complete!", `${amount} ${selectedToken.symbol} arrived on ${toChain.name}.`);
     } catch {
       setBridgeStatus("failed");
       toastError("Bridge failed", "Transaction was rejected or timed out.");
+      if (txId) {
+        await updateBridgeTransaction(txId, { status: "failed", errorMessage: "Transaction rejected or timed out" }, "").catch(() => {});
+      }
     }
-  }, [selectedRoute, isConnected, amount, selectedToken, toChain, info, success, toastError]);
+  }, [
+    selectedRoute, isConnected, address, amount, selectedToken, fromChain, toChain,
+    useCustomRecipient, recipient, info, success, toastError,
+  ]);
 
   const handleReset = () => {
     setBridgeStatus("idle");
+    setTimelineStep(0);
     setSourceTxHash(null);
     setDestTxHash(null);
     setAmount("");
     setRoutes([]);
     setSelectedRouteId(null);
+    setActiveBridgeTxId(null);
   };
 
   const isProcessing =
@@ -557,43 +686,18 @@ export default function BridgeInterface() {
 
   // ── Render: status view ────────────────────────────────────────────────────
   if (bridgeStatus !== "idle") {
-    const steps: Array<{ label: string; status: "pending" | "active" | "done" | "failed"; txHash?: string; explorerUrl?: string }> = [
-      {
-        label: "Approve token spending",
-        status:
-          bridgeStatus === "approving"
-            ? "active"
-            : bridgeStatus === "failed" && !sourceTxHash
-            ? "failed"
-            : "done",
-      },
-      {
-        label: `Send on ${fromChain.name}`,
-        status:
-          bridgeStatus === "bridging"
-            ? "active"
-            : bridgeStatus === "failed" && sourceTxHash && !destTxHash
-            ? "failed"
-            : sourceTxHash
-            ? "done"
-            : "pending",
-        txHash: sourceTxHash ?? undefined,
-        explorerUrl: fromChain.explorerUrl,
-      },
-      {
-        label: `Confirm on ${toChain.name}`,
-        status:
-          bridgeStatus === "confirming"
-            ? "active"
-            : bridgeStatus === "success"
-            ? "done"
-            : bridgeStatus === "failed" && destTxHash
-            ? "failed"
-            : "pending",
-        txHash: destTxHash ?? undefined,
-        explorerUrl: toChain.explorerUrl,
-      },
+    const timeline: Array<{ label: string; txHash?: string; explorerUrl?: string }> = [
+      { label: "Submitted" },
+      { label: `Source confirmed on ${fromChain.name}`, txHash: sourceTxHash ?? undefined, explorerUrl: fromChain.explorerUrl },
+      { label: "Relayed" },
+      { label: `Destination confirmed on ${toChain.name}`, txHash: destTxHash ?? undefined, explorerUrl: toChain.explorerUrl },
     ];
+    const isTerminal = bridgeStatus === "success" || bridgeStatus === "failed" || bridgeStatus === "refunded";
+    const terminalStatus = bridgeStatus === "failed"
+      ? "failed"
+      : bridgeStatus === "refunded"
+      ? "refunded"
+      : "done";
 
     return (
       <div
@@ -610,10 +714,12 @@ export default function BridgeInterface() {
                 ? "Transfer complete"
                 : bridgeStatus === "failed"
                 ? "Transfer failed"
+                : bridgeStatus === "refunded"
+                ? "Transfer refunded"
                 : "Transfer in progress"}
             </h2>
           </div>
-          {(bridgeStatus === "success" || bridgeStatus === "failed") && (
+          {isTerminal && (
             <button
               onClick={handleReset}
               className="rounded-xl px-4 py-2 text-sm font-semibold text-white"
@@ -649,11 +755,31 @@ export default function BridgeInterface() {
         </div>
 
         {/* Steps */}
-        <div className="space-y-4">
-          {steps.map((step, i) => (
-            <StatusStep key={i} {...step} />
-          ))}
-        </div>
+        <ol className="space-y-0" aria-label="Bridge transaction timeline">
+          {timeline.map((step, i) => {
+            const status = bridgeStatus === "success" || i < timelineStep
+              ? "done"
+              : bridgeStatus === "failed" && i === timelineStep
+              ? "failed"
+              : i === timelineStep
+              ? "active"
+              : "pending";
+            return (
+              <li key={step.label}>
+                <StatusStep {...step} status={status} isLast={i === timeline.length - 1 && !isTerminal} />
+              </li>
+            );
+          })}
+          {(bridgeStatus === "failed" || bridgeStatus === "refunded") && (
+            <li>
+              <StatusStep
+                label={bridgeStatus === "failed" ? "Failed" : "Refunded"}
+                status={terminalStatus}
+                isLast
+              />
+            </li>
+          )}
+        </ol>
 
         {bridgeStatus === "success" && (
           <motion.div
@@ -668,15 +794,19 @@ export default function BridgeInterface() {
           </motion.div>
         )}
 
-        {bridgeStatus === "failed" && (
+        {(bridgeStatus === "failed" || bridgeStatus === "refunded") && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             className="mt-6 rounded-2xl border border-red-300/50 bg-red-50 p-4 text-sm dark:bg-red-950/30"
           >
-            <p className="font-semibold text-red-800 dark:text-red-300">Transfer failed</p>
+            <p className="font-semibold text-red-800 dark:text-red-300">
+              {bridgeStatus === "failed" ? "Transfer failed" : "Transfer refunded"}
+            </p>
             <p className="mt-1 text-red-700 dark:text-red-400">
-              The transaction was rejected or timed out. No funds were lost. Please try again.
+              {bridgeStatus === "failed"
+                ? "The transaction was rejected or timed out. No funds were lost. Please try again."
+                : "The bridge refunded your transfer to the source chain."}
             </p>
           </motion.div>
         )}
@@ -724,6 +854,7 @@ export default function BridgeInterface() {
             type="button"
             onClick={handleSwapChains}
             aria-label="Swap source and destination chains"
+            title="Swap source and destination chains"
             className="mb-0.5 flex h-9 w-9 items-center justify-center rounded-full transition-all hover:scale-110 hover:opacity-80"
             style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}
           >
@@ -769,6 +900,7 @@ export default function BridgeInterface() {
                 color: "var(--foreground)",
               }}
               aria-label="Select token"
+              title="Select token"
             >
               {SUPPORTED_TOKENS.map((t) => (
                 <option key={t.symbol} value={t.symbol}>
@@ -944,6 +1076,7 @@ export default function BridgeInterface() {
                 <button
                   onClick={() => setShowConfirmModal(false)}
                   aria-label="Close confirmation"
+                  title="Close confirmation"
                   className="rounded-full p-2 transition-opacity hover:opacity-80"
                   style={{ color: "var(--muted)" }}
                 >

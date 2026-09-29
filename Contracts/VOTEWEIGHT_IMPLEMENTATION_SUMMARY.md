@@ -3,8 +3,9 @@
 ## 🎯 Project Overview
 
 **Task**: Build vote weight tracking system for GateDelay governance  
-**Status**: ✅ **COMPLETE**  
-**Date**: May 29, 2026
+**Status**: ✅ **COMPLETE** — verified, see [Verification](#-verification) below  
+**Date**: May 29, 2026  
+**Last verified**: August 25, 2026 (forge 1.7.1 / solc 0.8.28), 69/69 tests passing
 
 ## 📋 Requirements Checklist
 
@@ -53,7 +54,7 @@
 ### Smart Contracts
 
 #### 1. **VoteWeight.sol** (Main Contract)
-- **Location**: `contracts/VoteWeight.sol`
+- **Location**: `src/VoteWeight.sol`
 - **Lines of Code**: ~650
 - **Features**:
   - Weight tracking and management
@@ -64,7 +65,7 @@
 - **Dependencies**: OpenZeppelin (Ownable, ReentrancyGuard, IERC20)
 
 #### 2. **VotingWithVoteWeight.sol** (Integration Example)
-- **Location**: `contracts/VotingWithVoteWeight.sol`
+- **Location**: `src/VotingWithVoteWeight.sol`
 - **Lines of Code**: ~350
 - **Features**:
   - Enhanced voting with VoteWeight integration
@@ -77,7 +78,7 @@
 
 #### 1. **VoteWeight.t.sol** (Core Tests)
 - **Location**: `test/VoteWeight.t.sol`
-- **Test Count**: 44 comprehensive tests
+- **Test Count**: 40 tests
 - **Coverage**:
   - Weight tracking (8 tests)
   - Delegation (10 tests)
@@ -91,7 +92,7 @@
 
 #### 2. **VotingWithVoteWeight.t.sol** (Integration Tests)
 - **Location**: `test/VotingWithVoteWeight.t.sol`
-- **Test Count**: 25+ integration tests
+- **Test Count**: 29 integration tests
 - **Coverage**:
   - Proposal creation with snapshots
   - Voting with snapshot weights
@@ -249,9 +250,9 @@ error CircularDelegation();
 
 ### Coverage Summary
 ```
-Total Tests: 69+ tests
-├── VoteWeight.t.sol: 44 tests
-└── VotingWithVoteWeight.t.sol: 25+ tests
+Total Tests: 69 tests
+├── VoteWeight.t.sol: 40 tests
+└── VotingWithVoteWeight.t.sol: 29 tests
 
 Test Categories:
 ├── Unit Tests: 55+
@@ -356,17 +357,23 @@ forge build
 ```
 
 ### Test
+
 ```bash
-# Run all VoteWeight tests
+# Verifies both contracts end to end: build, tests under both build profiles,
+# a src/ warning check, and forge fmt --check.
+./verify_voteweight.sh
+```
+
+The script exists because `forge build` / `forge test` compile the whole tree,
+and roughly two dozen unrelated files in `src/` and `test/` currently have parse
+and type errors (see "Known blocker" in `README.md`). A repo-wide run therefore
+fails regardless of the state of these contracts, so the targeted commands below
+are only meaningful once that is cleared:
+
+```bash
 forge test --match-contract VoteWeightTest -vv
-
-# Run integration tests
 forge test --match-contract VotingWithVoteWeightTest -vv
-
-# Run with gas report
 forge test --gas-report
-
-# Run with coverage
 forge coverage
 ```
 
@@ -571,3 +578,90 @@ The VoteWeight system has been successfully implemented with all requirements me
 5. Integrate with existing governance system
 
 The VoteWeight system is ready for integration into the GateDelay governance infrastructure! 🚀
+
+---
+
+## 🔍 Verification
+
+Run `./verify_voteweight.sh` from `Contracts/`. Last run: **69/69 tests passing**
+(40 in `VoteWeight.t.sol`, 29 in `VotingWithVoteWeight.t.sol`), **zero warnings
+in `src/`**, `forge fmt --check` clean, under **both** build profiles.
+
+### What was wrong when this document was last audited
+
+The checklists above described intended behaviour; 16 of the 69 tests were
+failing against the shipped contracts. Root causes, all now fixed:
+
+1. **`updateWeight` reverted on a no-op**, which made it uncomposable.
+   `batchUpdateWeights` reverted the whole batch if any single account was
+   already current, and `VotingWithVoteWeight.delegate()` reverted for exactly
+   the accounts most likely to delegate. `createProposal` had already grown a
+   `try/catch {}` around it to cope — which also swallowed genuine failures.
+   There is now an idempotent `syncWeight(address) returns (bool)`;
+   `updateWeight` keeps its `NoWeightChange` revert and is implemented in terms
+   of it.
+
+2. **Zero-balance accounts could never be registered.** The guard compared
+   balances only, so `0 == 0` reverted on the very first call and such an
+   account could never be tracked, delegated to, or snapshotted. A first sync
+   now always registers.
+
+3. **Delegation through the voting contract silently did nothing.**
+   `VoteWeight.delegate()` keys off `msg.sender`, so when
+   `VotingWithVoteWeight` called it, it delegated *its own* (zero) weight and
+   the user's delegation never happened. Added owner-gated `delegateFor` /
+   `undelegateFor` for governance front-ends that own this contract.
+
+4. **`calculateWeightChange` double-counted the boundary.** It summed deltas
+   with an inclusive lower bound, so the change recorded *at* `fromBlock` — the
+   step into that state — was counted as part of the period. Now exclusive, so
+   it equals `getWeightAt(toBlock) - getWeightAt(fromBlock)`.
+
+5. **Unchecked `uint256 → int256` casts.** Above `type(int256).max` these wrap
+   to a negative number without reverting, corrupting both the `WeightUpdated`
+   event and the stored `WeightChange.delta`. Now via `SafeCast.toInt256`.
+
+6. **The suite was build-profile dependent.** `block.number` compiles to the
+   NUMBER opcode, which the optimizer treats as constant within a call and
+   rematerialises at each use — so a value captured before `vm.roll` read back
+   as the *post*-roll number. Two tests passed under one profile and failed
+   under the other, and one real bug (#4) was masked entirely. The tests now use
+   `vm.getBlockNumber()`, and `verify_voteweight.sh` runs both profiles.
+
+### Delegation is not transitive
+
+`_createDelegation` delegates `balanceOf(delegator)` — the delegator's own
+tokens only. If A delegates to B and B delegates to C, C receives B's balance;
+A's weight stays with B. This is deliberate — forwarding delegated weight would
+mean re-walking every chain on each balance change, at unbounded gas — and
+`test_DelegationChain` now asserts it explicitly. Cycles are still rejected by
+`_wouldCreateLoop`.
+
+### Weight is not tracked automatically
+
+The contract cannot observe ERC-20 transfers. Something must call `syncWeight`
+or `batchUpdateWeights` after balances move, or reported weight goes stale.
+`VotingWithVoteWeight.createProposal` syncs every tracked account before
+snapshotting for this reason.
+
+### ABI artifacts
+
+Not applicable at present. `forge build` writes ABIs to `Contracts/out/`, but no
+backend code references `VoteWeight` — there is no ABI directory and no import
+of it under `Backend/`. Wiring one up is left for whoever adds the governance
+integration; doing it now would add an unused artifact and a second copy of the
+ABI to keep in sync.
+
+### Deployment
+
+`constructor(address _governanceToken)` reverts on `address(0)` and makes the
+deployer owner. Ownership gates `createSnapshot`, `delegateFor` and
+`undelegateFor`, so a governance front-end must own this contract:
+
+```solidity
+VoteWeight weights = new VoteWeight(address(token));
+VotingWithVoteWeight voting = new VotingWithVoteWeight(address(token), address(weights));
+weights.transferOwnership(address(voting));   // required before voting.delegate() works
+```
+
+Full API notes are in the NatSpec on `src/VoteWeight.sol`.

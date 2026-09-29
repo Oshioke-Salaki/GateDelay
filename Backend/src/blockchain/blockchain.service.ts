@@ -2,6 +2,11 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 import { BroadcastTransactionDto } from './dto/transaction.dto';
+import {
+  DeploymentEntry,
+  findDeployment,
+  parseDeploymentRegistry,
+} from './deployment-registry';
 
 export interface TransactionRecord {
   txHash: string;
@@ -100,6 +105,16 @@ export class BlockchainService {
       this.logger.error(`Failed to get status for ${txHash}`, err);
       return cached ?? { txHash, status: 'unknown' };
     }
+  }
+
+  /**
+   * Look up a deployed contract from `DEPLOYMENT_REGISTRY_JSON`.
+   * Returns undefined when the variable is unset.
+   */
+  getDeployedContract(name: string): DeploymentEntry | undefined {
+    const raw = this.configService.get<string>('DEPLOYMENT_REGISTRY_JSON');
+    if (!raw) return undefined;
+    return findDeployment(parseDeploymentRegistry(raw), name);
   }
 
   private validateSignedTransaction(signedTx: string) {

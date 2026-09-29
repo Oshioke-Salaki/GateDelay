@@ -15,7 +15,7 @@ import {
   Legend,
 } from "recharts";
 import { format, subDays, subWeeks, subMonths } from "date-fns";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +30,12 @@ export interface Position {
   status: "open" | "closed" | "resolved";
   outcome?: "YES" | "NO";
 }
+
+const POSITION_STATUS_STYLES: Record<Position["status"], { bg: string; color: string }> = {
+  open: { bg: "#22c55e22", color: "#22c55e" },
+  closed: { bg: "#f59e0b22", color: "#f59e0b" },
+  resolved: { bg: "#3b82f622", color: "#3b82f6" },
+};
 
 export interface PortfolioSnapshot {
   timestamp: number; // unix ms
@@ -195,11 +201,11 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-xl px-4 py-3 flex flex-col gap-1"
+      className="flex min-w-0 flex-col gap-1 rounded-xl px-3 py-3 sm:px-4"
       style={{ background: "var(--card)", border: "1px solid var(--border)" }}
     >
       <p className="text-xs" style={{ color: "var(--muted)" }}>{label}</p>
-      <p className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{value}</p>
+      <p className="break-words text-lg font-bold tabular-nums sm:text-xl" style={{ color: "var(--foreground)" }}>{value}</p>
       {sub !== undefined && (
         <p
           className="text-xs font-medium"
@@ -225,12 +231,7 @@ function PositionRow({ position }: { position: Position }) {
   const pnlPct = positionPnlPct(position);
   const isPositive = pnl >= 0;
 
-  const statusColors: Record<Position["status"], { bg: string; color: string }> = {
-    open:     { bg: "#22c55e22", color: "#22c55e" },
-    closed:   { bg: "#f59e0b22", color: "#f59e0b" },
-    resolved: { bg: "#3b82f622", color: "#3b82f6" },
-  };
-  const sc = statusColors[position.status];
+  const sc = POSITION_STATUS_STYLES[position.status];
 
   return (
     <tr style={{ borderTop: "1px solid var(--border)" }}>
@@ -298,6 +299,87 @@ function PositionRow({ position }: { position: Position }) {
   );
 }
 
+function PositionSummaryCard({ position }: { position: Position }) {
+  const value = positionValue(position);
+  const pnl = positionPnl(position);
+  const pnlPct = positionPnlPct(position);
+  const isPositive = pnl >= 0;
+  const price =
+    position.status === "resolved"
+      ? position.outcome === position.side
+        ? "100¢ ✓"
+        : "0¢ ✗"
+      : `${(position.currentPrice * 100).toFixed(0)}¢`;
+
+  return (
+    <article
+      className="min-w-0 rounded-lg p-3"
+      style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-medium" style={{ color: "var(--foreground)" }}>
+            {position.market}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className="rounded px-1.5 py-0.5 text-xs font-semibold"
+              style={{
+                background: position.side === "YES" ? "#22c55e22" : "#ef444422",
+                color: position.side === "YES" ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {position.side}
+            </span>
+            <span
+              className="rounded px-1.5 py-0.5 text-xs capitalize"
+              style={{
+                background: POSITION_STATUS_STYLES[position.status].bg,
+                color: POSITION_STATUS_STYLES[position.status].color,
+              }}
+            >
+              {position.status}
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Value</p>
+          <p className="break-words text-sm font-semibold tabular-nums" style={{ color: "var(--foreground)" }}>
+            {formatUsd(value)}
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Shares</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {position.shares.toLocaleString()}
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Avg Cost</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {(position.avgCost * 100).toFixed(0)}¢
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Price</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {price}
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>P&amp;L</dt>
+          <dd className="mt-0.5 break-words font-medium tabular-nums" style={{ color: isPositive ? "#22c55e" : "#ef4444" }}>
+            {isPositive ? "+" : ""}{formatUsd(pnl)} ({formatPct(pnlPct)})
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
 function PortfolioTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -337,7 +419,7 @@ export default function PortfolioWidget({
   onRefresh,
   refreshInterval = 30_000,
 }: PortfolioWidgetProps) {
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
   const [range, setRange] = useState<Range>("1M");
   const [lastUpdated, setLastUpdated] = useState(Date.now());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -419,7 +501,7 @@ export default function PortfolioWidget({
   if (!isConnected) {
     return (
       <div
-        className="rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center"
+        className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-xl p-6 text-center sm:p-8"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         <span className="text-3xl" aria-hidden>💼</span>
@@ -434,7 +516,7 @@ export default function PortfolioWidget({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -458,7 +540,7 @@ export default function PortfolioWidget({
       </div>
 
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Value"
           value={formatUsd(totalValue)}
@@ -485,7 +567,7 @@ export default function PortfolioWidget({
 
       {/* ── Performance chart ── */}
       <div
-        className="rounded-xl p-4 space-y-3"
+        className="min-w-0 space-y-3 rounded-xl p-3 sm:p-4"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -565,10 +647,10 @@ export default function PortfolioWidget({
       </div>
 
       {/* ── Asset breakdown ── */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Pie chart */}
         <div
-          className="rounded-xl p-4"
+          className="min-w-0 rounded-xl p-3 sm:p-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <p className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
@@ -616,7 +698,7 @@ export default function PortfolioWidget({
 
         {/* Allocation list */}
         <div
-          className="rounded-xl p-4 space-y-2"
+          className="min-w-0 space-y-2 rounded-xl p-3 sm:p-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <p className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
@@ -663,7 +745,7 @@ export default function PortfolioWidget({
 
       {/* ── Positions table ── */}
       <div
-        className="rounded-xl overflow-hidden"
+        className="w-full min-w-0 max-w-full overflow-hidden rounded-xl"
         style={{ border: "1px solid var(--border)" }}
       >
         <div
@@ -686,8 +768,14 @@ export default function PortfolioWidget({
             No positions found. Start trading to see your portfolio here.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ background: "var(--background)" }}>
+          <>
+            <div className="grid gap-3 p-3 md:hidden">
+              {positions.map((position) => (
+                <PositionSummaryCard key={position.id} position={position} />
+              ))}
+            </div>
+            <div className="hidden max-w-full overflow-x-auto overscroll-x-contain md:block">
+              <table className="w-full min-w-[640px] text-sm" style={{ background: "var(--background)" }}>
               <thead>
                 <tr style={{ background: "var(--card)" }}>
                   {["Market", "Shares", "Avg Cost", "Price", "Value", "P&L"].map((h) => (
@@ -739,8 +827,9 @@ export default function PortfolioWidget({
                   </td>
                 </tr>
               </tfoot>
-            </table>
-          </div>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

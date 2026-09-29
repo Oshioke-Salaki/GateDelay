@@ -5,7 +5,10 @@ export type NotificationType =
   | 'market_update'
   | 'price_alert'
   | 'system'
-  | 'weekly_digest';
+  | 'weekly_digest'
+  | 'trade_filled'
+  | 'dispute_opened'
+  | 'market_resolved';
 
 export interface Notification {
   id: string;

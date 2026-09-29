@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import MarketSearch, { Market } from "../../components/search/MarketSearch";
+import MarketSearch, { type Market, type SearchFilters } from "../../components/search/MarketSearch";
 import { MarketListSkeleton } from "../../components/ui/Skeleton";
 
 // Mock markets data - replace with API call
@@ -105,17 +105,23 @@ function SearchContent() {
   const searchParams = useSearchParams();
   const [markets, setMarkets] = useState<Market[]>(MOCK_MARKETS);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [lastFilters, setLastFilters] = useState<SearchFilters>({ query: "", sortBy: "relevance" });
 
   useEffect(() => {
+    if (!searchParams) return;
     // Load search params from URL if present
+    if (!searchParams) return;
     const q = searchParams.get("q");
     const category = searchParams.get("category");
     const status = searchParams.get("status");
     // Could apply these to initial filters here
   }, [searchParams]);
 
-  const handleSearch = async (filters: any) => {
+  const handleSearch = async (filters: SearchFilters) => {
+    setLastFilters(filters);
     setIsLoading(true);
+    setSearchError(null);
     try {
       // Replace with actual API call
       // const response = await fetch(`/api/markets/search?${new URLSearchParams(filters)}`);
@@ -126,7 +132,7 @@ function SearchContent() {
       await new Promise((resolve) => setTimeout(resolve, 300));
       setMarkets(MOCK_MARKETS);
     } catch (error) {
-      console.error("Search error:", error);
+      setSearchError(error instanceof Error ? error.message : "Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -151,6 +157,8 @@ function SearchContent() {
           markets={markets}
           onSearch={handleSearch}
           isLoading={isLoading}
+          error={searchError}
+          onRetry={() => void handleSearch(lastFilters)}
         />
       </Suspense>
     </main>

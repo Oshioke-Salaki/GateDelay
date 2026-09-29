@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -35,6 +35,21 @@ interface PriceChartProps {
   yesColor?: string;
   /** Accent colour for NO line */
   noColor?: string;
+}
+
+// ─── Fallback ─────────────────────────────────────────────────────────────────
+
+function ChartFallback({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-lg py-8 text-xs"
+      style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
+  );
 }
 
 // ─── X-axis tick formatter ────────────────────────────────────────────────────
@@ -115,6 +130,12 @@ export default function PriceChart({
   const [zoomRight, setZoomRight] = useState<number | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [domain,    setDomain]    = useState<[number, number] | null>(null);
+  const [tooSmall,  setTooSmall]  = useState(false);
+  const [renderError, setRenderError] = useState(false);
+
+  const handleResize = useCallback((w: number) => {
+    setTooSmall(w > 0 && w < 180);
+  }, []);
 
   // Resolve the selected time range to concrete timestamps
   const { from, to } = useMemo(() => resolveRange(timeRange), [timeRange]);
@@ -208,7 +229,14 @@ export default function PriceChart({
       </div>
 
       {/* Price chart */}
-      <ResponsiveContainer width="100%" height={200}>
+      {tooSmall ? (
+        <ChartFallback message="Chart area too small to display" />
+      ) : renderError ? (
+        <ChartFallback message="Unable to render price chart" />
+      ) : displayData.length === 0 ? (
+        <ChartFallback message="No price data available for the selected range" />
+      ) : (
+      <ResponsiveContainer width="100%" height={200} onResize={handleResize}>
         <ComposedChart
           data={displayData}
           margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -276,8 +304,10 @@ export default function PriceChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
+      )}
 
       {/* Volume chart */}
+      {!tooSmall && !renderError && (
       <ResponsiveContainer width="100%" height={64}>
         <ComposedChart
           data={displayData}
@@ -311,6 +341,7 @@ export default function PriceChart({
           />
         </ComposedChart>
       </ResponsiveContainer>
+      )}
 
       <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         Click and drag on the price chart to zoom · Reset zoom to return

@@ -10,18 +10,53 @@
 - [ ] Review test files for usage examples
 
 ### Environment Setup
-- [ ] Install Foundry (`curl -L https://foundry.paradigm.xyz | bash`)
-- [ ] Run `foundryup` to update Foundry
+- [ ] Install the pinned Foundry release (Forge `1.1.0`; CI uses `v1.1.0`)
 - [ ] Navigate to `GateDelay/Contracts` directory
 - [ ] Run `forge install` to install dependencies
 - [ ] Run `forge build` to compile contracts
 - [ ] Run `forge test` to verify tests pass
 
----
+### DeployRevokeFunction smoke gate
+
+Use `.env.example` as the variable contract. Copy it to a local, ignored
+environment file and supply `PRIVATE_KEY` and `RPC_URL`; never commit real
+credentials. The script reads `PRIVATE_KEY` from the environment and receives
+the RPC endpoint through `--rpc-url`.
+
+```bash
+forge build
+forge test --match-path 'test/RevokeFunction*.t.sol' -vv
+source .env.local
+forge script script/DeployRevokeFunction.s.sol:DeployRevokeFunction \
+    --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" --broadcast
+```
+
+After broadcasting, record the chain ID, transaction hashes, and both deployed
+addresses. Confirm each address has code with `cast code`, verify the example
+points at the recorded `RevokeFunction` address, and execute a testnet-only
+grant/revoke smoke action as the intended administrator. Do not use demo
+fallback addresses for a production deployment.
 
 ## Development Phase
 
 ### Contract Integration
+
+#### Deployment retry and rollback
+
+- [ ] Save a deployment manifest before changing integrations: network, chain
+    ID, script entry point, commit, deployer, transaction hashes, and addresses.
+- [ ] If the broadcast fails before transactions are mined, inspect the nonce
+    and receipt, then retry with the same signer only after confirming whether a
+    deployment was mined. Do not assume a rerun is idempotent; it creates new
+    contract addresses.
+- [ ] If only one contract or setup transaction succeeds, quarantine the
+    partial deployment, stop dependent traffic, and record its addresses. The
+    script has no upgrade or on-chain rollback operation.
+- [ ] To roll back operationally, restore integrations to the last known-good
+    manifest, revoke permissions granted to the abandoned deployment, and remove
+    its addresses from configuration. Retain receipts for incident review.
+- [ ] Rerun the script only with a fresh manifest, then repeat code, ownership,
+    permission, and grant/revoke smoke checks before traffic is restored.
 
 #### Step 1: Deploy RevokeFunction
 - [ ] Choose deployment method (local/testnet/mainnet)

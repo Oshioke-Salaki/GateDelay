@@ -2,15 +2,15 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/DisputeHandler.sol";
+import "../src/DisputeHandler.sol";
 
 contract DisputeHandlerTest is Test {
     DisputeHandler public handler;
 
-    address public admin = address(0xADMIN);
-    address public alice = address(0xALICE);
-    address public bob = address(0xBOB);
-    address public market = address(0xMARKET);
+    address public admin = address(0xAD0111);
+    address public alice = address(0xA11CE);
+    address public bob = address(0xB0B);
+    address public market = address(0xCAFE01);
 
     event DisputeSubmitted(
         uint256 indexed disputeId,
@@ -216,5 +216,82 @@ contract DisputeHandlerTest is Test {
 
         DisputeHandler.Evidence[] memory evidence = handler.getEvidence(disputeId);
         assertEq(evidence.length, evidenceCount + 1); // +1 for initial evidence
+    }
+
+    // -------------------------------------------------------------------------
+    // #966 – Dispute lifecycle: evidence, status flow, and resolution
+    // -------------------------------------------------------------------------
+
+    function test_evidenceLifecycle_multipleWitnessesOrderPreserved() public {
+        address carol = address(0xCA01);
+
+        vm.prank(alice);
+        uint256 disputeId = handler.submitDispute(market, "ipfs://e0");
+
+        vm.prank(bob);
+        handler.addEvidence(disputeId, "ipfs://e1");
+
+        vm.prank(carol);
+        handler.addEvidence(disputeId, "ipfs://e2");
+
+        DisputeHandler.Evidence[] memory ev = handler.getEvidence(disputeId);
+        assertEq(ev.length, 3);
+        assertEq(ev[0].submitter, alice);
+        assertEq(ev[1].submitter, bob);
+        assertEq(ev[2].submitter, carol);
+        assertEq(ev[0].evidenceURI, "ipfs://e0");
+        assertEq(ev[1].evidenceURI, "ipfs://e1");
+        assertEq(ev[2].evidenceURI, "ipfs://e2");
+    }
+
+    function test_evidenceLifecycle_allowedWhileUnderReview() public {
+        vm.prank(alice);
+        uint256 disputeId = handler.submitDispute(market, "ipfs://initial");
+
+        vm.prank(admin);
+        handler.updateStatus(disputeId, DisputeHandler.DisputeStatus.UNDER_REVIEW);
+
+        // Evidence must still be accepted when the dispute is under review
+        vm.prank(bob);
+        handler.addEvidence(disputeId, "ipfs://extra");
+
+        DisputeHandler.Evidence[] memory ev = handler.getEvidence(disputeId);
+        assertEq(ev.length, 2);
+        assertEq(ev[1].evidenceURI, "ipfs://extra");
+    }
+
+    function test_evidenceLifecycle_blockedAfterRejection() public {
+        vm.prank(alice);
+        uint256 disputeId = handler.submitDispute(market, "ipfs://initial");
+
+        vm.prank(admin);
+        handler.resolveDispute(disputeId, false); // rejected
+
+        vm.prank(bob);
+        vm.expectRevert(DisputeHandler.DisputeAlreadyResolved.selector);
+        handler.addEvidence(disputeId, "ipfs://late");
+    }
+
+    function test_disputeLifecycle_fullStatusFlow() public {
+        vm.prank(alice);
+        uint256 disputeId = handler.submitDispute(market, "ipfs://evidence");
+
+        // PENDING → UNDER_REVIEW
+        vm.prank(admin);
+        handler.updateStatus(disputeId, DisputeHandler.DisputeStatus.UNDER_REVIEW);
+        assertEq(
+            uint256(handler.getDisputeStatus(disputeId)),
+            uint256(DisputeHandler.DisputeStatus.UNDER_REVIEW)
+        );
+
+        // UNDER_REVIEW → RESOLVED (upheld)
+        vm.prank(admin);
+        handler.resolveDispute(disputeId, true);
+
+        DisputeHandler.Dispute memory dispute = handler.getDispute(disputeId);
+        assertEq(uint256(dispute.status), uint256(DisputeHandler.DisputeStatus.RESOLVED));
+        assertTrue(dispute.upheld);
+        assertEq(dispute.resolver, admin);
+        assertGt(dispute.resolvedAt, 0);
     }
 }

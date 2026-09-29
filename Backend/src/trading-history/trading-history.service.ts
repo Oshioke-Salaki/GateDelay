@@ -5,6 +5,7 @@ import {
   GetTradingHistoryDto,
   ExportTradingHistoryDto,
 } from './dto/trading-history.dto';
+import { buildPaginationMeta } from '../../utils/pagination';
 
 @Injectable()
 export class TradingHistoryService {
@@ -22,7 +23,9 @@ export class TradingHistoryService {
 
   getTradingHistory(userId: string, dto: GetTradingHistoryDto) {
     const limit = dto.limit ?? 20;
-    const offset = dto.offset ?? 0;
+    // `offset` still wins when explicitly provided so existing offset-based
+    // callers are unaffected; otherwise derive it from the 1-based `page` (#916).
+    const offset = dto.offset ?? ((dto.page ?? 1) - 1) * limit;
 
     let userTrades = [...this.trades.values()].filter(
       (t) => t.userId === userId,
@@ -69,11 +72,26 @@ export class TradingHistoryService {
     const total = userTrades.length;
     const paginated = userTrades.slice(offset, offset + limit);
 
+    // `total`/`offset`/`limit`/`data` are kept verbatim: the legacy trade
+    // history response is consumed directly by the frontend and by the export
+    // path below. `page`/`pages`/`meta` are additive (#916) so every list
+    // endpoint can be paged with the same shape.
+    const meta = buildPaginationMeta({
+      total,
+      count: paginated.length,
+      page: Math.floor(offset / Math.max(1, limit)) + 1,
+      limit,
+      offset,
+    });
+
     return {
       total,
       offset,
       limit,
       data: paginated,
+      page: meta.page,
+      pages: meta.totalPages,
+      meta,
     };
   }
 

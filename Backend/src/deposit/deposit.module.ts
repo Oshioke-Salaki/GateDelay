@@ -5,14 +5,14 @@ import { DepositService } from './deposit.service';
 import { DepositController } from './deposit.controller';
 import { DepositMonitorService } from './deposit-monitor.service';
 import { Deposit, DepositSchema } from './schemas/deposit.schema';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { NotificationModule } from '../notifications/notification.module';
 import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Deposit.name, schema: DepositSchema }]),
     ScheduleModule.forRoot(),
-    NotificationsModule,
+    NotificationModule,
     WalletModule,
   ],
   controllers: [DepositController],

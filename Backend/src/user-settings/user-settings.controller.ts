@@ -37,7 +37,10 @@ export class UserSettingsController {
     @Request() req: { user: { id: string } },
     @Param('category') category: string,
   ) {
-    return this.settingsService.getCategory(req.user.id, category as SettingCategory);
+    return this.settingsService.getCategory(
+      req.user.id,
+      category as SettingCategory,
+    );
   }
 
   @Get(':category/:key')
@@ -46,7 +49,11 @@ export class UserSettingsController {
     @Param('category') category: string,
     @Param('key') key: string,
   ) {
-    return this.settingsService.getSetting(req.user.id, category as SettingCategory, key);
+    return this.settingsService.getSetting(
+      req.user.id,
+      category as SettingCategory,
+      key,
+    );
   }
 
   @Put(':category/:key')
@@ -55,14 +62,21 @@ export class UserSettingsController {
     @Param('category') category: string,
     @Body() dto: UpdateSettingDto,
   ) {
-    return this.settingsService.updateSetting(req.user.id, category as SettingCategory, dto);
+    return this.settingsService.updateSetting(
+      req.user.id,
+      category as SettingCategory,
+      dto,
+    );
   }
 
   @Put(':category')
   updateCategory(
     @Request() req: { user: { id: string } },
     @Param('category') category: string,
-    @Body() dto: Omit<UpdateCategoryDto, 'category'> & { settings: Record<string, string | number | boolean> },
+    @Body()
+    dto: Omit<UpdateCategoryDto, 'category'> & {
+      settings: Record<string, string | number | boolean>;
+    },
   ) {
     return this.settingsService.updateCategory(req.user.id, {
       category: category as SettingCategory,
@@ -86,7 +100,11 @@ export class UserSettingsController {
     @Param('category') category: string,
     @Param('key') key: string,
   ) {
-    return this.settingsService.deleteSetting(req.user.id, category as SettingCategory, key);
+    return this.settingsService.deleteSetting(
+      req.user.id,
+      category as SettingCategory,
+      key,
+    );
   }
 
   @Post(':category/reset')
@@ -95,7 +113,10 @@ export class UserSettingsController {
     @Request() req: { user: { id: string } },
     @Param('category') category: string,
   ) {
-    return this.settingsService.resetCategory(req.user.id, category as SettingCategory);
+    return this.settingsService.resetCategory(
+      req.user.id,
+      category as SettingCategory,
+    );
   }
 
   @Post('reset')
@@ -106,10 +127,7 @@ export class UserSettingsController {
 
   @Post('sync')
   @HttpCode(HttpStatus.OK)
-  sync(
-    @Request() req: { user: { id: string } },
-    @Body() dto: SyncSettingsDto,
-  ) {
+  sync(@Request() req: { user: { id: string } }, @Body() dto: SyncSettingsDto) {
     return this.settingsService.sync(req.user.id, dto);
   }
 }

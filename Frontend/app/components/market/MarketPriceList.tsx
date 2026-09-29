@@ -1,6 +1,7 @@
 "use client";
 
 import { usePriceUpdates } from "@/hooks/usePriceUpdates";
+import { useWebSocketContext } from "@/app/components/WebSocketProvider";
 import PriceDisplay from "./PriceDisplay";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ interface MarketPriceListProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketPriceList({ markets, onMarketClick }: MarketPriceListProps) {
+    const websocket = useWebSocketContext();
     const marketIds = markets.map((m) => m.id);
     const { prices, isLoading, isConnected, connectionStatus } = usePriceUpdates({
         marketIds,
@@ -38,13 +40,26 @@ export default function MarketPriceList({ markets, onMarketClick }: MarketPriceL
         const config = statusConfig[connectionStatus];
 
         return (
-            <div className="flex items-center space-x-2 mb-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3" aria-live="polite">
                 <div className="flex items-center space-x-1">
                     <div className={`w-2 h-2 rounded-full ${config.color} ${config.pulse ? "animate-pulse" : ""}`} />
                     <span className="text-sm text-gray-600">{config.text}</span>
                 </div>
                 {connectionStatus === "error" && (
-                    <span className="text-xs text-gray-500">(Using fallback mode)</span>
+                    <span className="text-xs text-gray-500">
+                        {websocket.error?.message || "Using fallback mode"}
+                    </span>
+                )}
+                {connectionStatus !== "connected" && (
+                    <button
+                        type="button"
+                        onClick={websocket.connect}
+                        disabled={connectionStatus === "connecting"}
+                        className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Retry price feed connection"
+                    >
+                        {connectionStatus === "connecting" ? "Retrying..." : "Retry"}
+                    </button>
                 )}
             </div>
         );

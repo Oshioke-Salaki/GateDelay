@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Search, Compass, Star } from "lucide-react";
+import StatusBadge, { MarketStatus } from "@/components/market/StatusBadge";
+import { useToast } from "@/hooks/useToast";
 
 interface FavoritedMarket {
   id: string;
@@ -12,11 +14,11 @@ interface FavoritedMarket {
   noPrice: number;
   volume: number;
   liquidity: number;
-  status: "open" | "closed" | "resolved" | "disputed";
+  status: MarketStatus;
 }
 
 export default function FavoritesPage() {
-  const router = useRouter();
+  const { success } = useToast();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [markets, setMarkets] = useState<FavoritedMarket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,17 +46,18 @@ export default function FavoritesPage() {
       noPrice: 0.5 - Math.random() * 0.3,
       volume: Math.floor(Math.random() * 50000) + 10000,
       liquidity: Math.floor(Math.random() * 100000) + 50000,
-      status: (["open", "closed", "resolved", "disputed"] as const)[index % 4],
+      status: (["open", "paused", "resolved", "cancelled"] as const)[index % 4],
     }));
 
     setMarkets(mockMarkets);
   }, [favorites]);
 
-  const handleRemoveFavorite = (marketId: string) => {
+  const handleRemoveFavorite = useCallback((marketId: string) => {
     const updated = favorites.filter((id) => id !== marketId);
     localStorage.setItem("market_favorites", JSON.stringify(updated));
     setFavorites(updated);
-  };
+    success("Removed from favorites", undefined, { duration: 2500 });
+  }, [favorites, success]);
 
   if (isLoading) {
     return (
@@ -88,23 +91,31 @@ export default function FavoritesPage() {
             className="rounded-xl p-12 text-center"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
-            <div className="text-4xl mb-4">⭐</div>
+            <Star size={30} aria-hidden="true" className="mx-auto mb-4" style={{ color: "#d49a18" }} />
             <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--foreground)" }}>
-              No Favorites Yet
+              Your watchlist is empty
             </h2>
-            <p className="mb-6" style={{ color: "var(--muted)" }}>
-              Start favoriting markets to keep track of your favorite trading opportunities.
+            <p className="mx-auto mb-6 max-w-lg" style={{ color: "var(--muted)" }}>
+              Save markets here to follow their odds and activity. Browse open markets, then select the star on any market to add it to your favorites.
             </p>
-            <Link
-              href="/markets"
-              className="inline-block px-6 py-2 rounded-lg font-semibold transition-all"
-              style={{
-                background: "#3b82f6",
-                color: "white",
-              }}
-            >
-              Browse Markets
-            </Link>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 font-semibold transition-opacity hover:opacity-90"
+                style={{ background: "#2563eb", color: "white" }}
+              >
+                <Compass size={16} aria-hidden="true" />
+                Browse markets
+              </Link>
+              <Link
+                href="/markets/search"
+                className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 font-semibold transition-colors hover:bg-black/5"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+              >
+                <Search size={16} aria-hidden="true" />
+                Search markets
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -144,31 +155,7 @@ export default function FavoritesPage() {
                   </p>
 
                   {/* Status Badge */}
-                  <div>
-                    <span
-                      className="inline-block px-2 py-1 rounded text-xs font-semibold"
-                      style={{
-                        background:
-                          market.status === "open"
-                            ? "#22c55e18"
-                            : market.status === "closed"
-                              ? "#f59e0b18"
-                              : market.status === "resolved"
-                                ? "#6366f118"
-                                : "#ef444418",
-                        color:
-                          market.status === "open"
-                            ? "#22c55e"
-                            : market.status === "closed"
-                              ? "#f59e0b"
-                              : market.status === "resolved"
-                                ? "#6366f1"
-                                : "#ef4444",
-                      }}
-                    >
-                      {market.status.charAt(0).toUpperCase() + market.status.slice(1)}
-                    </span>
-                  </div>
+                  <StatusBadge status={market.status} />
 
                   {/* Prices */}
                   <div className="flex gap-2">

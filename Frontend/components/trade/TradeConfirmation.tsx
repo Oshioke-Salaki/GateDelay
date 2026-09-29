@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 interface TradeConfirmationProps {
     isOpen: boolean;
@@ -19,8 +21,23 @@ export default function TradeConfirmation({
     onClose,
     onConfirm,
 }: TradeConfirmationProps) {
-    const shares = amount > 0 ? (amount / price).toFixed(2) : "—";
+    const panelRef = useRef<HTMLDivElement>(null);
+    useFocusTrap(panelRef, isOpen);
+
+    // Escape to close
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } };
+        document.addEventListener("keydown", handler, true);
+        return () => document.removeEventListener("keydown", handler, true);
+    }, [isOpen, onClose]);
+
+    const shares = amount > 0 ? (amount / price).toFixed(2) : "--";
     const totalCost = amount.toFixed(2);
+    const platformFee = amount * 0.0025;
+    const estimatedCost = amount + platformFee;
+    const slippageTolerance = 0.5;
+    const minShares = amount > 0 ? ((amount / price) * (1 - slippageTolerance / 100)).toFixed(2) : "0.00";
     const gasCostEth = 0.0018;
     const gasCostUsd = (gasCostEth * 1700).toFixed(2);
     const isLargeTrade = amount >= 1500;
@@ -41,6 +58,7 @@ export default function TradeConfirmation({
                     />
 
                     <motion.div
+                        ref={panelRef}
                         key="modal"
                         role="dialog"
                         aria-modal="true"
@@ -65,7 +83,7 @@ export default function TradeConfirmation({
                                     Review your order
                                 </h2>
                                 <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-                                    This confirmation prevents accidental trades and gives you one last chance to review details.
+                                    Review the estimated cost, fees, slippage, and wallet signature step before submitting.
                                 </p>
                             </div>
                             <button
@@ -99,6 +117,18 @@ export default function TradeConfirmation({
                                 </div>
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                                        Platform fee
+                                    </span>
+                                    <span className="font-semibold">{platformFee.toFixed(2)} USDC</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                                        Estimated total
+                                    </span>
+                                    <span className="font-semibold">{estimatedCost.toFixed(2)} USDC</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
                                         Price per share
                                     </span>
                                     <span className="font-semibold">{price.toFixed(2)} USDC</span>
@@ -108,6 +138,20 @@ export default function TradeConfirmation({
                                         Estimated shares
                                     </span>
                                     <span className="font-semibold">{shares}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                                        Slippage tolerance
+                                    </span>
+                                    <span className="font-semibold">{slippageTolerance.toFixed(1)}%</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-medium" style={{ color: "var(--muted)" }}>
+                                        Expected outcome
+                                    </span>
+                                    <span className="font-semibold text-right">
+                                        Receive about {shares} {side} shares, minimum {minShares}
+                                    </span>
                                 </div>
                                 <div className="flex items-center justify-between rounded-2xl border-t pt-3" style={{ borderColor: "var(--border)" }}>
                                     <div>
@@ -120,10 +164,19 @@ export default function TradeConfirmation({
                                     </div>
                                     <div className="text-right">
                                         <p className="font-semibold">{gasCostEth.toFixed(4)} ETH</p>
-                                        <p className="text-xs" style={{ color: "var(--muted)" }}>≈ ${gasCostUsd}</p>
+                                        <p className="text-xs" style={{ color: "var(--muted)" }}>~ ${gasCostUsd}</p>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="mt-5 rounded-3xl border p-4 text-sm" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
+                            <p className="font-semibold">Wallet signature progress</p>
+                            <ol className="mt-3 space-y-2" style={{ color: "var(--muted)" }}>
+                                <li>1. Submit this reviewed order.</li>
+                                <li>2. Confirm the signature request in your wallet.</li>
+                                <li>3. Wait for network confirmation before the trade is final.</li>
+                            </ol>
                         </div>
 
                         <div className="mt-5 rounded-3xl border border-amber-300/50 bg-amber-50 p-4 text-sm" style={{ borderColor: "#fde68a" }}>

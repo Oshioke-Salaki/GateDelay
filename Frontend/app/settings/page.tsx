@@ -13,6 +13,13 @@ import {
 } from "@/app/components/settings/SettingsInputs";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
 import { settingsValidation } from "@/lib/settings";
+import {
+  getNotificationAuthToken,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type NotificationEventType,
+  type NotificationPreferences as ApiNotificationPreferences,
+} from "@/lib/notificationPreferences";
 
 // ─── Settings Page ────────────────────────────────────────────────────────────
 
@@ -22,6 +29,41 @@ function SettingsPageContent() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<"appearance" | "notifications" | "trading" | "privacy" | "display">("appearance");
   const [slippageError, setSlippageError] = useState<string>("");
+  const [notificationPreferences, setNotificationPreferences] = useState<ApiNotificationPreferences | null>(null);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationSaving, setNotificationSaving] = useState(false);
+  const [notificationError, setNotificationError] = useState<string | null>(null);
+  const [notificationReload, setNotificationReload] = useState(0);
+
+  useEffect(() => {
+    if (activeTab !== "notifications" || notificationPreferences || notificationLoading || notificationError) return;
+
+    const token = getNotificationAuthToken();
+    if (!token) {
+      setNotificationError("Sign in to load and update notification preferences.");
+      return;
+    }
+
+    let active = true;
+    setNotificationLoading(true);
+    setNotificationError(null);
+    getNotificationPreferences(token)
+      .then((preferences) => {
+        if (active) setNotificationPreferences(preferences);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setNotificationError(error instanceof Error ? error.message : "Could not load notification preferences.");
+        }
+      })
+      .finally(() => {
+        if (active) setNotificationLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeTab, notificationLoading, notificationPreferences, notificationReload]);
 
   // Apply theme changes immediately
   useEffect(() => {
@@ -59,12 +101,31 @@ function SettingsPageContent() {
     }
   };
 
-  const handleNotificationToggle = (key: keyof typeof settings.notifications, value: boolean) => {
-    updateNestedSetting("notifications", { [key]: value });
-    toast.success(
-      "Notification Updated",
-      `${key} notifications ${value ? "enabled" : "disabled"}`
-    );
+  const saveNotificationPreferences = async (updates: Partial<ApiNotificationPreferences>) => {
+    const token = getNotificationAuthToken();
+    if (!token || !notificationPreferences || notificationSaving) return;
+
+    setNotificationSaving(true);
+    setNotificationError(null);
+    try {
+      const updated = await updateNotificationPreferences(token, updates);
+      setNotificationPreferences(updated);
+      toast.success("Notification preferences saved", "Your choices were updated.");
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : "Could not save notification preferences.");
+    } finally {
+      setNotificationSaving(false);
+    }
+  };
+
+  const handleNotificationTypeToggle = (types: NotificationEventType[], enabled: boolean) => {
+    if (!notificationPreferences) return;
+    const disabledTypes = new Set(notificationPreferences.optedOutTypes);
+    for (const type of types) {
+      if (enabled) disabledTypes.delete(type);
+      else disabledTypes.add(type);
+    }
+    void saveNotificationPreferences({ optedOutTypes: [...disabledTypes] });
   };
 
   const handleTradingToggle = (key: keyof typeof settings.trading, value: boolean) => {
@@ -263,68 +324,59 @@ function SettingsPageContent() {
         {activeTab === "notifications" && (
           <SettingsSection
             title="Notifications"
-            description="Manage how you receive updates and alerts"
+            description="Choose which account events reach each notification channel"
             icon="🔔"
           >
-            <SettingsRow
-              label="Email Notifications"
-              description="Receive notifications via email"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.email}
-                onChange={(value) => handleNotificationToggle("email", value)}
-              />
-            </SettingsRow>
-
-            <SettingsRow
-              label="Push Notifications"
-              description="Receive push notifications in your browser"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.push}
-                onChange={(value) => handleNotificationToggle("push", value)}
-              />
-            </SettingsRow>
-
-            <SettingsRow
-              label="Price Alerts"
-              description="Get notified when prices reach your targets"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.priceAlerts}
-                onChange={(value) => handleNotificationToggle("priceAlerts", value)}
-              />
-            </SettingsRow>
-
-            <SettingsRow
-              label="Market Updates"
-              description="Receive updates about market changes"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.marketUpdates}
-                onChange={(value) => handleNotificationToggle("marketUpdates", value)}
-              />
-            </SettingsRow>
-
-            <SettingsRow
-              label="Trade Confirmations"
-              description="Get notified when your trades are executed"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.tradeConfirmations}
-                onChange={(value) => handleNotificationToggle("tradeConfirmations", value)}
-              />
-            </SettingsRow>
-
-            <SettingsRow
-              label="Newsletter"
-              description="Receive our weekly newsletter"
-            >
-              <ToggleSwitch
-                checked={settings.notifications.newsletter}
-                onChange={(value) => handleNotificationToggle("newsletter", value)}
-              />
-            </SettingsRow>
+            {notificationLoading ? (
+              <p className="py-5 text-sm text-gray-500" role="status">Loading notification preferences…</p>
+            ) : notificationError && !notificationPreferences ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+                <span>{notificationError}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotificationError(null);
+                    setNotificationReload((count) => count + 1);
+                  }}
+                  className="rounded-md border border-red-300 px-3 py-1.5 font-medium hover:bg-red-100"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : notificationPreferences ? (
+              <>
+                {notificationError && (
+                  <p className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert">
+                    {notificationError}
+                  </p>
+                )}
+                {notificationSaving && (
+                  <p className="mb-2 text-xs text-blue-700" role="status">Saving preferences…</p>
+                )}
+                <SettingsRow label="Email" description="Receive enabled event alerts by email">
+                  <ToggleSwitch checked={notificationPreferences.email} disabled={notificationSaving} aria-label="Email notifications" onChange={(value) => void saveNotificationPreferences({ email: value })} />
+                </SettingsRow>
+                <SettingsRow label="Push" description="Receive enabled event alerts as push notifications">
+                  <ToggleSwitch checked={notificationPreferences.push} disabled={notificationSaving} aria-label="Push notifications" onChange={(value) => void saveNotificationPreferences({ push: value })} />
+                </SettingsRow>
+                <SettingsRow label="In-app" description="Show enabled event alerts in your notification inbox">
+                  <ToggleSwitch checked={notificationPreferences.inApp} disabled={notificationSaving} aria-label="In-app notifications" onChange={(value) => void saveNotificationPreferences({ inApp: value })} />
+                </SettingsRow>
+                <div className="my-3 border-t border-gray-200" />
+                <SettingsRow label="Trade activity" description="Trade confirmations and filled orders">
+                  <ToggleSwitch checked={!notificationPreferences.optedOutTypes.includes("trade_confirmation") && !notificationPreferences.optedOutTypes.includes("trade_filled")} disabled={notificationSaving} aria-label="Trade notifications" onChange={(value) => handleNotificationTypeToggle(["trade_confirmation", "trade_filled"], value)} />
+                </SettingsRow>
+                <SettingsRow label="Disputes" description="When a dispute is opened on a market">
+                  <ToggleSwitch checked={!notificationPreferences.optedOutTypes.includes("dispute_opened")} disabled={notificationSaving} aria-label="Dispute notifications" onChange={(value) => handleNotificationTypeToggle(["dispute_opened"], value)} />
+                </SettingsRow>
+                <SettingsRow label="Market resolutions" description="When a market outcome is finalized">
+                  <ToggleSwitch checked={!notificationPreferences.optedOutTypes.includes("market_resolved")} disabled={notificationSaving} aria-label="Market resolution notifications" onChange={(value) => handleNotificationTypeToggle(["market_resolved"], value)} />
+                </SettingsRow>
+                <SettingsRow label="Security alerts" description="Important account and security notices">
+                  <ToggleSwitch checked={!notificationPreferences.optedOutTypes.includes("system")} disabled={notificationSaving} aria-label="Security notifications" onChange={(value) => handleNotificationTypeToggle(["system"], value)} />
+                </SettingsRow>
+              </>
+            ) : null}
           </SettingsSection>
         )}
 
@@ -356,6 +408,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.trading.confirmTransactions}
+                aria-label="Toggle transaction confirmations"
                 onChange={(value) => handleTradingToggle("confirmTransactions", value)}
               />
             </SettingsRow>
@@ -366,6 +419,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.trading.showAdvancedOptions}
+                aria-label="Toggle advanced trading options"
                 onChange={(value) => handleTradingToggle("showAdvancedOptions", value)}
               />
             </SettingsRow>
@@ -376,6 +430,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.trading.autoApprove}
+                aria-label="Toggle auto-approve transactions"
                 onChange={(value) => handleTradingToggle("autoApprove", value)}
               />
             </SettingsRow>
@@ -410,6 +465,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.privacy.showProfile}
+                aria-label="Toggle public profile visibility"
                 onChange={(value) => handlePrivacyToggle("showProfile", value)}
               />
             </SettingsRow>
@@ -420,6 +476,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.privacy.showPortfolio}
+                aria-label="Toggle public portfolio visibility"
                 onChange={(value) => handlePrivacyToggle("showPortfolio", value)}
               />
             </SettingsRow>
@@ -430,6 +487,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.privacy.showActivity}
+                aria-label="Toggle public trading activity"
                 onChange={(value) => handlePrivacyToggle("showActivity", value)}
               />
             </SettingsRow>
@@ -440,6 +498,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.privacy.analyticsEnabled}
+                aria-label="Toggle anonymous analytics"
                 onChange={(value) => handlePrivacyToggle("analyticsEnabled", value)}
               />
             </SettingsRow>
@@ -459,6 +518,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.display.compactMode}
+                aria-label="Toggle compact mode"
                 onChange={(value) => handleDisplayToggle("compactMode", value)}
               />
             </SettingsRow>
@@ -469,6 +529,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.display.showBalances}
+                aria-label="Toggle balance visibility"
                 onChange={(value) => handleDisplayToggle("showBalances", value)}
               />
             </SettingsRow>
@@ -479,6 +540,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.display.animationsEnabled}
+                aria-label="Toggle animations"
                 onChange={(value) => handleDisplayToggle("animationsEnabled", value)}
               />
             </SettingsRow>
@@ -489,6 +551,7 @@ function SettingsPageContent() {
             >
               <ToggleSwitch
                 checked={settings.display.soundEnabled}
+                aria-label="Toggle sound effects"
                 onChange={(value) => handleDisplayToggle("soundEnabled", value)}
               />
             </SettingsRow>

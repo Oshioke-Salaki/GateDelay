@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/CollateralVault.sol";
+import "../src/CollateralVault.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @dev Minimal ERC20 for testing
@@ -19,7 +19,7 @@ contract CollateralVaultTest is Test {
 
     address internal alice     = address(0xA11CE);
     address internal bob       = address(0xB0B);
-    address internal liquidator = address(0xL1Q);
+    address internal liquidator = address(0x1100);
     address internal market    = address(0xDEAD);
     address internal market2   = address(0xBEEF);
 

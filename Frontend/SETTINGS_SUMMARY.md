@@ -1,73 +1,69 @@
 # Settings System Implementation Summary
 
+## Resolution status
+
+This file is the status document for the Frontend settings system. It describes
+what is **actually wired in the app today**, not a planned backend or
+multi-device design. Use it when `/settings` looks empty, a preference does not
+stick, or you need to know how settings sit inside the Next.js app shell.
+
+| Area | Status | What the code does |
+|---|---|---|
+| Client settings store | **Resolved** | `lib/settings.ts` singleton; localStorage key `gate_delay_user_settings`; merge with `DEFAULT_SETTINGS` |
+| React hooks | **Resolved** | `hooks/useSettings.ts` — `useSettings`, `useSettingCategory`, `useSetting` |
+| Settings page | **Resolved** | `/settings` → `app/settings/page.tsx` (five tabs + export/import/reset) |
+| Theme application | **Resolved** | `app/components/ThemeProvider.tsx` reads/writes `settings.theme` and applies `dark` on `<html>` |
+| App-shell chrome | **Resolved** | `app/layout.tsx` mounts `PageErrorBoundary` → `ThemeProvider` → `ToastProvider` → wallet/nav; `/settings` does **not** remount the navbar or Connect Wallet |
+| Navbar entry | **Resolved** | `components/layout/Navigation.tsx` `NAV_LINKS` includes `{ href: "/settings", label: "Settings" }` |
+| Validation | **Resolved** | Slippage `0.1`–`50`, language, and currency checks in `settingsValidation` |
+| Failure UX | **Resolved** | Page render errors → `PageErrorBoundary` (message + stack in development). Failed import → `toast.error`. localStorage load/save errors → `console.error` and **defaults**, so the page still renders |
+| Backend / multi-device sync | **Not implemented** | `lib/settings.ts` has no `fetch`, no `NEXT_PUBLIC_*` URL, and no sync method. Toggles are local only |
+| Notification / analytics delivery | **Not implemented** | Notification and analytics switches persist locally; they do not call a mailer or analytics backend |
+| Automated coverage | **Partial** | Vitest covers the store happy path and the `/settings` first paint. There is no 100% suite |
+
+**Issue #704 / contributor friction:** you do not need extra env vars for
+settings. Copy `.env.example` → `.env.local` only for API/wallet features
+(`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_BACKEND_URL`, optional Particle keys).
+Settings never hardcode `localhost`. If the page is white, open the console and
+the on-page error boundary — do not assume the route is still loading.
+
 ## ✅ Implementation Complete
 
-A comprehensive settings system has been successfully implemented for the GateDelay Frontend application with organized categories, validation, persistence, and immediate application.
+A comprehensive settings system has been implemented for the GateDelay Frontend application with organized categories, validation, local persistence, and immediate application. Persistence is **browser localStorage only**.
 
 ## 📁 Files Created
 
-### Core System (3 files)
-1. **`lib/settings.ts`** (350 lines)
-   - Settings types and interfaces
-   - Settings service with singleton pattern
-   - LocalStorage persistence
-   - Backend sync ready
-   - Import/export functionality
-   - Validation rules
-   - Change notification system
+### Core System
+1. **`lib/settings.ts`**
+   - `UserSettings` / `DEFAULT_SETTINGS`
+   - Singleton `settingsService` (localStorage key `gate_delay_user_settings`)
+   - Import/export JSON, reset, subscribe
+   - `settingsValidation` (slippage, language, currency)
+   - No network calls
 
-2. **`hooks/useSettings.ts`** (80 lines)
-   - `useSettings` hook for all settings
-   - `useSettingCategory` hook for specific categories
-   - `useSetting` hook for individual settings
-   - Automatic subscription management
+2. **`hooks/useSettings.ts`**
+   - `useSettings` — all settings
+   - `useSettingCategory` — one category
+   - `useSetting` — one top-level key
+   - Subscribe/unsubscribe on mount/unmount
 
-### UI Components (3 files)
-3. **`app/components/settings/SettingsSection.tsx`** (50 lines)
-   - `SettingsSection` container component
-   - `SettingsRow` individual setting row
-   - Consistent layout and styling
+### UI Components
+3. **`app/components/settings/SettingsSection.tsx`** — `SettingsSection` + `SettingsRow`
+4. **`app/components/settings/SettingsInputs.tsx`** — `ToggleSwitch`, `SelectInput`, `NumberInput`, `RadioGroup`, `TextInput`, `RangeSlider`
+5. **`app/settings/page.tsx`** — `/settings` tabs, toasts, validation, export/import/reset, wrapped in `PageErrorBoundary`
 
-4. **`app/components/settings/SettingsInputs.tsx`** (200 lines)
-   - `ToggleSwitch` - Boolean settings
-   - `SelectInput` - Dropdown selections
-   - `NumberInput` - Numeric inputs with validation
-   - `RadioGroup` - Radio button groups
-   - `TextInput` - Text inputs
-   - `RangeSlider` - Slider inputs
+### App shell (not owned by this page)
+6. **`app/layout.tsx`** — error boundary, theme, toasts, wallet wrapper, navbar
+7. **`app/components/ThemeProvider.tsx`** — applies `settings.theme`
+8. **`components/layout/Navigation.tsx`** — Settings nav item
 
-5. **`app/settings/page.tsx`** (500 lines)
-   - Main settings page with tabbed interface
-   - 5 organized categories
-   - Immediate feedback with toasts
-   - Validation and error handling
-   - Export/import functionality
-   - Reset functionality
+### Related (separate widget)
+9. **`components/settings/TradeSettings.tsx`** — standalone trade-form widget with its own local state. It does **not** read `settingsService`.
 
-### Updated Files (1 file)
-6. **`app/components/ThemeProvider.tsx`** (Updated)
-   - Integrated with settings service
-   - Supports system theme preference
-   - Automatic theme application
-
-### Documentation (3 files)
-7. **`SETTINGS_DOCUMENTATION.md`** (600+ lines)
-   - Complete technical documentation
-   - Architecture overview
-   - Usage examples
-   - API reference
-   - Best practices
-
-8. **`SETTINGS_QUICKSTART.md`** (300+ lines)
-   - Quick start guide
-   - Common use cases
-   - Code examples
-   - Testing checklist
-
-9. **`SETTINGS_SUMMARY.md`** (This file)
-   - Implementation summary
-   - Feature checklist
-   - Integration status
+### Documentation
+10. **`SETTINGS_DOCUMENTATION.md`** — architecture and API
+11. **`SETTINGS_QUICKSTART.md`** — hook usage examples
+12. **`SETTINGS_SUMMARY.md`** (this file) — resolution status and app-shell map
 
 ## 🎯 Features Implemented
 
@@ -79,10 +75,10 @@ A comprehensive settings system has been successfully implemented for the GateDe
 - [x] Display (Compact Mode, Balances, Animations, Sound)
 
 ### ✅ Persistence
-- [x] LocalStorage persistence
+- [x] LocalStorage persistence (`gate_delay_user_settings`)
 - [x] Automatic save on change
 - [x] Merge with defaults for new settings
-- [x] Backend sync ready (API endpoints to implement)
+- [ ] Backend sync — **not in the codebase** (do not look for `syncWithBackend` or a settings API)
 - [x] Import/export functionality
 
 ### ✅ Validation
@@ -202,28 +198,33 @@ setTheme("dark");
 
 ## 🧪 Testing
 
-### Manual Testing Checklist
-- [x] Visit `/settings` page
-- [x] Test all tabs (Appearance, Notifications, Trading, Privacy, Display)
-- [x] Change theme - verify immediate application
-- [x] Toggle notifications - verify toast feedback
-- [x] Change slippage - verify validation
-- [x] Test invalid slippage - verify error message
-- [x] Export settings - verify download
-- [x] Import settings - verify restoration
-- [x] Reset settings - verify defaults restored
-- [x] Reload page - verify settings persist
-- [x] Test all input types (toggle, select, number, radio)
+### Automated (Vitest)
 
-### Test Scenarios
-1. ✅ Theme changes apply immediately
-2. ✅ Settings persist across page reloads
-3. ✅ Validation prevents invalid values
-4. ✅ Toast notifications provide feedback
-5. ✅ Export creates valid JSON file
-6. ✅ Import restores settings correctly
-7. ✅ Reset restores all defaults
-8. ✅ All input types work correctly
+```bash
+cd Frontend
+npm test -- lib/settings.test.ts app/settings/page.test.tsx
+```
+
+- `lib/settings.test.ts` — defaults, update + persist, invalid import, validation
+- `app/settings/page.test.tsx` — first paint shows heading + tabs (not a blank screen)
+
+### Manual checklist (happy path + first load)
+
+1. `cd Frontend && cp -n .env.example .env.local && npm install && npm run dev`
+2. Open http://localhost:3000 — navbar and **Connect Wallet** render on first load (wallet signs only if Particle keys are set; no-op ConnectKit is expected otherwise)
+3. Click **Settings** (or open `/settings`) — heading and five tabs render; console has no settings-related errors
+4. Change theme — `<html>` gets/loses `dark` immediately; reload keeps the choice (`Application` → Local Storage → `gate_delay_user_settings`)
+5. Trading tab — invalid slippage stays unsaved and shows the row error
+6. Import a broken JSON file — toast **Import Failed**, page does not go blank
+7. Force a render error only in development if you are testing the boundary — you should see the error message, not a white page
+
+### Test scenarios (implemented behavior)
+1. Theme changes apply immediately via `settingsService` + `ThemeProvider`
+2. Settings persist across reloads in localStorage
+3. Validation blocks invalid slippage / language / currency values
+4. Toasts confirm successful changes; import failures use `toast.error`
+5. Export downloads JSON; import merges onto defaults
+6. Reset restores `DEFAULT_SETTINGS`
 
 ## 🎯 Acceptance Criteria Met
 
@@ -237,7 +238,7 @@ All acceptance criteria from the issue have been met:
 - ✅ **Changes are saved and persist**
   - Automatic LocalStorage persistence
   - Settings survive page reloads
-  - Backend sync ready for multi-device support
+  - Backend / multi-device sync is **not** implemented
 
 - ✅ **Validation prevents invalid settings**
   - Real-time validation for numeric inputs
@@ -251,49 +252,81 @@ All acceptance criteria from the issue have been met:
 
 ## 🔌 Integration Status
 
-### ✅ Integrated
-- [x] Settings service
-- [x] Settings hooks
-- [x] Settings UI components
-- [x] Settings page
+### ✅ Integrated (verify these in the repo)
+- [x] Settings service (`lib/settings.ts`)
+- [x] Settings hooks (`hooks/useSettings.ts`)
+- [x] Settings UI (`app/components/settings/*`, `app/settings/page.tsx`)
 - [x] Theme provider integration
 - [x] LocalStorage persistence
 - [x] Validation system
 - [x] Import/export functionality
+- [x] App-shell error boundary + toasts
+- [x] Navbar **Settings** link
 
-### 📝 Ready for Integration
-- [ ] Backend API endpoints
+### 📝 Not implemented
+- [ ] Backend API endpoints for user settings
 - [ ] Multi-device sync
 - [ ] User authentication integration
-- [ ] Analytics integration
-- [ ] Notification system integration
+- [ ] Analytics / notification **delivery** (toggles only)
+
+## App shell map
+
+`Frontend/SETTINGS_SUMMARY.md` is the contributor map for how `/settings`
+uses chrome that already exists in `app/layout.tsx`. The page is only the
+`<main>` content.
+
+| Shell piece | Role on `/settings` |
+|---|---|
+| `PageErrorBoundary` | Catches a render throw so one bad settings state does not blank the app |
+| `ThemeProvider` | Applies `settings.theme` on first load and on every update |
+| `ToastProvider` | Success/error toasts from the settings page |
+| `ParticleClientWrapper` | Connect Wallet on first paint (no-op if Particle env is unset) |
+| `Navbar` | Markets, Wallet, Settings, Connect Wallet — same on every route |
+| `QueryProvider` / WebSocket | Used by other routes; settings does not subscribe to prices |
+
+Wallet connect and navigation are layout concerns. If they fail on first load,
+debug `app/layout.tsx` and `components/layout/Navigation.tsx`, not the settings
+store.
+
+## Contributor quick start
+
+```bash
+cd Frontend
+cp -n .env.example .env.local   # optional for settings; needed for API/wallet
+npm install
+npm run dev                     # http://localhost:3000/settings
+```
+
+Settings need **no** extra `VITE_*` or settings-specific env keys. Do not add
+`localhost:4000` inside `lib/settings.ts`.
+
+### Troubleshooting (instead of a blank screen)
+
+| Symptom | What to check |
+|---|---|
+| White page on `/settings` | DevTools console + on-page error boundary (stack in development). Confirm `PageErrorBoundary` is still wrapping `SettingsPageContent`. |
+| Settings reset after reload | Application → Local Storage → `gate_delay_user_settings`. If missing, storage may be blocked; the service logs `Failed to save settings to localStorage` and keeps in-memory defaults. |
+| Theme does not change | Confirm `ThemeProvider` is an ancestor (it is in `app/layout.tsx`) and that you changed `theme` via `updateSettings` / the Appearance tab. |
+| Connect Wallet or nav missing | Those render from the shell, not this page. Open `/` first; if chrome is missing there too, the layout/wallet wrapper failed — see `Frontend/README.md` (app shell). |
+| “Backend sync failed” | There is no settings sync. A 4000-port error is some other feature (`NEXT_PUBLIC_API_URL` / WebSocket), not this store. |
 
 ## 📚 Documentation
 
+- **Resolution status (this file)**: `SETTINGS_SUMMARY.md`
 - **Quick Start**: `SETTINGS_QUICKSTART.md`
 - **Full Documentation**: `SETTINGS_DOCUMENTATION.md`
+- **App shell**: `Frontend/README.md` (section “Settings (`/settings`) and SETTINGS_SUMMARY.md”)
 - **Settings Page**: `/settings`
 
-## 🔄 Next Steps
+## 🔄 Next Steps (not part of the current resolution)
 
-### Immediate
-1. Test settings page thoroughly
-2. Verify all settings work correctly
-3. Test persistence across page reloads
-4. Test validation for all inputs
+These are **future** work. They are listed so contributors do not assume they
+already exist:
 
-### Short Term
-1. Implement backend API endpoints
-2. Add user authentication integration
-3. Implement notification system
-4. Add analytics tracking
-
-### Long Term
-1. Multi-device sync
-2. Setting profiles/presets
-3. Advanced customization options
-4. Setting migration system
-5. A/B testing for settings
+1. Backend API endpoints and multi-device sync
+2. Auth-scoped settings
+3. Notification / analytics delivery from the stored toggles
+4. Setting profiles, migration, or A/B tests
 
 ## 🎨 UI/UX Features
 
@@ -320,22 +353,24 @@ All acceptance criteria from the issue have been met:
 - **Efficient Updates**: Only changed settings trigger updates
 - **Small Bundle**: ~15KB for settings system
 
-## 🎉 Ready for Production
+## Current resolution
 
-The settings system is complete, tested, and ready for production use. All features are working as expected, and comprehensive documentation is provided for developers.
+Client-side settings (store, hooks, `/settings` UI, theme, localStorage, validation,
+error boundary, toasts) are in place and used by the app shell. Backend sync and
+delivery of notification/analytics toggles are **out of scope** of this
+resolution and are not present in the code.
 
-### Key Benefits
-- ✅ Organized and easy to use
-- ✅ Persistent across sessions
-- ✅ Validated inputs
-- ✅ Immediate feedback
-- ✅ Extensible architecture
-- ✅ Type-safe
-- ✅ Well-documented
+### Key properties
+- ✅ Organized tabbed UI
+- ✅ Persistent in localStorage
+- ✅ Validated slippage / language / currency
+- ✅ Immediate theme + toast feedback
+- ✅ Type-safe hooks
+- ✅ Documented against the live tree (this file)
+- ❌ No remote settings API
 
 ---
 
-**Implementation Date**: April 26, 2026
-**Status**: ✅ Complete
-**Version**: 1.0.0
-**Test Coverage**: 100%
+**Status**: Client settings **resolved**; remote sync **not implemented**
+**Storage key**: `gate_delay_user_settings`
+**Tests**: `lib/settings.test.ts`, `app/settings/page.test.tsx`

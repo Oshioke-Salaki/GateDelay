@@ -66,7 +66,9 @@ export class DepositMonitorService {
   private async processDeposit(deposit: any): Promise<void> {
     try {
       // Get transaction details from blockchain
-      const txDetails = await this.depositService.getTransactionDetails(deposit.txHash);
+      const txDetails = await this.depositService.getTransactionDetails(
+        deposit.txHash,
+      );
 
       // Update confirmations
       await this.depositService.updateConfirmations(
@@ -78,7 +80,10 @@ export class DepositMonitorService {
 
       // Check if transaction failed
       if (txDetails.status === 0) {
-        await this.depositService.failDeposit(deposit.id, 'Transaction failed on blockchain');
+        await this.depositService.failDeposit(
+          deposit.id,
+          'Transaction failed on blockchain',
+        );
         return;
       }
 
@@ -111,7 +116,10 @@ export class DepositMonitorService {
 
       this.logger.log(`Successfully processed confirmed deposit ${deposit.id}`);
     } catch (error) {
-      this.logger.error(`Error handling confirmed deposit ${deposit.id}`, error);
+      this.logger.error(
+        `Error handling confirmed deposit ${deposit.id}`,
+        error,
+      );
     }
   }
 
@@ -128,7 +136,10 @@ export class DepositMonitorService {
         `Updated balance for user ${deposit.userId}: +${deposit.amount} ${deposit.currency}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to update balance for deposit ${deposit.id}`, error);
+      this.logger.error(
+        `Failed to update balance for deposit ${deposit.id}`,
+        error,
+      );
       throw error;
     }
   }
@@ -144,7 +155,10 @@ export class DepositMonitorService {
 
       this.logger.log(`Sent deposit notification for deposit ${deposit.id}`);
     } catch (error) {
-      this.logger.error(`Failed to send notification for deposit ${deposit.id}`, error);
+      this.logger.error(
+        `Failed to send notification for deposit ${deposit.id}`,
+        error,
+      );
       throw error;
     }
   }

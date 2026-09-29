@@ -1,5 +1,7 @@
-const Papa = require('papaparse');
-const async = require('async');
+// TODO: Quarantined - papaparse not in package.json. Add dependency or implement alternative.
+// const Papa = require('papaparse');
+// TODO: Quarantined - async not in package.json. Add dependency or implement alternative.
+// const async = require('async');
 const Market = require('../models/Market'); // Assuming Market model exists
 const Trade = require('../models/Trade'); // Assuming Trade model exists
 

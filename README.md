@@ -1,17 +1,18 @@
-# Outcome - Flight Prediction Market on Stellar
+﻿# Outcome - Flight Prediction Market on Stellar
 
 Outcome is a decentralized flight prediction market built on the Stellar network. It allows users to speculate on flight outcomes (e.g., delays, cancellations) using a transparent and trustless blockchain infrastructure, enhanced by institutional-grade AI analysis..
 
-## 🌟 Features
+## ðŸŒŸ Features
 
 - **Prediction Markets**: Participate in decentralized markets for flight arrival status.
 - **AI Risk Assessment**: Integrated Llama 3.1 analysis via **Groq** for real-time trading signals and flight risk reports.
 - **Real-time Aviation Data**: Automated flight tracking and market initialization powered by the **AviationStack API**.
-- **Hybrid AMM**: Sophisticated Logarithmic Market Scoring Rule (LMSR) for liquidity pricing, paired with a fair cost-based payout mechanism.
-- **Mantle Network**: High-performance, low-fee trading secured by Ethereum.
+- **Canonical prediction-market trading**: LMSR pricing and settlement via `MarketMaker` / `LMSR` (`Contracts/src/`); the separate `OrderBook` CLOB is not used for prediction-market trades. See [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) for backend/frontend routing and current integration status.
+- **Cross-Chain Relay**: Chainlink CCIP-powered relay for cross-chain market operations — see [Market Relay Delivery Summary](docs/reports/MARKET_RELAY_DELIVERY_SUMMARY.md).
+- **Stellar Network**: High-performance, low-fee prediction market trading powered by the Stellar blockchain.
 - **Connect with Ease**: Seamless wallet integration via **Particle Network**, supporting both social and traditional EOA logins.
 
-## 🛠 Tech Stack
+## ðŸ›  Tech Stack
 
 - **Smart Contracts**:
   - Solidity 0.8.20
@@ -25,63 +26,89 @@ Outcome is a decentralized flight prediction market built on the Stellar network
   - **Recharts & Framer Motion**: Dynamic market visualization and premium UI animations
   - Wagmi & Viem: Type-safe Ethereum interactions
 
-## 📋 Prerequisites
+## ðŸ“‹ Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18+ recommended)
+- [Node.js](https://nodejs.org/) (v20+ required)
 - [Foundry](https://getfoundry.sh/) (Forge, Cast, Anvil)
 - [Git](https://git-scm.com/)
 
-## 🚀 Getting Started
+## ðŸš€ Getting Started
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for install, environment setup, and how to run the Backend, Frontend, and Foundry tests.
+
+### Quick reference
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/Jemiiah/outcome.git
-cd outcome
+git clone https://github.com/Oshioke-Salaki/GateDelay.git
+cd GateDelay
 ```
 
 ### 2. Smart Contracts
 
 ```bash
-cd contract
+cd Contracts
 forge build
-# Run tests
 forge test
 ```
 
-### 3. Frontend
+### 3. Backend
 
 ```bash
-cd frontend
+cd Backend
 npm install
+cp .env.example .env
+npm run start:dev
 ```
 
-**Environment Setup:**
-Create a `.env` file in the `frontend` directory:
+With [`Backend/.env.example`](Backend/.env.example) copied as `.env`, NestJS listens on **port 4000** (`PORT=4000`). If `PORT` is unset, `Backend/src/main.ts` falls back to **3000**. Health: `GET http://localhost:4000/api` (global prefix `api`). Related example values: `FRONTEND_URL=http://localhost:3000`, `HEARTBEAT_PORT=4001`, `RPC_URL=http://127.0.0.1:8545`, `MONGODB_URI=mongodb://127.0.0.1:27017/gatedelay`.
 
-```env
-# Particle Network ConnectKit
-NEXT_PUBLIC_PROJECT_ID=your_id
-NEXT_PUBLIC_CLIENT_KEY=your_key
-NEXT_PUBLIC_APP_ID=your_id
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_id
-
-# AI & Data
-GROQ_API_KEY=your_groq_api_key
-NEXT_PUBLIC_AVIATION_STACK_KEY=your_aviationstack_key
-```
-
-**Run Development Server:**
+### 4. Frontend
 
 ```bash
+cd Frontend
+npm install
+# create .env.local — see CONTRIBUTING.md
 npm run dev
 ```
 
-## 📂 Project Structure
+Next.js defaults to **http://localhost:3000**. Point `NEXT_PUBLIC_BACKEND_URL` at the Backend origin (`http://localhost:4000` when using `.env.example`).
 
-- `contract/`: Solidity contracts, Foundry tests, and deployment scripts.
-- `frontend/`: Next.js application, AI routes, and Web3 components.
+## Documentation map
 
-## 📜 License
+Keep this README short. Details live in:
 
-[MIT](LICENSE)
+| Doc | What it covers | Owner |
+|-----|----------------|-------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Install, env templates, how to run each surface | Foundations |
+| [STRUCTURE.md](docs/STRUCTURE.md) | Repository layout and package boundaries | Foundations |
+| [PHASES.md](docs/reports/PHASES.md) | Phase roadmap and issue index | Roadmap |
+| [PHASE_1.md](docs/reports/PHASE_1.md) | Stabilize foundations (`phase-1`) | Phase 1 |
+| [PHASE_2.md](docs/reports/PHASE_2.md) | Core market wiring (`phase-2`) | Phase 2 |
+| [ADR 0001](docs/adr/0001-lmsr-vs-clob-ambiguity.md) | Accepted LMSR ownership and backend/frontend routing | Phase 2 |
+
+Do not copy the Phase 2 issue list here; start from [PHASE_2.md](docs/reports/PHASE_2.md).
+
+## Project Structure
+
+- `Contracts/`: Solidity contracts, Foundry tests, and deployment scripts.
+- `Backend/`: NestJS API (and legacy Express `server.js`).
+- `Frontend/`: Next.js application, AI routes, and Web3 components.
+- `docs/reports/`: generated implementation reports, verification notes, and phase files.
+- `tools/`: repository maintenance scripts.
+
+## License
+## Further reading
+
+| Document | Description |
+|----------|-------------|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Full contributor setup guide |
+| [PHASES.md](docs/reports/PHASES.md) | Phase roadmap and issue index |
+| [CHECKLIST.md](docs/reports/CHECKLIST.md) | Local wallet + trade flow runbook |
+| [MARKET_RELAY_DELIVERY_SUMMARY.md](docs/reports/MARKET_RELAY_DELIVERY_SUMMARY.md) | Cross-chain relay system (Chainlink CCIP) |
+| [MINTING_PAUSABLE_IMPLEMENTATION.md](docs/reports/MINTING_PAUSABLE_IMPLEMENTATION.md) | Pausable minting token with role-based control |
+
+## ðŸ“œ License
+
+MIT

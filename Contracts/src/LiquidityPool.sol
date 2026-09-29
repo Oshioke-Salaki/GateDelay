@@ -1,20 +1,35 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./MarketFactory.sol";
 
 /// @dev Minimal ERC20 interface for collateral token interactions.
 interface IERC20 {
+    /// @notice Transfers.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return True when the requested condition is met.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function transfer(address to, uint256 amount) external returns (bool);
+    /// @notice Executes transferFrom.
+    /// @param from Source address for the transfer.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @return True when the requested condition is met.
+    /// @dev Access: The interface specifies no caller restriction; implementations may enforce
+    ///     access checks.
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
 /// @title LiquidityPool
 /// @notice Manages collateral deposits and LP token issuance for a single prediction market.
-contract LiquidityPool {
+contract LiquidityPool is ReentrancyGuard {
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
+    error ZeroAddress();
     error ZeroDepositAmount();
     error InsufficientLPBalance();
     error MarketFinalised();
@@ -65,6 +80,7 @@ contract LiquidityPool {
     // Constructor
     // -------------------------------------------------------------------------
     constructor(address _collateralToken, address _market) {
+        if (_collateralToken == address(0) || _market == address(0)) revert ZeroAddress();
         collateralToken = IERC20(_collateralToken);
         market = _market;
         marketStatus = MarketFactory.MarketStatus.OPEN;
@@ -76,7 +92,11 @@ contract LiquidityPool {
 
     /// @notice Deposit collateral into the pool and receive LP tokens.
     /// @param amount Amount of collateral to deposit (must be > 0).
-    function deposit(uint256 amount) external {
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroDepositAmount` if `amount == 0` is true. `MarketFinalised` if
+    ///     `marketStatus == MarketFactory.MarketStatus.RESOLVED || marketStatus ==
+    ///     MarketFactory.MarketStatus.CANCELLED` is true.
+    function deposit(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroDepositAmount();
         if (
             marketStatus == MarketFactory.MarketStatus.RESOLVED ||
@@ -108,7 +128,9 @@ contract LiquidityPool {
 
     /// @notice Withdraw collateral by burning LP tokens.
     /// @param lpAmount Amount of LP tokens to burn.
-    function withdraw(uint256 lpAmount) external {
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InsufficientLPBalance` if `_lpBalances[msg.sender] < lpAmount` is true.
+    function withdraw(uint256 lpAmount) external nonReentrant {
         if (_lpBalances[msg.sender] < lpAmount) revert InsufficientLPBalance();
 
         // Calculate proportional collateral to return
@@ -128,6 +150,8 @@ contract LiquidityPool {
     }
 
     /// @notice Returns current pool metrics.
+    /// @return Pool metrics returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPoolMetrics() external view returns (PoolMetrics memory) {
         // amountInUse = 0 (no trading logic yet)
         uint256 utilisationBps = 0;
@@ -143,22 +167,34 @@ contract LiquidityPool {
     }
 
     /// @notice Returns the LP token balance of an account.
+    /// @param account Account address affected by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function lpBalanceOf(address account) external view returns (uint256) {
         return _lpBalances[account];
     }
 
     /// @notice Update the market status (will be restricted by Resolution contract later).
+    /// @param status status used by this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function setMarketStatus(MarketFactory.MarketStatus status) external {
         marketStatus = status;
     }
 
     /// @notice Set the Resolution contract address authorised to withdraw collateral for payouts.
+    /// @param _resolution Address associated with resolution.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function setResolution(address _resolution) external {
         resolution = _resolution;
     }
 
     /// @notice Withdraw collateral to a recipient for payout/refund. Only callable by the Resolution contract.
-    function withdrawForResolution(address to, uint256 amount) external {
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotResolution` if `msg.sender != resolution` is true.
+    ///     `InsufficientPoolBalance` if `amount > totalLiquidity` is true.
+    function withdrawForResolution(address to, uint256 amount) external nonReentrant {
         if (msg.sender != resolution) revert NotResolution();
         if (amount > totalLiquidity) revert InsufficientPoolBalance();
         totalLiquidity -= amount;

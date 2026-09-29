@@ -462,16 +462,18 @@ forge coverage --match-contract VoteWeightTest
 
 ```solidity
 // script/DeployVoteWeight.s.sol
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {VoteWeight} from "../contracts/VoteWeight.sol";
+import {VoteWeight} from "../src/VoteWeight.sol";
 
 contract DeployVoteWeight is Script {
     function run() external returns (VoteWeight) {
         address governanceToken = vm.envAddress("GOVERNANCE_TOKEN");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         
-        vm.startBroadcast();
+        vm.startBroadcast(deployerPrivateKey);
         VoteWeight voteWeight = new VoteWeight(governanceToken);
         vm.stopBroadcast();
         

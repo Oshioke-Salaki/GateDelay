@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 // ─── Trading Chart ────────────────────────────────────────────────────────────
@@ -12,6 +12,13 @@ interface TradingChartProps {
 export default function TradingChart({ marketId }: TradingChartProps) {
     const [timeframe, setTimeframe] = useState<"1H" | "24H" | "7D" | "30D" | "ALL">("24H");
     const [chartType, setChartType] = useState<"line" | "area">("area");
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        setIsLoading(true);
+        const id = window.setTimeout(() => setIsLoading(false), 350);
+        return () => window.clearTimeout(id);
+    }, [marketId, timeframe]);
 
     // Mock data - in production, this would come from API
     const chartData = useMemo(() => {
@@ -51,6 +58,36 @@ export default function TradingChart({ marketId }: TradingChartProps) {
     const previousPrice = chartData[0]?.price || 0;
     const priceChange = currentPrice - previousPrice;
     const priceChangePercent = (priceChange / previousPrice) * 100;
+
+    if (isLoading) {
+        return (
+            <div className="bg-white rounded-lg shadow-lg p-6" role="status" aria-busy="true" aria-label="Loading market price chart">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="space-y-3">
+                        <div className="h-5 w-32 rounded bg-gray-200 animate-pulse" />
+                        <div className="h-8 w-48 rounded bg-gray-200 animate-pulse" />
+                    </div>
+                    <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map((item) => (
+                            <div key={item} className="h-7 w-10 rounded bg-gray-200 animate-pulse" />
+                        ))}
+                    </div>
+                </div>
+                <div className="h-96 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <div className="flex h-full items-end gap-2">
+                        {Array.from({ length: 24 }).map((_, index) => (
+                            <div
+                                key={index}
+                                className="flex-1 rounded-t bg-gray-200 animate-pulse"
+                                style={{ height: `${28 + ((index * 17) % 58)}%` }}
+                            />
+                        ))}
+                    </div>
+                </div>
+                <span className="sr-only">Loading market price chart</span>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-lg shadow-lg p-6">

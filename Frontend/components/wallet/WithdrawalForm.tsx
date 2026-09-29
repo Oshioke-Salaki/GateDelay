@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
+import { truncateTxHash, explorerTxUrl } from "@/lib/txUtils";
 
 interface WithdrawalFormProps {
   availableBalance?: number;
@@ -12,7 +13,11 @@ interface WithdrawalFormProps {
   maxWithdrawal?: number;
   withdrawalFeePercent?: number;
   estimatedTime?: string;
-  onSubmit?: (data: WithdrawalFormData) => Promise<void>;
+  /**
+   * Called on confirmed submit. May resolve with an optional tx hash string
+   * to surface in the success toast.
+   */
+  onSubmit?: (data: WithdrawalFormData) => Promise<string | void>;
 }
 
 interface WithdrawalFormData {
@@ -39,6 +44,7 @@ export default function WithdrawalForm({
     watch,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<WithdrawalFormData>({
     defaultValues: {
       amount: 0,
@@ -76,10 +82,30 @@ export default function WithdrawalForm({
 
     setIsSubmitting(true);
     try {
+      let txHash: string | undefined;
       if (onSubmit) {
-        await onSubmit(pendingData);
+        const result = await onSubmit(pendingData);
+        if (typeof result === "string" && result.length > 0) {
+          txHash = result;
+        }
       }
-      success("Withdrawal initiated", `$${pendingData.amount.toFixed(2)} will be withdrawn to your account`);
+
+      const txMessage = txHash
+        ? `$${pendingData.amount.toFixed(2)} queued to your account.`
+        : `$${pendingData.amount.toFixed(2)} will be withdrawn to your account`;
+
+      success(
+        "Withdrawal initiated",
+        txMessage,
+        txHash
+          ? {
+              action: {
+                label: `View tx ${truncateTxHash(txHash)}`,
+                onClick: () => window.open(explorerTxUrl(txHash!), "_blank", "noopener,noreferrer"),
+              },
+            }
+          : undefined,
+      );
       reset();
       setPendingData(null);
       setShowConfirmation(false);
@@ -178,13 +204,7 @@ export default function WithdrawalForm({
                 type="button"
                 onClick={() => {
                   const value = Math.min(quickAmount, availableBalance);
-                  const input = document.querySelector(
-                    'input[type="number"]',
-                  ) as HTMLInputElement;
-                  if (input) {
-                    input.value = value.toString();
-                    input.dispatchEvent(new Event("change", { bubbles: true }));
-                  }
+                  setValue("amount", value, { shouldValidate: true });
                 }}
                 className="flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:opacity-80 active:scale-95"
                 style={{
@@ -199,13 +219,7 @@ export default function WithdrawalForm({
             <button
               type="button"
               onClick={() => {
-                const input = document.querySelector(
-                  'input[type="number"]',
-                ) as HTMLInputElement;
-                if (input) {
-                  input.value = availableBalance.toString();
-                  input.dispatchEvent(new Event("change", { bubbles: true }));
-                }
+                setValue("amount", availableBalance, { shouldValidate: true });
               }}
               className="flex-1 rounded-lg px-3 py-2 text-xs font-medium transition-all hover:opacity-80 active:scale-95"
               style={{

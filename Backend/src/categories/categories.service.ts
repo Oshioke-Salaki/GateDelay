@@ -8,12 +8,17 @@ import { Model, Types } from 'mongoose';
 import { Category, CategoryDocument } from './schemas/category.schema';
 import { CreateCategoryDto } from './dto/category.dto';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import { CacheService } from '../cache/cache.service';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
+import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectModel(Category.name) private categoryModel: Model<CategoryDocument>,
     private readonly marketResolverService: MarketResolverService,
+    private readonly cache: CacheService,
+    private readonly cacheRefresh: CacheRefreshService,
   ) {}
 
   async create(
@@ -35,7 +40,12 @@ export class CategoriesService {
       parentId: parentId ? new Types.ObjectId(parentId) : null,
     });
 
-    return category.save();
+    const saved = await category.save();
+    await this.cacheRefresh.refresh({
+      type: 'category.updated',
+      categoryId: saved._id.toString(),
+    });
+    return saved;
   }
 
   async update(
@@ -81,6 +91,10 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
 
+    await this.cacheRefresh.refresh({
+      type: 'category.updated',
+      categoryId: id,
+    });
     return updated;
   }
 
@@ -97,9 +111,21 @@ export class CategoriesService {
     );
 
     await this.categoryModel.deleteOne({ _id: new Types.ObjectId(id) });
+    await this.cacheRefresh.refresh({
+      type: 'category.updated',
+      categoryId: id,
+    });
   }
 
   async getTree(): Promise<any[]> {
+    return this.cache.getOrSet(
+      CacheKeys.categoryTree,
+      () => this.buildTree(),
+      CacheTtl.categoryTree,
+    );
+  }
+
+  private async buildTree(): Promise<any[]> {
     const allCategories = await this.categoryModel.find().lean();
 
     const buildTree = (parentId: string | null = null): any[] => {
@@ -120,6 +146,11 @@ export class CategoriesService {
     return buildTree(null);
   }
 
+  /**
+   * Deliberately does not refresh the cached tree: this runs on every category
+   * read, so evicting here would disable tree caching. `popularity` in the tree
+   * lags by at most `CacheTtl.categoryTree`.
+   */
   async incrementPopularity(id: string): Promise<void> {
     const result = await this.categoryModel.updateOne(
       { _id: new Types.ObjectId(id) },
@@ -138,7 +169,15 @@ export class CategoriesService {
     if (result.matchedCount === 0) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
+    const previousCategoryId =
+      this.marketResolverService.getMarket(marketId)?.categoryId;
     this.marketResolverService.updateMarketCategory(marketId, categoryId);
+    await this.cacheRefresh.refresh({
+      type: 'market.category_changed',
+      marketId,
+      categoryId,
+      previousCategoryId,
+    });
   }
 
   async getDescendantIds(categoryId: string): Promise<string[]> {
@@ -163,6 +202,20 @@ export class CategoriesService {
   ): Promise<any[]> {
     await this.incrementPopularity(categoryId);
 
+    // Only the ID resolution is cached: Market objects carry bigint stakes,
+    // which don't survive the Redis round-trip, and must reflect live state.
+    const marketIds = await this.cache.getOrSet(
+      CacheKeys.categoryMarkets(categoryId, includeChildren),
+      () => this.resolveMarketIds(categoryId, includeChildren),
+      CacheTtl.categoryMarkets,
+    );
+    return this.marketResolverService.getMarketsByIds(marketIds);
+  }
+
+  private async resolveMarketIds(
+    categoryId: string,
+    includeChildren: boolean,
+  ): Promise<string[]> {
     let marketIds: string[] = [];
     if (!includeChildren) {
       const category = await this.categoryModel.findById(categoryId).lean();
@@ -185,7 +238,7 @@ export class CategoriesService {
       marketIds = [...new Set(marketIds)];
     }
 
-    return this.marketResolverService.getMarketsByIds(marketIds);
+    return marketIds;
   }
 
   async findById(id: string): Promise<CategoryDocument> {

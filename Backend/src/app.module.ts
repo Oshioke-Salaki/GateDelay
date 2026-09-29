@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { envValidationSchema } from './config/env.validation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -41,10 +42,26 @@ import { MarketMonitoringModule } from './market-monitoring/market-monitoring.mo
 import { TradeReconciliationModule } from './trade-reconciliation/trade-reconciliation.module';
 import { MarketAuditModule } from './market-audit/market-audit.module';
 import { VerificationModule } from './verification/verification.module';
+import { MarketMetadataModule } from './market-metadata/market-metadata.module';
+import { EventNotificationModule } from './event-notifications/event-notification.module';
+import { BridgeModule } from './bridge/bridge.module';
+import { NftModule } from './nft/nft.module';
+import { BalanceModule } from './balance/balance.module';
+import { HealthModule } from './health/health.module';
+
+import { GracefulShutdownService } from './common/graceful-shutdown.service';
+import { ApiVersionDeprecationMiddleware } from './common/middleware/api-version-deprecation.middleware';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: envValidationSchema,
+      validationOptions: {
+        abortEarly: false,
+        allowUnknown: true,
+      },
+    }),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     CacheModule.registerAsync({
@@ -103,8 +120,20 @@ import { VerificationModule } from './verification/verification.module';
     TradeReconciliationModule,
     MarketAuditModule,
     VerificationModule,
+    MarketMetadataModule,
+    EventNotificationModule,
+    BridgeModule,
+    NftModule,
+    BalanceModule,
+    HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, GracefulShutdownService],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer
+      .apply(ApiVersionDeprecationMiddleware)
+      .forRoutes({ path: 'api/v1*', method: RequestMethod.ALL });
+  }
+}

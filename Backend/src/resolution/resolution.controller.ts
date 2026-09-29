@@ -82,10 +82,15 @@ export class ResolutionController {
     return this.resolutionService.getConfirmations(id);
   }
 
-  /** PATCH /api/resolution/:id/finalise — finalise a confirmed resolution */
+  /**
+   * PATCH /api/resolution/:id/finalise — finalise a confirmed resolution
+   *
+   * The caller is passed through as the audit actor so the entry records who
+   * settled the market, not just that it was settled.
+   */
   @Patch(':id/finalise')
-  finalise(@Param('id') id: string) {
-    return this.resolutionService.finaliseResolution(id);
+  finalise(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.resolutionService.finaliseResolution(id, req.user.id);
   }
 
   // ── Reports ──────────────────────────────────────────────────────────────────

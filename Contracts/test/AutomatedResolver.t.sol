@@ -2,11 +2,12 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/AutomatedResolver.sol";
+import "../src/AutomatedResolver.sol";
 import "../src/Resolution.sol";
 import "../src/PositionToken.sol";
 import "../src/LiquidityPool.sol";
 import "../src/ERC20Token.sol";
+import "../src/PriceOracle.sol";
 
 contract AutomatedResolverTest is Test {
     AutomatedResolver public resolver;
@@ -14,23 +15,32 @@ contract AutomatedResolverTest is Test {
     PositionToken public positionToken;
     LiquidityPool public pool;
     ERC20Token public collateral;
+    PriceOracle public priceOracle;
 
-    address public admin = address(0xADMIN);
-    address public resolverAddr = address(0xRESOLVER);
-    address public market = address(0xMARKET);
+    address public admin = address(0xAD0111);
+    address public resolverAddr = address(0xE501E1);
+    address public market = address(0xCAFE01);
 
     bytes32 public constant DATA_FEED_BTC = keccak256("BTC/USD");
     bytes32 public constant DATA_FEED_ETH = keccak256("ETH/USD");
+    bytes32 public constant ORACLE_FEED = keccak256("ORACLE/USD");
 
     function setUp() public {
         collateral = new ERC20Token(1_000_000 ether);
         positionToken = new PositionToken(address(this));
-        
+
+        // Resolution now enforces oracle freshness, so deploy a feed that stays fresh
+        priceOracle = new PriceOracle();
+        priceOracle.registerFeed(ORACLE_FEED, "Oracle/USD", 365 days);
+        priceOracle.setUpdater(address(this), true);
+        priceOracle.updatePrice(ORACLE_FEED, 1e18);
+
         resolution = new Resolution(
             1 days,
             resolverAddr,
             admin,
-            address(positionToken)
+            address(positionToken),
+            address(priceOracle)
         );
 
         resolver = new AutomatedResolver(address(resolution), admin);
@@ -38,7 +48,7 @@ contract AutomatedResolverTest is Test {
         pool = new LiquidityPool(address(collateral), market);
         pool.setResolution(address(resolution));
 
-        resolution.registerMarket(market, address(pool), block.timestamp + 1 hours);
+        resolution.registerMarket(market, address(pool), block.timestamp + 1 hours, ORACLE_FEED);
     }
 
     function test_registerCondition() public {

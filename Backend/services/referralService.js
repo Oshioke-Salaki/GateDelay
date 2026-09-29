@@ -1,4 +1,6 @@
 const { Referral, ReferralCode } = require('../models/Referral');
+const OnChainTrade = require('../models/OnChainTrade');
+const { MarketReferrerMapping } = require('../models/MarketReferrerMapping');
 const Order = require('../models/Order');
 const crypto = require('crypto');
 const Big = require('big.js');
@@ -125,6 +127,94 @@ class ReferralService {
     ]);
 
     return analytics;
+  }
+
+  /**
+   * Resolve on-chain referrer address for a trader
+   * Returns the referrer address from MarketReferrerMapping or null
+   */
+  async resolveOnChainReferrer(traderAddress) {
+    const mapping = await MarketReferrerMapping.findOne({ trader: traderAddress });
+    return mapping ? mapping.referrer : null;
+  }
+
+  /**
+   * Link an on-chain referrer address to a referral record
+   * Called when a MarketReferrerSet event is received
+   */
+  async linkOnChainReferrer(traderAddress, referrerAddress) {
+    // Find the referral where this trader is the referred user
+    const referral = await Referral.findOne({ referredId: traderAddress });
+    if (referral) {
+      referral.onChainReferrer = referrerAddress;
+      await referral.save();
+      return referral;
+    }
+    return null;
+  }
+
+  /**
+   * Process an on-chain trade and attribute rebate to the referrer
+   * Called after a TradeExecuted event is persisted
+   */
+  async processOnChainTradeRebate(tradeId) {
+    const trade = await OnChainTrade.findById(tradeId);
+    if (!trade || !trade.referrer) return null;
+
+    const rebate = new Big(trade.rebate || '0');
+    if (rebate.lte(0)) return null;
+
+    // Find referral record for the trader
+    const referral = await Referral.findOne({ referredId: trade.trader });
+    if (!referral) return null;
+
+    // Update accumulated rebate
+    const oldRebate = new Big(referral.totalRebateEarned || '0');
+    referral.totalRebateEarned = oldRebate.plus(rebate).toString();
+    await referral.save();
+
+    // Update referrer's total rewards
+    const referrerCode = await ReferralCode.findOne({ userId: referral.referrerId });
+    if (referrerCode) {
+      const oldRewards = new Big(referrerCode.totalRewards || '0');
+      referrerCode.totalRewards = oldRewards.plus(rebate).toString();
+      await referrerCode.save();
+    }
+
+    return {
+      trader: trade.trader,
+      referrer: trade.referrer,
+      rebate: trade.rebate,
+      commission: trade.commission,
+      tradeId: trade._id,
+    };
+  }
+
+  /**
+   * Get on-chain rebate summary for a referrer
+   */
+  async getOnChainRebateStats(referrerAddress) {
+    const trades = await OnChainTrade.find({ referrer: referrerAddress })
+      .sort({ createdAt: -1 })
+      .limit(100);
+
+    const totalRebate = trades.reduce(
+      (sum, t) => sum.plus(new Big(t.rebate || '0')),
+      new Big(0),
+    );
+    const totalCommission = trades.reduce(
+      (sum, t) => sum.plus(new Big(t.commission || '0')),
+      new Big(0),
+    );
+    const totalTrades = trades.length;
+
+    return {
+      referrer: referrerAddress,
+      totalRebate: totalRebate.toString(),
+      totalCommission: totalCommission.toString(),
+      totalTrades,
+      recentTrades: trades.slice(0, 10),
+    };
   }
 }
 

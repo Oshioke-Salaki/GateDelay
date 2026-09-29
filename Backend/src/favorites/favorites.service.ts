@@ -166,13 +166,19 @@ export class FavoritesService {
     }
 
     const favoritedIds = new Set(userFavs.map((f) => f.marketId));
-    const candidateScores = new Map<string, { score: number; reasons: string[] }>();
+    const candidateScores = new Map<
+      string,
+      { score: number; reasons: string[] }
+    >();
 
     // Score all non-favorited markets that other users have favorited
     for (const [compositeKey, fav] of this.favorites) {
       if (fav.userId === userId || favoritedIds.has(fav.marketId)) continue;
 
-      const existing = candidateScores.get(fav.marketId) ?? { score: 0, reasons: [] };
+      const existing = candidateScores.get(fav.marketId) ?? {
+        score: 0,
+        reasons: [],
+      };
 
       // Boost score for tag overlap
       for (const tag of fav.tags) {

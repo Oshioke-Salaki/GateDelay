@@ -20,7 +20,9 @@ export class MarketMonitoringController {
 
   @Get('alerts')
   getAlerts(@Query('limit') limit?: string) {
-    return this.marketMonitoringService.getAlerts(limit ? Number(limit) : undefined);
+    return this.marketMonitoringService.getAlerts(
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get('dashboard')

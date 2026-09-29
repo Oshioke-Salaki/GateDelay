@@ -32,6 +32,16 @@ body {
   transition: background 0.2s, color 0.2s;
 }
 
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[role="switch"]:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 /* Price update flash animations */
 @keyframes flash-green {
 

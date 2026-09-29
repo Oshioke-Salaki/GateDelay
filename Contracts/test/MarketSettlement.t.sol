@@ -8,6 +8,7 @@ import "../src/MarketFactory.sol";
 import "../src/LiquidityPool.sol";
 import "../src/Resolution.sol";
 import "../src/ERC20Token.sol";
+import "../src/PriceOracle.sol";
 
 contract MarketSettlementTest is Test {
     MarketSettlement settlement;
@@ -16,6 +17,9 @@ contract MarketSettlementTest is Test {
     LiquidityPool pool;
     Resolution resolution;
     ERC20Token collateral;
+    PriceOracle priceOracle;
+
+    bytes32 constant ORACLE_FEED = keccak256("ORACLE/USD");
 
     address resolver = address(0xBEEF1);
     address admin = address(0xBEEF2);
@@ -34,18 +38,25 @@ contract MarketSettlementTest is Test {
         positionToken.authorise(market);
 
         pool = new LiquidityPool(address(collateral), market);
-        
+
+        // Resolution enforces oracle freshness on resolve(): deploy a long-lived feed
+        priceOracle = new PriceOracle();
+        priceOracle.registerFeed(ORACLE_FEED, "Oracle/USD", 365 days);
+        priceOracle.setUpdater(address(this), true);
+        priceOracle.updatePrice(ORACLE_FEED, 1e18);
+
         resolution = new Resolution(
             1 days,
             resolver,
             admin,
-            address(positionToken)
+            address(positionToken),
+            address(priceOracle)
         );
 
         pool.setResolution(address(resolution));
         positionToken.authoriseBurner(address(resolution));
 
-        resolution.registerMarket(market, address(pool), block.timestamp + 2 hours);
+        resolution.registerMarket(market, address(pool), block.timestamp + 2 hours, ORACLE_FEED);
 
         settlement = new MarketSettlement(
             address(positionToken),

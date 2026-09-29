@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/PriceOracle.sol";
+import "../src/PriceOracle.sol";
 
 contract PriceOracleTest is Test {
     PriceOracle internal oracle;

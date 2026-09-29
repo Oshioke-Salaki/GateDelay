@@ -2,12 +2,14 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ClientSession } from 'mongoose';
 import Big from 'big.js';
 import * as async from 'async';
+import { createRequire } from 'module';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { PlaceOrderDto } from './dto/place-order.dto';
 
@@ -21,6 +23,41 @@ export interface SettlementResult {
   order: OrderDocument;
   matches: MatchResult[];
 }
+
+export interface PlaceOrderOptions {
+  /**
+   * Client-supplied `Idempotency-Key`. When present, a repeated call replays
+   * the original settlement result instead of opening a second order.
+   */
+  idempotencyKey?: string;
+}
+
+// Redis-backed idempotency keys (#912) — the CommonJS services/idempotencyService.js
+// shared with the legacy Express entrypoint. Bridged the same way
+// resolution.service.ts bridges services/auditTrail.js.
+/** Subset of the CommonJS error surface this service depends on. */
+interface IdempotencyErrorShape extends Error {
+  code: string;
+  statusCode: number;
+}
+
+const nodeRequire = createRequire(__filename);
+const idempotency = nodeRequire('../../services/idempotencyService') as {
+  IdempotencyError: new (
+    message: string,
+    code: string,
+    statusCode: number,
+  ) => IdempotencyErrorShape;
+  withIdempotency: (
+    scope: string,
+    key: string,
+    fn: () => Promise<unknown>,
+    options?: { statusCode?: number; ttlSeconds?: number },
+  ) => Promise<{ replayed: boolean; response?: unknown }>;
+};
+
+/** Scope for order placement; settlement runs inside this same call. */
+const TRADE_PLACEMENT_SCOPE = 'trade-placement';
 
 /**
  * TradeEngineService
@@ -61,8 +98,54 @@ export class TradeEngineService {
 
   /**
    * Place a new order, validate, persist, then enqueue for matching.
+   *
+   * Placement and settlement happen in one call, so a single idempotency key
+   * covers both: a client that retries after a lost response gets the original
+   * `SettlementResult` back rather than a second order that settles twice.
    */
   async placeOrder(
+    userId: string,
+    dto: PlaceOrderDto,
+    options: PlaceOrderOptions = {},
+  ): Promise<SettlementResult> {
+    const idempotencyKey = options.idempotencyKey?.trim();
+
+    if (!idempotencyKey) {
+      return this.executePlacement(userId, dto);
+    }
+
+    // Scope the key to the user so one client cannot collide with another's.
+    const scopedKey = `${userId}.${idempotencyKey}`;
+
+    try {
+      const outcome = await idempotency.withIdempotency(
+        TRADE_PLACEMENT_SCOPE,
+        scopedKey,
+        () => this.executePlacement(userId, dto),
+        { statusCode: 201 },
+      );
+
+      if (outcome.replayed) {
+        this.logger.log(
+          `Replayed idempotent order placement for user ${userId} (key ${idempotencyKey})`,
+        );
+      }
+
+      return outcome.response as SettlementResult;
+    } catch (err) {
+      // Surface the store's 400/409 as the matching HTTP status rather than a
+      // generic 500, so a client can tell a bad key from a real conflict.
+      if (err instanceof idempotency.IdempotencyError) {
+        const message = err.message;
+        throw err.statusCode === 409
+          ? new ConflictException(message)
+          : new BadRequestException(message);
+      }
+      throw err;
+    }
+  }
+
+  private async executePlacement(
     userId: string,
     dto: PlaceOrderDto,
   ): Promise<SettlementResult> {
@@ -77,7 +160,7 @@ export class TradeEngineService {
       stopPrice: dto.stopPrice ?? '0',
       amount: dto.amount,
       filled: '0',
-      status: 'Pending' as OrderStatus,
+      status: 'Pending',
       timestamp: new Date(),
     });
 
@@ -91,10 +174,7 @@ export class TradeEngineService {
   /**
    * Cancel an open / partial order.
    */
-  async cancelOrder(
-    userId: string,
-    orderId: string,
-  ): Promise<OrderDocument> {
+  async cancelOrder(userId: string, orderId: string): Promise<OrderDocument> {
     const order = await this.orderModel.findById(orderId);
     if (!order) throw new NotFoundException('Order not found');
     if (order.userId !== userId)
@@ -205,18 +285,13 @@ export class TradeEngineService {
         async.waterfall(
           [
             // Step 1: compute fills
-            (
-              next: (err: Error | null, fills: MatchResult[]) => void,
-            ) => {
+            (next: (err: Error | null, fills: MatchResult[]) => void) => {
               const fills = this.computeFills(takerOrder, candidates);
               next(null, fills);
             },
 
             // Step 2: persist fills atomically
-            (
-              fills: MatchResult[],
-              next: (err: Error | null) => void,
-            ) => {
+            (fills: MatchResult[], next: (err: Error | null) => void) => {
               this.persistFills(takerOrder, fills, candidates, session)
                 .then(() => {
                   matches.push(...fills);
@@ -258,9 +333,7 @@ export class TradeEngineService {
    *  - Bids: Highest price → Earliest timestamp
    *  - Asks: Lowest price  → Earliest timestamp
    */
-  private async findCandidates(
-    taker: OrderDocument,
-  ): Promise<OrderDocument[]> {
+  private async findCandidates(taker: OrderDocument): Promise<OrderDocument[]> {
     const oppositeSide = taker.side === 'Buy' ? 'Sell' : 'Buy';
 
     const query: Record<string, unknown> = {
@@ -355,7 +428,7 @@ export class TradeEngineService {
         : 'Partial';
 
       await this.orderModel.findByIdAndUpdate(
-        (maker._id as unknown as string),
+        maker._id as unknown as string,
         { filled: newMakerFilled.toString(), status: makerStatus },
         opts,
       );

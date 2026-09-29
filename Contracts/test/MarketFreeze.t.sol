@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/MarketFreeze.sol";
+import "../src/MarketFreeze.sol";
 
 contract MarketFreezeTest is Test {
     MarketFreeze freeze;
@@ -77,6 +77,21 @@ contract MarketFreezeTest is Test {
         vm.prank(other);
         vm.expectRevert(MarketFreeze.NotFreezer.selector);
         freeze.freezeMarket(market, "x");
+    }
+
+    function test_NonFreezerCannotFreezeOrUnfreezeAnyOperation() public {
+        bytes[] memory calls = new bytes[](3);
+        calls[0] = abi.encodeCall(freeze.freezeOperation, (market, freeze.OP_TRADE(), "x"));
+        calls[1] = abi.encodeCall(freeze.unfreezeMarket, (market));
+        calls[2] = abi.encodeCall(freeze.unfreezeOperation, (market, freeze.OP_TRADE()));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(other);
+            (bool success, bytes memory returnData) = address(freeze).call(calls[i]);
+
+            assertFalse(success, "non-freezer call unexpectedly succeeded");
+            assertEq(returnData, abi.encodeWithSelector(MarketFreeze.NotFreezer.selector));
+        }
     }
 
     function test_OwnerCanFreezeWithoutBeingFreezer() public {

@@ -13,12 +13,10 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { format, subDays } from "date-fns";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
-import { useToast } from "@/hooks/useToast";
 
 interface TradeData {
   date: string;
@@ -44,45 +42,130 @@ interface PortfolioPosition {
   unrealizedPnL: number;
 }
 
+type TimeRange = "7d" | "30d" | "90d" | "all";
+
+function ChartState({
+  loading,
+  error,
+  empty,
+}: {
+  loading?: boolean;
+  error?: string | null;
+  empty?: boolean;
+}) {
+  const message = loading
+    ? "Loading chart data…"
+    : error
+    ? `Could not load chart data: ${error}`
+    : empty
+    ? "No data available for this date range."
+    : "No chart data available.";
+
+  return (
+    <div
+      className="flex h-[300px] flex-col items-center justify-center gap-3 text-sm text-gray-500 dark:text-gray-400"
+      role={error ? "alert" : "status"}
+    >
+      {loading && (
+        <span className="h-7 w-7 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+      )}
+      <p>{message}</p>
+    </div>
+  );
+}
+
+function formatChartDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : format(date, "MMM d");
+}
+
+function ChartLegend({ items }: { items: Array<{ label: string; color: string }> }) {
+  return (
+    <div className="mb-3 flex flex-wrap gap-x-5 gap-y-2" role="list" aria-label="Chart legend">
+      {items.map((item) => (
+        <span key={item.label} className="inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300" role="listitem">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: item.color }} aria-hidden="true" />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function AnalyticsDashboardContent() {
-  const toast = useToast();
   const [tradeHistory, setTradeHistory] = useState<TradeData[]>([]);
   const [metrics, setMetrics] = useState<PortfolioMetrics | null>(null);
   const [positions, setPositions] = useState<PortfolioPosition[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d");
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [positionsLoading, setPositionsLoading] = useState(true);
+  const [positionsError, setPositionsError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("30d");
 
   useEffect(() => {
-    const loadAnalytics = async () => {
-      try {
-        const [historyRes, metricsRes, positionsRes] = await Promise.all([
-          fetch(`/api/analytics/trade-history?range=${timeRange}`),
-          fetch("/api/analytics/metrics"),
-          fetch("/api/analytics/positions"),
-        ]);
+    const controller = new AbortController();
+    let active = true;
+    setHistoryLoading(true);
+    setHistoryError(null);
 
-        if (historyRes.ok) {
-          const data = await historyRes.json();
-          setTradeHistory(data);
-        }
-        if (metricsRes.ok) {
-          const data = await metricsRes.json();
-          setMetrics(data);
-        }
-        if (positionsRes.ok) {
-          const data = await positionsRes.json();
-          setPositions(data);
-        }
-      } catch (error) {
-        console.error("Failed to load analytics:", error);
-        toast.error("Error", "Failed to load analytics data");
-      } finally {
-        setLoading(false);
-      }
+    fetch(`/api/analytics/trade-history?range=${timeRange}`, { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Request failed (${response.status})`);
+        return response.json() as Promise<TradeData[]>;
+      })
+      .then((data) => {
+        if (active) setTradeHistory(Array.isArray(data) ? data : []);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setTradeHistory([]);
+        setHistoryError(error instanceof Error ? error.message : "Unknown error");
+      })
+      .finally(() => {
+        if (active) setHistoryLoading(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [timeRange]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    const fetchJson = async <T,>(url: string): Promise<T> => {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      return response.json() as Promise<T>;
     };
 
-    loadAnalytics();
-  }, [timeRange, toast]);
+    Promise.allSettled([
+      fetchJson<PortfolioMetrics>("/api/analytics/metrics"),
+      fetchJson<PortfolioPosition[]>("/api/analytics/positions"),
+    ]).then(([metricsResult, positionsResult]) => {
+      if (!active) return;
+      if (metricsResult.status === "fulfilled") {
+        setMetrics(metricsResult.value);
+      } else {
+        setMetricsError(metricsResult.reason instanceof Error ? metricsResult.reason.message : "Unknown error");
+      }
+      if (positionsResult.status === "fulfilled") {
+        setPositions(Array.isArray(positionsResult.value) ? positionsResult.value : []);
+      } else {
+        setPositionsError(positionsResult.reason instanceof Error ? positionsResult.reason.message : "Unknown error");
+      }
+      setMetricsLoading(false);
+      setPositionsLoading(false);
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   const winLossData = metrics
     ? [
@@ -92,17 +175,9 @@ function AnalyticsDashboardContent() {
     : [];
 
   const COLORS = ["#10b981", "#ef4444"];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analytics...</p>
-        </div>
-      </div>
-    );
-  }
+  const rangeLabel = timeRange === "all"
+    ? "All available history"
+    : `${format(subDays(new Date(), Number(timeRange.slice(0, -1)) - 1), "MMM d, yyyy")} – ${format(new Date(), "MMM d, yyyy")}`;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-8 px-4">
@@ -117,24 +192,39 @@ function AnalyticsDashboardContent() {
         </div>
 
         {/* Time Range Selector */}
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" role="group" aria-label="Filter analytics by date range">
           {(["7d", "30d", "90d", "all"] as const).map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              aria-pressed={timeRange === range}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 timeRange === range
                   ? "bg-blue-600 text-white"
-                  : "bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700"
+                  : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700"
               }`}
             >
               {range === "all" ? "All Time" : range.toUpperCase()}
             </button>
           ))}
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400" aria-live="polite">
+            {rangeLabel}
+            {historyLoading && <span className="ml-2 text-blue-600 dark:text-blue-400">Updating…</span>}
+          </p>
         </div>
 
         {/* Key Metrics */}
-        {metrics && (
+        {metricsLoading ? (
+          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-400" role="status">
+            Loading portfolio metrics…
+          </div>
+        ) : metricsError ? (
+          <div className="mb-8 rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300" role="alert">
+            Could not load portfolio metrics: {metricsError}
+          </div>
+        ) : metrics && metrics.totalTrades > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
               <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">Total Trades</p>
@@ -159,33 +249,34 @@ function AnalyticsDashboardContent() {
               </p>
             </div>
           </div>
+        ) : (
+          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-400" role="status">
+            No portfolio metrics are available yet.
+          </div>
         )}
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Trade Volume Chart */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Trade Volume Over Time
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={tradeHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="volume" stroke="#3b82f6" />
-              </LineChart>
-            </ResponsiveContainer>
+        <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Trade Volume Over Time</h2>
+            <ChartLegend items={[{ label: "Trade volume (USD)", color: "#3b82f6" }]} />
+            {historyLoading ? <ChartState loading /> : historyError ? <ChartState error={historyError} /> : tradeHistory.length === 0 ? <ChartState empty /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={tradeHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tickFormatter={(value) => formatChartDate(String(value))} />
+                  <YAxis tickFormatter={(value) => `$${value}`} />
+                  <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, "Trade volume"]} />
+                  <Line type="monotone" dataKey="volume" name="Trade volume (USD)" stroke="#3b82f6" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
-          {/* Win/Loss Distribution */}
-          {winLossData.length > 0 && (
-            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Win/Loss Distribution
-              </h2>
+          <div className="rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Win/Loss Distribution</h2>
+            <ChartLegend items={[{ label: "Wins", color: COLORS[0] }, { label: "Losses", color: COLORS[1] }]} />
+            {metricsLoading ? <ChartState loading /> : metricsError ? <ChartState error={metricsError} /> : winLossData.length === 0 || metrics?.totalTrades === 0 ? <ChartState empty /> : (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -195,60 +286,62 @@ function AnalyticsDashboardContent() {
                     labelLine={false}
                     label={({ name, value }) => `${name}: ${value}`}
                     outerRadius={80}
-                    fill="#8884d8"
                     dataKey="value"
+                    nameKey="name"
                   >
                     {winLossData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip formatter={(value, name) => [value, name]} />
                 </PieChart>
               </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Profit/Loss Chart */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Profit/Loss Trend
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={tradeHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="profit" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
+            )}
           </div>
 
-          {/* Trade Count Chart */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Trades Per Day
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={tradeHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="trades" fill="#8b5cf6" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Profit/Loss Trend</h2>
+            <ChartLegend items={[{ label: "Profit / loss (USD)", color: "#10b981" }]} />
+            {historyLoading ? <ChartState loading /> : historyError ? <ChartState error={historyError} /> : tradeHistory.length === 0 ? <ChartState empty /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tradeHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tickFormatter={(value) => formatChartDate(String(value))} />
+                  <YAxis tickFormatter={(value) => `$${value}`} />
+                  <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, "Profit / loss"]} />
+                  <Bar dataKey="profit" name="Profit / loss (USD)" fill="#10b981" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
+            <h2 className="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Trades Per Day</h2>
+            <ChartLegend items={[{ label: "Trade count", color: "#8b5cf6" }]} />
+            {historyLoading ? <ChartState loading /> : historyError ? <ChartState error={historyError} /> : tradeHistory.length === 0 ? <ChartState empty /> : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={tradeHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tickFormatter={(value) => formatChartDate(String(value))} />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip formatter={(value) => [value, "Trades"]} />
+                  <Bar dataKey="trades" name="Trade count" fill="#8b5cf6" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Open Positions */}
-        {positions.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Open Positions
-            </h2>
+        <div className="rounded-lg bg-white p-6 shadow-md dark:bg-slate-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Open Positions</h2>
+          {positionsLoading ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400" role="status">Loading open positions…</p>
+          ) : positionsError ? (
+            <p className="text-sm text-red-700 dark:text-red-300" role="alert">Could not load positions: {positionsError}</p>
+          ) : positions.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400" role="status">No open positions.</p>
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -292,8 +385,8 @@ function AnalyticsDashboardContent() {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

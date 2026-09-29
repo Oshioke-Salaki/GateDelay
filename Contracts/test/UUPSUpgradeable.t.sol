@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/UUPSUpgradeable.sol";
+import "../src/UUPSUpgradeable.sol";
 
 contract MockUUPSV1 is UUPSUpgradeable {
     uint256 public value;

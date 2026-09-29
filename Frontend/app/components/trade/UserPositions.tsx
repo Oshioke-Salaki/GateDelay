@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import CloseConfirmation from "@/components/position/CloseConfirmation";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface UserPositionsProps {
 export default function UserPositions({ marketId, userAddress }: UserPositionsProps) {
     const [positions, setPositions] = useState<Position[]>([]);
     const [activeTab, setActiveTab] = useState<"open" | "history">("open");
+    const [closingPos, setClosingPos] = useState<Position | null>(null);
 
     useEffect(() => {
         // Mock data - in production, fetch from API
@@ -180,7 +182,10 @@ export default function UserPositions({ marketId, userAddress }: UserPositionsPr
                                             </div>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <button className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors">
+                                            <button
+                                                onClick={() => setClosingPos(position)}
+                                                className="px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            >
                                                 Close
                                             </button>
                                         </td>
@@ -197,6 +202,46 @@ export default function UserPositions({ marketId, userAddress }: UserPositionsPr
                 <div className="p-8 text-center text-gray-500">
                     <p>No trading history yet</p>
                 </div>
+            )}
+
+            {closingPos && (
+                <CloseConfirmation
+                    isOpen={!!closingPos}
+                    onClose={() => setClosingPos(null)}
+                    onConfirm={async (sharesToClose) => {
+                        // Simulate partial position close on mock data
+                        setPositions(prev =>
+                            prev
+                                .map(pos => {
+                                    if (pos.id === closingPos.id) {
+                                        const nextQty = pos.quantity - sharesToClose;
+                                        if (nextQty <= 0.0001) return null; // fully closed
+                                        const nextValue = nextQty * pos.currentPrice;
+                                        const nextPnl = (pos.currentPrice - pos.entryPrice) * nextQty;
+                                        const nextPnlPercent = ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100;
+                                        return {
+                                            ...pos,
+                                            quantity: nextQty,
+                                            value: nextValue,
+                                            pnl: nextPnl,
+                                            pnlPercent: nextPnlPercent,
+                                        };
+                                    }
+                                    return pos;
+                                })
+                                .filter(Boolean) as Position[]
+                        );
+                        setClosingPos(null);
+                    }}
+                    position={{
+                        id: closingPos.id,
+                        marketName: `Market Position (${closingPos.side.toUpperCase()})`,
+                        side: closingPos.side === "long" ? "YES" : "NO",
+                        shares: closingPos.quantity,
+                        entryPrice: closingPos.entryPrice,
+                        currentPrice: closingPos.currentPrice,
+                    }}
+                />
             )}
         </div>
     );
