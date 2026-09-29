@@ -80,3 +80,10 @@ REST errors use this envelope:
 ```
 
 Background jobs should use `utils/correlation.withJobContext(...)` and `utils/correlation.log(...)` so job logs can be joined back to API requests or scheduler runs.
+
+## Operational Incidents
+
+Release failure, rollback, and circuit-breaker activation procedures live in
+[docs/OPERATIONAL_RUNBOOKS.md](./docs/OPERATIONAL_RUNBOOKS.md). Keep those
+steps with incident records so deploy health, restored image tags, emergency
+controls, and escalation decisions are auditable.

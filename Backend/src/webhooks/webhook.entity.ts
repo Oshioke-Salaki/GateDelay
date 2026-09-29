@@ -11,6 +11,7 @@ export interface WebhookEvent {
   id: string;
   payload: WebhookPayload;
   signature: string;
+  signedTimestamp: string;
   timestamp: Date;
   status: 'pending' | 'processed' | 'failed';
   retryCount: number;

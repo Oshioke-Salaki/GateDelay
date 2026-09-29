@@ -15,12 +15,20 @@ export class WebhookController {
 
   @Post('market-creation')
   async handleMarketCreationWebhook(
-    @Body() body: { payload: WebhookPayload; signature: string },
+    @Body() body: {
+      payload: WebhookPayload;
+      signature: string;
+      timestamp: string;
+    },
   ) {
-    if (!body.payload || !body.signature) {
-      throw new BadRequestException('Missing payload or signature');
+    if (!body.payload || !body.signature || !body.timestamp) {
+      throw new BadRequestException('Missing payload, signature, or timestamp');
     }
-    return this.webhookService.processWebhook(body.payload, body.signature);
+    return this.webhookService.processWebhook(
+      body.payload,
+      body.signature,
+      body.timestamp,
+    );
   }
 
   @Get('status/:eventId')
