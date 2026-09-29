@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { Search, Calendar, Filter } from "lucide-react";
-import type { ArchivedMarket } from "../../archive/page";
+import type { ArchivedMarket } from "../../app/archive/page";
 
 interface ArchiveViewProps {
   markets: ArchivedMarket[];
@@ -42,24 +42,25 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
   }, [markets, searchTerm, selectedOutcome, selectedCategory, dateFrom, dateTo]);
 
   const categories = useMemo(
-    () => [...new Set(markets.map((m) => m.category))],
+    () => Array.from(new Set(markets.map((m) => m.category))),
     [markets]
   );
 
   const stats = useMemo(() => {
     const totalVolume = filtered.reduce((sum, m) => sum + m.volume, 0);
     const totalParticipants = filtered.reduce((sum, m) => sum + m.participants, 0);
-    const avgPrice = filtered.length > 0
-      ? (filtered.reduce((sum, m) => sum + m.finalPrice, 0) / filtered.length).toFixed(2)
-      : "0.00";
+    const avgPrice =
+      filtered.length > 0
+        ? (filtered.reduce((sum, m) => sum + m.finalPrice, 0) / filtered.length).toFixed(2)
+        : "0.00";
 
     return { totalVolume, totalParticipants, avgPrice };
   }, [filtered]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="archive-view">
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-testid="archive-stats">
         <div
           className="rounded-lg p-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
@@ -67,7 +68,11 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Total Volume
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--foreground)" }}>
+          <p
+            data-testid="stats-total-volume"
+            className="text-2xl font-bold mt-1"
+            style={{ color: "var(--foreground)" }}
+          >
             {stats.totalVolume.toLocaleString()}
           </p>
         </div>
@@ -78,7 +83,11 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Total Participants
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--foreground)" }}>
+          <p
+            data-testid="stats-total-participants"
+            className="text-2xl font-bold mt-1"
+            style={{ color: "var(--foreground)" }}
+          >
             {stats.totalParticipants.toLocaleString()}
           </p>
         </div>
@@ -89,7 +98,11 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
           <p className="text-xs" style={{ color: "var(--muted)" }}>
             Avg Final Price
           </p>
-          <p className="text-2xl font-bold mt-1" style={{ color: "var(--foreground)" }}>
+          <p
+            data-testid="stats-avg-price"
+            className="text-2xl font-bold mt-1"
+            style={{ color: "var(--foreground)" }}
+          >
             ${stats.avgPrice}
           </p>
         </div>
@@ -99,6 +112,7 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
       <div
         className="rounded-lg p-4 space-y-4"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        data-testid="archive-filters"
       >
         <div className="flex items-center gap-2 mb-4">
           <Filter size={16} style={{ color: "var(--muted)" }} />
@@ -119,6 +133,8 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
             placeholder="Search markets..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            data-testid="archive-search-input"
+            id="archive-search-input"
             className="w-full pl-10 pr-4 py-2 rounded-lg text-sm"
             style={{
               background: "var(--background)",
@@ -137,6 +153,7 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
             {["yes", "no", "cancelled"].map((outcome) => (
               <button
                 key={outcome}
+                data-testid={`filter-outcome-${outcome}`}
                 onClick={() =>
                   setSelectedOutcome(
                     selectedOutcome === outcome ? null : outcome
@@ -177,6 +194,7 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
             {categories.map((cat) => (
               <button
                 key={cat}
+                data-testid={`filter-category-${cat}`}
                 onClick={() =>
                   setSelectedCategory(selectedCategory === cat ? null : cat)
                 }
@@ -218,6 +236,8 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
+                data-testid="date-from-input"
+                id="date-from-input"
                 className="w-full pl-10 pr-4 py-2 rounded-lg text-sm"
                 style={{
                   background: "var(--background)",
@@ -241,6 +261,8 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
+                data-testid="date-to-input"
+                id="date-to-input"
                 className="w-full pl-10 pr-4 py-2 rounded-lg text-sm"
                 style={{
                   background: "var(--background)",
@@ -255,22 +277,31 @@ export default function ArchiveView({ markets }: ArchiveViewProps) {
 
       {/* Results */}
       <div className="space-y-3">
-        <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+        <p
+          data-testid="archive-results-count"
+          className="text-sm font-semibold"
+          style={{ color: "var(--foreground)" }}
+        >
           {filtered.length} Market{filtered.length !== 1 ? "s" : ""} Found
         </p>
 
         {filtered.length === 0 ? (
           <div
+            data-testid="archive-empty-state"
             className="rounded-lg p-8 text-center"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
             <p style={{ color: "var(--muted)" }}>No markets match your filters</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="archive-markets-list">
             {filtered.map((market) => (
               <div
                 key={market.id}
+                data-testid="market-card"
+                data-market-id={market.id}
+                data-market-category={market.category}
+                data-market-outcome={market.resolvedOutcome}
                 className="rounded-lg p-4"
                 style={{ background: "var(--card)", border: "1px solid var(--border)" }}
               >

@@ -1,7 +1,8 @@
 "use client";
-import { useState, useMemo } from "react";
-import ArchiveView from "../components/archive/ArchiveView";
-import { MarketListSkeleton } from "../components/ui/Skeleton";
+import { useState, useEffect, useCallback } from "react";
+import ArchiveView from "@/components/archive/ArchiveView";
+import { MarketListSkeleton } from "@/app/components/ui/Skeleton";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
 export interface ArchivedMarket {
   id: string;
@@ -17,93 +18,36 @@ export interface ArchivedMarket {
   finalPrice: number;
 }
 
-const MOCK_ARCHIVED_MARKETS: ArchivedMarket[] = [
-  {
-    id: "1",
-    title: "Will AA123 arrive on time?",
-    description: "American Airlines flight AA123 from JFK to LAX on Apr 20, 2026.",
-    category: "flight",
-    resolvedOutcome: "yes",
-    resolutionDate: "2026-04-20T18:30:00Z",
-    volume: 14820,
-    participants: 87,
-    createdAt: "2026-04-15T10:00:00Z",
-    endDate: "2026-04-20T18:00:00Z",
-    finalPrice: 0.78,
-  },
-  {
-    id: "2",
-    title: "Will UA456 be delayed > 30 min?",
-    description: "United Airlines flight UA456 from ORD to SFO on Apr 19, 2026.",
-    category: "flight",
-    resolvedOutcome: "no",
-    resolutionDate: "2026-04-19T22:15:00Z",
-    volume: 8300,
-    participants: 45,
-    createdAt: "2026-04-14T14:30:00Z",
-    endDate: "2026-04-19T21:00:00Z",
-    finalPrice: 0.22,
-  },
-  {
-    id: "3",
-    title: "Will DL789 be cancelled?",
-    description: "Delta Airlines flight DL789 from ATL to MIA on Apr 18, 2026.",
-    category: "flight",
-    resolvedOutcome: "cancelled",
-    resolutionDate: "2026-04-18T14:00:00Z",
-    volume: 3200,
-    participants: 23,
-    createdAt: "2026-04-13T09:15:00Z",
-    endDate: "2026-04-18T12:00:00Z",
-    finalPrice: 0.0,
-  },
-  {
-    id: "4",
-    title: "Will Bitcoin exceed $90k by Apr 2026?",
-    description: "Bitcoin price prediction for April 2026.",
-    category: "crypto",
-    resolvedOutcome: "yes",
-    resolutionDate: "2026-04-30T00:00:00Z",
-    volume: 125000,
-    participants: 1200,
-    createdAt: "2026-04-01T08:00:00Z",
-    endDate: "2026-04-30T00:00:00Z",
-    finalPrice: 0.85,
-  },
-  {
-    id: "5",
-    title: "Will Ethereum outperform Bitcoin in Apr 2026?",
-    description: "Ethereum vs Bitcoin performance comparison for April 2026.",
-    category: "crypto",
-    resolvedOutcome: "no",
-    resolutionDate: "2026-05-01T00:00:00Z",
-    volume: 89000,
-    participants: 890,
-    createdAt: "2026-04-05T12:00:00Z",
-    endDate: "2026-05-01T00:00:00Z",
-    finalPrice: 0.35,
-  },
-  {
-    id: "6",
-    title: "Will the Lakers win in April 2026?",
-    description: "Lakers game outcome prediction.",
-    category: "sports",
-    resolvedOutcome: "yes",
-    resolutionDate: "2026-04-25T23:00:00Z",
-    volume: 45000,
-    participants: 567,
-    createdAt: "2026-04-20T16:00:00Z",
-    endDate: "2026-04-25T22:00:00Z",
-    finalPrice: 0.72,
-  },
-];
-
 export default function ArchivePage() {
-  const [markets] = useState<ArchivedMarket[]>(MOCK_ARCHIVED_MARKETS);
-  const [isLoading] = useState(false);
+  const [markets, setMarkets] = useState<ArchivedMarket[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMarkets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/archive");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch archive data (${response.status})`);
+      }
+      const data = await response.json();
+      setMarkets(data.markets || []);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load archived markets";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMarkets();
+  }, [fetchMarkets]);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+    <main className="max-w-6xl mx-auto px-4 py-10 space-y-6" data-testid="archive-page">
       <div>
         <h1
           className="text-3xl font-bold"
@@ -117,7 +61,40 @@ export default function ArchivePage() {
       </div>
 
       {isLoading ? (
-        <MarketListSkeleton count={5} />
+        <div data-testid="archive-loading">
+          <MarketListSkeleton count={5} />
+        </div>
+      ) : error ? (
+        <div
+          data-testid="archive-error-container"
+          className="rounded-lg p-6 space-y-4 text-center"
+          style={{
+            background: "var(--card)",
+            border: "1px solid #ef4444",
+          }}
+        >
+          <div className="flex items-center justify-center gap-2 text-red-500">
+            <AlertCircle size={24} />
+            <span className="font-semibold text-base">Error Loading Archive</span>
+          </div>
+          <p
+            data-testid="archive-error-message"
+            className="text-sm"
+            style={{ color: "var(--muted)" }}
+          >
+            {error}
+          </p>
+          <div>
+            <button
+              data-testid="archive-retry-button"
+              onClick={fetchMarkets}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw size={16} />
+              Retry Loading
+            </button>
+          </div>
+        </div>
       ) : (
         <ArchiveView markets={markets} />
       )}

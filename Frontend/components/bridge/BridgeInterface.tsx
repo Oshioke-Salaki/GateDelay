@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAccount, useBalance } from "wagmi";
+import { formatUnits } from "viem";
 import { useToast } from "../../hooks/useToast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -796,7 +797,7 @@ export default function BridgeInterface() {
           {/* Balance hint */}
           {isConnected && balanceData && (
             <p className="mt-1 text-right text-xs" style={{ color: "var(--muted)" }}>
-              Balance: {parseFloat(balanceData.formatted).toFixed(4)} {balanceData.symbol}
+              Balance: {parseFloat(formatUnits(balanceData.value, balanceData.decimals)).toFixed(4)} {balanceData.symbol}
             </p>
           )}
         </div>

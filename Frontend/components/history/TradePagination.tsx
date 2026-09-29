@@ -71,11 +71,11 @@ export default function TradePagination({
   const [endDate, setEndDate] = useState<string>("");
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching } = useQuery<TradeHistoryResponse>({
     queryKey: ["trades", pair, page, pageSize, sideFilter, startDate, endDate],
     queryFn: () => fetchTradeHistory(pair, page, pageSize, sideFilter, startDate, endDate),
     staleTime: 30000,
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,
   });
 
   const trades = data?.trades || [];

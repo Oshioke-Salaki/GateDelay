@@ -125,7 +125,6 @@ export default function GasOptimizer({
               border: `1px solid ${
                 selectedSpeed === option.speed ? getSpeedColor(option.speed) : "var(--border)"
               }`,
-              ringColor: getSpeedColor(option.speed),
               cursor: isLoading ? "not-allowed" : "pointer",
               opacity: isLoading ? 0.6 : 1,
             }}

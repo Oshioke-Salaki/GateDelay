@@ -67,7 +67,6 @@ export default function FavoriteButton({
         border: `1px solid ${isFavorited ? "#f59e0b44" : "var(--border)"}`,
         cursor: isLoading ? "not-allowed" : "pointer",
         opacity: isLoading ? 0.6 : 1,
-        focusVisibleRingColor: "#f59e0b",
       }}
     >
       <svg
