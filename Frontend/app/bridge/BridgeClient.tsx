@@ -8,5 +8,9 @@ const BridgeInterface = dynamic(
 );
 
 export default function BridgeClient() {
-  return <BridgeInterface />;
+  return (
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-start px-4 py-12">
+      <BridgeInterface />
+    </main>
+  );
 }

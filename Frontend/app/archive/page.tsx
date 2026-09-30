@@ -1,160 +1,102 @@
 "use client";
+import { useState, useEffect, useCallback } from "react";
+import ArchiveView from "@/components/archive/ArchiveView";
+import { MarketListSkeleton } from "@/app/components/ui/Skeleton";
+import { AlertCircle, RefreshCw } from "lucide-react";
 
-import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Archive, RefreshCw } from "lucide-react";
-import ArchiveView from "../../components/archive/ArchiveView";
-import { MarketListSkeleton } from "../components/ui/Skeleton";
-import { isArchivedMarket, type ArchivedMarket } from "../../components/archive/types";
-
-/**
- * Market archive route (`/archive`).
- *
- * ## Hydration
- *
- * Data is fetched in an effect, never during render. The first paint is
- * identical on the server and the client — the skeleton — so there is nothing
- * for React to reconcile on hydration. Reading the fetch result during render,
- * or seeding state from anything time- or environment-dependent (`Date.now()`,
- * `window`, `Math.random()`), would produce a server/client mismatch and the
- * "text content did not match" warning.
- *
- * ## No blank screens
- *
- * Every terminal state is rendered explicitly: `loading`, `error` (with the
- * reason and a retry), `empty`, and `ready`. The page previously held a static
- * mock array with `isLoading` pinned to `false`, so a real failure had nowhere
- * to surface.
- */
-
-// Re-exported for backwards compatibility: `ArchivedMarket` used to be declared
-// here and is imported from this path elsewhere. The declaration now lives in
-// components/archive/types.ts.
-export type { ArchivedMarket };
-
-type LoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; markets: ArchivedMarket[] };
-
-async function fetchArchivedMarkets(signal: AbortSignal): Promise<ArchivedMarket[]> {
-  const res = await fetch("/api/archive?limit=500", { signal });
-
-  if (!res.ok) {
-    // The proxy answers with { error } for both config and upstream faults.
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error || `Request failed with status ${res.status}`);
-  }
-
-  const payload: unknown = await res.json();
-  const rows = Array.isArray(payload)
-    ? payload
-    : (payload as { data?: unknown })?.data;
-
-  if (!Array.isArray(rows)) {
-    throw new Error("The archive endpoint returned an unexpected response shape.");
-  }
-
-  // Drop anything malformed rather than letting ArchiveView crash on
-  // `market.title.toLowerCase()` partway down the list.
-  return rows.filter(isArchivedMarket);
+export interface ArchivedMarket {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  resolvedOutcome: "yes" | "no" | "cancelled";
+  resolutionDate: string;
+  volume: number;
+  participants: number;
+  createdAt: string;
+  endDate: string;
+  finalPrice: number;
 }
 
 export default function ArchivePage() {
-  const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [reloadKey, setReloadKey] = useState(0);
+  const [markets, setMarkets] = useState<ArchivedMarket[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const retry = useCallback(() => {
-    setState({ status: "loading" });
-    setReloadKey((k) => k + 1);
+  const fetchMarkets = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/archive");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch archive data (${response.status})`);
+      }
+      const data = await response.json();
+      setMarkets(data.markets || []);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load archived markets";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-
-    fetchArchivedMarkets(controller.signal)
-      .then((markets) => setState({ status: "ready", markets }))
-      .catch((error: unknown) => {
-        if (controller.signal.aborted) return;
-        setState({
-          status: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Could not load the market archive.",
-        });
-      });
-
-    return () => controller.abort();
-  }, [reloadKey]);
+    fetchMarkets();
+  }, [fetchMarkets]);
 
   return (
-    <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 space-y-6">
-      <div className="flex items-start gap-3">
-        <div className="rounded-xl p-2.5 shrink-0" style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
-          <Archive size={20} style={{ color: "var(--foreground)" }} />
-        </div>
-        <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: "var(--foreground)" }}>
-            Market Archive
-          </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Browse resolved and inactive markets with performance statistics
-          </p>
-        </div>
+    <main className="max-w-6xl mx-auto px-4 py-10 space-y-6" data-testid="archive-page">
+      <div>
+        <h1
+          className="text-3xl font-bold"
+          style={{ color: "var(--foreground)" }}
+        >
+          Market Archive
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+          Browse resolved and inactive markets with performance statistics
+        </p>
       </div>
 
-      {state.status === "loading" && (
-        <div role="status" aria-live="polite" aria-busy="true">
-          <span className="sr-only">Loading archived markets…</span>
+      {isLoading ? (
+        <div data-testid="archive-loading">
           <MarketListSkeleton count={5} />
         </div>
-      )}
-
-      {state.status === "error" && (
+      ) : error ? (
         <div
-          role="alert"
-          className="rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center gap-4"
+          data-testid="archive-error-container"
+          className="rounded-lg p-6 space-y-4 text-center"
           style={{
-            background: "rgba(239,68,68,0.05)",
-            border: "1px solid rgba(239,68,68,0.25)",
+            background: "var(--card)",
+            border: "1px solid #ef4444",
           }}
         >
-          <AlertTriangle size={20} className="shrink-0" style={{ color: "#ef4444" }} />
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold" style={{ color: "var(--foreground)" }}>
-              Could not load the market archive
-            </p>
-            <p className="text-sm mt-1 break-words" style={{ color: "var(--muted)" }}>
-              {state.message}
-            </p>
+          <div className="flex items-center justify-center gap-2 text-red-500">
+            <AlertCircle size={24} />
+            <span className="font-semibold text-base">Error Loading Archive</span>
           </div>
-          <button
-            onClick={retry}
-            className="rounded-xl px-4 py-2 text-sm font-semibold flex items-center gap-2 shrink-0 cursor-pointer"
-            style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
+          <p
+            data-testid="archive-error-message"
+            className="text-sm"
+            style={{ color: "var(--muted)" }}
           >
-            <RefreshCw size={15} />
-            Retry
-          </button>
-        </div>
-      )}
-
-      {state.status === "ready" && state.markets.length === 0 && (
-        <div
-          className="rounded-2xl p-10 text-center"
-          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
-        >
-          <p className="font-semibold" style={{ color: "var(--foreground)" }}>
-            No resolved markets yet
+            {error}
           </p>
-          <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
-            Markets appear here once they have been resolved or cancelled.
-          </p>
+          <div>
+            <button
+              data-testid="archive-retry-button"
+              onClick={fetchMarkets}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw size={16} />
+              Retry Loading
+            </button>
+          </div>
         </div>
-      )}
-
-      {state.status === "ready" && state.markets.length > 0 && (
-        <ArchiveView markets={state.markets} />
+      ) : (
+        <ArchiveView markets={markets} />
       )}
     </main>
   );

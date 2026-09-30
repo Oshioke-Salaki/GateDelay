@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 
 // ─── Trading Chart ────────────────────────────────────────────────────────────
@@ -167,7 +166,7 @@ export default function TradingChart({ marketId }: TradingChartProps) {
                                     borderRadius: "8px",
                                     padding: "12px",
                                 }}
-                                formatter={(value: any) => [`$${parseFloat(value).toFixed(4)}`, "Price"]}
+                                formatter={(value: any) => [`$${Number(value ?? 0).toFixed(4)}`, "Price"]}
                                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
                             />
                             <Area
@@ -201,7 +200,7 @@ export default function TradingChart({ marketId }: TradingChartProps) {
                                     borderRadius: "8px",
                                     padding: "12px",
                                 }}
-                                formatter={(value: any) => [`$${parseFloat(value).toFixed(4)}`, "Price"]}
+                                formatter={(value: any) => [`$${Number(value ?? 0).toFixed(4)}`, "Price"]}
                                 labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
                             />
                             <Line

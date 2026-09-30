@@ -1,5 +1,5 @@
-import BridgeClient from "./BridgeClient";
 import type { Metadata } from "next";
+import BridgeClient from "./BridgeClient";
 
 export const metadata: Metadata = {
   title: "Bridge | GateDelay",
@@ -7,9 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function BridgePage() {
-  return (
-    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-start px-4 py-12">
-      <BridgeClient />
-    </main>
-  );
+  return <BridgeClient />;
 }

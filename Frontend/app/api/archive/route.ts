@@ -1,64 +1,108 @@
-import { NextResponse } from "next/server";
-import { resolveApiBase, MissingApiBaseError } from "../../../lib/apiBase";
+import { NextResponse, NextRequest } from "next/server";
 
-/**
- * GET /api/archive
- *
- * Proxies the browser to the backend's resolved-markets endpoint so the client
- * bundle never needs the backend origin, and so a misconfigured deployment
- * surfaces as a JSON error rather than a blank page.
- *
- * Supported filters are forwarded verbatim: `category`, `outcome`, `from`, `to`,
- * `limit`.
- */
-export async function GET(req: Request) {
-  const url = new URL(req.url);
+export interface ArchivedMarket {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  resolvedOutcome: "yes" | "no" | "cancelled";
+  resolutionDate: string;
+  volume: number;
+  participants: number;
+  createdAt: string;
+  endDate: string;
+  finalPrice: number;
+}
 
-  const forwarded = new URLSearchParams();
-  for (const key of ["category", "outcome", "from", "to", "limit"]) {
-    const value = url.searchParams.get(key);
-    if (value) forwarded.set(key, value);
-  }
+const MOCK_ARCHIVED_MARKETS: ArchivedMarket[] = [
+  {
+    id: "1",
+    title: "Will AA123 arrive on time?",
+    description: "American Airlines flight AA123 from JFK to LAX on Apr 20, 2026.",
+    category: "flight",
+    resolvedOutcome: "yes",
+    resolutionDate: "2026-04-20T18:30:00Z",
+    volume: 14820,
+    participants: 87,
+    createdAt: "2026-04-15T10:00:00Z",
+    endDate: "2026-04-20T18:00:00Z",
+    finalPrice: 0.78,
+  },
+  {
+    id: "2",
+    title: "Will UA456 be delayed > 30 min?",
+    description: "United Airlines flight UA456 from ORD to SFO on Apr 19, 2026.",
+    category: "flight",
+    resolvedOutcome: "no",
+    resolutionDate: "2026-04-19T22:15:00Z",
+    volume: 8300,
+    participants: 45,
+    createdAt: "2026-04-14T14:30:00Z",
+    endDate: "2026-04-19T21:00:00Z",
+    finalPrice: 0.22,
+  },
+  {
+    id: "3",
+    title: "Will DL789 be cancelled?",
+    description: "Delta Airlines flight DL789 from ATL to MIA on Apr 18, 2026.",
+    category: "flight",
+    resolvedOutcome: "cancelled",
+    resolutionDate: "2026-04-18T14:00:00Z",
+    volume: 3200,
+    participants: 23,
+    createdAt: "2026-04-13T09:15:00Z",
+    endDate: "2026-04-18T12:00:00Z",
+    finalPrice: 0.0,
+  },
+  {
+    id: "4",
+    title: "Will Bitcoin exceed $90k by Apr 2026?",
+    description: "Bitcoin price prediction for April 2026.",
+    category: "crypto",
+    resolvedOutcome: "yes",
+    resolutionDate: "2026-04-30T00:00:00Z",
+    volume: 125000,
+    participants: 1200,
+    createdAt: "2026-04-01T08:00:00Z",
+    endDate: "2026-04-30T00:00:00Z",
+    finalPrice: 0.85,
+  },
+  {
+    id: "5",
+    title: "Will Ethereum outperform Bitcoin in Apr 2026?",
+    description: "Ethereum vs Bitcoin performance comparison for April 2026.",
+    category: "crypto",
+    resolvedOutcome: "no",
+    resolutionDate: "2026-05-01T00:00:00Z",
+    volume: 89000,
+    participants: 890,
+    createdAt: "2026-04-05T12:00:00Z",
+    endDate: "2026-05-01T00:00:00Z",
+    finalPrice: 0.35,
+  },
+  {
+    id: "6",
+    title: "Will the Lakers win in April 2026?",
+    description: "Lakers game outcome prediction.",
+    category: "sports",
+    resolvedOutcome: "yes",
+    resolutionDate: "2026-04-25T23:00:00Z",
+    volume: 45000,
+    participants: 567,
+    createdAt: "2026-04-20T16:00:00Z",
+    endDate: "2026-04-25T22:00:00Z",
+    finalPrice: 0.72,
+  },
+];
 
-  let apiBase: string;
-  try {
-    apiBase = resolveApiBase();
-  } catch (error) {
-    if (error instanceof MissingApiBaseError) {
-      // Configuration fault, not an upstream one — say so plainly.
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    throw error;
-  }
-
-  const backendUrl = `${apiBase}/markets/archive?${forwarded.toString()}`;
-
-  try {
-    const res = await fetch(backendUrl, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      // Archived markets are immutable once resolved, but the list itself grows.
-      next: { revalidate: 60 },
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText);
-      return NextResponse.json(
-        { error: text || "Failed to load archived markets" },
-        { status: res.status },
-      );
-    }
-
-    return NextResponse.json(await res.json(), { status: 200 });
-  } catch (error) {
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  if (searchParams.get("fail") === "true") {
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to connect to the backend",
-      },
-      { status: 502 },
+      { error: "Failed to fetch archive data from server" },
+      { status: 500 }
     );
   }
+
+  return NextResponse.json({ markets: MOCK_ARCHIVED_MARKETS }, { status: 200 });
 }

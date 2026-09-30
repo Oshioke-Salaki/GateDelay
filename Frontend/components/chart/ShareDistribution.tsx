@@ -1,21 +1,6 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-
-// ─── Fallback ─────────────────────────────────────────────────────────────────
-
-function ChartFallback({ message }: { message: string }) {
-  return (
-    <div
-      className="flex items-center justify-center rounded-lg py-8 text-xs"
-      style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
-      role="status"
-      aria-live="polite"
-    >
-      {message}
-    </div>
-  );
-}
 
 export interface ShareData {
   outcome: string;
@@ -56,8 +41,6 @@ export default function ShareDistribution({
   chartType = "pie",
   title = "Market Share Distribution",
 }: ShareDistributionProps) {
-  const [tooSmall, setTooSmall] = useState(false);
-
   const stats = useMemo(() => {
     const totalShares = data.reduce((sum, d) => sum + d.shares, 0);
     const totalValue = data.reduce((sum, d) => sum + d.value, 0);
@@ -102,10 +85,8 @@ export default function ShareDistribution({
       </div>
 
       {/* Chart */}
-      {tooSmall || stats.data.length === 0 ? (
-        <ChartFallback message={tooSmall ? "Chart area too small to display" : "No distribution data available"} />
-      ) : chartType === "pie" ? (
-        <ResponsiveContainer width="100%" height={250} onResize={(w) => setTooSmall(w > 0 && w < 180)}>
+      {chartType === "pie" ? (
+        <ResponsiveContainer width="100%" height={250}>
           <PieChart>
             <Pie
               data={stats.data}
@@ -114,7 +95,7 @@ export default function ShareDistribution({
               cx="50%"
               cy="50%"
               outerRadius={80}
-              label={({ outcome, percentage }: any) => `${outcome} ${percentage.toFixed(1)}%`}
+              label={(props: any) => `${props.outcome} ${props.percentage?.toFixed(1)}%`}
             >
               {stats.data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -125,7 +106,7 @@ export default function ShareDistribution({
           </PieChart>
         </ResponsiveContainer>
       ) : (
-        <ResponsiveContainer width="100%" height={250} onResize={(w) => setTooSmall(w > 0 && w < 180)}>
+        <ResponsiveContainer width="100%" height={250}>
           <BarChart data={stats.data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis

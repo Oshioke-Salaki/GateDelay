@@ -1,3 +1,10 @@
+Viewed TradePagination.tsx:1-369
+
+Here is the correct code to use for `Frontend/components/history/TradePagination.tsx` (resolving the merge conflict in favor of `feature/vote-delegation-frontend-archive`):
+
+### 📄 `Frontend/components/history/TradePagination.tsx`
+
+```tsx
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
@@ -71,11 +78,11 @@ export default function TradePagination({
   const [endDate, setEndDate] = useState<string>("");
   const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, isFetching } = useQuery({
+  const { data, isLoading, isError, isFetching } = useQuery<TradeHistoryResponse>({
     queryKey: ["trades", pair, page, pageSize, sideFilter, startDate, endDate],
     queryFn: () => fetchTradeHistory(pair, page, pageSize, sideFilter, startDate, endDate),
     staleTime: 30000,
-    placeholderData: (previousData) => previousData,
+    placeholderData: (prev) => prev,
   });
 
   const trades = data?.trades || [];
@@ -367,3 +374,6 @@ export default function TradePagination({
     </div>
   );
 }
+```
+
+---
