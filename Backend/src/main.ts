@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpErrorEnvelopeFilter } from './common/http-error-envelope.filter';
+import { assertContractStartupConfig } from './blockchain/contract-startup-validation';
 import { expressCorrelationMiddleware, log } from '../utils/correlation';
 import marketMigrationGuardModule from '../middleware/marketMigrationGuard';
 import marketMigrationValidatorModule from '../services/marketMigrationValidator';
@@ -36,6 +37,16 @@ async function bootstrap() {
   };
   for (const warning of rateLimitReport.warnings) {
     console.warn(`[main] ${warning}`);
+  }
+
+  try {
+    assertContractStartupConfig();
+  } catch (err) {
+    console.error(
+      '[main] FATAL: Contract ABI/address validation failed before server startup:',
+    );
+    console.error((err as Error).message);
+    process.exit(1);
   }
 
   // Fail the boot if required market database migrations are missing or unapplied

@@ -82,8 +82,11 @@ export const envValidationSchema = Joi.object({
   ETH_PROVIDER_URL: Joi.string().uri().optional(),
   MARKET_CONTRACT_ADDRESS: Joi.string().pattern(/^0x[a-fA-F0-9]{40}$/).optional(),
   PRIVATE_KEY: Joi.string().pattern(/^0x[a-fA-F0-9]{64}$/).optional(),
+  DEPLOYMENT_REGISTRY_JSON: Joi.string().allow('').optional(),
+  CONTRACT_ABI_EXPECTATIONS_JSON: Joi.string().allow('').optional(),
 
   WEBHOOK_SECRET: Joi.string().min(16).default('default-secret'),
+  WEBHOOK_TIMESTAMP_WINDOW_MS: Joi.number().integer().positive().optional(),
 
   PINATA_API_KEY: Joi.string().optional(),
   PINATA_SECRET_API_KEY: Joi.string().optional(),

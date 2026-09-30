@@ -5,6 +5,18 @@ export interface DeploymentEntry {
   abiVersion: string;
 }
 
+export interface ContractExpectation {
+  name: string;
+  abiVersion: string;
+  addressEnv?: string;
+}
+
+export interface ContractValidationResult {
+  valid: boolean;
+  checked: number;
+  errors: string[];
+}
+
 interface DeploymentRegistryFile {
   contracts?: DeploymentEntry[];
 }
@@ -60,4 +72,44 @@ export function findDeployment(
   name: string,
 ): DeploymentEntry | undefined {
   return entries.find((entry) => entry.name === name);
+}
+
+export function validateDeploymentsAgainstExpectations(
+  entries: DeploymentEntry[],
+  expectations: ContractExpectation[],
+  env: Record<string, string | undefined> = process.env,
+): ContractValidationResult {
+  const errors: string[] = [];
+
+  for (const expected of expectations) {
+    const entry = findDeployment(entries, expected.name);
+    if (!entry) {
+      errors.push(`Missing deployment registry entry for ${expected.name}`);
+      continue;
+    }
+
+    if (entry.abiVersion !== expected.abiVersion) {
+      errors.push(
+        `${expected.name} ABI version mismatch: expected ${expected.abiVersion}, got ${entry.abiVersion}`,
+      );
+    }
+
+    if (expected.addressEnv) {
+      const configured = env[expected.addressEnv];
+      if (
+        configured &&
+        configured.toLowerCase() !== entry.address.toLowerCase()
+      ) {
+        errors.push(
+          `${expected.name} address mismatch: ${expected.addressEnv}=${configured} but registry has ${entry.address}`,
+        );
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    checked: expectations.length,
+    errors,
+  };
 }

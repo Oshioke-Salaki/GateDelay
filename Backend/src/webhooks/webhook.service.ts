@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { createHmac } from 'crypto';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { WebhookPayload, WebhookEvent, WebhookStatus } from './webhook.entity';
 
@@ -10,22 +10,43 @@ export class WebhookService {
   private readonly webhookSecret =
     process.env.WEBHOOK_SECRET || 'default-secret';
   private readonly maxRetries = 3;
+  private readonly allowedTimestampDriftMs = Number(
+    process.env.WEBHOOK_TIMESTAMP_WINDOW_MS ?? 5 * 60 * 1000,
+  );
 
-  validateWebhookSignature(payload: string, signature: string): boolean {
+  validateWebhookSignature(
+    payload: string,
+    signature: string,
+    timestamp: string,
+    now = Date.now(),
+  ): boolean {
+    const timestampMs = Number(timestamp);
+    if (
+      !Number.isFinite(timestampMs) ||
+      Math.abs(now - timestampMs) > this.allowedTimestampDriftMs
+    ) {
+      return false;
+    }
+
     const hash = createHmac('sha256', this.webhookSecret)
-      .update(payload)
+      .update(`${timestamp}.${payload}`)
       .digest('hex');
-    return hash === signature;
+    const expected = Buffer.from(hash, 'hex');
+    const actual = Buffer.from(signature, 'hex');
+    return expected.length === actual.length && timingSafeEqual(expected, actual);
   }
 
   async processWebhook(
     payload: WebhookPayload,
     signature: string,
+    timestamp: string,
   ): Promise<WebhookStatus> {
     const payloadString = JSON.stringify(payload);
 
-    if (!this.validateWebhookSignature(payloadString, signature)) {
-      throw new BadRequestException('Invalid webhook signature');
+    if (!this.validateWebhookSignature(payloadString, signature, timestamp)) {
+      throw new BadRequestException(
+        'Invalid webhook signature or timestamp outside allowed window',
+      );
     }
 
     const eventId = uuidv4();
@@ -33,6 +54,7 @@ export class WebhookService {
       id: eventId,
       payload,
       signature,
+      signedTimestamp: timestamp,
       timestamp: new Date(),
       status: 'pending',
       retryCount: 0,
@@ -124,6 +146,10 @@ export class WebhookService {
       throw new BadRequestException('Max retries exceeded');
     }
 
-    return this.processWebhook(event.payload, event.signature);
+    return this.processWebhook(
+      event.payload,
+      event.signature,
+      event.signedTimestamp,
+    );
   }
 }
