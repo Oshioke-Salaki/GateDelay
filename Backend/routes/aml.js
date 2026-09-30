@@ -88,12 +88,15 @@ module.exports = (amlService, auth) => {
     if (!guardWarned) {
       console.warn(
         `[${MODULE_NAME}] WARNING: auth middleware was not provided at mount time — ` +
-        `all AML routes are unprotected. ` +
-        `(Phase 2+: must fail-closed for compliance.)`
+        `AML routes are blocked until an auth middleware is supplied.`
       );
       guardWarned = true;
     }
-    next();
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'UNAUTHORIZED',
+    });
   };
 
   // POST /screen — Screen a user against AML watchlists

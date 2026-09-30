@@ -51,6 +51,7 @@ import { HealthModule } from './health/health.module';
 
 import { GracefulShutdownService } from './common/graceful-shutdown.service';
 import { ApiVersionDeprecationMiddleware } from './common/middleware/api-version-deprecation.middleware';
+import { RolesGuard } from './auth/guards/roles.guard';
 
 @Module({
   imports: [
@@ -128,7 +129,7 @@ import { ApiVersionDeprecationMiddleware } from './common/middleware/api-version
     HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService, GracefulShutdownService],
+  providers: [AppService, GracefulShutdownService, RolesGuard],
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer): void {

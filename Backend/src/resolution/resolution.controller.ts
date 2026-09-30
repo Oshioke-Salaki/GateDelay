@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ResolutionService } from './resolution.service';
 import {
   RequestResolutionDto,
@@ -19,10 +20,14 @@ import {
   DisputeResolutionDto,
   ReviewDisputeDto,
 } from './dto/resolution.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
+@ApiTags('resolution')
+@ApiBearerAuth()
 @Controller('resolution')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ResolutionController {
   constructor(private readonly resolutionService: ResolutionService) {}
 
@@ -50,6 +55,11 @@ export class ResolutionController {
 
   /** POST /api/resolution — submit a manual resolution request */
   @Post()
+  @Roles('market_admin', 'admin')
+  @ApiOperation({ summary: 'Request a manual resolution' })
+  @ApiResponse({ status: 201, description: 'Resolution request created' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid JWT' })
+  @ApiResponse({ status: 403, description: 'Insufficient role permissions' })
   request(
     @Request() req: { user: { id: string } },
     @Body() dto: RequestResolutionDto,
@@ -89,6 +99,7 @@ export class ResolutionController {
    * settled the market, not just that it was settled.
    */
   @Patch(':id/finalise')
+  @Roles('market_admin', 'admin', 'settlement_admin')
   finalise(@Request() req: { user: { id: string } }, @Param('id') id: string) {
     return this.resolutionService.finaliseResolution(id, req.user.id);
   }

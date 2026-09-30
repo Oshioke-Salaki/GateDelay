@@ -87,12 +87,15 @@ module.exports = (blacklistService, auth) => {
     if (!guardWarned) {
       console.warn(
         `[${MODULE_NAME}] WARNING: auth middleware was not provided at mount time — ` +
-        `mutation routes are unprotected. ` +
-        `(Phase 2+: must fail-closed for compliance.)`
+        `blacklist mutation routes are blocked until an auth middleware is supplied.`
       );
       guardWarned = true;
     }
-    next();
+    return res.status(401).json({
+      success: false,
+      error: 'Authentication required',
+      code: 'UNAUTHORIZED',
+    });
   };
 
   // POST /add — Add an identifier to the blacklist

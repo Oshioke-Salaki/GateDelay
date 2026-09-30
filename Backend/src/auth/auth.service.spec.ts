@@ -150,4 +150,25 @@ describe('AuthService abuse paths', () => {
       strategy.validate({ sub: '', email: 'test@example.com' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it('JwtStrategy keeps role claims available on the request user', async () => {
+    const mockConfig = {
+      get: jest.fn(() => 'jwtsecret'),
+    } as unknown as ConfigService;
+    const strategy = new JwtStrategy(mockConfig);
+
+    await expect(
+      strategy.validate({
+        sub: 'user-123',
+        email: 'test@example.com',
+        role: 'market_admin',
+        roles: ['market_admin', 'settlement_admin'],
+      }),
+    ).resolves.toMatchObject({
+      id: 'user-123',
+      email: 'test@example.com',
+      role: 'market_admin',
+      roles: ['market_admin', 'settlement_admin'],
+    });
+  });
 });

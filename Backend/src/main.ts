@@ -115,6 +115,149 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+  const legacyPaths = {
+    '/api/aml/screen': {
+      post: {
+        tags: ['aml'],
+        summary: 'Screen a user against AML watchlists',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': { description: 'AML screening result' },
+          '401': { description: 'Missing or invalid JWT' },
+        },
+      },
+    },
+    '/api/blacklist/add': {
+      post: {
+        tags: ['blacklist'],
+        summary: 'Add an identifier to the blacklist',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '201': { description: 'Blacklist entry created' },
+          '401': { description: 'Missing or invalid JWT' },
+          '403': { description: 'Insufficient authorization' },
+        },
+      },
+    },
+    '/api/markets/archive': {
+      get: {
+        tags: ['markets'],
+        summary: 'List archived market records',
+        description:
+          'Returns resolved or cancelled markets with archive metadata consumed by the archive page.',
+        parameters: [
+          {
+            in: 'query',
+            name: 'category',
+            schema: { type: 'string' },
+            required: false,
+            description: 'Category slug filter',
+          },
+          {
+            in: 'query',
+            name: 'outcome',
+            schema: { type: 'string', enum: ['yes', 'no', 'cancelled'] },
+            required: false,
+            description: 'Outcome filter',
+          },
+          {
+            in: 'query',
+            name: 'from',
+            schema: { type: 'string', format: 'date-time' },
+            required: false,
+            description: 'Lower bound for resolution timestamp',
+          },
+          {
+            in: 'query',
+            name: 'to',
+            schema: { type: 'string', format: 'date-time' },
+            required: false,
+            description: 'Upper bound for resolution timestamp',
+          },
+          {
+            in: 'query',
+            name: 'limit',
+            schema: { type: 'integer', minimum: 1, maximum: 500 },
+            required: false,
+            description: 'Result limit',
+          },
+          {
+            in: 'query',
+            name: 'page',
+            schema: { type: 'integer', minimum: 1 },
+            required: false,
+            description: 'Page index starting at 1',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Archived market list',
+            content: {
+              'application/json': {
+                schema: {
+                  oneOf: [
+                    { type: 'array', items: { $ref: '#/components/schemas/ArchivedMarket' } },
+                    {
+                      type: 'object',
+                      properties: {
+                        success: { type: 'boolean' },
+                        data: {
+                          type: 'array',
+                          items: { $ref: '#/components/schemas/ArchivedMarket' },
+                        },
+                        meta: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            totalPages: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+
+  if (!document.paths) {
+    document.paths = {};
+  }
+  Object.assign(document.paths, legacyPaths);
+
+  const archivedMarketSchema = {
+    type: 'object',
+    required: ['id', 'title', 'description', 'category', 'resolvedOutcome', 'resolutionDate', 'volume', 'participants'],
+    properties: {
+      id: { type: 'string', example: 'mkt_01' },
+      title: { type: 'string', example: 'BTC / USD' },
+      description: { type: 'string', example: 'Bitcoin settlement market' },
+      category: { type: 'string', example: 'crypto' },
+      resolvedOutcome: { type: 'string', enum: ['yes', 'no', 'cancelled'] },
+      resolutionDate: { type: 'string', format: 'date-time' },
+      volume: { type: 'number', example: 1250 },
+      participants: { type: 'number', example: 42 },
+      createdAt: { type: 'string', format: 'date-time', nullable: true },
+      endDate: { type: 'string', format: 'date-time', nullable: true },
+      finalPrice: { type: 'number', nullable: true },
+    },
+  };
+
+  if (!document.components) {
+    document.components = {} as Record<string, unknown>;
+  }
+  document.components = {
+    ...document.components,
+    schemas: { ...(document.components as any).schemas, ArchivedMarket: archivedMarketSchema },
+  } as any;
+
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT ?? 4000;
