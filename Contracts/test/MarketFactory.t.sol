@@ -15,6 +15,7 @@ contract MarketFactoryTest is Test {
         uint256 resolutionDeadline
     );
     event MarketActivated(address indexed market, uint256 liquidity);
+    event MarketStatusChanged(address indexed market, MarketFactory.MarketStatus previousStatus, MarketFactory.MarketStatus newStatus);
 
     PositionToken internal positionToken;
     MarketFactory internal factory;
@@ -31,6 +32,15 @@ contract MarketFactoryTest is Test {
         collateral = new ERC20Token(0);
         validToken = address(collateral);
         factory.setSupportedCollateral(validToken, true);
+    }
+
+
+    function _createActivatedMarket(uint256 minLiq) internal returns (address market) {
+        market = factory.createMarket(validToken, block.timestamp + 1 days, minLiq, "ipfs://life");
+        collateral.mint(address(this), minLiq);
+        collateral.approve(market, minLiq);
+        PredictionMarket(payable(market)).addLiquidity(minLiq);
+        factory.activateMarket(market);
     }
 
     function test_constructor_revertsWithZeroPositionToken() public {
@@ -335,6 +345,54 @@ contract MarketFactoryTest is Test {
 
         vm.expectRevert(MarketFactory.InvalidMarketStatus.selector);
         factory.activateMarket(market);
+    }
+
+
+    function test_statusSync_pauseUnpauseResolveDisputeCancel() public {
+        address market = _createActivatedMarket(1 ether);
+        PredictionMarket pm = PredictionMarket(payable(market));
+
+        vm.expectEmit(true, false, false, true);
+        emit MarketStatusChanged(market, MarketFactory.MarketStatus.OPEN, MarketFactory.MarketStatus.PAUSED);
+        factory.pauseMarket(market);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.PAUSED));
+        assertEq(uint256(pm.state()), uint256(PredictionMarket.MarketState.PAUSED));
+
+        factory.unpauseMarket(market);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.OPEN));
+
+        vm.warp(block.timestamp + 2 days);
+        factory.resolveMarket(market, 1);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.RESOLVED));
+
+        factory.disputeMarket(market);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.DISPUTED));
+
+        factory.resolveMarket(market, 2);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.RESOLVED));
+
+        vm.expectRevert(MarketFactory.InvalidStatusTransition.selector);
+        factory.cancelMarket(market);
+    }
+
+    function test_statusSync_cancelPendingAndUnauthorizedReverts() public {
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://cancel");
+        factory.cancelMarket(market);
+        assertEq(uint256(factory.getMarketInfo(market).status), uint256(MarketFactory.MarketStatus.CANCELLED));
+
+        address market2 = _createActivatedMarket(1 ether);
+        vm.prank(alice);
+        vm.expectRevert(MarketFactory.NotAuthorized.selector);
+        factory.pauseMarket(market2);
+
+        vm.expectRevert(MarketFactory.InvalidStatusTransition.selector);
+        factory.pauseMarket(market); // already cancelled
+    }
+
+    function test_statusSync_invalidPauseFromPendingReverts() public {
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://pending");
+        vm.expectRevert(MarketFactory.InvalidStatusTransition.selector);
+        factory.pauseMarket(market);
     }
 
 }

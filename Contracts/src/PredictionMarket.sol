@@ -51,6 +51,8 @@ contract PredictionMarket {
     event MarketPaused(address indexed market);
     event MarketUnpaused(address indexed market);
     event MarketActivated(address indexed market, uint256 liquidity);
+    event MarketDisputed(address indexed market);
+    event MarketCancelled(address indexed market);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -190,14 +192,32 @@ contract PredictionMarket {
     /// @param _winningOutcome Winning outcome (1 for YES, 2 for NO).
     /// @dev Access: Only callable by factory or authorized resolver.
     function resolve(uint256 _winningOutcome) external {
+        if (msg.sender != factory) revert OnlyFactory();
         if (state == MarketState.RESOLVED) revert MarketAlreadyResolved();
+        if (state != MarketState.OPEN && state != MarketState.DISPUTED) revert InvalidMarketState();
         if (block.timestamp < resolutionDeadline) revert InvalidResolution();
         if (_winningOutcome != 1 && _winningOutcome != 2) revert InvalidOutcome();
-        
+
         state = MarketState.RESOLVED;
         winningOutcome = _winningOutcome;
-        
+
         emit MarketResolved(address(this), _winningOutcome);
+    }
+
+    /// @notice Mark the market disputed. Factory-only.
+    function dispute() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state != MarketState.RESOLVED && state != MarketState.OPEN) revert InvalidMarketState();
+        state = MarketState.DISPUTED;
+        emit MarketDisputed(address(this));
+    }
+
+    /// @notice Cancel the market. Factory-only.
+    function cancel() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state == MarketState.RESOLVED || state == MarketState.CANCELLED) revert InvalidMarketState();
+        state = MarketState.CANCELLED;
+        emit MarketCancelled(address(this));
     }
 
     /// @notice Redeem winning shares for collateral.

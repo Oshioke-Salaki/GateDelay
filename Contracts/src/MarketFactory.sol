@@ -28,6 +28,8 @@ contract MarketFactory {
     error MarketNotRegistered();
     error InvalidMarketStatus();
     error InsufficientLiquidity();
+    error InvalidStatusTransition();
+    error NotAuthorized();
 
     // -------------------------------------------------------------------------
     // Types
@@ -60,6 +62,7 @@ contract MarketFactory {
     event CollateralSupportUpdated(address indexed token, bool supported, uint8 decimals);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event MarketActivated(address indexed market, uint256 liquidity);
+    event MarketStatusChanged(address indexed market, MarketStatus previousStatus, MarketStatus newStatus);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -208,6 +211,58 @@ contract MarketFactory {
         pm.activate();
         info.status = MarketStatus.OPEN;
         emit MarketActivated(market, pm.totalLiquidity());
+        emit MarketStatusChanged(market, MarketStatus.PENDING, MarketStatus.OPEN);
+    }
+
+
+    /// @notice Pause an open market. Owner or market creator.
+    function pauseMarket(address market) external {
+        _authorizeStatusAdmin(market);
+        MarketStatus from = _liveStatus(market);
+        if (from != MarketStatus.OPEN) revert InvalidStatusTransition();
+        PredictionMarket(payable(market)).pause();
+        _markets[market].status = MarketStatus.PAUSED;
+        emit MarketStatusChanged(market, from, MarketStatus.PAUSED);
+    }
+
+    /// @notice Unpause a paused market. Owner or market creator.
+    function unpauseMarket(address market) external {
+        _authorizeStatusAdmin(market);
+        MarketStatus from = _liveStatus(market);
+        if (from != MarketStatus.PAUSED) revert InvalidStatusTransition();
+        PredictionMarket(payable(market)).unpause();
+        _markets[market].status = MarketStatus.OPEN;
+        emit MarketStatusChanged(market, from, MarketStatus.OPEN);
+    }
+
+    /// @notice Resolve a market after its deadline. Owner or market creator.
+    function resolveMarket(address market, uint256 winningOutcome) external {
+        _authorizeStatusAdmin(market);
+        MarketStatus from = _liveStatus(market);
+        if (from != MarketStatus.OPEN && from != MarketStatus.DISPUTED) revert InvalidStatusTransition();
+        PredictionMarket(payable(market)).resolve(winningOutcome);
+        _markets[market].status = MarketStatus.RESOLVED;
+        emit MarketStatusChanged(market, from, MarketStatus.RESOLVED);
+    }
+
+    /// @notice Dispute an open or resolved market. Owner or market creator.
+    function disputeMarket(address market) external {
+        _authorizeStatusAdmin(market);
+        MarketStatus from = _liveStatus(market);
+        if (from != MarketStatus.OPEN && from != MarketStatus.RESOLVED) revert InvalidStatusTransition();
+        PredictionMarket(payable(market)).dispute();
+        _markets[market].status = MarketStatus.DISPUTED;
+        emit MarketStatusChanged(market, from, MarketStatus.DISPUTED);
+    }
+
+    /// @notice Cancel a non-resolved market. Owner or market creator.
+    function cancelMarket(address market) external {
+        _authorizeStatusAdmin(market);
+        MarketStatus from = _liveStatus(market);
+        if (from == MarketStatus.RESOLVED || from == MarketStatus.CANCELLED) revert InvalidStatusTransition();
+        PredictionMarket(payable(market)).cancel();
+        _markets[market].status = MarketStatus.CANCELLED;
+        emit MarketStatusChanged(market, from, MarketStatus.CANCELLED);
     }
 
     /// @notice Compute the deterministic address for a market without deploying.
@@ -288,14 +343,28 @@ contract MarketFactory {
         return _markets[market].creator;
     }
 
-    function getMarketInfo(address market) external view returns (MarketInfo memory) {
-        return _markets[market];
+    function getMarketInfo(address market) external view returns (MarketInfo memory info) {
+        info = _markets[market];
+        if (info.creator == address(0)) return info;
+        // Authoritative lifecycle source is the deployed market contract.
+        info.status = MarketStatus(uint8(PredictionMarket(payable(market)).state()));
     }
 
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
 
+
+
+    function _authorizeStatusAdmin(address market) internal view {
+        MarketInfo storage info = _markets[market];
+        if (info.creator == address(0)) revert MarketNotRegistered();
+        if (msg.sender != owner && msg.sender != info.creator) revert NotAuthorized();
+    }
+
+    function _liveStatus(address market) internal view returns (MarketStatus) {
+        return MarketStatus(uint8(PredictionMarket(payable(market)).state()));
+    }
 
     function _validateMetadataURI(string calldata metadataURI) internal pure {
         bytes memory uri = bytes(metadataURI);
