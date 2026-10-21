@@ -22,8 +22,6 @@ contract MarketFactory {
     error InvalidRange();
     error UnsupportedCollateral();
     error InvalidCollateralToken();
-    error NotOwner();
-    error ZeroOwner();
     error MetadataURITooLong();
     error UnsupportedMetadataScheme();
     error MarketNotRegistered();
@@ -61,7 +59,6 @@ contract MarketFactory {
         uint256 resolutionDeadline
     );
     event CollateralSupportUpdated(address indexed token, bool supported, uint8 decimals);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event MarketActivated(address indexed market, uint256 liquidity);
     event MarketStatusChanged(address indexed market, MarketStatus previousStatus, MarketStatus newStatus);
 
@@ -112,6 +109,35 @@ contract MarketFactory {
         if (enabled) positionToken.authoriseGlobalSettlement(actor);
         else positionToken.revokeGlobalSettlement(actor);
     }
+
+    /// @notice Approve or revoke a collateral token for market creation. Governance-only.
+    function setSupportedCollateral(address token, bool supported) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (token == address(0)) revert ZeroCollateralToken();
+
+        if (!supported) {
+            delete _collateralConfig[token];
+            emit CollateralSupportUpdated(token, false, 0);
+            return;
+        }
+
+        if (token.code.length == 0) revert InvalidCollateralToken();
+        uint8 decimals_ = _readDecimals(token);
+        _assertTransferInterface(token);
+        _collateralConfig[token] = CollateralConfig({supported: true, decimals: decimals_});
+        emit CollateralSupportUpdated(token, true, decimals_);
+    }
+
+    /// @notice Whether `token` is an approved collateral asset.
+    function isSupportedCollateral(address token) external view returns (bool) {
+        return _collateralConfig[token].supported;
+    }
+
+    /// @notice Recorded decimals for an approved collateral token (0 if unsupported).
+    function collateralDecimals(address token) external view returns (uint8) {
+        return _collateralConfig[token].decimals;
+    }
+
 
     /// @notice Create and deploy a new prediction market.
     /// @param collateralToken  Protocol-approved ERC20 used as collateral.
@@ -181,7 +207,7 @@ contract MarketFactory {
     }
 
 
-    /// @notice Pause an open market. Owner or market creator.
+    /// @notice Pause an open market. Governance or market creator.
     function pauseMarket(address market) external {
         _authorizeStatusAdmin(market);
         MarketStatus from = _liveStatus(market);
@@ -191,7 +217,7 @@ contract MarketFactory {
         emit MarketStatusChanged(market, from, MarketStatus.PAUSED);
     }
 
-    /// @notice Unpause a paused market. Owner or market creator.
+    /// @notice Unpause a paused market. Governance or market creator.
     function unpauseMarket(address market) external {
         _authorizeStatusAdmin(market);
         MarketStatus from = _liveStatus(market);
@@ -201,7 +227,7 @@ contract MarketFactory {
         emit MarketStatusChanged(market, from, MarketStatus.OPEN);
     }
 
-    /// @notice Resolve a market after its deadline. Owner or market creator.
+    /// @notice Resolve a market after its deadline. Governance or market creator.
     function resolveMarket(address market, uint256 winningOutcome) external {
         _authorizeStatusAdmin(market);
         MarketStatus from = _liveStatus(market);
@@ -211,7 +237,7 @@ contract MarketFactory {
         emit MarketStatusChanged(market, from, MarketStatus.RESOLVED);
     }
 
-    /// @notice Dispute an open or resolved market. Owner or market creator.
+    /// @notice Dispute an open or resolved market. Governance or market creator.
     function disputeMarket(address market) external {
         _authorizeStatusAdmin(market);
         MarketStatus from = _liveStatus(market);
@@ -221,7 +247,7 @@ contract MarketFactory {
         emit MarketStatusChanged(market, from, MarketStatus.DISPUTED);
     }
 
-    /// @notice Cancel a non-resolved market. Owner or market creator.
+    /// @notice Cancel a non-resolved market. Governance or market creator.
     function cancelMarket(address market) external {
         _authorizeStatusAdmin(market);
         MarketStatus from = _liveStatus(market);
@@ -325,7 +351,7 @@ contract MarketFactory {
     function _authorizeStatusAdmin(address market) internal view {
         MarketInfo storage info = _markets[market];
         if (info.creator == address(0)) revert MarketNotRegistered();
-        if (msg.sender != owner && msg.sender != info.creator) revert NotAuthorized();
+        if (msg.sender != governance && msg.sender != info.creator) revert NotAuthorized();
     }
 
     function _liveStatus(address market) internal view returns (MarketStatus) {
