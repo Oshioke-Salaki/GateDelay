@@ -10,12 +10,17 @@ import {
   Filter,
 } from "lucide-react";
 import { format, parseISO, isValid } from "date-fns";
+import { formatTradeDecimal } from "@/lib/tradeDecimalFormat";
 
 export interface Trade {
   id: string;
   pair: string;
   price: string;
   amount: string;
+  /** Optional display precision supplied by the API/token metadata. */
+  amountPrecision?: number;
+  /** Optional display precision supplied by the API/quote metadata. */
+  pricePrecision?: number;
   side: "BUY" | "SELL";
   timestamp: string;
   orderId?: string;
@@ -411,20 +416,23 @@ export default function TradePagination({
                     className="px-4 py-3 whitespace-nowrap text-right"
                     style={{ color: "var(--foreground)" }}
                   >
-                    $
-                    {parseFloat(trade.price).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    <span title={`Raw price: ${trade.price}`} data-raw-value={trade.price}>
+                      ${formatTradeDecimal(trade.price, {
+                        precision: trade.pricePrecision ?? 8,
+                        minimumFractionDigits: 2,
+                      })}
+                    </span>
                   </td>
                   <td
                     className="px-4 py-3 whitespace-nowrap text-right"
                     style={{ color: "var(--foreground)" }}
                   >
-                    {parseFloat(trade.amount).toLocaleString(undefined, {
-                      minimumFractionDigits: 4,
-                      maximumFractionDigits: 4,
-                    })}
+                    <span title={`Raw amount: ${trade.amount}`} data-raw-value={trade.amount}>
+                      {formatTradeDecimal(trade.amount, {
+                        precision: trade.amountPrecision ?? 8,
+                        minimumFractionDigits: 4,
+                      })}
+                    </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
                     <span
