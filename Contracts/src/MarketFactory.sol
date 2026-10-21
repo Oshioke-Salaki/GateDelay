@@ -10,6 +10,7 @@ contract MarketFactory {
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
+    error NotGovernance();
     error ZeroCollateralToken();
     error InvalidDeadline();
     error ZeroMinLiquidity();
@@ -70,7 +71,7 @@ contract MarketFactory {
     uint256 public constant MAX_METADATA_URI_LENGTH = 2048;
 
     PositionToken public immutable positionToken;
-    address public owner;
+    address public immutable governance;
 
     /// @dev market address => MarketInfo
     mapping(address => MarketInfo) private _markets;
@@ -88,64 +89,29 @@ contract MarketFactory {
         if (_positionToken == address(0)) revert ZeroPositionToken();
         if (_positionToken.code.length == 0) revert InvalidPositionToken();
         positionToken = PositionToken(_positionToken);
-        owner = msg.sender;
-        emit OwnershipTransferred(address(0), msg.sender);
-    }
-
-    // -------------------------------------------------------------------------
-    // Modifiers
-    // -------------------------------------------------------------------------
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
-        _;
-    }
-
-    // -------------------------------------------------------------------------
-    // Admin — collateral registry (SC-020 / #1288)
-    // -------------------------------------------------------------------------
-
-    /// @notice Approve or revoke a collateral token for market creation.
-    /// @dev Requires runtime code, IERC20Metadata.decimals(), and IERC20 transfer/transferFrom
-    ///      selectors that succeed as view-probed interface checks via staticcall where possible.
-    function setSupportedCollateral(address token, bool supported) external onlyOwner {
-        if (token == address(0)) revert ZeroCollateralToken();
-
-        if (!supported) {
-            delete _collateralConfig[token];
-            emit CollateralSupportUpdated(token, false, 0);
-            return;
-        }
-
-        if (token.code.length == 0) revert InvalidCollateralToken();
-
-        uint8 decimals = _readDecimals(token);
-        _assertTransferInterface(token);
-
-        _collateralConfig[token] = CollateralConfig({supported: true, decimals: decimals});
-        emit CollateralSupportUpdated(token, true, decimals);
-    }
-
-    /// @notice Transfer factory ownership.
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroOwner();
-        address previous = owner;
-        owner = newOwner;
-        emit OwnershipTransferred(previous, newOwner);
-    }
-
-    /// @notice Whether `token` is an approved collateral asset.
-    function isSupportedCollateral(address token) external view returns (bool) {
-        return _collateralConfig[token].supported;
-    }
-
-    /// @notice Recorded decimals for an approved collateral token (0 if unsupported).
-    function collateralDecimals(address token) external view returns (uint8) {
-        return _collateralConfig[token].decimals;
+        governance = msg.sender;
     }
 
     // -------------------------------------------------------------------------
     // External functions
     // -------------------------------------------------------------------------
+
+    /// @notice Manage independent token privileges without changing existing balances.
+    function setMinterPermission(address actor, address market, bool enabled) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (enabled) positionToken.authoriseMinter(actor, market);
+        else positionToken.revokeMinter(actor);
+    }
+    function setBurnerPermission(address actor, bool enabled) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (enabled) positionToken.authoriseBurner(actor);
+        else positionToken.revokeBurner(actor);
+    }
+    function setGlobalSettlementPermission(address actor, bool enabled) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (enabled) positionToken.authoriseGlobalSettlement(actor);
+        else positionToken.revokeGlobalSettlement(actor);
+    }
 
     /// @notice Create and deploy a new prediction market.
     /// @param collateralToken  Protocol-approved ERC20 used as collateral.

@@ -12,6 +12,7 @@ contract MultiSigWallet {
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
+    error TransactionExpired();
     error NotSigner();
     error InvalidSignerCount();
     error InvalidThreshold();
@@ -27,7 +28,7 @@ contract MultiSigWallet {
     // -------------------------------------------------------------------------
     // Types
     // -------------------------------------------------------------------------
-    enum TransactionStatus { PENDING, APPROVED, EXECUTED, REJECTED }
+    enum TransactionStatus { PENDING, APPROVED, EXECUTED, REJECTED, EXPIRED }
 
     struct Transaction {
         uint256 id;
@@ -39,6 +40,7 @@ contract MultiSigWallet {
         TransactionStatus status;
         uint256 createdAt;
         uint256 executedAt;
+        uint256 deadline;
     }
 
     // -------------------------------------------------------------------------
@@ -49,12 +51,15 @@ contract MultiSigWallet {
     event ThresholdUpdated(uint256 newThreshold);
     event TransactionCreated(uint256 indexed txId, address indexed creator, address indexed target);
     event TransactionApproved(uint256 indexed txId, address indexed signer);
+    event TransactionApprovalRevoked(uint256 indexed txId, address indexed signer);
     event TransactionExecuted(uint256 indexed txId, address indexed executor);
     event TransactionRejected(uint256 indexed txId);
 
     // -------------------------------------------------------------------------
     // Storage
     // -------------------------------------------------------------------------
+    /// @notice Proposals expire exactly seven days after creation; deadlines cannot be extended.
+    uint256 public constant PROPOSAL_LIFETIME = 7 days;
     address[] public signers;
     mapping(address => bool) public isSigner;
     uint256 public threshold;
@@ -142,12 +147,16 @@ contract MultiSigWallet {
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `InvalidThreshold` if
     ///     `newThreshold == 0 || newThreshold > signers.length` is true.
+    /// @dev After updating, recomputes PENDING/APPROVED readiness for non-terminal proposals
+    ///     against the new threshold so prior approvals cannot silently satisfy a higher bar.
     function updateThreshold(uint256 newThreshold) external {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (newThreshold == 0 || newThreshold > signers.length) revert InvalidThreshold();
 
         threshold = newThreshold;
         emit ThresholdUpdated(newThreshold);
+
+        _recomputeTransactionReadiness();
     }
 
     /// @notice Create a new transaction for approval.
@@ -176,7 +185,8 @@ contract MultiSigWallet {
             rejectionCount: 0,
             status: TransactionStatus.PENDING,
             createdAt: block.timestamp,
-            executedAt: 0
+            executedAt: 0,
+            deadline: block.timestamp + PROPOSAL_LIFETIME
         });
 
         emit TransactionCreated(txId, msg.sender, target);
@@ -194,6 +204,7 @@ contract MultiSigWallet {
         if (txId >= transactionCount) revert TransactionNotFound();
 
         Transaction storage transaction = transactions[txId];
+        if (isExpired(txId)) revert TransactionExpired();
         if (transaction.status == TransactionStatus.EXECUTED || transaction.status == TransactionStatus.REJECTED) {
             revert TransactionNotPending();
         }
@@ -216,6 +227,36 @@ contract MultiSigWallet {
         _syncApprovalReadiness(transaction, txId);
 
         emit TransactionApproved(txId, msg.sender);
+    }
+
+    /// @notice Revoke a previously granted approval on an unexecuted transaction.
+    /// @param txId The ID of the transaction to revoke approval from.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `TransactionNotFound` if `txId
+    ///     >= transactionCount` is true. `TransactionAlreadyExecuted` if `transaction.status ==
+    ///     TransactionStatus.EXECUTED` is true. `InvalidTransaction` if `transaction.status ==
+    ///     TransactionStatus.REJECTED` is true. `InvalidTransaction` if
+    ///     `!approvals[txId][msg.sender]` is true.
+    /// @dev Decrements `approvalCount` by one. If the transaction was `APPROVED` and the count
+    ///     falls below `threshold`, status returns to `PENDING`. Executed and rejected
+    ///     transactions are immutable.
+    function revokeApproval(uint256 txId) external {
+        if (!isSigner[msg.sender]) revert NotSigner();
+        if (txId >= transactionCount) revert TransactionNotFound();
+
+        Transaction storage transaction = transactions[txId];
+        if (transaction.status == TransactionStatus.EXECUTED) revert TransactionAlreadyExecuted();
+        if (transaction.status == TransactionStatus.REJECTED) revert InvalidTransaction();
+        if (!approvals[txId][msg.sender]) revert InvalidTransaction();
+
+        approvals[txId][msg.sender] = false;
+        transaction.approvalCount--;
+
+        if (transaction.status == TransactionStatus.APPROVED && transaction.approvalCount < threshold) {
+            transaction.status = TransactionStatus.PENDING;
+        }
+
+        emit TransactionApprovalRevoked(txId, msg.sender);
     }
 
     // -------------------------------------------------------------------------
@@ -250,6 +291,26 @@ contract MultiSigWallet {
         }
     }
 
+    /// @notice Recompute PENDING/APPROVED status for all non-terminal transactions against the
+    ///     current approval threshold.
+    function _recomputeTransactionReadiness() internal {
+        for (uint256 i = 0; i < transactionCount; ++i) {
+            Transaction storage transaction = transactions[i];
+            if (
+                transaction.status == TransactionStatus.EXECUTED
+                    || transaction.status == TransactionStatus.REJECTED
+            ) {
+                continue;
+            }
+
+            if (transaction.approvalCount >= threshold) {
+                transaction.status = TransactionStatus.APPROVED;
+            } else {
+                transaction.status = TransactionStatus.PENDING;
+            }
+        }
+    }
+
     /// @notice Execute an approved transaction.
     /// @param txId The ID of the transaction to execute.
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
@@ -262,6 +323,7 @@ contract MultiSigWallet {
         if (txId >= transactionCount) revert TransactionNotFound();
 
         Transaction storage transaction = transactions[txId];
+        if (isExpired(txId)) revert TransactionExpired();
         if (transaction.executedAt != 0) revert TransactionAlreadyExecuted();
 
         uint256 currentApprovals = _countCurrentApprovals(txId);
@@ -294,6 +356,7 @@ contract MultiSigWallet {
         if (txId >= transactionCount) revert TransactionNotFound();
 
         Transaction storage transaction = transactions[txId];
+        if (isExpired(txId)) revert TransactionExpired();
         if (transaction.status != TransactionStatus.PENDING) revert TransactionNotPending();
         if (rejections[txId][msg.sender]) revert InvalidTransaction();
 
@@ -313,7 +376,17 @@ contract MultiSigWallet {
     /// @dev Reverts: `TransactionNotFound` if `txId >= transactionCount` is true.
     function getTransaction(uint256 txId) external view returns (Transaction memory transaction) {
         if (txId >= transactionCount) revert TransactionNotFound();
-        return transactions[txId];
+        transaction = transactions[txId];
+        if (isExpired(txId)) transaction.status = TransactionStatus.EXPIRED;
+        return transaction;
+    }
+
+    /// @notice Expiry applies only to unfinished proposals, including approved proposals.
+    function isExpired(uint256 txId) public view returns (bool) {
+        if (txId >= transactionCount) revert TransactionNotFound();
+        Transaction storage proposal = transactions[txId];
+        return (proposal.status == TransactionStatus.PENDING || proposal.status == TransactionStatus.APPROVED)
+            && block.timestamp >= proposal.deadline;
     }
 
     /// @notice Get all signers.
@@ -346,7 +419,8 @@ contract MultiSigWallet {
     /// @dev Reverts: `TransactionNotFound` if `txId >= transactionCount` is true.
     function hasApproved(uint256 txId, address signer) external view returns (bool) {
         if (txId >= transactionCount) revert TransactionNotFound();
-        return approvals[txId][signer];
+        return !isExpired(txId) && isSigner[signer] && approvals[txId][signer]
+            && approvalMembership[txId][signer] == signerMembership[signer];
     }
 
     /// @notice Check if a signer has rejected a transaction.

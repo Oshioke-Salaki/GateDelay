@@ -88,20 +88,12 @@ contract PriceOracle is Ownable {
 
     // ── Admin ──────────────────────────────────────────────────────────────────
 
-    /// @notice Register a new price feed; the zero feed ID is reserved.
-    /// @param feedId       Unique identifier (e.g. keccak256("ETH/USD")).
-    /// @param description  Human-readable label.
-    /// @param maxStaleness Maximum age in seconds before the price is stale.
-    /// @dev Access: Caller must be the contract owner.
-    /// @dev Reverts: `ZeroFeedId` for the reserved zero ID, or `FeedAlreadyRegistered`
-    ///     if `feeds[feedId].active` is true.
-    function registerFeed(bytes32 feedId, string calldata description, uint256 maxStaleness) external onlyOwner {
-        if (feedId == bytes32(0)) revert ZeroFeedId();
     /// @notice Register a feed without fallback-compatible identity metadata.
     /// @param feedId       Unique identifier (e.g. keccak256("ETH/USD")).
     /// @param description  Human-readable label.
     /// @param maxStaleness Maximum age in seconds before the price is stale.
     /// @dev Feeds registered without identity metadata cannot be configured as fallbacks.
+    ///      The zero feed ID is reserved. Only the owner may register feeds.
     function registerFeed(bytes32 feedId, string calldata description, uint256 maxStaleness) external onlyOwner {
         _registerFeed(feedId, description, maxStaleness, bytes32(0), bytes32(0), 0);
     }
@@ -124,17 +116,6 @@ contract PriceOracle is Ownable {
         if (baseAsset == bytes32(0) || quoteAsset == bytes32(0)) revert InvalidFeedMetadata();
         _registerFeed(feedId, description, maxStaleness, baseAsset, quoteAsset, decimals);
         emit FeedMetadataRegistered(feedId, baseAsset, quoteAsset, decimals);
-        if (feeds[feedId].active) revert FeedAlreadyRegistered();
-        feeds[feedId] = FeedData({
-            price: 0,
-            updatedAt: 0,
-            roundId: 0,
-            receivedAt: 0,
-            maxStaleness: maxStaleness,
-            active: true,
-            description: description
-        });
-        emit FeedRegistered(feedId, description, maxStaleness);
     }
 
     /// @notice Deactivate a feed.
@@ -190,13 +171,25 @@ contract PriceOracle is Ownable {
 
     // ── Price updates ──────────────────────────────────────────────────────────
 
-    /// @notice Push a new price for a feed.
-    /// @param feedId  The feed to update.
-    /// @param price   New price value (must be > 0).
-    /// @dev Access: Caller must be authorized for `feedId`, or be the owner.
-    ///     The owner retains emergency update authority across all feeds.
-    /// @dev Reverts: `InvalidPrice` if `price <= 0` is true.
+    /// @notice Push a price using the receipt time and the next local round.
+    /// @dev Compatibility API for direct observations. Adapters reporting source observations
+    ///      must use the timestamp/round overload so stale observations cannot be refreshed.
     function updatePrice(bytes32 feedId, int256 price) external onlyUpdater(feedId) feedExists(feedId) {
+        _updatePrice(feedId, price, block.timestamp, feeds[feedId].roundId + 1);
+    }
+
+    /// @notice Push a source observation with its original timestamp and round identifier.
+    /// @param feedId The registered feed to update.
+    /// @param price Positive price in the feed's registered units.
+    /// @param sourceTimestamp Timestamp at which the source observed the price.
+    /// @param roundId Strictly increasing source round identifier.
+    function updatePrice(bytes32 feedId, int256 price, uint256 sourceTimestamp, uint80 roundId)
+        external onlyUpdater(feedId) feedExists(feedId)
+    {
+        _updatePrice(feedId, price, sourceTimestamp, roundId);
+    }
+
+    function _updatePrice(bytes32 feedId, int256 price, uint256 sourceTimestamp, uint80 roundId) private {
         if (price <= 0) revert InvalidPrice();
         if (sourceTimestamp == 0) revert InvalidTimestamp();
         if (sourceTimestamp > block.timestamp) revert FutureTimestamp();
@@ -261,10 +254,13 @@ contract PriceOracle is Ownable {
         bytes32 quoteAsset,
         uint8 decimals
     ) private {
+        if (feedId == bytes32(0)) revert ZeroFeedId();
         if (feeds[feedId].active) revert FeedAlreadyRegistered();
         feeds[feedId] = FeedData({
             price: 0,
             updatedAt: 0,
+            roundId: 0,
+            receivedAt: 0,
             baseAsset: baseAsset,
             quoteAsset: quoteAsset,
             decimals: decimals,

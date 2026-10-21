@@ -10,14 +10,15 @@ import {
   ExportHistoryRecord,
   readWalletExportHistory,
 } from "../../lib/walletExportHistory";
-import CryptoJS from "crypto-js";
+import { encryptWalletData } from "../../lib/walletEncryption";
+import RecoverWalletData from "./RecoverWalletData";
 import { Download, FileJson, FileSpreadsheet, Lock, AlertCircle, CheckCircle2, History, Loader2 } from "lucide-react";
 
 type ExportFormat = "json" | "csv";
 
 export default function ExportWallet() {
   const { address, chainId, isConnected } = useAccount();
-  const { transactions } = useTransactionTracker();
+  const { transactions } = useTransactionTracker(true);
   
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -97,7 +98,9 @@ export default function ExportWallet() {
 
       const metadata = {
         exportedAt: new Date().toISOString(),
-        version: "1.0",
+        version: "2.0",
+        chainId,
+        coverage: { source: "local archive", period: "all available records", oldestTimestamp: transactions.length ? Math.min(...transactions.map(tx => tx.timestamp)) : null },
         address,
       };
 
@@ -111,7 +114,7 @@ export default function ExportWallet() {
       // Encrypt
       let encryptedData = "";
       try {
-        encryptedData = CryptoJS.AES.encrypt(rawData, password).toString();
+        encryptedData = await encryptWalletData(rawData, password, format);
       } catch (err) {
         throw new Error("Encryption failed");
       }
@@ -176,10 +179,14 @@ export default function ExportWallet() {
           <Download size={20} /> Export Wallet Data
         </h2>
         <p className="text-sm text-zinc-500 mt-1">
-          Securely export your local transaction history and settings. Data will be encrypted with a password of your choice.
+          Export all available transactions from this browser’s local archive for the connected wallet and network. The tracker displays only the last 24 hours; exports include older records still stored here. Previously deleted records cannot be recovered; use your network’s block explorer for complete on-chain history.
         </p>
       </div>
 
+      <p className="text-xs text-zinc-500 mb-4">
+        Coverage: {transactions.length ? new Date(Math.min(...transactions.map(tx => tx.timestamp))).toLocaleString() : "No saved records"} through export time ({transactions.length} records). Clearing local history removes this archive.
+      </p>
+      <RecoverWalletData />
       <form onSubmit={handleExport} className="space-y-5">
         <div>
           <label className="block text-sm font-semibold mb-2">Export Format</label>

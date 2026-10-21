@@ -52,6 +52,9 @@ contract PositionToken {
     // -------------------------------------------------------------------------
     event MinterAuthorised(address indexed minter, address indexed market);
     event BurnerAuthorised(address indexed burner);
+    event MinterRevoked(address indexed minter, address indexed market);
+    event BurnerRevoked(address indexed burner);
+    event GlobalSettlementRevoked(address indexed settlement);
     event GlobalSettlementAuthorised(address indexed settlement);
 
     // -------------------------------------------------------------------------
@@ -161,10 +164,32 @@ contract PositionToken {
     // -------------------------------------------------------------------------
     // View functions
     // -------------------------------------------------------------------------
-    /// @notice Reports whether authorised is satisfied.
-    /// @param market Market address associated with this operation.
-    /// @return True when the requested condition is met.
-    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @notice Revoke namespace minting only. Existing balances and transfers remain valid.
+    /// @dev Burn and global settlement permissions are independent and must be revoked separately.
+    function revokeMinter(address minter) external {
+        if (msg.sender != factory) revert NotFactory();
+        if (minter == address(0)) revert ZeroAddress();
+        address market = _authorisedMinters[minter];
+        delete _authorisedMinters[minter];
+        emit MinterRevoked(minter, market);
+    }
+
+    /// @notice Revoke third-party burning; holders and other approved settlement actors retain their rights.
+    function revokeBurner(address burner) external {
+        if (msg.sender != factory) revert NotFactory();
+        if (burner == address(0)) revert ZeroAddress();
+        delete _authorisedBurners[burner];
+        emit BurnerRevoked(burner);
+    }
+
+    /// @notice Revoke global minting. Any separately granted namespace permission remains valid.
+    function revokeGlobalSettlement(address settlement) external {
+        if (msg.sender != factory) revert NotFactory();
+        if (settlement == address(0)) revert ZeroAddress();
+        delete _globalSettlement[settlement];
+        emit GlobalSettlementRevoked(settlement);
+    }
+
     function isAuthorised(address market) external view returns (bool) {
         return _authorisedMinters[market] == market;
     }

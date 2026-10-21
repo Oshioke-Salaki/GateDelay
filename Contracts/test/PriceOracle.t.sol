@@ -42,6 +42,30 @@ contract PriceOracleTest is Test {
         assertTrue(f.active);
     }
 
+    function test_registerFeed_initializesObservationState() public view {
+        PriceOracle.FeedData memory feed = oracle.getFeedInfo(ETH_USD);
+        assertEq(feed.price, 0);
+        assertEq(feed.updatedAt, 0);
+        assertEq(feed.roundId, 0);
+        assertEq(feed.receivedAt, 0);
+    }
+
+    function test_registerFeedWithMetadata_revertsOnZeroFeedId() public {
+        vm.expectRevert(PriceOracle.ZeroFeedId.selector);
+        oracle.registerFeed(bytes32(0), "Reserved", MAX_STALENESS, ETH_ASSET, USD_ASSET, 18);
+    }
+
+    function test_updatePrice_compatibilityOverloadAdvancesRound() public {
+        oracle.updatePrice(ETH_USD, 2000e18);
+        vm.warp(block.timestamp + 1);
+        oracle.updatePrice(ETH_USD, 2100e18);
+        PriceOracle.FeedData memory feed = oracle.getFeedInfo(ETH_USD);
+        assertEq(feed.roundId, 2);
+        assertEq(feed.updatedAt, block.timestamp);
+        assertEq(feed.receivedAt, block.timestamp);
+        assertEq(feed.price, 2100e18);
+    }
+
     function test_setFallback_revertsForDifferentAsset() public {
         vm.expectRevert(PriceOracle.IncompatibleFallback.selector);
         oracle.setFallback(ETH_USD, BTC_USD);

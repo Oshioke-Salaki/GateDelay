@@ -65,6 +65,91 @@ contract MultiSigWalletTest is Test {
         assertEq(uint256(tx.status), uint256(MultiSigWallet.TransactionStatus.APPROVED));
     }
 
+    function test_RevokeApproval_ReturnsReadyToPendingThenReapproveAndExecute() public {
+        vm.prank(signer1);
+        uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
+
+        vm.prank(signer1);
+        wallet.approveTransaction(txId);
+
+        vm.prank(signer2);
+        wallet.approveTransaction(txId);
+
+        MultiSigWallet.Transaction memory txn = wallet.getTransaction(txId);
+        assertEq(txn.approvalCount, 2);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.APPROVED));
+
+        vm.expectEmit(true, true, false, true);
+        emit MultiSigWallet.TransactionApprovalRevoked(txId, signer2);
+        vm.prank(signer2);
+        wallet.revokeApproval(txId);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(txn.approvalCount, 1);
+        assertFalse(wallet.hasApproved(txId, signer2));
+        assertTrue(wallet.hasApproved(txId, signer1));
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.PENDING));
+
+        vm.prank(signer1);
+        vm.expectRevert(MultiSigWallet.InsufficientApprovals.selector);
+        wallet.executeTransaction(txId);
+
+        vm.prank(signer2);
+        wallet.approveTransaction(txId);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(txn.approvalCount, 2);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.APPROVED));
+
+        vm.prank(signer1);
+        wallet.executeTransaction(txId);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.EXECUTED));
+    }
+
+    function test_RevokeApproval_ExecutedImmutable() public {
+        vm.prank(signer1);
+        uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
+
+        vm.prank(signer1);
+        wallet.approveTransaction(txId);
+        vm.prank(signer2);
+        wallet.approveTransaction(txId);
+        vm.prank(signer1);
+        wallet.executeTransaction(txId);
+
+        vm.prank(signer1);
+        vm.expectRevert(MultiSigWallet.TransactionAlreadyExecuted.selector);
+        wallet.revokeApproval(txId);
+    }
+
+    function test_RevokeApproval_RejectedImmutable() public {
+        vm.prank(signer1);
+        uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
+
+        vm.prank(signer1);
+        wallet.approveTransaction(txId);
+
+        vm.prank(signer2);
+        wallet.rejectTransaction(txId);
+        vm.prank(signer3);
+        wallet.rejectTransaction(txId);
+
+        vm.prank(signer1);
+        vm.expectRevert(MultiSigWallet.InvalidTransaction.selector);
+        wallet.revokeApproval(txId);
+    }
+
+    function test_RevokeApproval_WithoutPriorApproval() public {
+        vm.prank(signer1);
+        uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
+
+        vm.prank(signer1);
+        vm.expectRevert(MultiSigWallet.InvalidTransaction.selector);
+        wallet.revokeApproval(txId);
+    }
+
     function test_ExecuteTransaction() public {
         vm.prank(signer1);
         uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
@@ -177,6 +262,47 @@ contract MultiSigWalletTest is Test {
 
         MultiSigWallet.Transaction memory tx = wallet.getTransaction(txId);
         assertEq(uint256(tx.status), uint256(MultiSigWallet.TransactionStatus.PENDING));
+    }
+
+    /// @notice SC-013: raising the threshold must invalidate prior APPROVED readiness until
+    ///     enough approvals exist under the new policy.
+    function test_ThresholdIncrease_ExistingProposalRequiresNewApprovals() public {
+        address[] memory signers = new address[](3);
+        signers[0] = signer1;
+        signers[1] = signer2;
+        signers[2] = signer3;
+        wallet = new MultiSigWallet(signers, 1, 2);
+
+        vm.prank(signer1);
+        uint256 txId = wallet.createTransaction(target, 0, abi.encodeWithSignature("test()"));
+
+        vm.prank(signer1);
+        wallet.approveTransaction(txId);
+
+        MultiSigWallet.Transaction memory txn = wallet.getTransaction(txId);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.APPROVED));
+
+        vm.prank(signer1);
+        wallet.updateThreshold(2);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.PENDING));
+
+        vm.prank(signer1);
+        vm.expectRevert(MultiSigWallet.InsufficientApprovals.selector);
+        wallet.executeTransaction(txId);
+
+        vm.prank(signer2);
+        wallet.approveTransaction(txId);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.APPROVED));
+
+        vm.prank(signer1);
+        wallet.executeTransaction(txId);
+
+        txn = wallet.getTransaction(txId);
+        assertEq(uint256(txn.status), uint256(MultiSigWallet.TransactionStatus.EXECUTED));
     }
 
     function test_UpdateRejectionThreshold() public {

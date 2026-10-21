@@ -12,7 +12,7 @@ export interface TrackedTransaction {
 
 const STORAGE_KEY = "gate_delay_txs";
 
-export function useTransactionTracker() {
+export function useTransactionTracker(includeArchive = false) {
   const { address, chainId } = useAccount();
   const [transactions, setTransactions] = useState<TrackedTransaction[]>([]);
 
@@ -26,24 +26,21 @@ export function useTransactionTracker() {
       const stored = localStorage.getItem(`${STORAGE_KEY}_${chainId}_${address}`);
       if (stored) {
         const parsed: TrackedTransaction[] = JSON.parse(stored);
-        // Filter out transactions older than 24 hours to prevent bloated storage
+        const archiveKey = `${STORAGE_KEY}_archive_${chainId}_${address}`;
+        const archived: TrackedTransaction[] = JSON.parse(localStorage.getItem(archiveKey) || "[]");
+        const archive = [...archived, ...parsed.filter(tx => !archived.some(old => old.hash === tx.hash))];
+        localStorage.setItem(archiveKey, JSON.stringify(archive));
+        // Preserve stored history; apply retention only to the tracker view.
         const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-        const recent = parsed.filter(tx => tx.timestamp > oneDayAgo);
-        
-        // If we filtered out some, update storage
-        if (recent.length !== parsed.length) {
-          localStorage.setItem(`${STORAGE_KEY}_${chainId}_${address}`, JSON.stringify(recent));
-        }
-        
-        setTransactions(recent);
+        setTransactions(includeArchive ? archive : parsed.filter(tx => tx.timestamp > oneDayAgo));
       } else {
-        setTransactions([]);
+        setTransactions(includeArchive ? JSON.parse(localStorage.getItem(`${STORAGE_KEY}_archive_${chainId}_${address}`) || "[]") : []);
       }
     } catch (e) {
       console.error("Failed to load transactions", e);
       setTransactions([]);
     }
-  }, [address, chainId]);
+  }, [address, chainId, includeArchive]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,28 +66,34 @@ export function useTransactionTracker() {
       const exists = prev.find(t => t.hash === hash);
       if (exists) return prev;
       
-      const updated = [newTx, ...prev];
+      const stored: TrackedTransaction[] = JSON.parse(localStorage.getItem(`${STORAGE_KEY}_${chainId}_${address}`) || "[]");
+      const updated = [newTx, ...stored.filter(t => t.hash !== hash)];
+      const archiveKey = `${STORAGE_KEY}_archive_${chainId}_${address}`;
+      const archived: TrackedTransaction[] = JSON.parse(localStorage.getItem(archiveKey) || "[]");
+      localStorage.setItem(archiveKey, JSON.stringify([newTx, ...archived.filter(t => t.hash !== hash)]));
       localStorage.setItem(`${STORAGE_KEY}_${chainId}_${address}`, JSON.stringify(updated));
-      return updated;
+      return includeArchive ? JSON.parse(localStorage.getItem(`${STORAGE_KEY}_archive_${chainId}_${address}`) || "[]") : updated.filter(tx => tx.timestamp > Date.now() - 24 * 60 * 60 * 1000);
     });
-  }, [address, chainId]);
+  }, [address, chainId, includeArchive]);
 
   const removeTransaction = useCallback((hash: `0x${string}`) => {
     if (!address || !chainId) return;
     
     setTransactions(prev => {
-      const updated = prev.filter(t => t.hash !== hash);
+      const stored: TrackedTransaction[] = JSON.parse(localStorage.getItem(`${STORAGE_KEY}_${chainId}_${address}`) || "[]");
+      const updated = stored.filter(t => t.hash !== hash);
       localStorage.setItem(`${STORAGE_KEY}_${chainId}_${address}`, JSON.stringify(updated));
-      return updated;
+      return includeArchive ? updated : updated.filter(tx => tx.timestamp > Date.now() - 24 * 60 * 60 * 1000);
     });
-  }, [address, chainId]);
+  }, [address, chainId, includeArchive]);
 
   const clearTransactions = useCallback(() => {
     if (!address || !chainId) return;
     
     setTransactions([]);
     localStorage.removeItem(`${STORAGE_KEY}_${chainId}_${address}`);
-  }, [address, chainId]);
+    localStorage.removeItem(`${STORAGE_KEY}_archive_${chainId}_${address}`);
+  }, [address, chainId, includeArchive]);
 
   return {
     transactions,
