@@ -207,7 +207,18 @@ skip           = [
   "test/WithdrawalQueueExtended.t.sol",
   "src/WithdrawalShares.sol",
   "test/WithdrawalShares.t.sol",
-  "test/YieldGenerator.t.sol"
+  "test/YieldGenerator.t.sol",
+  "script/DeployCircuitBreaker.s.sol",
+  "script/DeployCoreMarket.s.sol",
+  "script/DeployFeeHandler.s.sol",
+  "script/DeployFullStack.s.sol",
+  "script/DeployMarketCap.s.sol",
+  "script/DeployMarketFactory.s.sol",
+  "script/DeployMarketMinter.s.sol",
+  "script/DeployRevokeFunction.s.sol",
+  "script/DeployRoleManager.s.sol",
+  "script/DeployVoteWeight.s.sol",
+  "script/WriteDeploymentRegistry.s.sol"
 ]
 src            = "src"
 out            = "out"

@@ -20,11 +20,12 @@ contract PredictionMarket {
     error InsufficientAllowance();
     error InvalidResolution();
     error OnlyFactory();
+    error InsufficientLiquidity();
 
     // -------------------------------------------------------------------------
     // Types
     // -------------------------------------------------------------------------
-    enum MarketState { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED }
+    enum MarketState { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED, PENDING }
 
     struct MarketParams {
         address collateralToken;
@@ -49,6 +50,9 @@ contract PredictionMarket {
     event MarketResolved(address indexed market, uint256 winningOutcome);
     event MarketPaused(address indexed market);
     event MarketUnpaused(address indexed market);
+    event MarketActivated(address indexed market, uint256 liquidity);
+    event MarketDisputed(address indexed market);
+    event MarketCancelled(address indexed market);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -90,7 +94,7 @@ contract PredictionMarket {
         resolutionDeadline = _resolutionDeadline;
         minLiquidity = _minLiquidity;
         metadataURI = _metadataURI;
-        state = MarketState.OPEN;
+        state = MarketState.PENDING;
     }
 
     // -------------------------------------------------------------------------
@@ -120,7 +124,7 @@ contract PredictionMarket {
     /// @param amount Amount of collateral tokens to add.
     /// @dev Access: Any user can add liquidity.
     function addLiquidity(uint256 amount) external {
-        if (state != MarketState.OPEN) revert InvalidMarketState();
+        if (state != MarketState.PENDING && state != MarketState.OPEN) revert InvalidMarketState();
         if (amount == 0) revert ZeroAmount();
         
         IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
@@ -133,6 +137,16 @@ contract PredictionMarket {
     /// @return True if minimum liquidity is met.
     function hasMinLiquidity() external view returns (bool) {
         return totalLiquidity >= minLiquidity;
+    }
+
+    /// @notice Activate trading once minimum liquidity is deposited. Factory-only.
+    function activate() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state != MarketState.PENDING) revert InvalidMarketState();
+        if (totalLiquidity < minLiquidity) revert InsufficientLiquidity();
+
+        state = MarketState.OPEN;
+        emit MarketActivated(address(this), totalLiquidity);
     }
 
     // -------------------------------------------------------------------------
@@ -178,14 +192,32 @@ contract PredictionMarket {
     /// @param _winningOutcome Winning outcome (1 for YES, 2 for NO).
     /// @dev Access: Only callable by factory or authorized resolver.
     function resolve(uint256 _winningOutcome) external {
+        if (msg.sender != factory) revert OnlyFactory();
         if (state == MarketState.RESOLVED) revert MarketAlreadyResolved();
+        if (state != MarketState.OPEN && state != MarketState.DISPUTED) revert InvalidMarketState();
         if (block.timestamp < resolutionDeadline) revert InvalidResolution();
         if (_winningOutcome != 1 && _winningOutcome != 2) revert InvalidOutcome();
-        
+
         state = MarketState.RESOLVED;
         winningOutcome = _winningOutcome;
-        
+
         emit MarketResolved(address(this), _winningOutcome);
+    }
+
+    /// @notice Mark the market disputed. Factory-only.
+    function dispute() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state != MarketState.RESOLVED && state != MarketState.OPEN) revert InvalidMarketState();
+        state = MarketState.DISPUTED;
+        emit MarketDisputed(address(this));
+    }
+
+    /// @notice Cancel the market. Factory-only.
+    function cancel() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state == MarketState.RESOLVED || state == MarketState.CANCELLED) revert InvalidMarketState();
+        state = MarketState.CANCELLED;
+        emit MarketCancelled(address(this));
     }
 
     /// @notice Redeem winning shares for collateral.
