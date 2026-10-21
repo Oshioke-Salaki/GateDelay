@@ -1,12 +1,12 @@
 import {
   IsString,
   IsOptional,
-  IsDateString,
   IsEnum,
   IsNumber,
   IsInt,
   Max,
   Min,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -55,11 +55,15 @@ export class GetTradingHistoryDto {
   marketId?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  /** UTC calendar date; its 00:00:00Z instant is included. */
   startDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  /** Inclusive UTC calendar day; filtering stops before midnight the next day. */
   endDate?: string;
 
   @IsOptional()
@@ -81,10 +85,14 @@ export class ExportTradingHistoryDto {
   type?: TradeType;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  /** UTC calendar date; its 00:00:00Z instant is included. */
   startDate?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  /** Inclusive UTC calendar day; filtering stops before midnight the next day. */
   endDate?: string;
 }

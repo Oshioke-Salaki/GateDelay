@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Trade, TradePerformanceMetrics } from './trading-history.entity';
 import {
@@ -6,6 +6,19 @@ import {
   ExportTradingHistoryDto,
 } from './dto/trading-history.dto';
 import { buildPaginationMeta } from '../../utils/pagination';
+
+function parseUtcCalendarDate(value: string, fieldName: string): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException(`${fieldName} must be a date in YYYY-MM-DD format`);
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new BadRequestException(`${fieldName} must be a valid calendar date`);
+  }
+
+  return date;
+}
 
 @Injectable()
 export class TradingHistoryService {
@@ -41,14 +54,27 @@ export class TradingHistoryService {
     if (dto.marketId) {
       userTrades = userTrades.filter((t) => t.marketId === dto.marketId);
     }
-    if (dto.startDate) {
-      const startDate = new Date(dto.startDate);
-      userTrades = userTrades.filter((t) => t.createdAt >= startDate);
+    const startDate = dto.startDate
+      ? parseUtcCalendarDate(dto.startDate, 'startDate')
+      : undefined;
+    const selectedEndDate = dto.endDate
+      ? parseUtcCalendarDate(dto.endDate, 'endDate')
+      : undefined;
+
+    if (startDate && selectedEndDate && startDate > selectedEndDate) {
+      throw new BadRequestException('startDate must be on or before endDate');
     }
-    if (dto.endDate) {
-      const endDate = new Date(dto.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      userTrades = userTrades.filter((t) => t.createdAt <= endDate);
+
+    const endExclusive = selectedEndDate
+      ? new Date(selectedEndDate.getTime() + 24 * 60 * 60 * 1000)
+      : undefined;
+
+    if (startDate || endExclusive) {
+      userTrades = userTrades.filter(
+        (trade) =>
+          (!startDate || trade.createdAt >= startDate) &&
+          (!endExclusive || trade.createdAt < endExclusive),
+      );
     }
 
     // Apply sorting

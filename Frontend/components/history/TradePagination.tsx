@@ -83,9 +83,11 @@ const fetchTradeHistory = async (
     params.set("side", side);
   }
   if (startDate) {
+    // `type=date` values stay date-only; the backend interprets them as UTC days.
     params.set("startDate", startDate);
   }
   if (endDate) {
+    // The backend treats this selected day as inclusive and uses next UTC midnight exclusively.
     params.set("endDate", endDate);
   }
 
@@ -218,7 +220,9 @@ export default function TradePagination({
   }, []);
 
   useEffect(() => {
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+    // Date input values are canonical YYYY-MM-DD strings, so lexical comparison
+    // is timezone-independent and preserves their calendar-day meaning.
+    if (startDate && endDate && startDate > endDate) {
       const temp = startDate;
       setStartDate(endDate);
       setEndDate(temp);
@@ -313,6 +317,10 @@ export default function TradePagination({
               Clear Filters
             </button>
           )}
+          <p className="w-full text-xs" style={{ color: "var(--muted)" }}>
+            Dates use UTC. The start date is inclusive; the end date includes the
+            full selected day and stops before midnight UTC the following day.
+          </p>
         </div>
       )}
 

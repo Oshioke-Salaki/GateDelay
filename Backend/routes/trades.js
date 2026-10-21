@@ -5,6 +5,7 @@ const {
   normalizePagination,
   buildPaginationMeta,
 } = require('../utils/pagination');
+const { buildTradeHistoryTimestampFilter } = require('../utils/tradeHistoryDateRange');
 
 const router = express.Router();
 
@@ -47,16 +48,15 @@ router.get(
       filter.side = side;
     }
 
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) {
-        filter.timestamp.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setDate(end.getDate() + 1);
-        filter.timestamp.$lte = end;
-      }
+    try {
+      const timestampFilter = buildTradeHistoryTimestampFilter(startDate, endDate);
+      if (timestampFilter) filter.timestamp = timestampFilter;
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+        code: 'INVALID_DATE_RANGE',
+      });
     }
 
     // Execute queries in parallel
