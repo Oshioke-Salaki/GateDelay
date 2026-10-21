@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "../src/MarketFactory.sol";
 import "../src/PositionToken.sol";
 import "../src/ERC20Token.sol";
+import "../src/PredictionMarket.sol";
 
 contract MarketFactoryTest is Test {
     event MarketCreated(
@@ -13,6 +14,7 @@ contract MarketFactoryTest is Test {
         address indexed collateralToken,
         uint256 resolutionDeadline
     );
+    event MarketActivated(address indexed market, uint256 liquidity);
 
     PositionToken internal positionToken;
     MarketFactory internal factory;
@@ -120,10 +122,11 @@ contract MarketFactoryTest is Test {
         assertEq(factory.getCreator(address(0xDEAD)), address(0));
     }
 
-    function test_createMarket_initialStatusIsOpen() public {
+    function test_createMarket_initialStatusIsPending() public {
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
         MarketFactory.MarketInfo memory info = factory.getMarketInfo(market);
-        assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.OPEN));
+        assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.PENDING));
+        assertEq(uint256(PredictionMarket(payable(market)).state()), uint256(PredictionMarket.MarketState.PENDING));
     }
 
     function test_createMarket_emitsMarketCreated() public {
@@ -153,7 +156,7 @@ contract MarketFactoryTest is Test {
         assertEq(info.resolutionDeadline, deadline);
         assertEq(info.minLiquidity, minLiq);
         assertEq(info.metadataURI, uri);
-        assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.OPEN));
+        assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.PENDING));
     }
 
     function test_deterministicMarketId_differentListIndexYieldsDifferentAddress() public {
@@ -291,6 +294,47 @@ contract MarketFactoryTest is Test {
         }
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, string(uri));
         assertTrue(market != address(0));
+    }
+
+
+    function test_activateMarket_revertsWithoutLiquidity() public {
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
+        vm.expectRevert(MarketFactory.InsufficientLiquidity.selector);
+        factory.activateMarket(market);
+    }
+
+    function test_activateMarket_revertsBelowThreshold() public {
+        uint256 minLiq = 1 ether;
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, minLiq, "ipfs://meta");
+        collateral.mint(address(this), minLiq - 1);
+        collateral.approve(market, minLiq - 1);
+        PredictionMarket(payable(market)).addLiquidity(minLiq - 1);
+        vm.expectRevert(MarketFactory.InsufficientLiquidity.selector);
+        factory.activateMarket(market);
+    }
+
+    function test_activateMarket_opensWhenFundedAndBlocksTradingBefore() public {
+        uint256 minLiq = 1 ether;
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, minLiq, "ipfs://meta");
+        PredictionMarket pm = PredictionMarket(payable(market));
+
+        vm.expectRevert(PredictionMarket.InvalidMarketState.selector);
+        pm.mintPosition(1, 1);
+
+        collateral.mint(address(this), minLiq);
+        collateral.approve(market, minLiq);
+        pm.addLiquidity(minLiq);
+
+        vm.expectEmit(true, false, false, true);
+        emit MarketActivated(market, minLiq);
+        factory.activateMarket(market);
+
+        MarketFactory.MarketInfo memory info = factory.getMarketInfo(market);
+        assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.OPEN));
+        assertEq(uint256(pm.state()), uint256(PredictionMarket.MarketState.OPEN));
+
+        vm.expectRevert(MarketFactory.InvalidMarketStatus.selector);
+        factory.activateMarket(market);
     }
 
 }

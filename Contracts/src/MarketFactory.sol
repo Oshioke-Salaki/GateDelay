@@ -25,11 +25,14 @@ contract MarketFactory {
     error ZeroOwner();
     error MetadataURITooLong();
     error UnsupportedMetadataScheme();
+    error MarketNotRegistered();
+    error InvalidMarketStatus();
+    error InsufficientLiquidity();
 
     // -------------------------------------------------------------------------
     // Types
     // -------------------------------------------------------------------------
-    enum MarketStatus { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED }
+    enum MarketStatus { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED, PENDING }
 
     struct MarketInfo {
         address creator;
@@ -56,6 +59,7 @@ contract MarketFactory {
     );
     event CollateralSupportUpdated(address indexed token, bool supported, uint8 decimals);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event MarketActivated(address indexed market, uint256 liquidity);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -180,7 +184,7 @@ contract MarketFactory {
             resolutionDeadline: resolutionDeadline,
             minLiquidity: minLiquidity,
             metadataURI: metadataURI,
-            status: MarketStatus.OPEN
+            status: MarketStatus.PENDING
         });
 
         _marketList.push(market);
@@ -188,6 +192,22 @@ contract MarketFactory {
         positionToken.authorise(market);
 
         emit MarketCreated(market, msg.sender, collateralToken, resolutionDeadline);
+    }
+
+
+    /// @notice Open a pending market after its on-chain liquidity meets `minLiquidity`.
+    /// @dev Emits `MarketActivated`. Trading (`mintPosition`) remains blocked until this succeeds.
+    function activateMarket(address market) external {
+        MarketInfo storage info = _markets[market];
+        if (info.creator == address(0)) revert MarketNotRegistered();
+        if (info.status != MarketStatus.PENDING) revert InvalidMarketStatus();
+
+        PredictionMarket pm = PredictionMarket(payable(market));
+        if (!pm.hasMinLiquidity()) revert InsufficientLiquidity();
+
+        pm.activate();
+        info.status = MarketStatus.OPEN;
+        emit MarketActivated(market, pm.totalLiquidity());
     }
 
     /// @notice Compute the deterministic address for a market without deploying.

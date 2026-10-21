@@ -20,11 +20,12 @@ contract PredictionMarket {
     error InsufficientAllowance();
     error InvalidResolution();
     error OnlyFactory();
+    error InsufficientLiquidity();
 
     // -------------------------------------------------------------------------
     // Types
     // -------------------------------------------------------------------------
-    enum MarketState { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED }
+    enum MarketState { OPEN, PAUSED, RESOLVED, DISPUTED, CANCELLED, PENDING }
 
     struct MarketParams {
         address collateralToken;
@@ -49,6 +50,7 @@ contract PredictionMarket {
     event MarketResolved(address indexed market, uint256 winningOutcome);
     event MarketPaused(address indexed market);
     event MarketUnpaused(address indexed market);
+    event MarketActivated(address indexed market, uint256 liquidity);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -90,7 +92,7 @@ contract PredictionMarket {
         resolutionDeadline = _resolutionDeadline;
         minLiquidity = _minLiquidity;
         metadataURI = _metadataURI;
-        state = MarketState.OPEN;
+        state = MarketState.PENDING;
     }
 
     // -------------------------------------------------------------------------
@@ -120,7 +122,7 @@ contract PredictionMarket {
     /// @param amount Amount of collateral tokens to add.
     /// @dev Access: Any user can add liquidity.
     function addLiquidity(uint256 amount) external {
-        if (state != MarketState.OPEN) revert InvalidMarketState();
+        if (state != MarketState.PENDING && state != MarketState.OPEN) revert InvalidMarketState();
         if (amount == 0) revert ZeroAmount();
         
         IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
@@ -133,6 +135,16 @@ contract PredictionMarket {
     /// @return True if minimum liquidity is met.
     function hasMinLiquidity() external view returns (bool) {
         return totalLiquidity >= minLiquidity;
+    }
+
+    /// @notice Activate trading once minimum liquidity is deposited. Factory-only.
+    function activate() external {
+        if (msg.sender != factory) revert OnlyFactory();
+        if (state != MarketState.PENDING) revert InvalidMarketState();
+        if (totalLiquidity < minLiquidity) revert InsufficientLiquidity();
+
+        state = MarketState.OPEN;
+        emit MarketActivated(address(this), totalLiquidity);
     }
 
     // -------------------------------------------------------------------------
