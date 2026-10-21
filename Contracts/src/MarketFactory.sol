@@ -19,6 +19,10 @@ contract MarketFactory {
     error DeploymentFailed();
     error MarketAlreadyExists();
     error InvalidRange();
+    error UnsupportedCollateral();
+    error InvalidCollateralToken();
+    error NotOwner();
+    error ZeroOwner();
 
     // -------------------------------------------------------------------------
     // Types
@@ -34,6 +38,11 @@ contract MarketFactory {
         MarketStatus status;
     }
 
+    struct CollateralConfig {
+        bool supported;
+        uint8 decimals;
+    }
+
     // -------------------------------------------------------------------------
     // Events
     // -------------------------------------------------------------------------
@@ -43,17 +52,23 @@ contract MarketFactory {
         address indexed collateralToken,
         uint256 resolutionDeadline
     );
+    event CollateralSupportUpdated(address indexed token, bool supported, uint8 decimals);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // -------------------------------------------------------------------------
     // Storage
     // -------------------------------------------------------------------------
     PositionToken public immutable positionToken;
+    address public owner;
 
     /// @dev market address => MarketInfo
     mapping(address => MarketInfo) private _markets;
 
     /// @dev all registered market addresses
     address[] private _marketList;
+
+    /// @dev protocol-approved collateral tokens and recorded decimals
+    mapping(address => CollateralConfig) private _collateralConfig;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -62,6 +77,59 @@ contract MarketFactory {
         if (_positionToken == address(0)) revert ZeroPositionToken();
         if (_positionToken.code.length == 0) revert InvalidPositionToken();
         positionToken = PositionToken(_positionToken);
+        owner = msg.sender;
+        emit OwnershipTransferred(address(0), msg.sender);
+    }
+
+    // -------------------------------------------------------------------------
+    // Modifiers
+    // -------------------------------------------------------------------------
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+
+    // -------------------------------------------------------------------------
+    // Admin — collateral registry (SC-020 / #1288)
+    // -------------------------------------------------------------------------
+
+    /// @notice Approve or revoke a collateral token for market creation.
+    /// @dev Requires runtime code, IERC20Metadata.decimals(), and IERC20 transfer/transferFrom
+    ///      selectors that succeed as view-probed interface checks via staticcall where possible.
+    function setSupportedCollateral(address token, bool supported) external onlyOwner {
+        if (token == address(0)) revert ZeroCollateralToken();
+
+        if (!supported) {
+            delete _collateralConfig[token];
+            emit CollateralSupportUpdated(token, false, 0);
+            return;
+        }
+
+        if (token.code.length == 0) revert InvalidCollateralToken();
+
+        uint8 decimals = _readDecimals(token);
+        _assertTransferInterface(token);
+
+        _collateralConfig[token] = CollateralConfig({supported: true, decimals: decimals});
+        emit CollateralSupportUpdated(token, true, decimals);
+    }
+
+    /// @notice Transfer factory ownership.
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert ZeroOwner();
+        address previous = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(previous, newOwner);
+    }
+
+    /// @notice Whether `token` is an approved collateral asset.
+    function isSupportedCollateral(address token) external view returns (bool) {
+        return _collateralConfig[token].supported;
+    }
+
+    /// @notice Recorded decimals for an approved collateral token (0 if unsupported).
+    function collateralDecimals(address token) external view returns (uint8) {
+        return _collateralConfig[token].decimals;
     }
 
     // -------------------------------------------------------------------------
@@ -69,17 +137,11 @@ contract MarketFactory {
     // -------------------------------------------------------------------------
 
     /// @notice Create and deploy a new prediction market.
-    /// @param collateralToken  ERC20 token used as collateral (must be non-zero).
+    /// @param collateralToken  Protocol-approved ERC20 used as collateral.
     /// @param resolutionDeadline  Unix timestamp strictly greater than block.timestamp.
     /// @param minLiquidity  Minimum liquidity required (must be > 0).
     /// @param metadataURI  Non-empty metadata URI string.
     /// @return market  Address of the deployed market contract.
-    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
-    /// @dev Reverts: `ZeroCollateralToken` if `collateralToken == address(0)` is true.
-    ///     `InvalidDeadline` if `resolutionDeadline <= block.timestamp` is true. `ZeroMinLiquidity`
-    ///     if `minLiquidity == 0` is true. `EmptyMetadataURI` if `bytes(metadataURI).length == 0`
-    ///     is true. `MarketAlreadyExists` if market already deployed at deterministic address.
-    ///     `DeploymentFailed` if contract deployment fails.
     function createMarket(
         address collateralToken,
         uint256 resolutionDeadline,
@@ -87,16 +149,14 @@ contract MarketFactory {
         string calldata metadataURI
     ) external returns (address market) {
         if (collateralToken == address(0)) revert ZeroCollateralToken();
+        if (collateralToken.code.length == 0) revert InvalidCollateralToken();
+        if (!_collateralConfig[collateralToken].supported) revert UnsupportedCollateral();
         if (resolutionDeadline <= block.timestamp) revert InvalidDeadline();
         if (minLiquidity == 0) revert ZeroMinLiquidity();
         if (bytes(metadataURI).length == 0) revert EmptyMetadataURI();
 
-        // Generate a unique salt per market creation
-        // Using msg.sender, block.timestamp, and market count for uniqueness
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, block.timestamp, _marketList.length));
 
-        // Deploy the market contract using CREATE2 with the salt
-        // The constructor arguments ensure the deployment is deterministic
         PredictionMarket deployedMarket = (new PredictionMarket){salt: salt}(
             address(this),
             address(positionToken),
@@ -105,10 +165,9 @@ contract MarketFactory {
             minLiquidity,
             metadataURI
         );
-        
+
         market = address(deployedMarket);
 
-        // Verify deployment succeeded
         if (market.code.length == 0) revert DeploymentFailed();
 
         _markets[market] = MarketInfo({
@@ -122,22 +181,12 @@ contract MarketFactory {
 
         _marketList.push(market);
 
-        // Authorise the new market address to mint/burn position tokens
         positionToken.authorise(market);
 
         emit MarketCreated(market, msg.sender, collateralToken, resolutionDeadline);
     }
 
     /// @notice Compute the deterministic address for a market without deploying.
-    /// @param creator The creator address.
-    /// @param timestamp The block timestamp.
-    /// @param index The market index in the factory.
-    /// @param collateralToken The collateral token address.
-    /// @param resolutionDeadline The resolution deadline.
-    /// @param minLiquidity The minimum liquidity.
-    /// @param metadataURI The metadata URI.
-    /// @return The predicted market address.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function computeMarketAddress(
         address creator,
         uint256 timestamp,
@@ -148,8 +197,7 @@ contract MarketFactory {
         string calldata metadataURI
     ) external view returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(creator, timestamp, index));
-        
-        // The deployment code is creationCode + abi.encode(arguments)
+
         bytes memory constructorArgs = abi.encode(
             address(this),
             address(positionToken),
@@ -158,12 +206,12 @@ contract MarketFactory {
             minLiquidity,
             metadataURI
         );
-        
+
         bytes32 initCodeHash = keccak256(abi.encodePacked(
             type(PredictionMarket).creationCode,
             constructorArgs
         ));
-        
+
         return address(uint160(uint256(keccak256(abi.encodePacked(
             bytes1(0xff),
             address(this),
@@ -172,35 +220,15 @@ contract MarketFactory {
         )))));
     }
 
-    /// @notice Returns the number of registered markets.
-    /// @return Market count returned by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketCount() external view returns (uint256) {
         return _marketList.length;
     }
 
-    /// @notice Returns all registered market addresses.
-    /// @return Markets returned by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
-    /// @dev WARNING: This returns the entire, ever-growing registry and may exceed RPC
-    ///     response or call-gas limits. Integrations should prefer the paginated
-    ///     `getMarkets(uint256,uint256)` variant together with `getMarketCount()` /
-    ///     `marketCount()` to traverse the registry in bounded pages without omissions
-    ///     or duplicates. Kept for backward compatibility.
+    /// @dev WARNING: unbounded; prefer paginated `getMarkets(uint256,uint256)`.
     function getMarkets() external view returns (address[] memory) {
         return _marketList;
     }
 
-    /// @notice Returns a bounded page of registered market addresses.
-    /// @param offset Starting index into the registry (0-based).
-    /// @param count Maximum number of addresses to return.
-    /// @return page Market addresses in `[offset, min(offset + count, length))`.
-    /// @dev Access: No caller-specific access restriction is imposed.
-    /// @dev Reverts: `InvalidRange` if `offset > _marketList.length`. Returns an empty
-    ///     array when `offset == _marketList.length` or `count == 0`. The end index is
-    ///     clamped to the registry length, so pages never revert on the tail.
-    ///     Clients should iterate with `offset += page.length` until `offset` reaches
-    ///     `getMarketCount()` to enumerate all markets without omissions or duplicates.
     function getMarkets(uint256 offset, uint256 count) external view returns (address[] memory page) {
         uint256 length = _marketList.length;
         if (offset > length) revert InvalidRange();
@@ -216,50 +244,68 @@ contract MarketFactory {
         }
     }
 
-    /// @notice Returns a registered market address by index.
-    /// @param index Numeric index used by this operation.
-    /// @return Market at returned by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketAt(uint256 index) external view returns (address) {
         return _marketList[index];
     }
 
-    /// @notice Returns whether an address is a registered market.
-    /// @param market Market address associated with this operation.
-    /// @return True when the requested condition is met.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function isRegisteredMarket(address market) external view returns (bool) {
         return _markets[market].creator != address(0);
     }
 
-    /// @notice Executes marketCount.
-    /// @return Value produced by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function marketCount() external view returns (uint256) {
         return _marketList.length;
     }
 
-    /// @notice Returns a registered market address by index.
-    /// @param index Numeric index used by this operation.
-    /// @return Value produced by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function marketAt(uint256 index) external view returns (address) {
         return _marketList[index];
     }
 
-    /// @notice Returns the creator of a registered market, or address(0) if unregistered.
-    /// @param market Market address associated with this operation.
-    /// @return Creator returned by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function getCreator(address market) external view returns (address) {
         return _markets[market].creator;
     }
 
-    /// @notice Returns the full MarketInfo for a registered market.
-    /// @param market Market address associated with this operation.
-    /// @return Market info returned by the operation.
-    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketInfo(address market) external view returns (MarketInfo memory) {
         return _markets[market];
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal helpers
+    // -------------------------------------------------------------------------
+
+    bytes4 private constant _SELECTOR_DECIMALS = bytes4(keccak256("decimals()"));
+    bytes4 private constant _SELECTOR_TOTAL_SUPPLY = bytes4(keccak256("totalSupply()"));
+    bytes4 private constant _SELECTOR_TRANSFER = bytes4(keccak256("transfer(address,uint256)"));
+    bytes4 private constant _SELECTOR_TRANSFER_FROM = bytes4(keccak256("transferFrom(address,address,uint256)"));
+
+    function _readDecimals(address token) internal view returns (uint8 decimals) {
+        (bool ok, bytes memory data) = token.staticcall(abi.encodeWithSelector(_SELECTOR_DECIMALS));
+        if (!ok || data.length < 32) revert InvalidCollateralToken();
+        decimals = abi.decode(data, (uint8));
+        if (decimals == 0 || decimals > 18) revert InvalidCollateralToken();
+    }
+
+    /// @dev Confirm ERC20 transfer surface: `totalSupply` responds and `transfer` /
+    ///      `transferFrom` selectors exist in runtime bytecode (rejects EOAs / non-tokens).
+    function _assertTransferInterface(address token) internal view {
+        (bool ok,) = token.staticcall(abi.encodeWithSelector(_SELECTOR_TOTAL_SUPPLY));
+        if (!ok) revert InvalidCollateralToken();
+
+        if (!_bytecodeHasSelector(token, _SELECTOR_TRANSFER)) revert InvalidCollateralToken();
+        if (!_bytecodeHasSelector(token, _SELECTOR_TRANSFER_FROM)) revert InvalidCollateralToken();
+    }
+
+    function _bytecodeHasSelector(address token, bytes4 selector) internal view returns (bool) {
+        bytes memory code = token.code;
+        uint256 length = code.length;
+        if (length < 4) return false;
+        for (uint256 i = 0; i + 4 <= length; ++i) {
+            if (
+                code[i] == selector[0] && code[i + 1] == selector[1] && code[i + 2] == selector[2]
+                    && code[i + 3] == selector[3]
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 }

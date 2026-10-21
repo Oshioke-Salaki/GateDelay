@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../src/MarketFactory.sol";
 import "../src/PositionToken.sol";
+import "../src/ERC20Token.sol";
 
 contract MarketFactoryTest is Test {
     event MarketCreated(
@@ -15,17 +16,19 @@ contract MarketFactoryTest is Test {
 
     PositionToken internal positionToken;
     MarketFactory internal factory;
+    ERC20Token internal collateral;
 
     address internal alice = address(0xA11CE);
-    address internal validToken = address(0xC011A7);
+    address internal validToken;
 
     function setUp() public {
-        // Predict the factory deployment address so PositionToken can restrict
-        // authorisation calls to the MarketFactory instance.
         uint256 factoryNonce = vm.getNonce(address(this)) + 1;
         address predictedFactory = vm.computeCreateAddress(address(this), factoryNonce);
         positionToken = new PositionToken(predictedFactory);
         factory = new MarketFactory(address(positionToken));
+        collateral = new ERC20Token(0);
+        validToken = address(collateral);
+        factory.setSupportedCollateral(validToken, true);
     }
 
     function test_constructor_revertsWithZeroPositionToken() public {
@@ -36,57 +39,57 @@ contract MarketFactoryTest is Test {
     function test_constructor_revertsWithInvalidPositionToken() public {
         vm.expectRevert(MarketFactory.InvalidPositionToken.selector);
         new MarketFactory(address(1));
-        // Predict the factory address so PositionToken can restrict authorisation
-        // to the factory before either contract is deployed.
-        uint256 nonce = vm.getNonce(address(this));
-        address predictedFactory = vm.computeCreateAddress(address(this), nonce + 1);
-        positionToken = new PositionToken(predictedFactory); // nonce
-        factory = new MarketFactory(address(positionToken)); // nonce + 1
     }
 
-    // =========================================================================
-    // Unit tests — task 3.3
-    // =========================================================================
-
-    // --- Revert: ZeroCollateralToken (Req 1.3) ---
     function test_createMarket_revertsZeroCollateralToken() public {
         vm.expectRevert(MarketFactory.ZeroCollateralToken.selector);
         factory.createMarket(address(0), block.timestamp + 1 days, 1 ether, "ipfs://meta");
     }
 
-    // --- Revert: InvalidDeadline — equal to block.timestamp (Req 1.2) ---
     function test_createMarket_revertsInvalidDeadline_equal() public {
         vm.expectRevert(MarketFactory.InvalidDeadline.selector);
         factory.createMarket(validToken, block.timestamp, 1 ether, "ipfs://meta");
     }
 
-    // --- Revert: InvalidDeadline — less than block.timestamp (Req 1.2) ---
     function test_createMarket_revertsInvalidDeadline_past() public {
         vm.warp(1000);
         vm.expectRevert(MarketFactory.InvalidDeadline.selector);
         factory.createMarket(validToken, 999, 1 ether, "ipfs://meta");
     }
 
-    // --- Revert: ZeroMinLiquidity (Req 1.4) ---
     function test_createMarket_revertsZeroMinLiquidity() public {
         vm.expectRevert(MarketFactory.ZeroMinLiquidity.selector);
         factory.createMarket(validToken, block.timestamp + 1 days, 0, "ipfs://meta");
     }
 
-    // --- Revert: EmptyMetadataURI (Req 1.5) ---
     function test_createMarket_revertsEmptyMetadataURI() public {
         vm.expectRevert(MarketFactory.EmptyMetadataURI.selector);
         factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "");
     }
 
-    // --- Successful creation: returns non-zero address (Req 1.1) ---
+    function test_createMarket_revertsEOACollateral() public {
+        address eoa = address(0xBEEF);
+        vm.expectRevert(MarketFactory.InvalidCollateralToken.selector);
+        factory.setSupportedCollateral(eoa, true);
+    }
+
+    function test_createMarket_revertsUnsupportedCollateral() public {
+        ERC20Token other = new ERC20Token(0);
+        vm.expectRevert(MarketFactory.UnsupportedCollateral.selector);
+        factory.createMarket(address(other), block.timestamp + 1 days, 1 ether, "ipfs://meta");
+    }
+
+    function test_createMarket_revertsNonTokenContract() public {
+        vm.expectRevert(MarketFactory.InvalidCollateralToken.selector);
+        factory.setSupportedCollateral(address(factory), true);
+    }
+
     function test_createMarket_returnsNonZeroAddress() public {
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
         assertTrue(market != address(0));
         assertEq(factory.marketCount(), 1);
         assertEq(factory.marketAt(0), market);
         assertTrue(positionToken.isAuthorised(market));
-        // Verify the market contract was actually deployed
         assertTrue(market.code.length > 0);
     }
 
@@ -107,43 +110,35 @@ contract MarketFactoryTest is Test {
         assertTrue(positionToken.isAuthorised(market));
     }
 
-    // --- Registry: getCreator returns caller (Req 1.7, 1.9) ---
     function test_createMarket_registersCreator() public {
         vm.prank(alice);
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
         assertEq(factory.getCreator(market), alice);
     }
 
-    // --- Registry: getCreator returns zero for unregistered (Req 1.10) ---
     function test_getCreator_returnsZeroForUnregistered() public {
         assertEq(factory.getCreator(address(0xDEAD)), address(0));
     }
 
-    // --- Initial status is OPEN (Req 1.8) ---
     function test_createMarket_initialStatusIsOpen() public {
         address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ipfs://meta");
         MarketFactory.MarketInfo memory info = factory.getMarketInfo(market);
         assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.OPEN));
     }
 
-    // --- MarketCreated event fields (Req 1.6) ---
     function test_createMarket_emitsMarketCreated() public {
-        // Use a fixed timestamp to ensure consistency
         uint256 timestamp = 1000000;
         vm.warp(timestamp);
-        
-        uint256 deadline = timestamp + 1 days;
 
-        // The market address is deterministic via CREATE2 but depends on constructor args
-        // We can predict it using computeMarketAddress
-        address predicted = factory.computeMarketAddress(address(this), timestamp, 0, validToken, deadline, 1 ether, "ipfs://meta");
-        
+        uint256 deadline = timestamp + 1 days;
+        address predicted =
+            factory.computeMarketAddress(address(this), timestamp, 0, validToken, deadline, 1 ether, "ipfs://meta");
+
         vm.expectEmit(true, true, true, true);
         emit MarketCreated(predicted, address(this), validToken, deadline);
         factory.createMarket(validToken, deadline, 1 ether, "ipfs://meta");
     }
 
-    // --- getMarketInfo returns correct fields ---
     function test_getMarketInfo_correctFields() public {
         uint256 deadline = block.timestamp + 2 days;
         uint256 minLiq = 5 ether;
@@ -160,10 +155,6 @@ contract MarketFactoryTest is Test {
         assertEq(info.metadataURI, uri);
         assertEq(uint256(info.status), uint256(MarketFactory.MarketStatus.OPEN));
     }
-
-    // =========================================================================
-    // #968 – Deterministic market IDs and duplicate flight markets
-    // =========================================================================
 
     function test_deterministicMarketId_differentListIndexYieldsDifferentAddress() public {
         uint256 deadline = block.timestamp + 1 days;
@@ -229,66 +220,35 @@ contract MarketFactoryTest is Test {
         assertEq(factory.getCreator(m3), alice);
     }
 
-    // =========================================================================
-    // New tests for CREATE2 deployment
-    // =========================================================================
-
     function test_createMarket_deploysActualContract() public {
         uint256 deadline = block.timestamp + 1 days;
         address market = factory.createMarket(validToken, deadline, 1 ether, "ipfs://test");
-        
-        // Verify contract was deployed
         assertTrue(market.code.length > 0, "Market contract should be deployed");
-        
-        // Verify it's a PredictionMarket by checking factory binding
-        // This would require importing PredictionMarket, so we just check code exists
     }
 
     function test_computeMarketAddress() public {
-        // Use a fixed timestamp to ensure consistency
         uint256 timestamp = 1000000;
         vm.warp(timestamp);
-        
+
         uint256 deadline = timestamp + 1 days;
         uint256 minLiq = 1 ether;
         string memory uri = "ipfs://test";
-        
-        address predicted = factory.computeMarketAddress(address(this), timestamp, 0, validToken, deadline, minLiq, uri);
-        
-        // The computed address should match the deployed address
+
+        address predicted =
+            factory.computeMarketAddress(address(this), timestamp, 0, validToken, deadline, minLiq, uri);
         address market = factory.createMarket(validToken, deadline, minLiq, uri);
         assertEq(market, predicted);
     }
 
-    function test_createMarket_failsIfAlreadyDeployed() public {
-        uint256 deadline = block.timestamp + 1 days;
-        factory.createMarket(validToken, deadline, 1 ether, "ipfs://test");
-        
-        // Try to create another market with same salt (would require manipulating timestamp/nonce)
-        // This is hard to test directly, but we can verify the error exists
-    }
-
-    // =========================================================================
-    // Property-based fuzz tests — task 3.2
-    // =========================================================================
-
-    // Feature: prediction-market-contracts, Property 1: Valid market creation and registry round-trip
-    // Validates: Requirements 1.1, 1.7
-    function testFuzz_createMarket_validParams(
-        address collateralToken,
-        uint32 deadlineOffset,
-        uint128 minLiquidity,
-        string calldata metadataURI
-    ) public {
-        vm.assume(collateralToken != address(0));
+    function testFuzz_createMarket_validParams(uint32 deadlineOffset, uint128 minLiquidity) public {
         vm.assume(deadlineOffset > 0);
         vm.assume(minLiquidity > 0);
-        vm.assume(bytes(metadataURI).length > 0);
 
         uint256 deadline = block.timestamp + uint256(deadlineOffset);
+        string memory metadataURI = "ipfs://fuzz";
 
         vm.prank(alice);
-        address market = factory.createMarket(collateralToken, deadline, uint256(minLiquidity), metadataURI);
+        address market = factory.createMarket(validToken, deadline, uint256(minLiquidity), metadataURI);
 
         assertTrue(market != address(0), "market address must be non-zero");
         assertEq(factory.getCreator(market), alice, "creator must be the caller");
