@@ -8,7 +8,7 @@ import {
   __setMultisigWalletsForTests,
   collectSignature,
   proposeTransaction,
-  buildTransactionDigest,
+  buildTypedData,
   getTransactionStatus,
   type MultisigWallet,
 } from "@/lib/multisigStore";
@@ -59,14 +59,14 @@ async function makeAuthRequest(
   });
 }
 
-/** Sign the canonical transaction digest and return the EIP-191 signature. */
+/** Sign the canonical transaction using EIP-712 typed data and return signature. */
 async function signTx(
   txId: string,
   signer: ethers.Wallet | ethers.HDNodeWallet,
 ): Promise<string> {
   const tx = await getTransactionStatus(txId);
-  const digest = buildTransactionDigest(tx);
-  return signer.signMessage(ethers.getBytes(digest));
+  const { domain, types, message } = buildTypedData(tx);
+  return signer.signTypedData(domain, types, message);
 }
 
 const VALID_TX_HASH = "0x" + "ab".repeat(32);

@@ -156,10 +156,11 @@ const MultisigTransaction =
  * Handles management of multi-signature wallets, signature collection, and transaction processing.
  *
  * Threat model (security review — issue #713):
- *  - Wallet registry (MULTISIG_WALLETS) is static config; the transaction store is now durable
- *    MongoDB so pending/submitted work survives restarts and any worker can resume.
- *  - Authorization is signature-based: `collectSignature` recovers the signer address from
- *    `signature` over the transaction id via `ethers.verifyMessage` (EIP-191 personal_sign)
+ *  - Wallet registry (`MULTISIG_WALLETS`) is static config; the transaction store is
+ *    durable MongoDB so pending/submitted work survives restarts and any worker can resume.
+ *    `processTransaction` remains a stand-in for on-chain execution.
+ *  - Authorization is signature-based: `collectSignature` recovers the signer from canonical
+ *    EIP-712 typed data bound to chain, wallet, nonce, call target/value/calldata, and expiry.
  *    and requires it to match the claimed `owner`, who must in turn be a configured owner of
  *    the target wallet. A caller can no longer claim to be an owner by name alone — they must
  *    hold that owner's private key.
@@ -170,6 +171,7 @@ const MultisigTransaction =
  *  - Rate limiting for the HTTP surface lives in `routes/multisig.js` (see `strictDDoSGuard`).
  */
 
+const DEFAULT_EXPIRY_SECONDS = 60 * 60;
 // Mock owner keys — non-secret, deterministic test keys (never used on any real chain)
 const MOCK_OWNER_PRIVATE_KEYS = {
   OWNER_1: '0x' + '11'.repeat(32),
@@ -343,7 +345,7 @@ async function proposeTransaction(walletId, txData, proposer, nonce, timestamp, 
   }
 
   // Replay protection is optional when nonce/timestamp/signature are omitted
-  // (e.g. internal calls from tests).  When present, all three must be valid.
+  // (e.g. internal calls from tests). When present, all three must be valid.
   if (nonce !== undefined || timestamp !== undefined || signature !== undefined) {
     const payload = { walletId, txData, proposer };
     const replayResult = verifyReplayProtection(nonce, timestamp, signature, proposer, payload);
@@ -354,27 +356,51 @@ async function proposeTransaction(walletId, txData, proposer, nonce, timestamp, 
 
   const txId = ethers.id(JSON.stringify(txData) + Date.now());
 
-  await MultisigTransaction.create({
-    txId,
+const approvalNonce = await getNextPersistentNonce(boundWalletAddress);
+
+await MultisigTransaction.create({
+  txId,
+  // retain main's existing fields here
+  chainId: boundChainId,
+  walletAddress: boundWalletAddress,
+  nonce: approvalNonce,
+  target,
+  value,
+  calldata,
+  calldataHash,
+  expiry,
+});
     walletId,
     data: txData,
     proposer: normalizedProposer,
     signatures: [],
     status: 'Pending',
-    nonce,
-    requestedAt: timestamp,
     createdAt: new Date(),
+    requestNonce: nonce,
+    requestedAt: timestamp,
+    nonce: approvalNonce,
+    chainId: boundChainId,
+    walletAddress: boundWalletAddress,
+    target,
+    value,
+    calldata,
+    calldataHash,
+    expiry
   });
 
   return txId;
 }
 
 /**
+/**
  * Collect a signature for a pending transaction.
  *
- * Uses findOneAndUpdate with $push so concurrent sign requests from different
- * approvers do not silently overwrite each other.
+ * Verifies the signer against canonical EIP-712 approval data binding the
+ * chain, wallet, nonce, target, value, calldata, and expiry.
  *
+ * Uses findOneAndUpdate with $push so concurrent approvals are not lost.
+ * The signature must recover to a configured wallet owner.
+ */
  * @param {string} txId
  * @param {string} owner
  * @param {string} signature
@@ -398,19 +424,41 @@ async function collectSignature(txId, owner, signature) {
     throw new Error('Signer is not an owner of this multisig');
   }
 
-  let recovered;
-  try {
-    recovered = ethers.verifyMessage(txId, signature);
-  } catch {
-    throw new Error('Invalid signature');
-  }
-
-  if (recovered !== normalizedOwner) {
-    throw new Error('Signature does not match owner');
-  }
-
-  if (tx.signatures.find((s) => s.owner === normalizedOwner)) {
+  if (tx.signatures.find(s => s.owner === normalizedOwner)) {
     throw new Error('Owner has already signed this transaction');
+  }
+
+  if (Math.floor(Date.now() / 1000) > tx.expiry) throw new Error('Transaction proposal has expired');
+  const consumed = consumedApprovalNonces.get(tx.walletAddress.toLowerCase());
+  if (tx.signatures.length === 0 && consumed?.has(tx.nonce)) {
+    throw new Error('Nonce already consumed: this transaction cannot be authorized');
+  }
+  const { domain, types, message } = buildTypedData(tx);
+  verifyTypedDataSignature(domain, types, message, signature, normalizedOwner);
+
+  const updatedTx = await MultisigTransaction.findOneAndUpdate(
+    {
+      txId,
+      status: 'Pending',
+      signatures: {
+        $not: { $elemMatch: { owner: normalizedOwner } },
+      },
+    },
+    {
+      $push: {
+        signatures: {
+          owner: normalizedOwner,
+          signature,
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true },
+  );
+
+  if (!updatedTx) {
+    throw new Error('Owner has already signed this transaction or it is no longer pending');
+  }
   }
 
   // Atomically append the new signature and, if threshold is now met, flip status.
@@ -464,6 +512,10 @@ async function processTransaction(txId, executor) {
   if (!tx) throw new Error('Transaction not found');
 
   const wallet = getWallet(tx.walletId);
+
+  if (Math.floor(Date.now() / 1000) > tx.expiry) {
+    throw new Error('Transaction proposal has expired');
+  }
 
   let normalizedExecutor;
   if (executor !== undefined) {
@@ -529,25 +581,130 @@ async function getTransactionStatus(txId) {
   return tx;
 }
 
+// ---------------------------------------------------------------------------
+// #1198 – EIP-712 typed-data constants and helpers
+// ---------------------------------------------------------------------------
+
+const MULTISIG_DOMAIN_NAME = 'GateDelay MultiSig';
+const MULTISIG_DOMAIN_VERSION = '1';
+
+/** EIP-712 type definition for a multisig approval. */
+const MULTISIG_APPROVAL_TYPES = {
+  MultisigApproval: [
+    { name: 'chainId', type: 'uint256' },
+    { name: 'walletAddress', type: 'address' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'target', type: 'address' },
+    { name: 'value', type: 'uint256' },
+    { name: 'calldataHash', type: 'bytes32' },
+    { name: 'expiry', type: 'uint256' },
+  ],
+};
+
 /**
- * List transactions scoped to a proposer address (owner view) or a walletId.
+ * Build the EIP-712 domain for a multisig transaction.
+ * @param {object} tx
+ * @returns {object}
+ */
+function buildDomain(tx) {
+  const wallet = MULTISIG_WALLETS[tx.walletId];
+  return {
+    name: MULTISIG_DOMAIN_NAME,
+    version: MULTISIG_DOMAIN_VERSION,
+    chainId: tx.chainId,
+    verifyingContract: tx.walletAddress || (wallet ? wallet.address : tx.target),
+  };
+}
+
+/**
+ * Build the EIP-712 message for a multisig transaction.
+ * @param {object} tx
+ * @returns {object}
+ */
+function buildMessage(tx) {
+  const wallet = MULTISIG_WALLETS[tx.walletId];
+  return {
+    chainId: tx.chainId,
+    walletAddress: tx.walletAddress || (wallet ? wallet.address : tx.target),
+    nonce: tx.nonce !== undefined ? tx.nonce : 0,
+    target: tx.target || (wallet ? wallet.address : ethers.ZeroAddress),
+    value: tx.value ? String(tx.value) : '0',
+    calldataHash: tx.calldataHash || ethers.keccak256('0x'),
+    expiry: tx.expiry !== undefined ? tx.expiry : 0,
+  };
+}
+
+/**
+ * Return the full EIP-712 typed-data object for a transaction.
+ * @param {object} tx
+ * @returns {object}
+ */
+function buildTypedData(tx) {
+  return {
+    domain: buildDomain(tx),
+    types: MULTISIG_APPROVAL_TYPES,
+    message: buildMessage(tx),
+  };
+}
+
+/**
+ * Compute the EIP-712 hash of the typed data for a transaction.
+ * @param {object} tx
+ * @returns {string}
+ */
+function buildTypedDataHash(tx) {
+  const { domain, types, message } = buildTypedData(tx);
+  return ethers.TypedDataEncoder.hash(domain, types, message);
+}
+
+/**
+ * Verify an EIP-712 signature against the expected owner.
+ * @param {object} domain
+ * @param {object} types
+ * @param {object} message
+ * @param {string} signature
+ * @param {string} expectedOwner
+ */
+function verifyTypedDataSignature(domain, types, message, signature, expectedOwner) {
+  if (typeof signature !== 'string' || !/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+    throw new Error(
+      'Invalid signature format: expected a 65-byte (130 hex char) EIP-712 signature',
+    );
+  }
+
+  let recovered;
+  try {
+    recovered = ethers.verifyTypedData(domain, types, message, signature);
+  } catch {
+    throw new Error('Signature recovery failed: malformed or invalid signature');
+  }
+
+  if (recovered.toLowerCase() !== expectedOwner.toLowerCase()) {
+    throw new Error(
+      `Signature verification failed: recovered ${recovered} but expected ${expectedOwner}`,
+    );
+  }
+}
+
+/**
+ * List transactions scoped to a proposer address (owner view) or walletId.
  *
  * Pagination is offset-based (page / limit) consistent with the rest of the
  * service layer, and results are sorted newest-first.
  *
  * @param {object} filter
- * @param {string} [filter.proposer]   - filter by proposer address
- * @param {string} [filter.walletId]   - filter by wallet
- * @param {string} [filter.status]     - filter by status
+ * @param {string} [filter.proposer] - filter by proposer address
+ * @param {string} [filter.walletId] - filter by wallet
+ * @param {string} [filter.status] - filter by status
  * @param {object} [pagination]
- * @param {number} [pagination.page]   - 1-indexed (default 1)
- * @param {number} [pagination.limit]  - items per page (default 20, max 100)
+ * @param {number} [pagination.page] - 1-indexed (default 1)
+ * @param {number} [pagination.limit] - items per page (default 20, max 100)
  * @returns {Promise<object>} { data, total, page, limit, totalPages }
  */
 async function listTransactions(filter = {}, pagination = {}) {
-  const page  = Math.max(1, parseInt(pagination.page)  || 1);
-  const limit = Math.max(1, Math.min(100, parseInt(pagination.limit) || 20));
-  const skip  = (page - 1) * limit;
+  const page = Math.max(1, parseInt(pagination.page, 10) || 1);
+  const limit = Math.max(1, Math.min(100, parseInt(pagination.limit, 10) || 20));
+  const skip = (page - 1) * limit;
 
   const query = {};
   if (filter.proposer) {
@@ -557,12 +714,17 @@ async function listTransactions(filter = {}, pagination = {}) {
       throw new Error('Invalid proposer address');
     }
   }
+
   if (filter.walletId) {
-    if (typeof filter.walletId !== 'string' || !Object.hasOwn(MULTISIG_WALLETS, filter.walletId)) {
+    if (
+      typeof filter.walletId !== 'string' ||
+      !Object.hasOwn(MULTISIG_WALLETS, filter.walletId)
+    ) {
       throw new Error('Multisig wallet not found');
     }
     query.walletId = filter.walletId;
   }
+
   if (filter.status) {
     query.status = filter.status;
   }
@@ -584,8 +746,15 @@ async function listTransactions(filter = {}, pagination = {}) {
     totalPages: Math.ceil(total / limit),
   };
 }
-
 module.exports = {
+  MULTISIG_DOMAIN_NAME,
+  MULTISIG_DOMAIN_VERSION,
+  MULTISIG_APPROVAL_TYPES,
+  buildDomain,
+  buildMessage,
+  buildTypedData,
+  buildTypedDataHash,
+  verifyTypedDataSignature,
   getWallet,
   isOwner,
   proposeTransaction,

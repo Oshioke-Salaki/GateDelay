@@ -13,9 +13,8 @@
  *          are only present in development/test environments
  *          (`process.env.NODE_ENV !== "production"`).
  *
- * #1194 – `collectSignature` recovers the signer from the EIP-191 personal
- *          sign digest of a canonical transaction payload and rejects signatures
- *          that do not match the claimed owner address.
+ * #1194 – `collectSignature` recovers the signer from the transaction
+ *          digest and rejects signatures that do not match the claimed owner.
  *
  * #1196 – `processTransaction` distinguishes simulation (dev only) from a real
  *          broadcast.  Production paths advance through `submitted`, `mined`,
@@ -23,14 +22,18 @@
  *          caller; simulation is gated behind
  *          `NEXT_PUBLIC_MULTISIG_SIMULATE=true`.
  *
+ * #1198 – Signatures are bound to chain ID, wallet address, nonce, target,
+ *          value, calldata hash, and expiry via EIP-712 typed data. Changing
+ *          any bound field invalidates the approval, and consumed nonces
+ *          cannot authorize another transaction.
  * FE-037 – Proposals, signatures, and audit events are persisted through
  *          `FileMultisigRepository` instead of a module-level Map, so they
- *          survive restarts and are shared by every worker using the same
- *          `MULTISIG_STORE_DIR`.  Each mutation runs under a per-transaction
- *          lock, so concurrent approvals cannot record one owner twice.
+ *          survive restarts and are shared by workers using the same
+ *          `MULTISIG_STORE_DIR`. Mutations run under a per-transaction lock
+ *          to prevent concurrent approvals from recording one owner twice.
  */
 
-import { ethers } from "ethers";
+import { ethers, TypedDataDomain, TypedDataField } from "ethers";
 import {
   parseDeploymentRegistry,
   type DeploymentEntry,
@@ -40,6 +43,29 @@ import {
   resolveMultisigStoreDir,
   type MultisigRepository,
 } from "./multisigRepository";
+
+// ---------------------------------------------------------------------------
+// #1198 – EIP-712 typed-data constants
+// ---------------------------------------------------------------------------
+
+export const MULTISIG_DOMAIN_NAME = "GateDelay MultiSig";
+export const MULTISIG_DOMAIN_VERSION = "1";
+
+/** EIP-712 type definition for a multisig approval. */
+export const MULTISIG_APPROVAL_TYPES: Record<string, TypedDataField[]> = {
+  MultisigApproval: [
+    { name: "chainId", type: "uint256" },
+    { name: "walletAddress", type: "address" },
+    { name: "nonce", type: "uint256" },
+    { name: "target", type: "address" },
+    { name: "value", type: "uint256" },
+    { name: "calldataHash", type: "bytes32" },
+    { name: "expiry", type: "uint256" },
+  ],
+};
+
+/** Default proposal lifetime: 1 hour (in seconds). */
+const DEFAULT_EXPIRY_DURATION_SECS = 3600;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -61,21 +87,21 @@ export interface MultisigSignature {
 /** On-chain event shapes the UI can render without guessing field names. */
 export type MultisigContractEvent =
   | {
-      name: "TransactionCreated";
-      args: { txId: string; creator: string; target: string };
-    }
+    name: "TransactionCreated";
+    args: { txId: string; creator: string; target: string };
+  }
   | {
-      name: "TransactionApproved";
-      args: { txId: string; signer: string };
-    }
+    name: "TransactionApproved";
+    args: { txId: string; signer: string };
+  }
   | {
-      name: "TransactionExecuted";
-      args: { txId: string; executor: string };
-    }
+    name: "TransactionExecuted";
+    args: { txId: string; executor: string };
+  }
   | {
-      name: "TransactionRejected";
-      args: { txId: string };
-    };
+    name: "TransactionRejected";
+    args: { txId: string };
+  };
 
 /**
  * #1196 – Extended status enum.
@@ -105,6 +131,20 @@ export interface MultisigTransaction {
   signatures: MultisigSignature[];
   status: MultisigTransactionStatus;
   createdAt: string;
+  /** #1198 – Chain ID this transaction is bound to. */
+  chainId: number;
+  /** #1198 – Multisig wallet contract address this transaction is bound to. */
+  walletAddress?: string;
+  /** #1198 – Per-wallet monotonic nonce, consumed on first valid signature. */
+  nonce: number;
+  /** #1198 – Target contract address for the call. */
+  target: string;
+  /** #1198 – ETH value to send with the call (wei, as a decimal string). */
+  value: string;
+  /** #1198 – Keccak-256 hash of the calldata bytes. */
+  calldataHash: string;
+  /** #1198 – Unix timestamp (seconds) after which this proposal expires. */
+  expiry: number;
   /** Last committed change; set by the repository. */
   updatedAt: string;
   /** Revision counter incremented on every committed change. */
@@ -287,6 +327,23 @@ function sameAddress(a: string, b: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// #1198 – Per-wallet nonce tracking
+// ---------------------------------------------------------------------------
+
+/** Next nonce to assign for each wallet. */
+const walletNonces = new Map<string, number>();
+
+/** Set of consumed nonces per wallet — prevents replay. */
+const consumedNonces = new Map<string, Set<number>>();
+
+function nextNonce(walletAddress: string): number {
+  const key = walletAddress.toLowerCase();
+  const n = walletNonces.get(key) ?? 0;
+  walletNonces.set(key, n + 1);
+  return n;
+}
+
+// ---------------------------------------------------------------------------
 // Public store API
 // ---------------------------------------------------------------------------
 
@@ -307,10 +364,35 @@ export function listWallets(): Record<string, MultisigWallet> {
   return MULTISIG_WALLETS;
 }
 
+/**
+ * #1198 – Options for creating a new multisig proposal.
+ * All fields that become part of the EIP-712 signed message are required
+ * so that the signer can verify exactly what they are approving.
+ */
+export interface ProposeTransactionOpts {
+  /** Chain ID the transaction targets (e.g. 1 for mainnet). */
+  chainId?: number;
+  /** Multisig wallet contract address override. */
+  walletAddress?: string;
+  /** Target contract address. */
+  target?: string;
+  /** Wei value to send (decimal string). */
+  value?: string;
+  /** Raw calldata hex bytes (e.g. "0x" for a plain transfer). */
+  calldata?: string;
+  /** Direct calldata keccak256 hash if calldata raw bytes not supplied. */
+  calldataHash?: string;
+  /** Nonce override (e.g. to test replay of consumed nonces). */
+  nonce?: number;
+  /** Optional Unix-seconds expiry.  Defaults to now + 1 hour. */
+  expiry?: number;
+}
+
 export async function proposeTransaction(
   walletId: string,
   txData: Record<string, unknown>,
   proposer: string,
+  opts?: ProposeTransactionOpts,
 ): Promise<string> {
   const wallet = getWallet(walletId);
 
@@ -319,10 +401,38 @@ export async function proposeTransaction(
   }
 
   const txId = `tx_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+  // #1198 – Resolve bound fields
+  const chainId = opts?.chainId ?? (typeof txData.chainId === "number" ? txData.chainId : 1);
+  if (!Number.isSafeInteger(chainId) || chainId <= 0) throw new Error("Chain ID must be a positive safe integer");
+  const walletAddress = ethers.getAddress(wallet.address);
+  if (opts?.walletAddress && ethers.getAddress(opts.walletAddress) !== walletAddress) {
+    throw new Error("Wallet address must match the configured multisig wallet");
+  }
   const target =
-    typeof txData.target === "string" && txData.target.length > 0
+    opts?.target ??
+    (typeof txData.target === "string" && txData.target.length > 0
       ? txData.target
-      : wallet.address;
+      : wallet.address);
+  const normalizedTarget = ethers.getAddress(target);
+  const value = opts?.value ?? (typeof txData.value === "string" ? txData.value : "0");
+  if (!/^\d+$/.test(value)) throw new Error("Transaction value must be a non-negative integer in wei");
+  const calldata = opts?.calldata ?? (typeof txData.data === "string" ? txData.data : "0x");
+  if (!ethers.isHexString(calldata)) throw new Error("Transaction calldata must be hex data");
+  const calculatedCalldataHash = ethers.keccak256(calldata);
+  if (opts?.calldataHash && opts.calldataHash.toLowerCase() !== calculatedCalldataHash.toLowerCase()) {
+    throw new Error("calldataHash does not match transaction calldata");
+  }
+  const calldataHash = calculatedCalldataHash;
+  const assignedNonce = nextNonce(walletAddress);
+  const nonce = opts?.nonce ?? assignedNonce;
+  if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Transaction nonce must be a non-negative safe integer");
+  walletNonces.set(walletAddress.toLowerCase(), Math.max(walletNonces.get(walletAddress.toLowerCase()) ?? 0, nonce + 1));
+  const expiry =
+    opts?.expiry ??
+    (typeof txData.expiry === "number"
+      ? txData.expiry
+      : Math.floor(Date.now() / 1000) + DEFAULT_EXPIRY_DURATION_SECS);
 
   const createdAt = new Date().toISOString();
   await transactions.create({
@@ -335,10 +445,17 @@ export async function proposeTransaction(
     createdAt,
     updatedAt: createdAt,
     version: 1,
+    chainId,
+    walletAddress,
+    nonce,
+    target: normalizedTarget,
+    value,
+    calldataHash,
+    expiry,
     events: [
       {
         name: "TransactionCreated",
-        args: { txId, creator: proposer, target },
+        args: { txId, creator: proposer, target: normalizedTarget },
       },
     ],
   });
@@ -347,68 +464,104 @@ export async function proposeTransaction(
 }
 
 // ---------------------------------------------------------------------------
-// #1194 – Signature verification
+// #1198 – EIP-712 typed-data signing & verification
 // ---------------------------------------------------------------------------
 
 /**
- * Produce a canonical, deterministic digest for an in-flight multisig transaction.
- *
- * The digest covers:
- *   - walletId     (bound to the specific wallet instance)
- *   - txId         (prevents cross-transaction replay)
- *   - txData       (sorted-key JSON for deterministic serialisation)
- *   - proposer     (prevents proposer substitution)
- *   - createdAt    (prevents replay of expired proposals)
- *
- * The hex string is what signers must pass to `eth_sign` / `personal_sign`.
+ * Build the EIP-712 domain separator for a transaction.
+ * The `verifyingContract` is the multisig wallet address and `chainId`
+ * is taken from the transaction itself, binding the signature to a
+ * specific chain + wallet pair.
  */
-export function buildTransactionDigest(tx: MultisigTransaction): string {
-  const canonical = JSON.stringify({
-    walletId: tx.walletId,
-    txId: tx.id,
-    txData: sortKeys(tx.data),
-    proposer: tx.proposer,
-    createdAt: tx.createdAt,
-  });
-  return ethers.id(canonical); // keccak256 of UTF-8 bytes → 0x-prefixed hex
-}
-
-/** Recursively sort object keys for deterministic JSON serialisation. */
-function sortKeys(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(sortKeys);
-  if (obj !== null && typeof obj === "object") {
-    return Object.fromEntries(
-      Object.keys(obj as Record<string, unknown>)
-        .sort()
-        .map((k) => [k, sortKeys((obj as Record<string, unknown>)[k])]),
-    );
-  }
-  return obj;
+function buildDomain(tx: MultisigTransaction): TypedDataDomain {
+  const wallet = MULTISIG_WALLETS[tx.walletId];
+  return {
+    name: MULTISIG_DOMAIN_NAME,
+    version: MULTISIG_DOMAIN_VERSION,
+    chainId: tx.chainId,
+    verifyingContract: tx.walletAddress ?? wallet?.address ?? tx.target,
+  };
 }
 
 /**
- * Recover the signer address from an EIP-191 personal_sign signature over
- * `digest` and confirm it matches `expectedOwner` (case-insensitive).
+ * Build the EIP-712 message values from a MultisigTransaction.
+ */
+function buildMessage(tx: MultisigTransaction): Record<string, unknown> {
+  const wallet = MULTISIG_WALLETS[tx.walletId];
+  return {
+    chainId: tx.chainId,
+    walletAddress: tx.walletAddress ?? wallet?.address ?? tx.target,
+    nonce: tx.nonce,
+    target: tx.target,
+    value: tx.value,
+    calldataHash: tx.calldataHash,
+    expiry: tx.expiry,
+  };
+}
+
+/**
+ * Return the full EIP-712 typed-data object for a transaction.
+ * Callers (e.g. frontend UI) pass this to `wallet._signTypedData(domain, types, message)`.
+ *
+ * Replaces the previous `buildTransactionDigest` (EIP-191) function.
+ */
+export function buildTypedData(tx: MultisigTransaction): {
+  domain: TypedDataDomain;
+  types: Record<string, TypedDataField[]>;
+  message: Record<string, unknown>;
+} {
+  return {
+    domain: buildDomain(tx),
+    types: MULTISIG_APPROVAL_TYPES,
+    message: buildMessage(tx),
+  };
+}
+
+/**
+ * Compute the EIP-712 hash of the typed data for a transaction.
+ * Useful for server-side logging / indexing.
+ *
+ * Replaces the previous `buildTransactionDigest` (keccak256-of-JSON) function.
+ */
+export function buildTypedDataHash(tx: MultisigTransaction): string {
+  const { domain, types, message } = buildTypedData(tx);
+  return ethers.TypedDataEncoder.hash(domain, types, message);
+}
+
+/**
+ * Backwards compatibility helper for #1194 callers and tests.
+ * Returns the EIP-712 typed data hash for the transaction.
+ */
+export function buildTransactionDigest(tx: MultisigTransaction): string {
+  return buildTypedDataHash(tx);
+}
+
+/**
+ * Verify an EIP-712 typed-data signature, recovering the signer and
+ * confirming it matches `expectedOwner` (case-insensitive).
+ *
+ * Replaces the previous `verifyOwnerSignature` (EIP-191) function.
  *
  * Throws with a descriptive message for:
  *   - malformed signature (not 65 raw bytes = 130 hex chars)
  *   - recovered address that does not match `expectedOwner`
  */
-export function verifyOwnerSignature(
-  digest: string,
+export function verifyTypedDataSignature(
+  domain: TypedDataDomain,
+  types: Record<string, TypedDataField[]>,
+  message: Record<string, unknown>,
   signature: string,
   expectedOwner: string,
 ): void {
   if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
     throw new Error(
-      "Invalid signature format: expected a 65-byte (130 hex char) EIP-191 personal_sign signature",
+      "Invalid signature format: expected a 65-byte (130 hex char) EIP-712 signature",
     );
   }
 
   let recovered: string;
   try {
-    // ethers.verifyMessage re-applies the EIP-191 prefix before recovering.
-    recovered = ethers.verifyMessage(ethers.getBytes(digest), signature);
+    recovered = ethers.verifyTypedData(domain, types, message, signature);
   } catch {
     throw new Error("Signature recovery failed: malformed or invalid signature");
   }
@@ -418,6 +571,45 @@ export function verifyOwnerSignature(
       `Signature verification failed: recovered ${recovered} but expected ${expectedOwner}`,
     );
   }
+}
+
+/**
+ * Backwards compatibility helper for #1194 callers and tests.
+ */
+export function verifyOwnerSignature(
+  digestOrTx: string | MultisigTransaction,
+  signature: string,
+  expectedOwner: string,
+): void {
+  if (typeof digestOrTx !== "string") {
+    const { domain, types, message } = buildTypedData(digestOrTx);
+    return verifyTypedDataSignature(domain, types, message, signature, expectedOwner);
+  }
+  if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
+    throw new Error(
+      "Invalid signature format: expected a 65-byte (130 hex char) signature",
+    );
+  }
+  let recovered: string;
+  try {
+    recovered = ethers.verifyMessage(ethers.getBytes(digestOrTx), signature);
+  } catch {
+    throw new Error("Signature recovery failed: malformed or invalid signature");
+  }
+  if (recovered.toLowerCase() !== expectedOwner.toLowerCase()) {
+    throw new Error(
+      `Signature verification failed: recovered ${recovered} but expected ${expectedOwner}`,
+    );
+  }
+}
+
+/**
+ * #1198 – Check whether a nonce has already been consumed for a given wallet.
+ */
+export function isNonceConsumed(walletId: string, nonce: number): boolean {
+  const wallet = MULTISIG_WALLETS[walletId];
+  const addressKey = wallet?.address.toLowerCase() ?? walletId.toLowerCase();
+  return consumedNonces.get(addressKey)?.has(nonce) ?? false;
 }
 
 export async function collectSignature(
@@ -441,10 +633,31 @@ export async function collectSignature(
       throw new Error("Transaction already executed");
     }
 
-    // #1194 – Cryptographic verification before accepting the signature.
-    const digest = buildTransactionDigest(tx);
-    verifyOwnerSignature(digest, signature, owner);
+  // #1198 – Reject expired proposals
+  if (Math.floor(Date.now() / 1000) > tx.expiry) {
+    throw new Error("Transaction proposal has expired");
+  }
 
+  // #1198 – Reject if nonce has already been consumed
+  if (tx.signatures.length === 0) {
+    const nonceKey = (tx.walletAddress ?? wallet.address).toLowerCase();
+    const consumed = consumedNonces.get(nonceKey);
+    if (consumed?.has(tx.nonce)) {
+      throw new Error("Nonce already consumed: this transaction cannot be authorized");
+    }
+  }
+
+  // Verify the EIP-712 approval.
+  const { domain, types, message } = buildTypedData(tx);
+  verifyTypedDataSignature(domain, types, message, signature, owner);
+
+  // Consume the nonce on the first valid signature.
+  if (tx.signatures.length === 0) {
+    const nonceKey = (tx.walletAddress ?? wallet.address).toLowerCase();
+    const consumed = consumedNonces.get(nonceKey) ?? new Set<number>();
+    consumed.add(tx.nonce);
+    consumedNonces.set(nonceKey, consumed);
+  }
     tx.signatures.push({
       owner,
       signature,
@@ -572,9 +785,8 @@ export async function processTransaction(
     tx.events.push({
       name: "TransactionExecuted",
       args: { txId, executor: resolvedExecutor },
-  });
-
-  return tx;
+    });
+    return tx;
   });
 }
 
@@ -592,7 +804,10 @@ export async function getTransactionStatus(
 
 /** Test helper — clears persisted state between Vitest cases. */
 export function __resetMultisigStoreForTests(): void {
+  pendingTransactions.clear();
   transactions.clear();
+  walletNonces.clear();
+  consumedNonces.clear();
   MULTISIG_WALLETS = buildWalletRegistry();
 }
 

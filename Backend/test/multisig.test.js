@@ -12,7 +12,13 @@ describe('Multisig Service', () => {
   const owner2Wallet = new ethers.Wallet(OWNER_2_KEY);
   const owner1 = owner1Wallet.address;
   const owner2 = owner2Wallet.address;
-  const txData = { target: '0xabc...', value: '100', data: '0x' };
+  const txData = { target: '0x0000000000000000000000000000000000000123', value: '100', data: '0x' };
+
+  async function signTx(txId, wallet) {
+    const tx = multisigService.getTransactionStatus(txId);
+    const typed = multisigService.buildTypedData(tx);
+    return wallet.signTypedData(typed.domain, typed.types, typed.message);
+  }
 
   describe('Wallet Management', () => {
     it('should retrieve wallet configuration', () => {
@@ -57,9 +63,9 @@ describe('Multisig Service', () => {
     });
 
     it('should reject a signature that recovers to a different address than the claimed owner', async () => {
-      const forgedSignature = owner2Wallet.signMessageSync(currentTxId);
+      const forgedSignature = await signTx(currentTxId, owner2Wallet);
       await expect(multisigService.collectSignature(currentTxId, owner1, forgedSignature))
-        .rejects.toThrow('Signature does not match owner');
+        .rejects.toThrow('Signature verification failed');
     });
 
     it('should reject a valid signature from a key that is not a configured owner', async () => {
@@ -71,20 +77,20 @@ describe('Multisig Service', () => {
 
     it('should collect signatures and reach threshold', async () => {
       // First signature
-      const sig1 = owner1Wallet.signMessageSync(currentTxId);
+      const sig1 = await signTx(currentTxId, owner1Wallet);
       let status = await multisigService.collectSignature(currentTxId, owner1, sig1);
       expect(status.signatures.length).toBe(1);
       expect(status.status).toBe('Pending');
 
       // Second signature (reaches threshold of 2)
-      const sig2 = owner2Wallet.signMessageSync(currentTxId);
+      const sig2 = await signTx(currentTxId, owner2Wallet);
       status = await multisigService.collectSignature(currentTxId, owner2, sig2);
       expect(status.signatures.length).toBe(2);
       expect(status.status).toBe('Ready');
     });
 
     it('should prevent duplicate signatures from same owner', async () => {
-      const sig = owner1Wallet.signMessageSync(currentTxId);
+      const sig = await signTx(currentTxId, owner1Wallet);
       await expect(multisigService.collectSignature(currentTxId, owner1, sig))
         .rejects.toThrow('Owner has already signed this transaction');
     });

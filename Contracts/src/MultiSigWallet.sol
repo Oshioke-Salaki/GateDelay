@@ -22,8 +22,11 @@ contract MultiSigWallet {
     error DuplicateSigner();
     error SignerNotFound();
     error InvalidTransaction();
-    error InsufficientRejections();
-    error TransactionNotPending();
+error NonceAlreadyConsumed();
+error ProposalExpired();
+error InvalidSignature();
+error InsufficientRejections();
+error TransactionNotPending();
 
     // -------------------------------------------------------------------------
     // Types
@@ -40,7 +43,8 @@ contract MultiSigWallet {
         TransactionStatus status;
         uint256 createdAt;
         uint256 executedAt;
-        uint256 deadline;
+        uint256 nonce;
+        uint256 expiry;
     }
 
     // -------------------------------------------------------------------------
@@ -54,6 +58,24 @@ contract MultiSigWallet {
     event TransactionApprovalRevoked(uint256 indexed txId, address indexed signer);
     event TransactionExecuted(uint256 indexed txId, address indexed executor);
     event TransactionRejected(uint256 indexed txId);
+
+    // -------------------------------------------------------------------------
+    // EIP-712 Typed Data Constants & Nonce Tracking (#1198)
+    // -------------------------------------------------------------------------
+    string public constant DOMAIN_NAME = "GateDelay MultiSig";
+    string public constant DOMAIN_VERSION = "1";
+
+    bytes32 public constant DOMAIN_TYPEHASH =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+    bytes32 public constant MULTISIG_APPROVAL_TYPEHASH =
+        keccak256(
+            "MultisigApproval(uint256 chainId,address walletAddress,uint256 nonce,address target,uint256 value,bytes32 calldataHash,uint256 expiry)"
+        );
+
+    mapping(uint256 => bool) public consumedNonces;
+    mapping(uint256 => uint256) private nonceTransactionIds;
+    uint256 public nextNonce;
 
     // -------------------------------------------------------------------------
     // Storage
@@ -171,8 +193,24 @@ contract MultiSigWallet {
         external
         returns (uint256 txId)
     {
+        return _createTransaction(target, value, data, block.timestamp + 1 hours);
+    }
+
+    /// @notice Create a transaction with an explicit expiry for EIP-712 approvals.
+    function createTransaction(address target, uint256 value, bytes calldata data, uint256 expiry)
+        external
+        returns (uint256 txId)
+    {
+        return _createTransaction(target, value, data, expiry);
+    }
+
+    function _createTransaction(address target, uint256 value, bytes calldata data, uint256 expiry)
+        private
+        returns (uint256 txId)
+    {
         if (!isSigner[msg.sender]) revert NotSigner();
         if (target == address(0)) revert InvalidTransaction();
+        if (expiry <= block.timestamp) revert ProposalExpired();
 
         txId = transactionCount++;
 
@@ -186,7 +224,8 @@ contract MultiSigWallet {
             status: TransactionStatus.PENDING,
             createdAt: block.timestamp,
             executedAt: 0,
-            deadline: block.timestamp + PROPOSAL_LIFETIME
+            nonce: nextNonce++,
+            expiry: expiry
         });
 
         emit TransactionCreated(txId, msg.sender, target);
@@ -205,17 +244,33 @@ contract MultiSigWallet {
 
         Transaction storage transaction = transactions[txId];
         if (isExpired(txId)) revert TransactionExpired();
-        if (transaction.status == TransactionStatus.EXECUTED || transaction.status == TransactionStatus.REJECTED) {
+
+        if (
+            transaction.status == TransactionStatus.EXECUTED ||
+            transaction.status == TransactionStatus.REJECTED
+        ) {
             revert TransactionNotPending();
         }
 
-        // A ready transaction can fall below threshold after a signer is removed. Reopen it so a
-        // current signer can replace that approval. The recount touches only the current signer set.
+        // Reopen an approved transaction if signer removal dropped the
+        // current approval count below the threshold.
         if (transaction.status == TransactionStatus.APPROVED) {
             uint256 currentApprovals = _countCurrentApprovals(txId);
             if (currentApprovals >= threshold) revert TransactionNotPending();
+
             transaction.approvalCount = currentApprovals;
             transaction.status = TransactionStatus.PENDING;
+        }
+
+        if (approvals[txId][msg.sender]) revert InvalidTransaction();
+
+        _consumeNonce(transaction.nonce, txId);
+
+        approvals[txId][msg.sender] = true;
+        transaction.approvalCount++;
+
+        if (transaction.approvalCount >= threshold) {
+            transaction.status = TransactionStatus.APPROVED;
         }
 
         if (approvals[txId][msg.sender] && approvalMembership[txId][msg.sender] == signerMembership[msg.sender]) {
@@ -229,67 +284,162 @@ contract MultiSigWallet {
         emit TransactionApproved(txId, msg.sender);
     }
 
-    /// @notice Revoke a previously granted approval on an unexecuted transaction.
-    /// @param txId The ID of the transaction to revoke approval from.
-    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
-    /// @dev Reverts: `NotSigner` if `!isSigner[msg.sender]` is true. `TransactionNotFound` if `txId
-    ///     >= transactionCount` is true. `TransactionAlreadyExecuted` if `transaction.status ==
-    ///     TransactionStatus.EXECUTED` is true. `InvalidTransaction` if `transaction.status ==
-    ///     TransactionStatus.REJECTED` is true. `InvalidTransaction` if
-    ///     `!approvals[txId][msg.sender]` is true.
-    /// @dev Decrements `approvalCount` by one. If the transaction was `APPROVED` and the count
-    ///     falls below `threshold`, status returns to `PENDING`. Executed and rejected
-    ///     transactions are immutable.
-    function revokeApproval(uint256 txId) external {
-        if (!isSigner[msg.sender]) revert NotSigner();
-        if (txId >= transactionCount) revert TransactionNotFound();
+// -------------------------------------------------------------------------
+// EIP-712 signature approval
+// -------------------------------------------------------------------------
 
-        Transaction storage transaction = transactions[txId];
-        if (transaction.status == TransactionStatus.EXECUTED) revert TransactionAlreadyExecuted();
-        if (transaction.status == TransactionStatus.REJECTED) revert InvalidTransaction();
-        if (!approvals[txId][msg.sender]) revert InvalidTransaction();
+/// @notice Approve a stored transaction using an EIP-712 owner signature.
+function approveTransactionWithSignature(
+    uint256 txId,
+    address signer,
+    bytes calldata signature
+) external {
+    if (txId >= transactionCount) revert TransactionNotFound();
 
-        approvals[txId][msg.sender] = false;
-        transaction.approvalCount--;
+    Transaction storage transaction = transactions[txId];
+    if (transaction.status != TransactionStatus.PENDING) {
+        revert TransactionNotPending();
+    }
+    if (block.timestamp > transaction.expiry) revert ProposalExpired();
+    if (!isSigner[signer]) revert NotSigner();
+    if (approvals[txId][signer]) revert DuplicateSigner();
 
-        if (transaction.status == TransactionStatus.APPROVED && transaction.approvalCount < threshold) {
-            transaction.status = TransactionStatus.PENDING;
-        }
+    bytes32 digest = getApprovalDigest(
+        transaction.nonce,
+        transaction.target,
+        transaction.value,
+        keccak256(transaction.data),
+        transaction.expiry
+    );
 
-        emit TransactionApprovalRevoked(txId, msg.sender);
+    if (_recover(digest, signature) != signer) revert InvalidSignature();
+
+    _consumeNonce(transaction.nonce, txId);
+    _recordApproval(txId, signer);
+}
+
+/// @notice Revoke a previously granted approval on an unexecuted transaction.
+function revokeApproval(uint256 txId) external {
+    if (!isSigner[msg.sender]) revert NotSigner();
+    if (txId >= transactionCount) revert TransactionNotFound();
+
+    Transaction storage transaction = transactions[txId];
+    if (transaction.status == TransactionStatus.EXECUTED) {
+        revert TransactionAlreadyExecuted();
+    }
+    if (transaction.status == TransactionStatus.REJECTED) {
+        revert InvalidTransaction();
+    }
+    if (!approvals[txId][msg.sender]) revert InvalidTransaction();
+
+    approvals[txId][msg.sender] = false;
+    transaction.approvalCount--;
+
+    if (
+        transaction.status == TransactionStatus.APPROVED &&
+        transaction.approvalCount < threshold
+    ) {
+        transaction.status = TransactionStatus.PENDING;
     }
 
-    // -------------------------------------------------------------------------
-    // Internal helpers
-    // -------------------------------------------------------------------------
-    /// @notice Count approvals that still belong to the current signer set.
-    /// @dev Bounded by `signers.length`. A stored approval counts only when its membership
-    ///      generation matches the signer's current generation, so removed signers contribute nothing.
-    function _countCurrentApprovals(uint256 txId) internal view returns (uint256 count) {
-        uint256 signerCount = signers.length;
-        for (uint256 i = 0; i < signerCount; i++) {
-            address signer = signers[i];
-            if (approvals[txId][signer] && approvalMembership[txId][signer] == signerMembership[signer]) {
-                count++;
-            }
+    emit TransactionApprovalRevoked(txId, msg.sender);
+}
+
+// -------------------------------------------------------------------------
+// Internal helpers
+// -------------------------------------------------------------------------
+
+/// @notice Count approvals that still belong to the current signer set.
+function _countCurrentApprovals(uint256 txId)
+    internal
+    view
+    returns (uint256 count)
+{
+    uint256 signerCount = signers.length;
+    for (uint256 i = 0; i < signerCount; i++) {
+        address currentSigner = signers[i];
+        if (
+            approvals[txId][currentSigner] &&
+            approvalMembership[txId][currentSigner] ==
+                signerMembership[currentSigner]
+        ) {
+            count++;
         }
+    }
+}
+
+/// @notice Refresh the cached approval count from current signers.
+function _syncApprovalReadiness(
+    Transaction storage transaction,
+    uint256 txId
+) internal {
+    uint256 count = _countCurrentApprovals(txId);
+    transaction.approvalCount = count;
+    if (count >= threshold) {
+        transaction.status = TransactionStatus.APPROVED;
+    }
+}
+
+/// @notice Revert with the provided return data, preserving the original reason.
+function _revertWithReason(bytes memory returndata) internal pure {
+    assembly ("memory-safe") {
+        revert(add(returndata, 0x20), mload(returndata))
+    }
+}
+
+function _recordApproval(uint256 txId, address signer) private {
+    Transaction storage transaction = transactions[txId];
+    approvals[txId][signer] = true;
+    transaction.approvalCount++;
+
+    if (transaction.approvalCount >= threshold) {
+        transaction.status = TransactionStatus.APPROVED;
     }
 
-    /// @notice Refresh the cached approval count and ready status from current signers only.
-    function _syncApprovalReadiness(Transaction storage transaction, uint256 txId) internal {
-        uint256 count = _countCurrentApprovals(txId);
-        transaction.approvalCount = count;
-        if (count >= threshold) {
-            transaction.status = TransactionStatus.APPROVED;
-        }
+    emit TransactionApproved(txId, signer);
+}
+
+function _consumeNonce(uint256 nonce, uint256 txId) private {
+    if (consumedNonces[nonce] && nonceTransactionIds[nonce] != txId + 1) {
+        revert NonceAlreadyConsumed();
     }
 
-    /// @notice Revert with the provided return data, preserving the original revert reason.
-    function _revertWithReason(bytes memory returndata) internal pure {
-        assembly ("memory-safe") {
-            revert(add(returndata, 0x20), mload(returndata))
-        }
+    consumedNonces[nonce] = true;
+    nonceTransactionIds[nonce] = txId + 1;
+}
+
+function _recover(bytes32 digest, bytes calldata signature) private pure returns (address) {
+    if (signature.length != 65) revert InvalidSignature();
+
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
+
+    assembly {
+        r := calldataload(signature.offset)
+        s := calldataload(add(signature.offset, 32))
+        v := byte(0, calldataload(add(signature.offset, 64)))
     }
+
+    if (v < 27) v += 27;
+    if (v != 27 && v != 28) revert InvalidSignature();
+
+    address recovered = ecrecover(digest, v, r, s);
+    if (recovered == address(0)) revert InvalidSignature();
+
+    return recovered;
+}
+
+// -------------------------------------------------------------------------
+// Internal helpers
+// -------------------------------------------------------------------------
+
+/// @notice Revert with the provided return data, preserving the original revert reason.
+function _revertWithReason(bytes memory returndata) internal pure {
+    assembly ("memory-safe") {
+        revert(add(returndata, 0x20), mload(returndata))
+    }
+}
 
     /// @notice Recompute PENDING/APPROVED status for all non-terminal transactions against the
     ///     current approval threshold.
@@ -323,6 +473,9 @@ contract MultiSigWallet {
         if (txId >= transactionCount) revert TransactionNotFound();
 
         Transaction storage transaction = transactions[txId];
+        if (transaction.status != TransactionStatus.APPROVED) {
+            revert InsufficientApprovals();
+        }
         if (isExpired(txId)) revert TransactionExpired();
         if (transaction.executedAt != 0) revert TransactionAlreadyExecuted();
 
@@ -462,6 +615,51 @@ contract MultiSigWallet {
 
         rejectionThreshold = newRejectionThreshold;
         emit ThresholdUpdated(newRejectionThreshold);
+    }
+
+    // -------------------------------------------------------------------------
+    // EIP-712 Helpers (#1198)
+    // -------------------------------------------------------------------------
+
+    /// @notice Returns the EIP-712 domain separator for this wallet.
+    function domainSeparator() public view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes(DOMAIN_NAME)),
+                keccak256(bytes(DOMAIN_VERSION)),
+                block.chainid,
+                address(this)
+            )
+        );
+    }
+
+    /// @notice Computes the EIP-712 digest for a multisig approval.
+    function getApprovalDigest(
+        uint256 nonce,
+        address target,
+        uint256 value,
+        bytes32 calldataHash,
+        uint256 expiry
+    ) public view returns (bytes32) {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MULTISIG_APPROVAL_TYPEHASH,
+                block.chainid,
+                address(this),
+                nonce,
+                target,
+                value,
+                calldataHash,
+                expiry
+            )
+        );
+        return keccak256(abi.encodePacked("\x19\x01", domainSeparator(), structHash));
+    }
+
+    /// @notice Check if a nonce has already been consumed.
+    function isNonceConsumed(uint256 nonce) external view returns (bool) {
+        return consumedNonces[nonce];
     }
 
     // -------------------------------------------------------------------------
