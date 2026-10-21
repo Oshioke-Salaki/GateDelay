@@ -254,4 +254,43 @@ contract MarketFactoryTest is Test {
         assertEq(factory.getCreator(market), alice, "creator must be the caller");
         assertTrue(market.code.length > 0, "market contract must be deployed");
     }
+
+    function test_createMarket_revertsMetadataTooLong() public {
+        bytes memory oversized = new bytes(factory.MAX_METADATA_URI_LENGTH() + 1);
+        bytes memory prefix = bytes("ipfs://");
+        for (uint256 i = 0; i < prefix.length; ++i) {
+            oversized[i] = prefix[i];
+        }
+        for (uint256 i = prefix.length; i < oversized.length; ++i) {
+            oversized[i] = "a";
+        }
+        vm.expectRevert(MarketFactory.MetadataURITooLong.selector);
+        factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, string(oversized));
+    }
+
+    function test_createMarket_revertsUnsupportedMetadataScheme() public {
+        vm.expectRevert(MarketFactory.UnsupportedMetadataScheme.selector);
+        factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "http://example.com/meta");
+    }
+
+    function test_createMarket_acceptsHttpsAndArSchemes() public {
+        address m1 = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "https://example.com/meta.json");
+        address m2 = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, "ar://txid");
+        assertTrue(m1 != address(0));
+        assertTrue(m2 != address(0));
+    }
+
+    function test_createMarket_acceptsMaxLengthIpfsUri() public {
+        bytes memory uri = new bytes(factory.MAX_METADATA_URI_LENGTH());
+        bytes memory prefix = bytes("ipfs://");
+        for (uint256 i = 0; i < prefix.length; ++i) {
+            uri[i] = prefix[i];
+        }
+        for (uint256 i = prefix.length; i < uri.length; ++i) {
+            uri[i] = "b";
+        }
+        address market = factory.createMarket(validToken, block.timestamp + 1 days, 1 ether, string(uri));
+        assertTrue(market != address(0));
+    }
+
 }

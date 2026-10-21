@@ -23,6 +23,8 @@ contract MarketFactory {
     error InvalidCollateralToken();
     error NotOwner();
     error ZeroOwner();
+    error MetadataURITooLong();
+    error UnsupportedMetadataScheme();
 
     // -------------------------------------------------------------------------
     // Types
@@ -58,6 +60,8 @@ contract MarketFactory {
     // -------------------------------------------------------------------------
     // Storage
     // -------------------------------------------------------------------------
+    uint256 public constant MAX_METADATA_URI_LENGTH = 2048;
+
     PositionToken public immutable positionToken;
     address public owner;
 
@@ -153,7 +157,7 @@ contract MarketFactory {
         if (!_collateralConfig[collateralToken].supported) revert UnsupportedCollateral();
         if (resolutionDeadline <= block.timestamp) revert InvalidDeadline();
         if (minLiquidity == 0) revert ZeroMinLiquidity();
-        if (bytes(metadataURI).length == 0) revert EmptyMetadataURI();
+        _validateMetadataURI(metadataURI);
 
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, block.timestamp, _marketList.length));
 
@@ -271,6 +275,28 @@ contract MarketFactory {
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
+
+
+    function _validateMetadataURI(string calldata metadataURI) internal pure {
+        bytes memory uri = bytes(metadataURI);
+        uint256 len = uri.length;
+        if (len == 0) revert EmptyMetadataURI();
+        if (len > MAX_METADATA_URI_LENGTH) revert MetadataURITooLong();
+
+        if (_hasPrefix(uri, "ipfs://") || _hasPrefix(uri, "https://") || _hasPrefix(uri, "ar://")) {
+            return;
+        }
+        revert UnsupportedMetadataScheme();
+    }
+
+    function _hasPrefix(bytes memory data, string memory prefix) internal pure returns (bool) {
+        bytes memory p = bytes(prefix);
+        if (data.length < p.length) return false;
+        for (uint256 i = 0; i < p.length; ++i) {
+            if (data[i] != p[i]) return false;
+        }
+        return true;
+    }
 
     bytes4 private constant _SELECTOR_DECIMALS = bytes4(keccak256("decimals()"));
     bytes4 private constant _SELECTOR_TOTAL_SUPPLY = bytes4(keccak256("totalSupply()"));
