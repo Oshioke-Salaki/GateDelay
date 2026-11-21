@@ -38,45 +38,6 @@ export interface Position {
   closedAt?: string;
 }
 
-// ── Mock data (replace with real API fetch) ───────────────────────────────────
-
-const MOCK_POSITIONS: Position[] = Array.from({ length: 18 }, (_, i) => {
-  const sides: PositionSide[] = ["YES", "NO"];
-  const statuses: PositionStatus[] = ["open", "open", "open", "closed"];
-  const markets = [
-    "AA123 on-time?",
-    "UA456 delay >30m?",
-    "DL789 cancelled?",
-    "SW101 on-time?",
-    "BA202 diverted?",
-  ];
-  const entryPrice = parseFloat((Math.random() * 0.7 + 0.1).toFixed(4));
-  const currentPrice = parseFloat((Math.random() * 0.7 + 0.1).toFixed(4));
-  const shares = parseFloat((Math.random() * 200 + 10).toFixed(2));
-  const costBasis = parseFloat((entryPrice * shares).toFixed(2));
-  const pnl = parseFloat(((currentPrice - entryPrice) * shares).toFixed(2));
-  const pnlPct = parseFloat(((pnl / costBasis) * 100).toFixed(2));
-  const openedAt = new Date(2026, 3, 1 + (i % 26)).toISOString();
-  const status = statuses[i % statuses.length];
-  return {
-    id: `pos-${i + 1}`,
-    userId: "user-1",
-    marketId: `market-${(i % 5) + 1}`,
-    market: markets[i % markets.length],
-    side: sides[i % sides.length],
-    shares,
-    entryPrice,
-    currentPrice,
-    costBasis,
-    pnl,
-    pnlPct,
-    maxLoss: costBasis,
-    status,
-    openedAt,
-    closedAt: status === "closed" ? new Date(2026, 3, 10 + (i % 15)).toISOString() : undefined,
-  };
-});
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const SIDE_STYLES: Record<PositionSide, { bg: string; color: string }> = {
@@ -104,7 +65,7 @@ function fmt(n: number, decimals = 2): string {
 
 const columnHelper = createColumnHelper<Position>();
 
-function buildColumns(onClose: (pos: Position) => void) {
+function buildColumns(onClose?: (pos: Position) => void) {
   return [
     columnHelper.accessor("market", {
       header: "Market",
@@ -187,7 +148,7 @@ function buildColumns(onClose: (pos: Position) => void) {
       enableSorting: false,
       cell: (info) => {
         const pos = info.row.original;
-        if (pos.status !== "open") return null;
+        if (pos.status !== "open" || !onClose) return null;
         return (
           <button
             onClick={() => onClose(pos)}
@@ -205,14 +166,18 @@ function buildColumns(onClose: (pos: Position) => void) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export interface PositionsTableProps {
-  /** Live positions from API; falls back to mock data */
-  data?: Position[];
+  /** Explicit account positions; fixture data is never substituted. */
+  data: Position[];
+  loading?: boolean;
+  error?: string | null;
   /** Called when user confirms closing a position, with optional shares count for partial closing */
   onClosePosition?: (positionId: string, currentPrice: number, sharesToClose?: number) => Promise<void>;
 }
 
 export default function PositionsTable({
-  data = MOCK_POSITIONS,
+  data,
+  loading = false,
+  error = null,
   onClosePosition,
 }: PositionsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "openedAt", desc: true }]);
@@ -221,21 +186,22 @@ export default function PositionsTable({
   const [statusFilter, setStatusFilter] = useState<string>("open");
   const [marketSearch, setMarketSearch] = useState("");
   const [closingPos, setClosingPos] = useState<Position | null>(null);
-  const [closeLoading, setCloseLoading] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
 
   const handleCloseClick = useCallback((pos: Position) => {
+    setCloseError(null);
     setClosingPos(pos);
   }, []);
 
   const handleCloseConfirm = useCallback(
     async (sharesToClose: number) => {
-      if (!closingPos) return;
-      setCloseLoading(true);
+      if (!closingPos || !onClosePosition) return;
       try {
-        await onClosePosition?.(closingPos.id, closingPos.currentPrice, sharesToClose);
-      } finally {
-        setCloseLoading(false);
+        await onClosePosition(closingPos.id, closingPos.currentPrice, sharesToClose);
         setClosingPos(null);
+        setCloseError(null);
+      } catch (error) {
+        setCloseError(error instanceof Error ? error.message : "Could not close this position.");
       }
     },
     [closingPos, onClosePosition],
@@ -405,14 +371,21 @@ export default function PositionsTable({
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.length === 0 ? (
+              {loading || error || data.length === 0 || table.getRowModel().rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length}
                     className="px-4 py-10 text-center text-sm"
-                    style={{ color: "var(--muted)" }}
+                    style={{ color: error ? "#ef4444" : "var(--muted)" }}
+                    role={error ? "alert" : "status"}
                   >
-                    No positions found.
+                    {loading
+                      ? "Loading positions…"
+                      : error
+                        ? `Could not load positions: ${error}`
+                        : data.length === 0
+                          ? "No positions yet."
+                          : "No positions match these filters."}
                   </td>
                 </tr>
               ) : (
@@ -437,6 +410,12 @@ export default function PositionsTable({
             </tbody>
           </table>
         </div>
+
+        {closeError && (
+          <p role="alert" className="text-sm" style={{ color: "#ef4444" }}>
+            Could not close position: {closeError}
+          </p>
+        )}
 
         {/* Pagination */}
         <div className="flex items-center justify-between gap-2 flex-wrap text-sm">

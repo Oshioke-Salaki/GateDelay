@@ -6,6 +6,8 @@
  * so changes to backend limits only need to be reflected here.
  */
 
+import { parseLocalDateInputValue } from "./localDateTime";
+
 // ─── Trade Limits (mirrors Backend/services/tradeValidator.js TRADE_LIMITS) ──
 
 export const TRADE_LIMITS = {
@@ -88,8 +90,8 @@ export function validateResolutionDeadline(
   if (isNaN(deadline.getTime())) return "Resolution deadline must be a valid date";
   if (deadline <= new Date()) return "Resolution deadline must be in the future";
   if (flightDateStr) {
-    const flight = new Date(flightDateStr);
-    if (!isNaN(flight.getTime()) && deadline <= flight) {
+    const flight = parseLocalDateInputValue(flightDateStr);
+    if (flight && deadline <= flight) {
       return "Resolution deadline must be after the flight date";
     }
   }
