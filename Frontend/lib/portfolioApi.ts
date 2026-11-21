@@ -254,11 +254,13 @@ export async function recordPositionExecution({
 
   for (const log of receipt.logs) {
     if (log.address.toLowerCase() !== contractAddress.toLowerCase() || log.logIndex === null) continue;
+    const [signature, ...indexedTopics] = log.topics;
+    if (!signature) continue;
     try {
       const decoded = decodeEventLog({
         abi: POSITION_EVENTS,
         data: log.data,
-        topics: log.topics,
+        topics: [signature, ...indexedTopics],
         strict: false,
       });
       const eventActor = decoded.eventName === "SharesBought"
