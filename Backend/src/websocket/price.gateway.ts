@@ -168,15 +168,14 @@ export class PriceGateway
     return { subscribed: Array.from(existing) };
   }
 
-  broadcastPriceUpdate(
+  async broadcastPriceUpdate(
     marketId: string,
-    data: { price: number; volume: number; timestamp: number },
+    data: { price: number; volume: number; timestamp: number; chainId?: string },
   ) {
-    this.positionsService.updateMarketPrice(marketId, data.price);
+    await this.positionsService.updateMarketPrice(marketId, data.price, data.chainId);
     // snapshot portfolio for all users with positions in this market
-    this.positionsService
-      .getUsersForMarket(marketId)
-      .forEach((userId) => this.portfolioService.recordSnapshot(userId));
+    const users = await this.positionsService.getUsersForMarket(marketId);
+    await Promise.all(users.map(userId => this.portfolioService.recordSnapshot(userId)));
     this.subscriptions.forEach((markets, socketId) => {
       if (markets.has(marketId)) {
         this.server.to(socketId).emit('priceUpdate', { marketId, ...data });
