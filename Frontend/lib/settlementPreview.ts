@@ -16,6 +16,23 @@ export interface SettlementPreview {
   available: boolean;
 }
 
+/** Maximum age (ms) of a quote before it must be refreshed before execution. */
+export const QUOTE_FRESHNESS_MS = 30_000;
+
+/**
+ * Returns true when a quote timestamp is older than QUOTE_FRESHNESS_MS.
+ * Missing or non-finite timestamps are treated as stale so execution
+ * always requires a refreshed quote.
+ */
+export function isQuoteStale(
+  quoteTimestamp: number | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (quoteTimestamp == null || !Number.isFinite(quoteTimestamp)) return true;
+  if (!Number.isFinite(now)) return true;
+  return now - quoteTimestamp > QUOTE_FRESHNESS_MS;
+}
+
 export function marketRevision(input: {
   status: string;
   totalYesStake: number;

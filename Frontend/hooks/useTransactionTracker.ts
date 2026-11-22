@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAccount } from "wagmi";
+import { estimateGasCost } from "@/lib/txUtils";
 
 export interface TrackedTransaction {
   hash: `0x${string}`;
@@ -112,4 +113,74 @@ export function useTrackTransaction(hash: `0x${string}` | undefined, description
       addTransaction(hash, description);
     }
   }, [addTransaction, description, hash]);
+}
+
+export interface GasEstimateResult {
+  gasCost: bigint | null;
+  isLoading: boolean;
+  error: Error | null;
+  refresh: () => void;
+}
+
+export function useGasEstimate(
+  request: Record<string, unknown> | null | undefined,
+  gasPreference?: string
+): GasEstimateResult {
+  const [gasCost, setGasCost] = useState<bigint | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Serialize the request so the effect re-runs only when parameters change.
+  const requestKey = useMemo(() => {
+    if (!request) return null;
+    try {
+      return JSON.stringify(request, (_key, value) =>
+        typeof value === "bigint" ? value.toString() : value
+      );
+    } catch {
+      return null;
+    }
+  }, [request]);
+
+  useEffect(() => {
+    if (!requestKey) {
+      setGasCost(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    const parsedRequest = JSON.parse(requestKey) as Record<string, unknown>;
+
+    Promise.resolve()
+      .then(() => estimateGasCost(parsedRequest, gasPreference))
+      .then((cost) => {
+        if (cancelled) return;
+        setGasCost(cost ?? null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setGasCost(null);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requestKey, gasPreference, refreshKey]);
+
+  const refresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  return { gasCost, isLoading, error, refresh };
 }
