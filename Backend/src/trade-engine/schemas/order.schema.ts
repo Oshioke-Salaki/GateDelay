@@ -6,11 +6,22 @@ export type OrderDocument = Order & Document;
 export type OrderType = 'Market' | 'Limit' | 'Stop-Loss';
 export type OrderSide = 'Buy' | 'Sell';
 export type OrderStatus = 'Pending' | 'Partial' | 'Filled' | 'Canceled';
+export type OrderExecutionType = 'CLOB';
+export type OrderSettlementStatus = 'NOT_ON_CHAIN';
 
 @Schema({ timestamps: true })
 export class Order {
   @Prop({ required: true })
   userId: string;
+
+  @Prop({ required: true })
+  venueId: string;
+
+  @Prop({ required: true, enum: ['CLOB'], default: 'CLOB' })
+  executionType: OrderExecutionType;
+
+  @Prop({ required: true, enum: ['NOT_ON_CHAIN'], default: 'NOT_ON_CHAIN' })
+  settlementStatus: OrderSettlementStatus;
 
   @Prop({ required: true, enum: ['Market', 'Limit', 'Stop-Loss'] })
   type: OrderType;
@@ -51,5 +62,12 @@ export class Order {
 export const OrderSchema = SchemaFactory.createForClass(Order);
 
 // Indexes for efficient order-book queries
-OrderSchema.index({ pair: 1, side: 1, status: 1, price: 1, timestamp: 1 });
+OrderSchema.index({
+  venueId: 1,
+  pair: 1,
+  side: 1,
+  status: 1,
+  price: 1,
+  timestamp: 1,
+});
 OrderSchema.index({ userId: 1, status: 1 });

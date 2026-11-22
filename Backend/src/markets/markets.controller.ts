@@ -6,19 +6,14 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { createRequire } from 'module';
 import { MarketResolverService } from './market-resolver.service';
 import { ListMarketsQueryDto } from './dto/list-markets.dto';
 import { CacheService } from '../cache/cache.service';
 import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
 import { BlockchainService } from '../blockchain/blockchain.service';
-
-// Use the existing CommonJS tradeAggregator for real-time stats
-const nodeRequire = createRequire(__filename);
-const tradeAggregator = nodeRequire('../../services/tradeAggregator') as {
-  getMarketStats?: (marketId: string) => Promise<Record<string, unknown>>;
-  getRealTimeStats: (marketId: string) => Promise<Record<string, unknown>>;
-};
+import { MarketQuoteQueryDto } from './dto/market-quote.dto';
+import { MarketMakerQuoteService } from './market-maker-quote.service';
+import { MarketMakerMetricsService } from './market-maker-metrics.service';
 
 const normalizeArchiveOutcome = (value?: string): 'yes' | 'no' | 'cancelled' => {
   if (!value) return 'cancelled';
@@ -35,6 +30,8 @@ export class MarketsController {
     private readonly marketResolver: MarketResolverService,
     private readonly cache: CacheService,
     private readonly blockchain: BlockchainService,
+    private readonly marketMakerQuote: MarketMakerQuoteService,
+    private readonly marketMakerMetrics: MarketMakerMetricsService,
   ) {}
 
   /**
@@ -171,6 +168,7 @@ export class MarketsController {
           description: market.description ?? null,
           categoryId: market.categoryId ?? null,
           deadline: market.deadline.toISOString(),
+          resolutionCriteria: market.resolutionCriteria ?? null,
         },
         deployment: {
           marketId: market.id,
@@ -196,30 +194,68 @@ export class MarketsController {
     };
   }
 
+  @Get(':id/quote')
+  @ApiOperation({
+    summary: 'Get a read-only MarketMaker quote',
+    description:
+      'Reads a buy cost or sell proceeds quote from MarketMaker at a pinned block. Shares and quote amounts are returned as integer base units; this endpoint does not execute trades.',
+  })
+  @ApiParam({ name: 'id', description: 'Market catalog identifier' })
+  @ApiQuery({ name: 'side', required: true, enum: ['buy', 'sell'] })
+  @ApiQuery({
+    name: 'outcome',
+    required: true,
+    type: Number,
+    description: 'Zero-based outcome index',
+  })
+  @ApiQuery({
+    name: 'shares',
+    required: true,
+    type: String,
+    description: 'Positive integer share amount in contract base units',
+  })
+  @ApiResponse({ status: 200, description: 'MarketMaker quote and identity' })
+  @ApiResponse({ status: 404, description: 'Market is not canonically linked' })
+  async getQuote(
+    @Param('id') id: string,
+    @Query() query: MarketQuoteQueryDto,
+  ) {
+    const market = await this.marketResolver.getMarket(id);
+    if (!market) {
+      throw new NotFoundException(`Market ${id} not found`);
+    }
+    return this.marketMakerQuote.quote(market, query);
+  }
+
   private async buildPage(query: ListMarketsQueryDto) {
     const { markets, meta } = await this.marketResolver.getMarketsPage(query);
+    const marketMetrics = await this.marketMakerMetrics.getMetrics(markets);
 
-    const data = await Promise.all(
-      markets.map(async (m) => {
-        // try to fetch real-time stats by market title (e.g. 'ETH-USDT')
-        let stats = {} as any;
-        try {
-          stats = await tradeAggregator.getRealTimeStats(m.title || m.id);
-        } catch (e) {
-          stats = {};
-        }
-
-        return {
-          id: m.id,
-          name: m.title,
-          asset:
-            m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
-          price: parseFloat(stats.lastPrice || '0') || 0,
-          feePercent: 0, // placeholder — augment from orderbook/provider if available
-          liquidity: parseFloat(stats.volume || '0') || 0,
-        };
-      }),
-    );
+    const data = markets.map((m, index) => {
+      const metrics = marketMetrics[index];
+      return {
+        id: m.id,
+        name: m.title,
+        asset:
+          m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
+        prices: {
+          yes: metrics.yesPrice,
+          no: metrics.noPrice,
+        },
+        yesPrice: metrics.yesPrice,
+        noPrice: metrics.noPrice,
+        tradingVolume: metrics.tradingVolume,
+        tradingVolumeWindow: metrics.tradingVolumeWindow,
+        tradingVolumeBaseUnits: metrics.tradingVolumeBaseUnits,
+        volume: metrics.tradingVolume,
+        availableLiquidity: metrics.availableLiquidity,
+        availableLiquidityBaseUnits: metrics.availableLiquidityBaseUnits,
+        liquidity: metrics.availableLiquidity,
+        fees: metrics.fees,
+        feePercent: metrics.feePercent,
+        metricSources: metrics.sources,
+      };
+    });
 
     return { success: true, data, meta };
   }

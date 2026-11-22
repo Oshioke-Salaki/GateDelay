@@ -12,6 +12,9 @@ function makeOrder(overrides: Partial<Record<string, unknown>> = {}) {
   const base = {
     _id: 'order_' + Math.random().toString(36).slice(2),
     userId: 'user_A',
+    venueId: 'test-clob',
+    executionType: 'CLOB',
+    settlementStatus: 'NOT_ON_CHAIN',
     type: 'Limit',
     side: 'Buy',
     pair: 'ETH-USDT',
@@ -30,6 +33,7 @@ function makeOrder(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('TradeEngineService', () => {
   let service: TradeEngineService;
+  const originalClobVenues = process.env.CLOB_VENUES;
 
   /** Mocked Mongoose model */
   const mockOrderModel = {
@@ -43,6 +47,9 @@ describe('TradeEngineService', () => {
   };
 
   beforeEach(async () => {
+    process.env.CLOB_VENUES = JSON.stringify([
+      { id: 'test-clob', pairs: ['ETH-USDT'] },
+    ]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TradeEngineService,
@@ -57,6 +64,14 @@ describe('TradeEngineService', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    if (originalClobVenues === undefined) {
+      delete process.env.CLOB_VENUES;
+    } else {
+      process.env.CLOB_VENUES = originalClobVenues;
+    }
+  });
+
   // ────────────────────────────────────────────── Constraint Validation
 
   describe('validateOrderConstraints (private via placeOrder)', () => {
@@ -65,6 +80,7 @@ describe('TradeEngineService', () => {
 
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Limit' as any,
           side: 'Buy' as any,
@@ -77,6 +93,7 @@ describe('TradeEngineService', () => {
     it('should throw BadRequestException for Stop-Loss with no stopPrice', async () => {
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Stop-Loss' as any,
           side: 'Sell' as any,
@@ -89,6 +106,7 @@ describe('TradeEngineService', () => {
     it('should throw BadRequestException for zero amount', async () => {
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Market' as any,
           side: 'Buy' as any,
@@ -131,6 +149,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Limit' as any,
         side: 'Buy' as any,
@@ -141,6 +160,12 @@ describe('TradeEngineService', () => {
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0].amount).toBe('0.5');
       expect(result.matches[0].price).toBe('2000');
+      expect(result.execution).toEqual({
+        type: 'CLOB',
+        venueId: 'test-clob',
+        pair: 'ETH-USDT',
+        settlementStatus: 'NOT_ON_CHAIN',
+      });
 
       // Residual = 1.05 - 0.5 = 0.55
       const residual = new Big('1.05').minus('0.5').toString();
@@ -183,6 +208,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Market' as any,
         side: 'Buy' as any,
@@ -216,6 +242,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Limit' as any,
         side: 'Buy' as any,
@@ -266,6 +293,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_whale', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Market' as any,
         side: 'Sell' as any,
@@ -285,7 +313,7 @@ describe('TradeEngineService', () => {
   // ────────────────────────────────── Failure Test: Rollback on Error
 
   describe('Failure Test: Rollback verification', () => {
-    it('should propagate errors from the settlement stage', async () => {
+    it('should propagate errors while persisting CLOB fills', async () => {
       const takerOrder = makeOrder({
         type: 'Limit',
         side: 'Buy',
@@ -308,13 +336,14 @@ describe('TradeEngineService', () => {
         sort: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([makerOrder]),
       });
-      // Simulate DB failure during settlement
+      // Simulate a database failure while persisting matched fills.
       mockOrderModel.findByIdAndUpdate.mockRejectedValue(
         new Error('DB write failed'),
       );
 
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Limit' as any,
           side: 'Buy' as any,

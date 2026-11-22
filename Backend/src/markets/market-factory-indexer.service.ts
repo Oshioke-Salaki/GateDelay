@@ -6,7 +6,11 @@ import type { Model } from 'mongoose';
 import { ethers } from 'ethers';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import type { DeploymentEntry } from '../blockchain/deployment-registry';
-import { MarketResolverService } from './market-resolver.service';
+import {
+  isMarketResolutionCriteria,
+  MarketResolverService,
+  type MarketResolutionCriteria,
+} from './market-resolver.service';
 import {
   MarketFactoryCheckpoint,
   MarketFactoryCheckpointDocument,
@@ -27,6 +31,7 @@ interface MarketMetadata {
   title?: string;
   description?: string;
   category?: string;
+  resolutionCriteria?: MarketResolutionCriteria;
 }
 
 @Injectable()
@@ -226,6 +231,7 @@ export class MarketFactoryIndexerService implements OnModuleInit {
       marketAddress,
       creator,
       collateralToken,
+      resolutionCriteria: metadata?.resolutionCriteria,
       minLiquidity: minLiquidity.toString(),
       metadataURI,
       creationBlockNumber: log.blockNumber,
@@ -253,11 +259,22 @@ export class MarketFactoryIndexerService implements OnModuleInit {
         return undefined;
       }
       const fields = metadata as Record<string, unknown>;
+      if (
+        fields.resolutionCriteria !== undefined &&
+        !isMarketResolutionCriteria(fields.resolutionCriteria)
+      ) {
+        this.logger.warn(
+          'Ignoring invalid inline flight resolution criteria; market will remain unresolved',
+        );
+      }
       return {
         title: typeof fields.title === 'string' ? fields.title : undefined,
         description:
           typeof fields.description === 'string' ? fields.description : undefined,
         category: typeof fields.category === 'string' ? fields.category : undefined,
+        resolutionCriteria: isMarketResolutionCriteria(fields.resolutionCriteria)
+          ? fields.resolutionCriteria
+          : undefined,
       };
     } catch (error: unknown) {
       this.logger.warn(

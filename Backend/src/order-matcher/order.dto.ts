@@ -12,13 +12,14 @@ import { Type } from 'class-transformer';
 export class PlaceOrderDto {
   @IsString()
   @IsNotEmpty()
-  marketId: string;
+  venueId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  pair: string;
 
   @IsIn(['BUY', 'SELL'])
   side: 'BUY' | 'SELL';
-
-  @IsIn(['YES', 'NO'])
-  outcome: 'YES' | 'NO';
 
   @IsNumber()
   @IsPositive()

@@ -48,7 +48,10 @@ import {
   WebhookAttemptDocument,
 } from './webhook.schema';
 import { MarketResolverService } from '../markets/market-resolver.service';
-import type { Market } from '../markets/market-resolver.service';
+import {
+  isMarketResolutionCriteria,
+  type Market,
+} from '../markets/market-resolver.service';
 
 // ─── Backoff helpers ──────────────────────────────────────────────────────────
 
@@ -431,6 +434,14 @@ export class WebhookService implements OnModuleInit {
       );
     }
 
+    const resolutionCriteria = payload.metadata?.resolutionCriteria;
+    if (
+      resolutionCriteria !== undefined &&
+      !isMarketResolutionCriteria(resolutionCriteria)
+    ) {
+      throw new BadRequestException('Invalid flight resolution criteria');
+    }
+
     const market: Market = {
       id: payload.marketId,
       title: payload.marketName,
@@ -438,6 +449,7 @@ export class WebhookService implements OnModuleInit {
       totalYesStake: 0n,
       totalNoStake: 0n,
       status: 'active',
+      resolutionCriteria,
     };
 
     // Any persistence exception propagates to runAttempt, which decides retry vs. dead-letter.

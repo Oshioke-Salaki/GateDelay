@@ -24,9 +24,8 @@ export class TradeEngineController {
   /**
    * POST /trade-engine/orders — place a new order
    *
-   * Send an `Idempotency-Key` header to make retries safe: the first call
-   * places and settles the order, and any repeat with the same key replays
-   * that result instead of opening a second one (#912).
+   * Requires a configured CLOB venue and pair. An `Idempotency-Key` makes
+   * retries safe; matching is off-chain and does not settle on-chain (#912).
    */
   @Post('orders')
   @HttpCode(HttpStatus.CREATED)
@@ -67,9 +66,12 @@ export class TradeEngineController {
     );
   }
 
-  /** GET /trade-engine/order-book/:pair — live order book for a pair */
+  /** GET /trade-engine/order-book/:pair — CLOB book scoped to a configured venue */
   @Get('order-book/:pair')
-  getOrderBook(@Param('pair') pair: string) {
-    return this.tradeEngineService.getOrderBook(pair);
+  getOrderBook(
+    @Param('pair') pair: string,
+    @Query('venueId') venueId: string,
+  ) {
+    return this.tradeEngineService.getOrderBook(venueId, pair);
   }
 }

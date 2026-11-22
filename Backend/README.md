@@ -15,6 +15,12 @@ adapters and must not receive prediction-market orders as a fallback. CLOB
 matching is only for a separately identified/configured token pair. See the
 [accepted trading-model ADR](../docs/adr/0001-lmsr-vs-clob-ambiguity.md).
 
+Both off-chain matchers require a `venueId` and a pair allowed by the
+`CLOB_VENUES` JSON allowlist. Orders and matching results are labeled `CLOB`
+and explicitly marked `NOT_ON_CHAIN`; a market ID/outcome cannot be submitted
+to the legacy matcher API, and these fills do not prove LMSR execution or
+settlement. Leave `CLOB_VENUES` empty to keep off-chain matching disabled.
+
 This routing is an architectural decision, not a claim of completed trading
 wiring. MarketFactory creation events are indexed by the Nest backend; contract
 addresses and LMSR transaction handling still need to be configured and

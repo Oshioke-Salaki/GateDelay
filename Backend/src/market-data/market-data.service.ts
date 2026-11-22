@@ -43,6 +43,18 @@ export class MarketDataService {
     );
   }
 
+  async getFlightResolutionEvidence(flightNumber: string) {
+    return this.cache.getOrSet(
+      `flight-resolution:${flightNumber.toUpperCase()}`,
+      () =>
+        this.fetch('/flights', {
+          flight_iata: flightNumber.toUpperCase(),
+          limit: 100,
+        }),
+      TTL,
+    );
+  }
+
   async getFlightByIata(iata: string) {
     return this.cache.getOrSet(
       `flight:${iata}`,
