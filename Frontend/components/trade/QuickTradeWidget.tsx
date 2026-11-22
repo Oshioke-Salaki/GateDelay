@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useAccount,
+  useSignMessage,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { useToast } from "../../hooks/useToast";
 import { useSettings } from "../../hooks/useSettings";
 import { ErrorBoundary } from "../../app/components/ui/ErrorBoundary";
@@ -22,6 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTrackTransaction } from "../../hooks/useTransactionTracker";
+import { getMarketMakerAddress, recordPositionExecution } from "../../lib/portfolioApi";
 
 // ─── Contract Configuration ──────────────────────────────────────────────────
 
@@ -39,9 +45,6 @@ const MARKET_MAKER_ABI = [
   },
 ] as const;
 
-const MARKET_MAKER_ADDRESS =
-  (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
-
 // ─── Market Definitions & Cache ──────────────────────────────────────────────
 
 export interface QuickTradeMarket {
@@ -53,53 +56,10 @@ export interface QuickTradeMarket {
   status: "open" | "closed" | "resolved";
 }
 
-const DEFAULT_MARKETS: QuickTradeMarket[] = [
-  {
-    id: "1",
-    title: "Will AA123 arrive on time?",
-    yesPrice: 0.62,
-    noPrice: 0.38,
-    volume: 14820,
-    status: "open",
-  },
-  {
-    id: "2",
-    title: "Will UA456 be delayed > 30 min?",
-    yesPrice: 0.41,
-    noPrice: 0.59,
-    volume: 8300,
-    status: "open",
-  },
-  {
-    id: "3",
-    title: "Will DL789 be cancelled?",
-    yesPrice: 0.08,
-    noPrice: 0.92,
-    volume: 3200,
-    status: "open",
-  },
-  {
-    id: "4",
-    title: "Will Bitcoin exceed $100k by EOY?",
-    yesPrice: 0.72,
-    noPrice: 0.28,
-    volume: 125000,
-    status: "open",
-  },
-  {
-    id: "5",
-    title: "Will Ethereum outperform Bitcoin?",
-    yesPrice: 0.35,
-    noPrice: 0.65,
-    volume: 89000,
-    status: "open",
-  },
-];
-
 const LOCAL_STORAGE_KEY = "gate_delay_quick_trade_recent_markets";
 
 const getRecentMarkets = (): QuickTradeMarket[] => {
-  if (typeof window === "undefined") return DEFAULT_MARKETS;
+  if (typeof window === "undefined") return [];
   try {
     const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (cached) {
@@ -111,7 +71,7 @@ const getRecentMarkets = (): QuickTradeMarket[] => {
   } catch (e) {
     console.error("Failed to load cached markets", e);
   }
-  return DEFAULT_MARKETS;
+  return [];
 };
 
 const saveRecentMarket = (market: QuickTradeMarket) => {
@@ -124,6 +84,42 @@ const saveRecentMarket = (market: QuickTradeMarket) => {
     console.error("Failed to cache market", e);
   }
 };
+
+// ─── Exact Decimal / WAD Arithmetic ──────────────────────────────────────────
+
+const WAD = 10n ** 18n;
+
+/** Parse a human decimal string (e.g. "50.25") into a WAD bigint exactly. */
+const parseDecimalToWad = (value: string): bigint | null => {
+  const trimmed = value.trim();
+  if (!/^\d*(\.\d*)?$/.test(trimmed) || trimmed === "" || trimmed === ".") return null;
+  const [whole, fraction = ""] = trimmed.split(".");
+  const paddedFraction = (fraction + "0".repeat(18)).slice(0, 18);
+  try {
+    return BigInt(whole || "0") * WAD + BigInt(paddedFraction || "0");
+  } catch {
+    return null;
+  }
+};
+
+/** Format a WAD bigint as a decimal string with the given precision. */
+const formatWad = (value: bigint, decimals = 2): string => {
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const whole = abs / WAD;
+  const fraction = (abs % WAD).toString().padStart(18, "0").slice(0, decimals);
+  const result = decimals > 0 ? `${whole}.${fraction}` : `${whole}`;
+  return negative ? `-${result}` : result;
+};
+
+const toMarketMetadata = (meta: MarketMetadata): QuickTradeMarket => ({
+  id: meta.id,
+  title: meta.title,
+  yesPrice: meta.yesPrice,
+  noPrice: meta.noPrice,
+  volume: meta.volume,
+  status: meta.status,
+});
 
 // ─── Coordinated Store (State Synchronization) ───────────────────────────────
 
@@ -177,34 +173,95 @@ function useQuickTradeState() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 function QuickTradeWidgetInner() {
-  const { isConnected } = useAccount();
+  const { address, chainId, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const toast = useToast();
   const { settings } = useSettings();
   const globalState = useQuickTradeState();
 
   // Local state
   const [recentMarkets, setRecentMarkets] = useState<QuickTradeMarket[]>([]);
-  const [selectedMarket, setSelectedMarket] = useState<QuickTradeMarket>(DEFAULT_MARKETS[0]);
+  const [verifiedMarkets, setVerifiedMarkets] = useState<QuickTradeMarket[]>([]);
+  const [selectedMarket, setSelectedMarket] = useState<QuickTradeMarket | null>(null);
   const [amount, setAmount] = useState<string>("50");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [oneClickMode, setOneClickMode] = useState(true);
   const [customSide, setCustomSide] = useState<"YES" | "NO">("YES");
+  const [marketsLoading, setMarketsLoading] = useState(true);
+  const [executionEnabled, setExecutionEnabled] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   const isExecutingHere = useRef(false);
+  const syncedTransaction = useRef<string | null>(null);
 
   // Wagmi hooks
   const { writeContract, data: txHash, isPending: isSigning, error: signError, reset: resetWrite } = useWriteContract();
   useTrackTransaction(txHash, "Quick trade");
-  const { isLoading: isConfirming, isSuccess, error: confirmError } = useWaitForTransactionReceipt({ hash: txHash });
+  const { data: receipt, isLoading: isConfirming, isSuccess, error: confirmError } =
+    useWaitForTransactionReceipt({ hash: txHash, confirmations: 12 });
 
-  // Initialize cached recent assets
+  // Load verified market IDs + deployment config, then fetch verified market metadata
   useEffect(() => {
-    const loaded = getRecentMarkets();
-    setRecentMarkets(loaded);
-    if (loaded.length > 0) {
-      setSelectedMarket(loaded[0]);
-    }
+    let cancelled = false;
+
+    const load = async () => {
+      setMarketsLoading(true);
+
+      const hasVerifiedDeployment = isVerifiedAddress(MARKET_MAKER_ADDRESS);
+      const verifiedIds = getVerifiedMarketIds();
+
+      if (!hasVerifiedDeployment || !verifiedIds || verifiedIds.length === 0) {
+        if (cancelled) return;
+        setExecutionEnabled(false);
+        setConfigError(
+          !hasVerifiedDeployment
+            ? "MarketMaker deployment address is not configured. Trading is disabled."
+            : "No verified markets are available. Trading is disabled."
+        );
+        setVerifiedMarkets([]);
+        setSelectedMarket(null);
+        setMarketsLoading(false);
+        return;
+      }
+
+      try {
+        const metadata = await fetchMarketMetadata(verifiedIds);
+        if (cancelled) return;
+
+        const markets = metadata.map(toMarketMetadata);
+        setVerifiedMarkets(markets);
+        setExecutionEnabled(markets.length > 0);
+        setConfigError(
+          markets.length === 0 ? "No verified markets are available. Trading is disabled." : null
+        );
+
+        if (markets.length > 0) {
+          const cached = getRecentMarkets().filter((m) =>
+            markets.some((vm) => vm.id === m.id)
+          );
+          setRecentMarkets(cached);
+          setSelectedMarket(cached[0] ?? markets[0]);
+        } else {
+          setRecentMarkets([]);
+          setSelectedMarket(null);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        console.error("Failed to load verified markets", e);
+        setExecutionEnabled(false);
+        setConfigError("Failed to load verified markets. Trading is disabled.");
+        setVerifiedMarkets([]);
+        setSelectedMarket(null);
+      } finally {
+        if (!cancelled) setMarketsLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Synchronize local hook events to the global store
@@ -215,11 +272,32 @@ function QuickTradeWidgetInner() {
       quickTradeStore.setState({ status: "submitting" });
     } else if (txHash && globalState.status === "submitting") {
       quickTradeStore.setState({ status: "confirming", txHash });
-    } else if (isSuccess) {
-      quickTradeStore.setState({ status: "success" });
-      toast.success("Quick Trade Executed", `Successfully bought $${globalState.activeAmount} of ${globalState.activeSide} shares!`);
-      isExecutingHere.current = false;
-      // Refresh balance or update store state
+    } else if (isSuccess && receipt && txHash && address && chainId) {
+      if (syncedTransaction.current === txHash) return;
+      syncedTransaction.current = txHash;
+      void recordPositionExecution({
+        action: "BUY",
+        account: address,
+        chainId,
+        marketId: BigInt(selectedMarket.id),
+        receipt,
+        signMessage: (message) => signMessageAsync({ message }),
+      }).then(() => {
+        quickTradeStore.setState({ status: "success" });
+        toast.success("Quick Trade Executed", `Successfully bought $${globalState.activeAmount} of ${globalState.activeSide} shares!`);
+      }).catch((error: unknown) => {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "The confirmed trade could not be added to your portfolio.";
+        quickTradeStore.setState({
+          status: "error",
+          error: error instanceof Error ? error : null,
+          errorMessage,
+        });
+        toast.error("Portfolio Update Failed", errorMessage);
+      }).finally(() => {
+        isExecutingHere.current = false;
+      });
     } else if (signError || confirmError) {
       const err = signError || confirmError;
       let errorMsg = "Transaction failed.";
@@ -243,16 +321,26 @@ function QuickTradeWidgetInner() {
       toast.error("Quick Trade Failed", errorMsg);
       isExecutingHere.current = false;
     }
-  }, [isSigning, txHash, isSuccess, signError, confirmError, globalState.status, globalState.activeAmount, globalState.activeSide, toast]);
+  }, [address, chainId, isSigning, txHash, isSuccess, receipt, signError, confirmError, globalState.status, globalState.activeAmount, globalState.activeSide, selectedMarket.id, signMessageAsync, toast]);
 
   // Execute Order handler
   const handleExecuteTrade = useCallback((side: "YES" | "NO", tradeAmount: number) => {
+    if (!executionEnabled || !isVerifiedAddress(MARKET_MAKER_ADDRESS)) {
+      toast.error("Trading Disabled", configError ?? "Verified market configuration is unavailable.");
+      return;
+    }
+
+    if (!selectedMarket) {
+      toast.error("No Market Selected", "Please select a verified market first.");
+      return;
+    }
+
     if (!isConnected) {
       toast.error("Wallet Not Connected", "Please connect your wallet first.");
       return;
     }
 
-    if (tradeAmount <= 0) {
+    if (!Number.isFinite(tradeAmount) || tradeAmount <= 0) {
       toast.error("Invalid Amount", "Please input an amount greater than 0.");
       return;
     }
@@ -263,6 +351,27 @@ function QuickTradeWidgetInner() {
       return;
     }
 
+    // Parse the spend amount exactly as a decimal (WAD) — no floating point.
+    const spendWad = parseDecimalToWad(String(tradeAmount));
+    if (spendWad === null || spendWad <= 0n) {
+      toast.error("Invalid Amount", "Please input a valid amount.");
+      return;
+    }
+
+    // Size-aware quote: shares depend on the spend amount, not just spot price.
+    const quote = quoteBuyShares({
+      marketId: selectedMarket.id,
+      outcome: side,
+      spendWad,
+      yesPrice: selectedMarket.yesPrice,
+      noPrice: selectedMarket.noPrice,
+    });
+
+    if (!quote || quote.sharesWad <= 0n) {
+      toast.error("Quote Unavailable", "Could not obtain a valid quote for this order size.");
+      return;
+    }
+
     // Save selected market to recent list
     saveRecentMarket(selectedMarket);
     setRecentMarkets(getRecentMarkets());
@@ -270,11 +379,6 @@ function QuickTradeWidgetInner() {
     // Flag this instance as the execution manager
     isExecutingHere.current = true;
     resetWrite();
-
-    // Calculate shares: (amount / price)
-    const price = side === "YES" ? selectedMarket.yesPrice : selectedMarket.noPrice;
-    const calculatedShares = tradeAmount / price;
-    const sharesBigInt = BigInt(Math.floor(calculatedShares * 1e18));
 
     // Update global store
     quickTradeStore.setState({
@@ -289,10 +393,10 @@ function QuickTradeWidgetInner() {
 
     try {
       writeContract({
-        address: MARKET_MAKER_ADDRESS,
+        address: getMarketMakerAddress(chainId ?? 0),
         abi: MARKET_MAKER_ABI,
         functionName: "buy",
-        args: [BigInt(selectedMarket.id), BigInt(side === "YES" ? 0 : 1), sharesBigInt],
+        args: [BigInt(selectedMarket.id), BigInt(side === "YES" ? 0 : 1), quote.sharesWad],
       });
     } catch (err: any) {
       quickTradeStore.setState({
@@ -303,7 +407,7 @@ function QuickTradeWidgetInner() {
       toast.error("Wallet Trigger Failed", err.message || "Could not write to contract.");
       isExecutingHere.current = false;
     }
-  }, [isConnected, selectedMarket, writeContract, resetWrite, toast]);
+  }, [isConnected, address, chainId, selectedMarket, writeContract, resetWrite, toast]);
 
   const handlePresetClick = (side: "YES" | "NO", presetAmount: number) => {
     if (oneClickMode) {
@@ -321,17 +425,34 @@ function QuickTradeWidgetInner() {
   };
 
   const parsedAmount = parseFloat(amount) || 0;
-  const price = customSide === "YES" ? selectedMarket.yesPrice : selectedMarket.noPrice;
-  const estShares = parsedAmount > 0 ? (parsedAmount / price).toFixed(2) : "0.00";
+  const price = selectedMarket
+    ? customSide === "YES"
+      ? selectedMarket.yesPrice
+      : selectedMarket.noPrice
+    : 0;
 
-  // Filter dropdown markets
-  const allAvailableMarkets = DEFAULT_MARKETS;
-  const filteredMarkets = allAvailableMarkets.filter((m) =>
+  // Estimated shares use the same exact, size-aware quote path as execution.
+  const spendWad = parseDecimalToWad(amount);
+  const previewQuote =
+    selectedMarket && spendWad !== null && spendWad > 0n
+      ? quoteBuyShares({
+          marketId: selectedMarket.id,
+          outcome: customSide,
+          spendWad,
+          yesPrice: selectedMarket.yesPrice,
+          noPrice: selectedMarket.noPrice,
+        })
+      : null;
+  const estShares = previewQuote ? formatWad(previewQuote.sharesWad, 2) : "0.00";
+
+  // Filter dropdown markets (verified markets only)
+  const filteredMarkets = verifiedMarkets.filter((m) =>
     m.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const isActiveExecution = globalState.status !== "idle";
   const isBusy = globalState.status === "submitting" || globalState.status === "confirming";
+  const canTrade = executionEnabled && !!selectedMarket && !marketsLoading;
 
   return (
     <div 
@@ -382,8 +503,8 @@ function QuickTradeWidgetInner() {
           Select Asset / Market
         </label>
         <button
-          onClick={() => !isBusy && setIsDropdownOpen(!isDropdownOpen)}
-          disabled={isBusy}
+          onClick={() => !isBusy && canTrade && setIsDropdownOpen(!isDropdownOpen)}
+          disabled={isBusy || !canTrade}
           className="w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition-all border outline-none hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
           style={{
             background: "var(--background)",
@@ -391,7 +512,13 @@ function QuickTradeWidgetInner() {
             color: "var(--foreground)"
           }}
         >
-          <span className="truncate max-w-[85%]">{selectedMarket.title}</span>
+          <span className="truncate max-w-[85%]">
+            {marketsLoading
+              ? "Loading verified markets..."
+              : selectedMarket
+                ? selectedMarket.title
+                : "No verified markets available"}
+          </span>
           <ChevronDown size={14} className={`transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
         </button>
 
@@ -467,19 +594,34 @@ function QuickTradeWidgetInner() {
         )}
       </div>
 
+      {/* Configuration / availability notice */}
+      {!marketsLoading && !canTrade && (
+        <div
+          data-testid="quick-trade-disabled"
+          className="mb-4 rounded-2xl border p-3 text-[11px] leading-relaxed"
+          style={{ background: "var(--background)", borderColor: "rgba(239,68,68,0.3)", color: "var(--muted)" }}
+        >
+          {configError ?? "Verified market configuration is unavailable. Trading is disabled."}
+        </div>
+      )}
+
       {/* Market Mini Pricing Stats */}
       <div className="grid grid-cols-2 gap-2 mb-4 p-2.5 rounded-2xl bg-black/5 dark:bg-white/5 border border-zinc-100 dark:border-zinc-800 text-xs">
         <div>
           <div className="text-[9px] uppercase tracking-wider font-semibold text-zinc-400 flex items-center gap-1">
             <TrendingUp size={10} className="text-green-500" /> YES Share Price
           </div>
-          <span className="font-bold text-sm text-green-500">{(selectedMarket.yesPrice * 100).toFixed(0)}¢</span>
+          <span className="font-bold text-sm text-green-500">
+            {selectedMarket ? `${(selectedMarket.yesPrice * 100).toFixed(0)}¢` : "—"}
+          </span>
         </div>
         <div>
           <div className="text-[9px] uppercase tracking-wider font-semibold text-zinc-400 flex items-center gap-1">
             <TrendingDown size={10} className="text-red-500" /> NO Share Price
           </div>
-          <span className="font-bold text-sm text-red-500">{(selectedMarket.noPrice * 100).toFixed(0)}¢</span>
+          <span className="font-bold text-sm text-red-500">
+            {selectedMarket ? `${(selectedMarket.noPrice * 100).toFixed(0)}¢` : "—"}
+          </span>
         </div>
       </div>
 
@@ -558,33 +700,61 @@ function QuickTradeWidgetInner() {
           {/* YES presets */}
           <div className="space-y-1.5">
             <span className="text-[9px] font-bold text-green-500 uppercase block tracking-wider">Buy YES</span>
-            {[10, 50, 100].map((amt) => (
-              <button
-                key={`yes-${amt}`}
-                disabled={isBusy}
-                onClick={() => handlePresetClick("YES", amt)}
-                className="w-full py-1.5 px-2 rounded-xl text-xs font-semibold text-green-600 dark:text-green-400 border border-green-500/20 bg-green-500/5 hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center justify-between"
-              >
-                <span>${amt}</span>
-                <span className="text-[9px] opacity-75 font-normal">{(amt / selectedMarket.yesPrice).toFixed(0)} sh</span>
-              </button>
-            ))}
+            {[10, 50, 100].map((amt) => {
+              const presetQuote =
+                selectedMarket && canTrade
+                  ? quoteBuyShares({
+                      marketId: selectedMarket.id,
+                      outcome: "YES",
+                      spendWad: BigInt(amt) * WAD,
+                      yesPrice: selectedMarket.yesPrice,
+                      noPrice: selectedMarket.noPrice,
+                    })
+                  : null;
+              return (
+                <button
+                  key={`yes-${amt}`}
+                  disabled={isBusy || !canTrade}
+                  onClick={() => handlePresetClick("YES", amt)}
+                  className="w-full py-1.5 px-2 rounded-xl text-xs font-semibold text-green-600 dark:text-green-400 border border-green-500/20 bg-green-500/5 hover:bg-green-500/15 transition-all disabled:opacity-50 flex items-center justify-between"
+                >
+                  <span>${amt}</span>
+                  <span className="text-[9px] opacity-75 font-normal">
+                    {presetQuote ? `${formatWad(presetQuote.sharesWad, 0)} sh` : "—"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* NO presets */}
           <div className="space-y-1.5">
             <span className="text-[9px] font-bold text-red-500 uppercase block tracking-wider">Buy NO</span>
-            {[10, 50, 100].map((amt) => (
-              <button
-                key={`no-${amt}`}
-                disabled={isBusy}
-                onClick={() => handlePresetClick("NO", amt)}
-                className="w-full py-1.5 px-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center justify-between"
-              >
-                <span>${amt}</span>
-                <span className="text-[9px] opacity-75 font-normal">{(amt / selectedMarket.noPrice).toFixed(0)} sh</span>
-              </button>
-            ))}
+            {[10, 50, 100].map((amt) => {
+              const presetQuote =
+                selectedMarket && canTrade
+                  ? quoteBuyShares({
+                      marketId: selectedMarket.id,
+                      outcome: "NO",
+                      spendWad: BigInt(amt) * WAD,
+                      yesPrice: selectedMarket.yesPrice,
+                      noPrice: selectedMarket.noPrice,
+                    })
+                  : null;
+              return (
+                <button
+                  key={`no-${amt}`}
+                  disabled={isBusy || !canTrade}
+                  onClick={() => handlePresetClick("NO", amt)}
+                  className="w-full py-1.5 px-2 rounded-xl text-xs font-semibold text-red-600 dark:text-red-400 border border-red-500/20 bg-red-500/5 hover:bg-red-500/15 transition-all disabled:opacity-50 flex items-center justify-between"
+                >
+                  <span>${amt}</span>
+                  <span className="text-[9px] opacity-75 font-normal">
+                    {presetQuote ? `${formatWad(presetQuote.sharesWad, 0)} sh` : "—"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -602,7 +772,7 @@ function QuickTradeWidgetInner() {
                 min="0.01"
                 step="any"
                 value={amount}
-                disabled={isBusy}
+                disabled={isBusy || !canTrade}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"
                 className="w-full rounded-xl px-3 py-2 text-xs outline-none border transition-colors disabled:opacity-50"
@@ -625,7 +795,7 @@ function QuickTradeWidgetInner() {
                 <button
                   key={s}
                   type="button"
-                  disabled={isBusy}
+                  disabled={isBusy || !canTrade}
                   onClick={() => setCustomSide(s)}
                   className="flex-1 py-2 text-xs font-bold transition-all disabled:opacity-50"
                   style={{
@@ -664,7 +834,7 @@ function QuickTradeWidgetInner() {
 
         {/* Submit manual trade */}
         <button
-          disabled={isBusy || parsedAmount <= 0}
+          disabled={isBusy || !canTrade || parsedAmount <= 0}
           onClick={() => handleExecuteTrade(customSide, parsedAmount)}
           className="w-full py-2.5 rounded-xl text-xs font-bold text-white transition-opacity disabled:opacity-40 flex items-center justify-center gap-1.5"
           style={{ background: customSide === "YES" ? "#22c55e" : "#ef4444" }}
@@ -674,6 +844,8 @@ function QuickTradeWidgetInner() {
               <Loader2 size={12} className="animate-spin" />
               Processing...
             </>
+          ) : !canTrade ? (
+            "Trading Disabled"
           ) : (
             `Execute ${customSide} Trade`
           )}
