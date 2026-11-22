@@ -8,9 +8,14 @@ import { v4 as uuidv4 } from 'uuid';
 import Big from 'big.js';
 import { Order, Fill, OrderSide } from './order.entity';
 import { PlaceOrderDto } from './order.dto';
+import {
+  assertConfiguredClobVenue,
+  getConfiguredClobVenuePairs,
+  isConfiguredClobVenue,
+} from '../trading-venues/clob-venue.policy';
 
 /**
- * In-memory order book keyed by `${marketId}:${outcome}`.
+ * In-memory CLOB order book keyed by `${venueId}:${pair}`.
  * Each side is a price-time priority queue (array kept sorted on insert).
  *
  * Atomicity: a per-book async mutex (promise chain) ensures only one
@@ -34,12 +39,15 @@ export class OrderMatcherService {
   // ── Public API ──────────────────────────────────────────────────────────────
 
   async placeOrder(userId: string, dto: PlaceOrderDto): Promise<Order> {
+    const venue = assertConfiguredClobVenue(dto.venueId, dto.pair);
     const order: Order = {
       id: uuidv4(),
       userId,
-      marketId: dto.marketId,
+      venueId: venue.venueId,
+      executionType: 'CLOB',
+      settlementStatus: 'NOT_ON_CHAIN',
+      pair: venue.pair,
       side: dto.side,
-      outcome: dto.outcome,
       price: new Big(dto.price),
       quantity: new Big(dto.quantity),
       remaining: new Big(dto.quantity),
@@ -60,6 +68,7 @@ export class OrderMatcherService {
   cancelOrder(userId: string, orderId: string): Order {
     const order = this.orders.get(orderId);
     if (!order) throw new NotFoundException('Order not found');
+    this.assertConfiguredOrder(order);
     if (order.userId !== userId)
       throw new BadRequestException('Not your order');
     if (order.status === 'FILLED' || order.status === 'CANCELLED') {
@@ -72,8 +81,9 @@ export class OrderMatcherService {
     return order;
   }
 
-  getOrderBook(marketId: string, outcome: 'YES' | 'NO') {
-    const key = `${marketId}:${outcome}`;
+  getOrderBook(venueId: string, pair: string) {
+    const venue = assertConfiguredClobVenue(venueId, pair);
+    const key = JSON.stringify([venue.venueId, venue.pair]);
     return {
       bids: (this.bids.get(key) ?? []).map(this.toView),
       asks: (this.asks.get(key) ?? []).map(this.toView),
@@ -83,14 +93,26 @@ export class OrderMatcherService {
   getOrder(orderId: string): Order {
     const order = this.orders.get(orderId);
     if (!order) throw new NotFoundException('Order not found');
+    this.assertConfiguredOrder(order);
     return order;
   }
 
   getUserOrders(userId: string): Order[] {
-    return [...this.orders.values()].filter((o) => o.userId === userId);
+    const configuredPairs = getConfiguredClobVenuePairs();
+    return [...this.orders.values()].filter(
+      (order) =>
+        order.userId === userId &&
+        order.executionType === 'CLOB' &&
+        order.settlementStatus === 'NOT_ON_CHAIN' &&
+        configuredPairs.some(
+          (venue) =>
+            venue.venueId === order.venueId && venue.pair === order.pair,
+        ),
+    );
   }
 
   getFills(orderId: string): Fill[] {
+    this.getOrder(orderId);
     return this.fills.filter(
       (f) => f.orderId === orderId || f.counterOrderId === orderId,
     );
@@ -146,6 +168,10 @@ export class OrderMatcherService {
     const fill: Fill = {
       orderId: taker.id,
       counterOrderId: maker.id,
+      venueId: taker.venueId,
+      pair: taker.pair,
+      executionType: 'CLOB',
+      settlementStatus: 'NOT_ON_CHAIN',
       quantity: qty,
       price,
       filledAt: new Date(),
@@ -208,7 +234,17 @@ export class OrderMatcherService {
   // ── Helpers ─────────────────────────────────────────────────────────────────
 
   private bookKey(order: Order): string {
-    return `${order.marketId}:${order.outcome}`;
+    return JSON.stringify([order.venueId, order.pair]);
+  }
+
+  private assertConfiguredOrder(order: Order): void {
+    if (
+      order.executionType !== 'CLOB' ||
+      order.settlementStatus !== 'NOT_ON_CHAIN' ||
+      !isConfiguredClobVenue(order.venueId, order.pair)
+    ) {
+      throw new NotFoundException('CLOB order not found');
+    }
   }
 
   /** Serialise matching per book to guarantee atomicity */
@@ -224,6 +260,10 @@ export class OrderMatcherService {
 
   private toView = (o: Order) => ({
     id: o.id,
+    venueId: o.venueId,
+    pair: o.pair,
+    executionType: o.executionType,
+    settlementStatus: o.settlementStatus,
     price: o.price.toFixed(4),
     remaining: o.remaining.toFixed(4),
     createdAt: o.createdAt,

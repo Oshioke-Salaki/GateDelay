@@ -1,47 +1,80 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
 import { settingsService } from "@/lib/settings";
+import { normalizeTheme, resolveDark, type Theme } from "@/lib/theme";
 
-type Theme = "light" | "dark" | "system";
 const ThemeContext = createContext<{ theme: Theme; toggle: () => void }>({
   theme: "system",
-  toggle: () => { },
+  toggle: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("system");
 
   useEffect(() => {
-    // Load theme from settings
-    const settings = settingsService.getSettings();
-    const initialTheme = settings.theme;
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
+    // All side effects (DOM mutation, media-query subscription, persistence) are
+    // performed here — never inside a state-updater function — so they run
+    // exactly once per settings change even under React Strict Mode's
+    // double-invocation of updaters. (#1181)
+    let cleanupMedia = () => {};
+    let activeTheme: Theme | undefined;
 
-    // Subscribe to settings changes
-    const unsubscribe = settingsService.subscribe((newSettings) => {
-      setTheme(newSettings.theme);
-      applyTheme(newSettings.theme);
+    const unsubscribe = settingsService.subscribe((settings) => {
+      const next = normalizeTheme(settings.theme);
+      if (next === activeTheme) return;
+
+      // Tear down any existing media listener before switching themes.
+      cleanupMedia();
+      cleanupMedia = () => {};
+      activeTheme = next;
+
+      // Update React state (pure — no side effects inside this call).
+      setTheme(next);
+
+      // Resolve and apply the correct dark/light class to the document.
+      const media =
+        typeof window.matchMedia === "function"
+          ? window.matchMedia("(prefers-color-scheme: dark)")
+          : undefined;
+
+      const applyDarkClass = () =>
+        document.documentElement.classList.toggle(
+          "dark",
+          resolveDark(next, media?.matches ?? false),
+        );
+
+      applyDarkClass();
+
+      // For "system" theme, keep the class in sync with OS preference changes.
+      if (next !== "system" || !media) return;
+
+      if (
+        typeof media.addEventListener === "function" &&
+        typeof media.removeEventListener === "function"
+      ) {
+        media.addEventListener("change", applyDarkClass);
+        cleanupMedia = () => media.removeEventListener("change", applyDarkClass);
+      } else if (
+        typeof media.addListener === "function" &&
+        typeof media.removeListener === "function"
+      ) {
+        media.addListener(applyDarkClass);
+        cleanupMedia = () => media.removeListener(applyDarkClass);
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      cleanupMedia();
+    };
   }, []);
 
-  const applyTheme = (themeValue: Theme) => {
-    if (themeValue === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.classList.toggle("dark", prefersDark);
-    } else {
-      document.documentElement.classList.toggle("dark", themeValue === "dark");
-    }
-  };
-
+  // toggle() computes the next theme and writes it through settingsService so
+  // the subscriber above handles every downstream effect in one place.
   const toggle = () => {
-    setTheme((prev) => {
-      const next = prev === "light" ? "dark" : prev === "dark" ? "system" : "light";
-      settingsService.updateSettings({ theme: next });
-      applyTheme(next);
-      return next;
+    const current = normalizeTheme(settingsService.getSetting("theme"));
+    settingsService.updateSettings({
+      theme: current === "light" ? "dark" : current === "dark" ? "system" : "light",
     });
   };
 

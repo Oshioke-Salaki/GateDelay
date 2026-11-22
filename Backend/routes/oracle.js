@@ -1,11 +1,13 @@
 const express = require('express');
 const oracleService = require('../services/oracleService');
-const { ethers } = require('ethers');
+// TODO: Quarantined - ethers not in package.json. Add dependency or implement alternative.
+// const { ethers } = require('ethers');
 
 const router = express.Router();
 
+// TODO: Quarantined - ethers not available, provider disabled
 // Initialize provider (in production, use RPC from env)
-const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'https://rpc.mantle.xyz');
+// const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL || 'https://rpc.mantle.xyz');
 
 /**
  * Error handling middleware
@@ -24,15 +26,39 @@ const handleErrors = (fn) => async (req, res, next) => {
 };
 
 /**
- * GET /api/oracle/price/:pair
- * Get latest price for a pair
+ * GET /api/oracle/price/:base/:quote
+ * Get latest price for a pair with optional staleness rejection
  */
 router.get('/price/:base/:quote', handleErrors(async (req, res) => {
   const { base, quote } = req.params;
   const pair = `${base.toUpperCase()}/${quote.toUpperCase()}`;
+  const rejectIfStale = req.query.rejectIfStale === 'true';
+  const maxAgeSeconds = req.query.maxAgeSeconds ? parseInt(req.query.maxAgeSeconds, 10) : undefined;
   
-  const result = await oracleService.getPrice(pair, provider);
+  const result = await oracleService.getPrice(pair, undefined, { rejectIfStale, maxAgeSeconds });
   res.json({ success: true, data: result });
+}));
+
+/**
+ * GET /api/oracle/freshness/:base/:quote
+ * Check freshness metrics for an oracle pair
+ */
+router.get('/freshness/:base/:quote', handleErrors(async (req, res) => {
+  const { base, quote } = req.params;
+  const pair = `${base.toUpperCase()}/${quote.toUpperCase()}`;
+  const maxAgeSeconds = req.query.maxAgeSeconds ? parseInt(req.query.maxAgeSeconds, 10) : undefined;
+
+  const result = await oracleService.getPrice(pair, undefined, { maxAgeSeconds });
+  res.json({
+    success: true,
+    data: {
+      pair,
+      price: result.price,
+      source: result.source,
+      oracleTimestamp: result.timestamp,
+      freshness: result.freshness,
+    },
+  });
 }));
 
 /**
@@ -55,5 +81,46 @@ router.get('/history/:base/:quote', handleErrors(async (req, res) => {
 router.get('/providers', (req, res) => {
   res.json({ success: true, data: oracleService.PROVIDERS });
 });
+
+/**
+ * POST /api/oracle/resolution/:marketId/propose
+ * Propose a resolution outcome for a market (off-chain, not yet on-chain)
+ */
+router.post('/resolution/:marketId/propose', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+  const { outcome, payoutTotals } = req.body || {};
+
+  const state = await oracleService.proposeResolution(marketId, { outcome, payoutTotals });
+  res.json({ success: true, data: state });
+}));
+
+/**
+ * POST /api/oracle/resolution/:marketId/submit
+ * Submit the proposed resolution on-chain and record the transaction hash
+ */
+router.post('/resolution/:marketId/submit', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+
+  const state = await oracleService.submitResolution(marketId);
+  res.json({ success: true, data: state });
+}));
+
+/**
+ * GET /api/oracle/resolution/:marketId
+ * Query the current resolution state (proposed/submitted/confirmed).
+ * A market is only reported as resolved once the confirmed state is reached.
+ */
+router.get('/resolution/:marketId', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+
+  const state = await oracleService.getResolutionState(marketId);
+  res.json({
+    success: true,
+    data: {
+      ...state,
+      resolved: state.status === 'confirmed',
+    },
+  });
+}));
 
 module.exports = router;

@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsEthereumAddress,
+  IsNumber,
 } from 'class-validator';
 
 export class ConnectWalletDto {
@@ -18,6 +19,15 @@ export class ConnectWalletDto {
   @IsString()
   @IsNotEmpty()
   message: string;
+
+  /** Unique nonce to prevent replay attacks - REQUIRED */
+  @IsString()
+  @IsNotEmpty()
+  nonce: string;
+
+  /** Unix timestamp in milliseconds when the request was signed - REQUIRED */
+  @IsNumber()
+  timestamp: number;
 }
 
 export class WalletQueryDto {

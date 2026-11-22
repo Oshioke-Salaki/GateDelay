@@ -4,6 +4,7 @@ import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { Category, CategorySchema } from './schemas/category.schema';
 import { MarketsModule } from '../markets/markets.module';
+import { AppCacheModule } from '../cache/cache.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { MarketsModule } from '../markets/markets.module';
       { name: Category.name, schema: CategorySchema },
     ]),
     MarketsModule,
+    AppCacheModule,
   ],
   providers: [CategoriesService],
   controllers: [CategoriesController],

@@ -1,5 +1,7 @@
-const pinataSDK = require('@pinata/sdk');
-const { create } = require('ipfs-http-client');
+// TODO: Quarantined - @pinata/sdk not in package.json. Add dependency or implement alternative.
+// const pinataSDK = require('@pinata/sdk');
+// TODO: Quarantined - ipfs-http-client not in package.json. Add dependency or implement alternative.
+// const { create } = require('ipfs-http-client');
 const axios = require('axios');
 
 /**

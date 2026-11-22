@@ -1,26 +1,50 @@
+/**
+ * MarketAuditService unit tests.
+ *
+ * Trust assumptions (P2-156):
+ * - This service is in-memory only; no external secrets, private keys, or
+ *   credential literals are present. All inputs are plain strings.
+ * - Oracle and multisig checks are outside this service. Beta access is checked
+ *   before every audit write through the injected access checker.
+ * - Retention policy bounds are clamped by the DTO validator (1–3650 days).
+ * - The hash chain (SHA-256) is for tamper-evidence, not cryptographic auth.
+ */
 import { Test, TestingModule } from '@nestjs/testing';
-import { MarketAuditService } from './market-audit.service';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+import {
+  BETA_ACCESS_CHECKER,
+  MarketAuditService,
+} from './market-audit.service';
 
 describe('MarketAuditService', () => {
   let service: MarketAuditService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MarketAuditService],
+      providers: [
+        MarketAuditService,
+        {
+          provide: BETA_ACCESS_CHECKER,
+          useValue: {
+            checkAccess: jest.fn().mockResolvedValue({ hasAccess: true }),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<MarketAuditService>(MarketAuditService);
   });
 
-  it('logs operations and supports query filtering', () => {
-    service.createLog({
+  it('logs operations and supports query filtering', async () => {
+    await service.createLog({
       marketId: 'market-1',
       operation: 'CREATE_MARKET',
       actor: 'system',
       details: 'Created new market',
     });
 
-    service.createLog({
+    await service.createLog({
       marketId: 'market-2',
       operation: 'RESOLVE_MARKET',
       actor: 'oracle',
@@ -33,8 +57,8 @@ describe('MarketAuditService', () => {
     expect(logs[0].operation).toBe('RESOLVE_MARKET');
   });
 
-  it('produces summary report and validates integrity chain', () => {
-    service.createLog({
+  it('produces summary report and validates integrity chain', async () => {
+    await service.createLog({
       marketId: 'market-3',
       operation: 'UPDATE_ODDS',
       actor: 'trader-a',
@@ -42,7 +66,7 @@ describe('MarketAuditService', () => {
       severity: 'MEDIUM',
     });
 
-    service.createLog({
+    await service.createLog({
       marketId: 'market-3',
       operation: 'UPDATE_ODDS',
       actor: 'trader-b',
@@ -57,5 +81,208 @@ describe('MarketAuditService', () => {
 
     const integrity = service.verifyIntegrity();
     expect(integrity.valid).toBe(true);
+  });
+
+  // --- Negative-path tests (P2-156) ---
+
+  it('returns empty results for unmatched query filters', async () => {
+    await service.createLog({
+      marketId: 'm1',
+      operation: 'CREATE_MARKET',
+      actor: 'a',
+      details: 'd',
+    });
+
+    const logs = service.queryLogs({ marketId: 'nonexistent' });
+    expect(logs).toHaveLength(0);
+  });
+
+  it('returns empty report when no logs exist', () => {
+    const report = service.generateReport();
+    expect(report.totalLogs).toBe(0);
+    expect(report.marketsTouched).toBe(0);
+    expect(report.actors).toBe(0);
+  });
+
+  it('verifyIntegrity returns valid on empty log chain', () => {
+    const result = service.verifyIntegrity();
+    expect(result.valid).toBe(true);
+    expect(result.brokenAt).toBeUndefined();
+  });
+
+  it('enforceRetention removes old entries and returns the configured policy', () => {
+    service.setRetentionPolicy(1);
+    const result = service.enforceRetention();
+    expect(result.retentionDays).toBe(1);
+  });
+
+  it('queryLogs respects limit parameter', async () => {
+    for (let i = 0; i < 5; i++) {
+      await service.createLog({
+        marketId: `m${i}`,
+        operation: 'CREATE_MARKET',
+        actor: 'a',
+        details: 'd',
+      });
+    }
+
+    const limited = service.queryLogs({ limit: 2 });
+    expect(limited).toHaveLength(2);
+  });
+
+  it('queryLogs supports date range filters', async () => {
+    await service.createLog({
+      marketId: 'm1',
+      operation: 'CREATE_MARKET',
+      actor: 'a',
+      details: 'd',
+    });
+
+    const now = new Date();
+    const logs = service.queryLogs({
+      from: new Date(now.getTime() - 60_000).toISOString(),
+      to: new Date(now.getTime() + 60_000).toISOString(),
+    });
+    expect(logs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('rejects audit writes for actors without beta access', async () => {
+    const checker = {
+      checkAccess: jest
+        .fn()
+        .mockResolvedValue({ hasAccess: false, reason: 'Not a beta user' }),
+    };
+    const gatedService = new MarketAuditService(checker);
+
+    await expect(
+      gatedService.createLog({
+        marketId: 'm1',
+        operation: 'CREATE_MARKET',
+        actor: 'unknown-wallet',
+        details: 'd',
+      }),
+    ).rejects.toThrow('Not a beta user');
+    expect(gatedService.queryLogs({})).toHaveLength(0);
+  });
+
+  it('fails closed when the beta access gate is unavailable', async () => {
+    const ungatedService = new MarketAuditService();
+
+    await expect(
+      ungatedService.createLog({
+        marketId: 'm1',
+        operation: 'CREATE_MARKET',
+        actor: 'actor',
+        details: 'd',
+      }),
+    ).rejects.toThrow('Beta access gate is unavailable');
+  });
+
+  // --- Pagination metadata (#916) ---
+
+  describe('queryLogsPage', () => {
+    // A local checker is needed because `queryLogsPage` is pure and does not
+    // depend on the DI container the outer `beforeEach` builds.
+    const checker = {
+      checkAccess: jest.fn().mockResolvedValue({ hasAccess: true }),
+    };
+
+    const seed = async (target: MarketAuditService, count: number) => {
+      for (let i = 0; i < count; i++) {
+        await target.createLog({
+          marketId: `m${i % 2}`,
+          operation: 'CREATE_MARKET',
+          actor: 'a',
+          details: `entry ${i}`,
+        });
+      }
+    };
+
+    it('returns the newest entry first', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 3);
+
+      const { logs } = paged.queryLogsPage({});
+
+      expect(logs).toHaveLength(3);
+      expect(logs[0].details).toBe('entry 2');
+      expect(logs[2].details).toBe('entry 0');
+    });
+
+    it('reports totals across all pages, not just the current one', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 5);
+
+      const { logs, meta } = paged.queryLogsPage({}, 2, 2);
+
+      expect(logs).toHaveLength(2);
+      expect(meta.total).toBe(5);
+      expect(meta.totalPages).toBe(3);
+      expect(meta.page).toBe(2);
+      expect(meta.limit).toBe(2);
+      expect(meta.count).toBe(2);
+      expect(meta.hasNextPage).toBe(true);
+      expect(meta.hasPrevPage).toBe(true);
+    });
+
+    it('reports a short final page', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 5);
+
+      const { logs, meta } = paged.queryLogsPage({}, 3, 2);
+
+      expect(logs).toHaveLength(1);
+      expect(meta.count).toBe(1);
+      expect(meta.hasNextPage).toBe(false);
+    });
+
+    it('applies the same filters as queryLogs', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 4);
+
+      const { logs, meta } = paged.queryLogsPage({ marketId: 'm1' });
+
+      expect(logs).toHaveLength(2);
+      expect(logs.every((l) => l.marketId === 'm1')).toBe(true);
+      expect(meta.total).toBe(2);
+    });
+
+    it('reports totalPages 0 for an empty result set', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 2);
+
+      const { logs, meta } = paged.queryLogsPage({ marketId: 'nonexistent' });
+
+      expect(logs).toHaveLength(0);
+      expect(meta.totalPages).toBe(0);
+      expect(meta.hasPrevPage).toBe(false);
+    });
+
+    it('clamps an out-of-range page instead of returning everything', async () => {
+      const paged = new MarketAuditService(checker);
+      await seed(paged, 3);
+
+      const { logs } = paged.queryLogsPage({}, 99, 2);
+
+      expect(logs).toHaveLength(0);
+    });
+  });
+
+  it('no secrets or private keys appear in the service source file', () => {
+    const servicePath = resolve(__dirname, 'market-audit.service.ts');
+    const content = readFileSync(servicePath, 'utf8');
+
+    const secretPatterns = [
+      /0x[0-9a-fA-F]{64}/, // Ethereum private key
+      /-----BEGIN.*PRIVATE KEY/, // PEM key
+      /password\s*[:=]\s*["']/i, // password assignment
+      /secret\s*[:=]\s*["']/i, // secret assignment
+      /api[_-]?key\s*[:=]\s*["']/i,
+      /mnemonic/i,
+    ];
+
+    for (const pattern of secretPatterns) {
+      expect(content).not.toMatch(pattern);
+    }
   });
 });

@@ -115,7 +115,7 @@ const DisputeSchema = new mongoose.Schema(
       description: 'Timestamp when dispute was resolved',
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Create compound index for finding active disputes per market/user

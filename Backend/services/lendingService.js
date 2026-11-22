@@ -1,5 +1,7 @@
-const Aave = require('aave-js');
-const Compound = require('compound-js');
+// TODO: Quarantined - aave-js not in package.json. Add dependency or implement alternative.
+// const Aave = require('aave-js');
+// TODO: Quarantined - compound-js not in package.json. Add dependency or implement alternative.
+// const Compound = require('compound-js');
 const ethers = require('ethers');
 
 /**

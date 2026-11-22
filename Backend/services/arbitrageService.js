@@ -1,4 +1,4 @@
-/**
+const breakerService = require('./breakerService');
  * ARBITRAGE SERVICE
  * Detects and analyzes arbitrage opportunities across markets.
  *
@@ -38,12 +38,18 @@ const GAS_COST_USD = 5; // Flat gas cost estimate per arb trade in USD
  * @param {string} pair
  * @returns {number}
  */
-function getMarketPrice(market, pair) {
-  const prices = MARKET_PRICES[market];
-  if (!prices) throw new Error(`Unknown market: ${market}`);
-  const price = prices[pair];
-  if (price === undefined) throw new Error(`Pair ${pair} not available on ${market}`);
-  return price;
+async function getMarketPrice(market, pair, options = {}) {
+  return breakerService.executeWithBreaker(
+    `market-${market.toLowerCase()}`,
+    async () => {
+      const prices = MARKET_PRICES[market];
+      if (!prices) throw new Error(`Unknown market: ${market}`);
+      const price = prices[pair];
+      if (price === undefined) throw new Error(`Pair ${pair} not available on ${market}`);
+      return price;
+    },
+    options
+  );
 }
 
 /**
@@ -178,29 +184,35 @@ async function calculateProfitability(opportunityId, amountUnits) {
  * @param {object} [tx] - { txHashBuy, txHashSell }
  * @returns {Promise<object>}
  */
-async function recordExecution(opportunityId, amountUnits, tx = {}) {
-  const opp = opportunities.get(opportunityId);
-  if (!opp) throw new Error('Opportunity not found');
-  if (opp.status !== OPPORTUNITY_STATUS.OPEN) {
-    throw new Error(`Opportunity is ${opp.status}, cannot execute`);
-  }
+async function recordExecution(opportunityId, amountUnits, tx = {}, options = {}) {
+  return breakerService.executeWithBreaker(
+    'arbitrage-service',
+    async () => {
+      const opp = opportunities.get(opportunityId);
+      if (!opp) throw new Error('Opportunity not found');
+      if (opp.status !== OPPORTUNITY_STATUS.OPEN) {
+        throw new Error(`Opportunity is ${opp.status}, cannot execute`);
+      }
 
-  const profitability = await calculateProfitability(opportunityId, amountUnits);
+      const profitability = await calculateProfitability(opportunityId, amountUnits);
 
-  const execution = {
-    id: 'exec_' + Math.random().toString(36).substr(2, 9),
-    opportunityId,
-    ...profitability,
-    txHashBuy: tx.txHashBuy || null,
-    txHashSell: tx.txHashSell || null,
-    executedAt: new Date().toISOString(),
-  };
+      const execution = {
+        id: 'exec_' + Math.random().toString(36).substr(2, 9),
+        opportunityId,
+        ...profitability,
+        txHashBuy: tx.txHashBuy || null,
+        txHashSell: tx.txHashSell || null,
+        executedAt: new Date().toISOString(),
+      };
 
-  executions.push(execution);
-  opp.status = OPPORTUNITY_STATUS.EXECUTED;
-  opp.executionId = execution.id;
+      executions.push(execution);
+      opp.status = OPPORTUNITY_STATUS.EXECUTED;
+      opp.executionId = execution.id;
 
-  return execution;
+      return execution;
+    },
+    options
+  );
 }
 
 /**

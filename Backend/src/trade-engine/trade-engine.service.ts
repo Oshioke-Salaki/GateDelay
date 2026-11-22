@@ -2,25 +2,77 @@ import {
   Injectable,
   Logger,
   BadRequestException,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ClientSession } from 'mongoose';
 import Big from 'big.js';
 import * as async from 'async';
+import { createRequire } from 'module';
 import { Order, OrderDocument, OrderStatus } from './schemas/order.schema';
 import { PlaceOrderDto } from './dto/place-order.dto';
+import {
+  assertConfiguredClobVenue,
+  getConfiguredClobVenuePairs,
+  isConfiguredClobVenue,
+} from '../trading-venues/clob-venue.policy';
 
 export interface MatchResult {
   makerOrderId: string;
   amount: string;
   price: string;
+  executionType: 'CLOB';
+  venueId: string;
+  pair: string;
+  settlementStatus: 'NOT_ON_CHAIN';
 }
 
-export interface SettlementResult {
+export interface ClobExecutionResult {
   order: OrderDocument;
   matches: MatchResult[];
+  execution: {
+    type: 'CLOB';
+    venueId: string;
+    pair: string;
+    settlementStatus: 'NOT_ON_CHAIN';
+  };
 }
+
+export interface PlaceOrderOptions {
+  /**
+   * Client-supplied `Idempotency-Key`. When present, a repeated call replays
+   * the original CLOB execution result instead of opening a second order.
+   */
+  idempotencyKey?: string;
+}
+
+// Redis-backed idempotency keys (#912) — the CommonJS services/idempotencyService.js
+// shared with the legacy Express entrypoint. Bridged the same way
+// resolution.service.ts bridges services/auditTrail.js.
+/** Subset of the CommonJS error surface this service depends on. */
+interface IdempotencyErrorShape extends Error {
+  code: string;
+  statusCode: number;
+}
+
+const nodeRequire = createRequire(__filename);
+const idempotency = nodeRequire('../../services/idempotencyService') as {
+  IdempotencyError: new (
+    message: string,
+    code: string,
+    statusCode: number,
+  ) => IdempotencyErrorShape;
+  withIdempotency: (
+    scope: string,
+    key: string,
+    fn: () => Promise<unknown>,
+    options?: { statusCode?: number; ttlSeconds?: number },
+  ) => Promise<{ replayed: boolean; response?: unknown }>;
+};
+
+/** Scope for CLOB order placement and matching. */
+const TRADE_PLACEMENT_SCOPE = 'trade-placement';
 
 /**
  * TradeEngineService
@@ -29,23 +81,22 @@ export interface SettlementResult {
  *   1. Validate order constraints per type (Market / Limit / Stop-Loss).
  *   2. Persist the new order as 'Pending'.
  *   3. Run Price-Time priority matching against the live order book.
- *   4. Settle matched fills atomically — balance and order state update together.
+ *   4. Persist matched CLOB fills atomically.
  *   5. Leave any residual amount resting in the order book as 'Partial'.
  *
  * Financial arithmetic exclusively uses big.js to eliminate floating-point
  * rounding errors.
  *
- * Matching is serialised per trading pair via an async.queue (concurrency=1)
- * so only one matching cycle runs at a time — providing atomicity without
- * requiring distributed locks.
+ * Matching is serialised per configured CLOB venue/pair via an async.queue
+ * (concurrency=1), so independent venues never share an order book.
  */
 @Injectable()
 export class TradeEngineService {
   private readonly logger = new Logger(TradeEngineService.name);
 
   /**
-   * Per-pair async queues (concurrency = 1).
-   * Guarantees that only one order is being matched per pair at a time.
+   * Per-venue/pair async queues (concurrency = 1).
+   * Keeps distinct configured CLOB venues isolated.
    */
   private readonly matchQueues = new Map<
     string,
@@ -61,23 +112,73 @@ export class TradeEngineService {
 
   /**
    * Place a new order, validate, persist, then enqueue for matching.
+   *
+   * Placement and CLOB matching happen in one call, so a single idempotency key
+   * covers both: a client that retries after a lost response gets the original
+   * CLOB execution result rather than a second order.
    */
   async placeOrder(
     userId: string,
     dto: PlaceOrderDto,
-  ): Promise<SettlementResult> {
+    options: PlaceOrderOptions = {},
+  ): Promise<ClobExecutionResult> {
+    const idempotencyKey = options.idempotencyKey?.trim();
+
+    if (!idempotencyKey) {
+      return this.executePlacement(userId, dto);
+    }
+
+    // Scope the key to the user so one client cannot collide with another's.
+    const scopedKey = `${userId}.${idempotencyKey}`;
+
+    try {
+      const outcome = await idempotency.withIdempotency(
+        TRADE_PLACEMENT_SCOPE,
+        scopedKey,
+        () => this.executePlacement(userId, dto),
+        { statusCode: 201 },
+      );
+
+      if (outcome.replayed) {
+        this.logger.log(
+          `Replayed idempotent order placement for user ${userId} (key ${idempotencyKey})`,
+        );
+      }
+
+      return outcome.response as ClobExecutionResult;
+    } catch (err) {
+      // Surface the store's 400/409 as the matching HTTP status rather than a
+      // generic 500, so a client can tell a bad key from a real conflict.
+      if (err instanceof idempotency.IdempotencyError) {
+        const message = err.message;
+        throw err.statusCode === 409
+          ? new ConflictException(message)
+          : new BadRequestException(message);
+      }
+      throw err;
+    }
+  }
+
+  private async executePlacement(
+    userId: string,
+    dto: PlaceOrderDto,
+  ): Promise<ClobExecutionResult> {
+    const configuredVenue = assertConfiguredClobVenue(dto.venueId, dto.pair);
     this.validateOrderConstraints(dto);
 
     const order = await this.orderModel.create({
       userId,
+      venueId: configuredVenue.venueId,
+      executionType: 'CLOB',
+      settlementStatus: 'NOT_ON_CHAIN',
       type: dto.type,
       side: dto.side,
-      pair: dto.pair,
+      pair: configuredVenue.pair,
       price: dto.price ?? '0',
       stopPrice: dto.stopPrice ?? '0',
       amount: dto.amount,
       filled: '0',
-      status: 'Pending' as OrderStatus,
+      status: 'Pending',
       timestamp: new Date(),
     });
 
@@ -91,12 +192,10 @@ export class TradeEngineService {
   /**
    * Cancel an open / partial order.
    */
-  async cancelOrder(
-    userId: string,
-    orderId: string,
-  ): Promise<OrderDocument> {
+  async cancelOrder(userId: string, orderId: string): Promise<OrderDocument> {
     const order = await this.orderModel.findById(orderId);
     if (!order) throw new NotFoundException('Order not found');
+    this.assertConfiguredOrder(order);
     if (order.userId !== userId)
       throw new BadRequestException('Not authorised to cancel this order');
     if (order.status === 'Filled' || order.status === 'Canceled')
@@ -116,6 +215,7 @@ export class TradeEngineService {
   async getOrder(orderId: string): Promise<OrderDocument> {
     const order = await this.orderModel.findById(orderId);
     if (!order) throw new NotFoundException('Order not found');
+    this.assertConfiguredOrder(order);
     return order;
   }
 
@@ -126,24 +226,54 @@ export class TradeEngineService {
     userId: string,
     status?: OrderStatus,
   ): Promise<OrderDocument[]> {
-    const filter: Record<string, unknown> = { userId };
+    const filter: Record<string, unknown> = {
+      userId,
+      executionType: 'CLOB',
+      settlementStatus: 'NOT_ON_CHAIN',
+      $or: getConfiguredClobVenuePairs().map(({ venueId, pair }) => ({
+        venueId,
+        pair,
+      })),
+    };
     if (status) filter.status = status;
     return this.orderModel.find(filter).sort({ timestamp: -1 }).exec();
+  }
+
+  private assertConfiguredOrder(order: OrderDocument): void {
+    if (
+      order.executionType !== 'CLOB' ||
+      order.settlementStatus !== 'NOT_ON_CHAIN' ||
+      !isConfiguredClobVenue(order.venueId, order.pair)
+    ) {
+      throw new NotFoundException('CLOB order not found');
+    }
   }
 
   /**
    * Get the live order book for a trading pair.
    */
   async getOrderBook(
+    venueId: string,
     pair: string,
   ): Promise<{ bids: OrderDocument[]; asks: OrderDocument[] }> {
+    const venue = assertConfiguredClobVenue(venueId, pair);
     const [bids, asks] = await Promise.all([
       this.orderModel
-        .find({ pair, side: 'Buy', status: { $in: ['Pending', 'Partial'] } })
+        .find({
+          venueId: venue.venueId,
+          pair: venue.pair,
+          side: 'Buy',
+          status: { $in: ['Pending', 'Partial'] },
+        })
         .sort({ price: -1, timestamp: 1 })
         .exec(),
       this.orderModel
-        .find({ pair, side: 'Sell', status: { $in: ['Pending', 'Partial'] } })
+        .find({
+          venueId: venue.venueId,
+          pair: venue.pair,
+          side: 'Sell',
+          status: { $in: ['Pending', 'Partial'] },
+        })
         .sort({ price: 1, timestamp: 1 })
         .exec(),
     ]);
@@ -153,10 +283,11 @@ export class TradeEngineService {
   // ──────────────────────────────────────────────────────────── Matching Queue
 
   /**
-   * Wrap the matching + settlement in a per-pair serialised async.queue.
+   * Wrap matching in a per-venue/pair serialised async.queue.
    */
-  private enqueueForMatching(order: OrderDocument): Promise<SettlementResult> {
-    if (!this.matchQueues.has(order.pair)) {
+  private enqueueForMatching(order: OrderDocument): Promise<ClobExecutionResult> {
+    const queueKey = JSON.stringify([order.venueId, order.pair]);
+    if (!this.matchQueues.has(queueKey)) {
       const q = async.queue<OrderDocument>(
         (o, callback) => {
           this.runMatchingCycle(o)
@@ -165,13 +296,13 @@ export class TradeEngineService {
         },
         1, // concurrency = 1 → serialised per pair
       );
-      this.matchQueues.set(order.pair, q);
+      this.matchQueues.set(queueKey, q);
     }
 
-    return new Promise<SettlementResult>((resolve, reject) => {
-      this.matchQueues.get(order.pair)!.push(order, (err, result) => {
+    return new Promise<ClobExecutionResult>((resolve, reject) => {
+      this.matchQueues.get(queueKey)!.push(order, (err, result) => {
         if (err) return reject(err);
-        resolve(result as SettlementResult);
+        resolve(result as ClobExecutionResult);
       });
     });
   }
@@ -181,11 +312,11 @@ export class TradeEngineService {
   /**
    * Core matching cycle:
    *   1. Find compatible resting orders (Price-Time priority).
-   *   2. Execute fills atomically within a Mongoose session transaction.
+   *   2. Persist CLOB fills atomically within a Mongoose session transaction.
    */
   private async runMatchingCycle(
     takerOrder: OrderDocument,
-  ): Promise<SettlementResult> {
+  ): Promise<ClobExecutionResult> {
     const candidates = await this.findCandidates(takerOrder);
     const matches: MatchResult[] = [];
 
@@ -205,18 +336,13 @@ export class TradeEngineService {
         async.waterfall(
           [
             // Step 1: compute fills
-            (
-              next: (err: Error | null, fills: MatchResult[]) => void,
-            ) => {
+            (next: (err: Error | null, fills: MatchResult[]) => void) => {
               const fills = this.computeFills(takerOrder, candidates);
               next(null, fills);
             },
 
             // Step 2: persist fills atomically
-            (
-              fills: MatchResult[],
-              next: (err: Error | null) => void,
-            ) => {
+            (fills: MatchResult[], next: (err: Error | null) => void) => {
               this.persistFills(takerOrder, fills, candidates, session)
                 .then(() => {
                   matches.push(...fills);
@@ -247,7 +373,16 @@ export class TradeEngineService {
     }
 
     const updatedOrder = await this.orderModel.findById(takerOrder._id);
-    return { order: updatedOrder!, matches };
+    return {
+      order: updatedOrder!,
+      matches,
+      execution: {
+        type: 'CLOB',
+        venueId: takerOrder.venueId,
+        pair: takerOrder.pair,
+        settlementStatus: 'NOT_ON_CHAIN',
+      },
+    };
   }
 
   // ─────────────────────────────────────────────────────── Candidate Selection
@@ -258,12 +393,11 @@ export class TradeEngineService {
    *  - Bids: Highest price → Earliest timestamp
    *  - Asks: Lowest price  → Earliest timestamp
    */
-  private async findCandidates(
-    taker: OrderDocument,
-  ): Promise<OrderDocument[]> {
+  private async findCandidates(taker: OrderDocument): Promise<OrderDocument[]> {
     const oppositeSide = taker.side === 'Buy' ? 'Sell' : 'Buy';
 
     const query: Record<string, unknown> = {
+      venueId: taker.venueId,
       pair: taker.pair,
       side: oppositeSide,
       status: { $in: ['Pending', 'Partial'] },
@@ -317,6 +451,10 @@ export class TradeEngineService {
         makerOrderId: (maker._id as unknown as string).toString(),
         amount: fillAmount.toString(),
         price: maker.price, // maker price = execution price
+        executionType: 'CLOB',
+        venueId: taker.venueId,
+        pair: taker.pair,
+        settlementStatus: 'NOT_ON_CHAIN',
       });
 
       remaining = remaining.minus(fillAmount);
@@ -325,7 +463,7 @@ export class TradeEngineService {
     return fills;
   }
 
-  // ────────────────────────────────────────────────────────── Atomic Settlement
+  // ─────────────────────────────────────────────────────── Atomic CLOB fills
 
   /**
    * Persist all fills atomically:
@@ -355,7 +493,7 @@ export class TradeEngineService {
         : 'Partial';
 
       await this.orderModel.findByIdAndUpdate(
-        (maker._id as unknown as string),
+        maker._id as unknown as string,
         { filled: newMakerFilled.toString(), status: makerStatus },
         opts,
       );

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/RevokeFunction.sol";
+import "../src/RevokeFunction.sol";
 
 contract RevokeFunctionTest is Test {
     RevokeFunction public revokeFunc;

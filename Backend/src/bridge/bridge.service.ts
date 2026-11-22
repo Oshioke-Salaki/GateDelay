@@ -9,6 +9,7 @@ import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 import Big from 'big.js';
+import { createRequire } from 'module';
 import {
   BridgeTransaction,
   BridgeTransactionDocument,
@@ -21,9 +22,20 @@ import {
   GetBridgeTransactionsDto,
 } from './dto/bridge.dto';
 
+const nodeRequire = createRequire(__filename);
+const breakerService = nodeRequire('../../services/breakerService') as {
+  isServiceAllowed: (serviceName: string) => Promise<{ allowed: boolean; state: string; reason?: string }>;
+  executeWithBreaker: <T>(
+    serviceName: string,
+    fn: () => Promise<T>,
+    options?: { timeoutMs?: number; fallback?: (err: Error) => Promise<T> | T },
+  ) => Promise<T>;
+  getAllBreakerStatus: () => Promise<unknown>;
+};
+
 // ── Protocol configuration ───────────────────────────────────────────────────
 
-interface ProtocolConfig {
+export interface ProtocolConfig {
   name: string;
   /** Base fee in basis points */
   feeBps: number;
@@ -133,41 +145,50 @@ export class BridgeService {
 
   /**
    * Return estimated quotes from all supported protocols for a given route.
+   * Checks circuit breaker status for each protocol.
    */
-  getRouteQuotes(
+  async getRouteQuotes(
     fromChainId: number,
     toChainId: number,
     tokenSymbol: string,
     amount: string,
-  ): BridgeRouteQuote[] {
+  ): Promise<BridgeRouteQuote[]> {
     const amountBig = new Big(amount);
 
-    return Object.entries(PROTOCOL_CONFIGS).map(([protocol, config]) => {
-      const supported =
-        config.supportedChainIds.includes(fromChainId) &&
-        config.supportedChainIds.includes(toChainId);
+    const quotes = await Promise.all(
+      Object.entries(PROTOCOL_CONFIGS).map(async ([protocol, config]) => {
+        const serviceName = `bridge-${protocol.toLowerCase()}`;
+        const breakerCheck = await breakerService.isServiceAllowed(serviceName);
 
-      const feeAmount = amountBig.times(config.feeBps).div(10000);
-      const outputAmount = supported
-        ? amountBig.minus(feeAmount).toFixed(6)
-        : '0';
+        const supported =
+          breakerCheck.allowed &&
+          config.supportedChainIds.includes(fromChainId) &&
+          config.supportedChainIds.includes(toChainId);
 
-      const hours = Math.floor(config.avgTimeSeconds / 3600);
-      const minutes = Math.floor((config.avgTimeSeconds % 3600) / 60);
-      const estimatedTime =
-        hours > 0 ? `~${hours}h ${minutes}m` : `~${minutes} min`;
+        const feeAmount = amountBig.times(config.feeBps).div(10000);
+        const outputAmount = supported
+          ? amountBig.minus(feeAmount).toFixed(6)
+          : '0';
 
-      return {
-        protocol: protocol as BridgeProtocol,
-        protocolName: config.name,
-        estimatedTime,
-        bridgeFee: feeAmount.toFixed(6),
-        feeBps: config.feeBps,
-        outputAmount,
-        recommended: protocol === BridgeProtocol.STARGATE,
-        supported,
-      };
-    });
+        const hours = Math.floor(config.avgTimeSeconds / 3600);
+        const minutes = Math.floor((config.avgTimeSeconds % 3600) / 60);
+        const estimatedTime =
+          hours > 0 ? `~${hours}h ${minutes}m` : `~${minutes} min`;
+
+        return {
+          protocol: protocol as BridgeProtocol,
+          protocolName: config.name,
+          estimatedTime,
+          bridgeFee: feeAmount.toFixed(6),
+          feeBps: config.feeBps,
+          outputAmount,
+          recommended: protocol === BridgeProtocol.STARGATE && supported,
+          supported,
+        };
+      })
+    );
+
+    return quotes;
   }
 
   // ── Initiate bridge transaction ───────────────────────────────────────────
@@ -176,83 +197,98 @@ export class BridgeService {
     userId: string,
     dto: InitiateBridgeDto,
   ): Promise<BridgeTransactionDocument> {
-    // Validate protocol supports the route
-    const config = PROTOCOL_CONFIGS[dto.protocol];
-    if (
-      !config.supportedChainIds.includes(dto.fromChainId) ||
-      !config.supportedChainIds.includes(dto.toChainId)
-    ) {
-      throw new BadRequestException(
-        `Protocol ${dto.protocol} does not support the route ` +
-          `${dto.fromChainId} → ${dto.toChainId}`,
-      );
-    }
+    const serviceName = `bridge-${dto.protocol.toLowerCase()}`;
 
-    if (dto.fromChainId === dto.toChainId) {
-      throw new BadRequestException(
-        'Source and destination chains must be different',
-      );
-    }
+    return breakerService.executeWithBreaker(
+      serviceName,
+      async () => {
+        // Validate protocol supports the route
+        const config = PROTOCOL_CONFIGS[dto.protocol];
+        if (
+          !config.supportedChainIds.includes(dto.fromChainId) ||
+          !config.supportedChainIds.includes(dto.toChainId)
+        ) {
+          throw new BadRequestException(
+            `Protocol ${dto.protocol} does not support the route ` +
+              `${dto.fromChainId} → ${dto.toChainId}`,
+          );
+        }
 
-    // Validate addresses
-    try {
-      ethers.getAddress(dto.senderAddress);
-      ethers.getAddress(dto.recipientAddress);
-    } catch {
-      throw new BadRequestException('Invalid Ethereum address provided');
-    }
+        if (dto.fromChainId === dto.toChainId) {
+          throw new BadRequestException(
+            'Source and destination chains must be different',
+          );
+        }
 
-    // Validate amount is positive
-    const amountBig = new Big(dto.amount);
-    if (amountBig.lte(0)) {
-      throw new BadRequestException('Bridge amount must be positive');
-    }
+        // Validate addresses
+        try {
+          ethers.getAddress(dto.senderAddress);
+          ethers.getAddress(dto.recipientAddress);
+        } catch {
+          throw new BadRequestException('Invalid Ethereum address provided');
+        }
 
-    // Security: check max fee guard
-    const feeAmount = amountBig
-      .times(config.feeBps)
-      .div(10000)
-      .toFixed(6);
-    if (dto.maxFeeUsd) {
-      const maxFee = new Big(dto.maxFeeUsd);
-      // Simple USD approximation: if fee amount > maxFeeUsd (assuming $1/token)
-      if (new Big(feeAmount).gt(maxFee)) {
-        throw new BadRequestException(
-          `Estimated bridge fee (${feeAmount}) exceeds maxFeeUsd (${dto.maxFeeUsd})`,
+        // Validate amount is positive
+        const amountBig = new Big(dto.amount);
+        if (amountBig.lte(0)) {
+          throw new BadRequestException('Bridge amount must be positive');
+        }
+
+        // Security: check max fee guard
+        const feeAmount = amountBig.times(config.feeBps).div(10000).toFixed(6);
+        if (dto.maxFeeUsd) {
+          const maxFee = new Big(dto.maxFeeUsd);
+          // Simple USD approximation: if fee amount > maxFeeUsd (assuming $1/token)
+          if (new Big(feeAmount).gt(maxFee)) {
+            throw new BadRequestException(
+              `Estimated bridge fee (${feeAmount}) exceeds maxFeeUsd (${dto.maxFeeUsd})`,
+            );
+          }
+        }
+
+        // Estimated arrival time
+        const estimatedArrivalTime = new Date(
+          Date.now() + config.avgTimeSeconds * 1000,
         );
-      }
-    }
 
-    // Estimated arrival time
-    const estimatedArrivalTime = new Date(
-      Date.now() + config.avgTimeSeconds * 1000,
+        const tx = await this.bridgeTxModel.create({
+          userId,
+          protocol: dto.protocol,
+          fromChainId: dto.fromChainId,
+          toChainId: dto.toChainId,
+          fromChainName: CHAIN_NAMES[dto.fromChainId] ?? `Chain ${dto.fromChainId}`,
+          toChainName: CHAIN_NAMES[dto.toChainId] ?? `Chain ${dto.toChainId}`,
+          tokenSymbol: dto.tokenSymbol,
+          tokenAddress: dto.tokenAddress,
+          amount: dto.amount,
+          senderAddress: ethers.getAddress(dto.senderAddress),
+          recipientAddress: ethers.getAddress(dto.recipientAddress),
+          slippageBps: dto.slippageBps ?? 50,
+          maxFeeUsd: dto.maxFeeUsd ?? '10',
+          bridgeFee: feeAmount,
+          estimatedArrivalTime,
+          status: BridgeStatus.PENDING,
+        });
+
+        this.logger.log(
+          `Bridge initiated: ${tx.id} | ${dto.amount} ${dto.tokenSymbol} ` +
+            `via ${dto.protocol} from chain ${dto.fromChainId} → ${dto.toChainId}`,
+        );
+
+        return tx;
+      },
+      {
+        timeoutMs: 10000,
+        fallback: (err: any) => {
+          if (err instanceof BadRequestException) {
+            throw err;
+          }
+          throw new BadRequestException(
+            `Bridge transaction blocked for ${dto.protocol}: ${err.message}`,
+          );
+        },
+      },
     );
-
-    const tx = await this.bridgeTxModel.create({
-      userId,
-      protocol: dto.protocol,
-      fromChainId: dto.fromChainId,
-      toChainId: dto.toChainId,
-      fromChainName: CHAIN_NAMES[dto.fromChainId] ?? `Chain ${dto.fromChainId}`,
-      toChainName: CHAIN_NAMES[dto.toChainId] ?? `Chain ${dto.toChainId}`,
-      tokenSymbol: dto.tokenSymbol,
-      tokenAddress: dto.tokenAddress,
-      amount: dto.amount,
-      senderAddress: ethers.getAddress(dto.senderAddress),
-      recipientAddress: ethers.getAddress(dto.recipientAddress),
-      slippageBps: dto.slippageBps ?? 50,
-      maxFeeUsd: dto.maxFeeUsd ?? '10',
-      bridgeFee: feeAmount,
-      estimatedArrivalTime,
-      status: BridgeStatus.PENDING,
-    });
-
-    this.logger.log(
-      `Bridge initiated: ${tx.id} | ${dto.amount} ${dto.tokenSymbol} ` +
-        `via ${dto.protocol} from chain ${dto.fromChainId} → ${dto.toChainId}`,
-    );
-
-    return tx;
   }
 
   // ── Update transaction ────────────────────────────────────────────────────
@@ -377,50 +413,52 @@ export class BridgeService {
   async getAnalytics(userId?: string): Promise<BridgeAnalytics> {
     const matchStage = userId ? { $match: { userId } } : { $match: {} };
 
-    const [totalTxs, statusAgg, protocolAgg, chainPairAgg] =
-      await Promise.all([
-        this.bridgeTxModel.countDocuments(userId ? { userId } : {}),
+    const [totalTxs, statusAgg, protocolAgg, chainPairAgg] = await Promise.all([
+      this.bridgeTxModel.countDocuments(userId ? { userId } : {}),
 
-        // Status breakdown
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]),
+      // Status breakdown
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
 
-        // By protocol
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          {
-            $group: {
-              _id: '$protocol',
-              count: { $sum: 1 },
-              totalVolume: { $sum: { $toDouble: '$amount' } },
-            },
+      // By protocol
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        {
+          $group: {
+            _id: '$protocol',
+            count: { $sum: 1 },
+            totalVolume: { $sum: { $toDouble: '$amount' } },
           },
-          { $sort: { count: -1 } },
-        ]),
+        },
+        { $sort: { count: -1 } },
+      ]),
 
-        // By chain pair
-        this.bridgeTxModel.aggregate([
-          matchStage,
-          {
-            $group: {
-              _id: {
-                fromChainId: '$fromChainId',
-                toChainId: '$toChainId',
-                fromChainName: '$fromChainName',
-                toChainName: '$toChainName',
-              },
-              count: { $sum: 1 },
+      // By chain pair
+      this.bridgeTxModel.aggregate([
+        matchStage,
+        {
+          $group: {
+            _id: {
+              fromChainId: '$fromChainId',
+              toChainId: '$toChainId',
+              fromChainName: '$fromChainName',
+              toChainName: '$toChainName',
             },
+            count: { $sum: 1 },
           },
-          { $sort: { count: -1 } },
-          { $limit: 10 },
-        ]),
-      ]);
+        },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ]),
+    ]);
 
     const statusMap = statusAgg.reduce(
-      (acc: Record<string, number>, { _id, count }: { _id: string; count: number }) => {
+      (
+        acc: Record<string, number>,
+        { _id, count }: { _id: string; count: number },
+      ) => {
         acc[_id] = count;
         return acc;
       },
@@ -492,7 +530,7 @@ export class BridgeService {
   /**
    * Get protocol information for the client.
    */
-  getProtocolInfo(): ProtocolConfig & { protocol: BridgeProtocol }[] {
+  getProtocolInfo(): Array<ProtocolConfig & { protocol: BridgeProtocol }> {
     return Object.entries(PROTOCOL_CONFIGS).map(([protocol, config]) => ({
       protocol: protocol as BridgeProtocol,
       ...config,

@@ -5,11 +5,16 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
-import { SendNotificationDto, UpdatePreferencesDto } from './dto/notification.dto';
+import {
+  SendNotificationDto,
+  UpdatePreferencesDto,
+  GetNotificationsQueryDto,
+} from './dto/notification.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('notifications')
@@ -22,9 +27,22 @@ export class NotificationController {
     return this.notificationService.send(dto);
   }
 
+  /**
+   * GET /notifications — paginated inbox for the authenticated user.
+   *
+   * Now returns `{ data, meta }` instead of a bare array (#916). The array was
+   * unbounded, so a long-lived account paid the full transfer on every poll.
+   */
   @Get()
-  getMyNotifications(@Request() req: any) {
-    return this.notificationService.getForUser(req.user.id);
+  getMyNotifications(
+    @Request() req: any,
+    @Query() query: GetNotificationsQueryDto,
+  ) {
+    const { notifications, meta } = this.notificationService.getForUserPage(
+      req.user.id,
+      query,
+    );
+    return { success: true, data: notifications, meta };
   }
 
   @Patch(':id/read')

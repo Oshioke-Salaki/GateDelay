@@ -130,6 +130,8 @@ contract PremiumCalculator {
     /// @param coverageAmount Amount of collateral to cover (WAD).
     /// @return premium       Premium amount due.
     /// @return discountBps   Applied discount in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidCoverage` if `coverageAmount == 0` is true.
     function calculatePremium(
         address user,
         address market,
@@ -159,6 +161,8 @@ contract PremiumCalculator {
     /// @param coverageAmount Coverage amount.
     /// @param premiumPaid    Actual premium paid.
     /// @param discountBps    Discount applied.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `InvalidCoverage` if `coverageAmount == 0` is true.
     function recordPayment(
         address market,
         uint256 coverageAmount,
@@ -192,6 +196,12 @@ contract PremiumCalculator {
     // -------------------------------------------------------------------------
 
     /// @notice Add a new discount program.
+    /// @param name name used by this operation.
+    /// @param discountBps discount bps expressed in basis points.
+    /// @param minVolume Minimum volume required.
+    /// @return programId Identifier of the relevant program.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "Discount too high" if `discountBps <= MAX_DISCOUNT_BPS` is false.
     function addDiscountProgram(
         string calldata name,
         uint256 discountBps,
@@ -209,6 +219,9 @@ contract PremiumCalculator {
     }
 
     /// @notice Enable or disable a discount program.
+    /// @param programId Identifier of the relevant program.
+    /// @param active Whether active is enabled or selected.
+    /// @dev Access: Caller must be an administrator.
     function setDiscountActive(uint256 programId, bool active) external onlyAdmin {
         _discounts[programId].active = active;
         emit DiscountProgramUpdated(programId, active);
@@ -219,6 +232,12 @@ contract PremiumCalculator {
     // -------------------------------------------------------------------------
 
     /// @notice Update premium rate for a risk tier.
+    /// @param tier tier used by this operation.
+    /// @param baseBps base bps expressed in basis points.
+    /// @param riskMultiplier Numeric risk multiplier used by this operation.
+    /// @param durationDays duration days, in seconds.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: "Rate too high" if `baseBps <= MAX_RATE_BPS` is false.
     function updateRate(
         RiskTier tier,
         uint256 baseBps,
@@ -240,11 +259,18 @@ contract PremiumCalculator {
     // -------------------------------------------------------------------------
 
     /// @notice Get the current premium rate for a tier.
+    /// @param tier tier used by this operation.
+    /// @return Rate returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getRate(RiskTier tier) external view returns (PremiumRate memory) {
         return _rates[tier];
     }
 
     /// @notice Get all premium payments for a user on a market.
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Payments returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPayments(
         address user,
         address market
@@ -253,6 +279,10 @@ contract PremiumCalculator {
     }
 
     /// @notice Check if a user has active coverage on a market.
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return True when the requested condition is met.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function hasActiveCoverage(address user, address market) external view returns (bool) {
         PremiumPayment[] memory payments = _payments[user][market];
         for (uint256 i = payments.length; i > 0; i--) {
@@ -265,11 +295,17 @@ contract PremiumCalculator {
     }
 
     /// @notice Get the best discount available for a user.
+    /// @param user User address affected by this operation.
+    /// @return discountBps Rate expressed in basis points.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getBestDiscount(address user) external view returns (uint256 discountBps) {
         return _bestDiscount(user);
     }
 
     /// @notice Get user's accumulated volume.
+    /// @param user User address affected by this operation.
+    /// @return User volume returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserVolume(address user) external view returns (uint256) {
         return _userVolume[user];
     }

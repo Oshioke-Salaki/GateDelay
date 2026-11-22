@@ -6,10 +6,11 @@ export type OrderStatus = 'OPEN' | 'PARTIAL' | 'FILLED' | 'CANCELLED';
 export interface Order {
   id: string;
   userId: string;
-  marketId: string;
+  venueId: string;
+  executionType: 'CLOB';
+  settlementStatus: 'NOT_ON_CHAIN';
+  pair: string;
   side: OrderSide;
-  /** Outcome being traded: YES or NO share */
-  outcome: 'YES' | 'NO';
   /** Limit price per share (0–1) */
   price: Big;
   /** Original quantity */
@@ -24,6 +25,10 @@ export interface Order {
 export interface Fill {
   orderId: string;
   counterOrderId: string;
+  venueId: string;
+  pair: string;
+  executionType: 'CLOB';
+  settlementStatus: 'NOT_ON_CHAIN';
   quantity: Big;
   price: Big;
   filledAt: Date;

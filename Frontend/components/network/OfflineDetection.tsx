@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useConnectivity } from "../../hooks/useConnectivity";
+import { useConnectivityContext } from "../../app/components/ConnectivityProvider";
 import type { QueuedAction } from "../../hooks/useConnectivity";
+import type { UnreachableReason } from "../../lib/connectivity";
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ function QueueDrawer({
 
 // ─── Banner ───────────────────────────────────────────────────────────────────
 
-type BannerPhase = "offline" | "syncing" | "back-online";
+type BannerPhase = "offline" | "unreachable" | "reconnecting" | "syncing" | "back-online";
 
 interface BannerConfig {
   background: string;
@@ -194,7 +195,8 @@ interface BannerConfig {
 
 function getBannerConfig(
   phase: BannerPhase,
-  queueLength: number
+  queueLength: number,
+  reconnectAttempt: number,
 ): BannerConfig {
   switch (phase) {
     case "offline":
@@ -208,6 +210,27 @@ function getBannerConfig(
           queueLength > 0
             ? `${queueLength} action${queueLength > 1 ? "s" : ""} queued — will sync on reconnect`
             : "Actions you take will be queued for later",
+      };
+    case "unreachable":
+      return {
+        background: "linear-gradient(135deg, rgba(239,68,68,0.95) 0%, rgba(185,28,28,0.95) 100%)",
+        border: "rgba(239,68,68,0.4)",
+        color: "#fff",
+        icon: <WifiOffIcon size={15} />,
+        title: "Can't reach the server",
+        subtitle: "The app is online, but the backend is not responding",
+      };
+    case "reconnecting":
+      return {
+        background: "linear-gradient(135deg, rgba(245,158,11,0.95) 0%, rgba(180,100,0,0.95) 100%)",
+        border: "rgba(245,158,11,0.4)",
+        color: "#fff",
+        icon: <SpinnerIcon size={14} />,
+        title: "Reconnecting…",
+        subtitle:
+          reconnectAttempt > 0
+            ? `Attempt ${reconnectAttempt} — restoring connection to the backend`
+            : "Attempting to restore the backend connection…",
       };
     case "syncing":
       return {
@@ -227,94 +250,63 @@ function getBannerConfig(
         border: "rgba(34,197,94,0.4)",
         color: "#fff",
         icon: <WifiOnIcon size={15} />,
-        title: "Back online",
-        subtitle: "All pending actions have been synced",
+        title: "Connection restored",
+        subtitle: "You're back online — pending work will continue",
       };
   }
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-interface OfflineDetectionProps {
-  /**
-   * How long (ms) the "Back online" confirmation banner stays visible.
-   * @default 3000
-   */
-  onlineDismissDelay?: number;
-  /**
-   * Show the pending-actions queue inside the banner.
-   * @default true
-   */
-  showQueue?: boolean;
+function phaseBadge(phase: BannerPhase): string {
+  switch (phase) {
+    case "offline":
+      return "OFFLINE";
+    case "unreachable":
+      return "UNREACHABLE";
+    case "reconnecting":
+      return "RECONNECTING";
+    case "syncing":
+      return "SYNCING";
+    case "back-online":
+      return "ONLINE ✓";
+  }
 }
 
-export default function OfflineDetection({
-  onlineDismissDelay = 3000,
+export interface OfflineModeBannerProps {
+  phase: BannerPhase;
+  queue: QueuedAction[];
+  reconnectProgress: number;
+  reconnectAttempt: number;
+  showQueue?: boolean;
+  leaving?: boolean;
+  onDequeue: (id: string) => void;
+}
+
+/**
+ * Presentational banner. Exported so tests can assert copy, progress, and
+ * accessibility without mounting the live connectivity hook.
+ */
+export function OfflineModeBanner({
+  phase,
+  queue,
+  reconnectProgress,
+  reconnectAttempt,
   showQueue = true,
-}: OfflineDetectionProps) {
-  const { status, isOffline, isSyncing, queue, dequeue } = useConnectivity();
+  leaving = false,
+  onDequeue,
+}: OfflineModeBannerProps) {
+  const cfg = getBannerConfig(phase, queue.length, reconnectAttempt);
+  const statusMessage = `${cfg.title}. ${cfg.subtitle}`;
 
-  const [mounted, setMounted] = useState(false);
-  const [visible, setVisible] = useState(false);
-  const [leaving, setLeaving] = useState(false);
-  const [phase, setPhase] = useState<BannerPhase>("offline");
-  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // SSR-safe mount flag
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Drive visibility / phase from connectivity status
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Clear any pending auto-dismiss
-    if (dismissTimerRef.current) {
-      clearTimeout(dismissTimerRef.current);
-      dismissTimerRef.current = null;
-    }
-
-    if (isOffline) {
-      setPhase("offline");
-      setLeaving(false);
-      setVisible(true);
-    } else if (isSyncing) {
-      setPhase("syncing");
-      setLeaving(false);
-      setVisible(true);
-    } else if (visible && !isOffline && !isSyncing) {
-      // Transitioned from offline/syncing to online
-      setPhase("back-online");
-      setLeaving(false);
-      dismissTimerRef.current = setTimeout(() => {
-        setLeaving(true);
-        // Remove from DOM after slide-up animation
-        setTimeout(() => {
-          setVisible(false);
-          setLeaving(false);
-        }, 300);
-      }, onlineDismissDelay);
-    }
-
-    return () => {
-      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOffline, isSyncing]);
-
-  if (!mounted || !visible) return null;
-
-  const cfg = getBannerConfig(phase, queue.length);
-
-  const banner = (
+  return (
     <>
       <style>{KEYFRAMES}</style>
       <div
-        role="alert"
+        role="status"
         aria-live="assertive"
         aria-atomic="true"
         id="offline-detection-banner"
+        data-testid="offline-detection-banner"
+        aria-label={statusMessage}
         style={{
           position: "fixed",
           top: 0,
@@ -338,7 +330,6 @@ export default function OfflineDetection({
             padding: "10px 16px",
           }}
         >
-          {/* Main row */}
           <div
             style={{
               display: "flex",
@@ -346,7 +337,6 @@ export default function OfflineDetection({
               gap: "10px",
             }}
           >
-            {/* Icon */}
             <span
               style={{
                 flexShrink: 0,
@@ -358,7 +348,6 @@ export default function OfflineDetection({
               {cfg.icon}
             </span>
 
-            {/* Text */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <p
                 style={{
@@ -383,7 +372,6 @@ export default function OfflineDetection({
               </p>
             </div>
 
-            {/* Status badge */}
             <span
               style={{
                 flexShrink: 0,
@@ -397,21 +385,145 @@ export default function OfflineDetection({
                 border: "1px solid rgba(255,255,255,0.25)",
               }}
             >
-              {phase === "offline"
-                ? "OFFLINE"
-                : phase === "syncing"
-                ? "SYNCING"
-                : "ONLINE ✓"}
+              {phaseBadge(phase)}
             </span>
           </div>
 
-          {/* Queue drawer (offline phase only) */}
+          {(phase === "reconnecting" || phase === "syncing") && (
+            <div
+              role="progressbar"
+              aria-label="Reconnect progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={reconnectProgress}
+              data-testid="reconnect-progress"
+              style={{
+                marginTop: "8px",
+                height: "4px",
+                borderRadius: "999px",
+                background: "rgba(255,255,255,0.22)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.max(8, reconnectProgress)}%`,
+                  height: "100%",
+                  background: "rgba(255,255,255,0.9)",
+                  borderRadius: "999px",
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
+          )}
+
           {showQueue && phase === "offline" && queue.length > 0 && (
-            <QueueDrawer queue={queue} onDequeue={dequeue} />
+            <QueueDrawer queue={queue} onDequeue={onDequeue} />
           )}
         </div>
       </div>
     </>
+  );
+}
+
+function derivePhase(args: {
+  isOffline: boolean;
+  isReconnecting: boolean;
+  isSyncing: boolean;
+  unreachableReason: UnreachableReason | null;
+}): BannerPhase {
+  if (args.isReconnecting) return "reconnecting";
+  if (args.isSyncing) return "syncing";
+  if (args.isOffline && args.unreachableReason === "backend") return "unreachable";
+  return "offline";
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+interface OfflineDetectionProps {
+  /**
+   * How long (ms) the "Connection restored" confirmation banner stays visible.
+   * @default 3000
+   */
+  onlineDismissDelay?: number;
+  /**
+   * Show the pending-actions queue inside the banner.
+   * @default true
+   */
+  showQueue?: boolean;
+}
+
+export default function OfflineDetection({
+  onlineDismissDelay = 3000,
+  showQueue = true,
+}: OfflineDetectionProps) {
+  const {
+    isOffline,
+    isReconnecting,
+    isSyncing,
+    isLoading,
+    queue,
+    dequeue,
+    unreachableReason,
+    reconnectAttempt,
+    reconnectProgress,
+  } = useConnectivityContext();
+
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [phase, setPhase] = useState<BannerPhase>("offline");
+  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isLoading) return;
+
+    if (dismissTimerRef.current) {
+      clearTimeout(dismissTimerRef.current);
+      dismissTimerRef.current = null;
+    }
+
+    if (isOffline || isReconnecting || isSyncing) {
+      setPhase(
+        derivePhase({ isOffline, isReconnecting, isSyncing, unreachableReason }),
+      );
+      setLeaving(false);
+      setVisible(true);
+    } else if (visible && !isOffline && !isReconnecting && !isSyncing) {
+      setPhase("back-online");
+      setLeaving(false);
+      dismissTimerRef.current = setTimeout(() => {
+        setLeaving(true);
+        setTimeout(() => {
+          setVisible(false);
+          setLeaving(false);
+        }, 300);
+      }, onlineDismissDelay);
+    }
+
+    return () => {
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOffline, isReconnecting, isSyncing, isLoading, unreachableReason]);
+
+  if (!mounted || !visible) return null;
+
+  const banner = (
+    <OfflineModeBanner
+      phase={phase}
+      queue={queue}
+      reconnectProgress={reconnectProgress}
+      reconnectAttempt={reconnectAttempt}
+      showQueue={showQueue}
+      leaving={leaving}
+      onDequeue={dequeue}
+    />
   );
 
   return createPortal(banner, document.body);

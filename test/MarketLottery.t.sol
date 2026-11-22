@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-import {MarketLottery} from "../Contracts/contracts/MarketLottery.sol";
+import {MarketLottery} from "../Contracts/src/MarketLottery.sol";
 
 contract MarketLotteryTest is Test {
     MarketLottery lottery;
@@ -51,7 +51,7 @@ contract MarketLotteryTest is Test {
         // Deterministic seed to select winner
         // totalTickets = 5, ticket indices [0..4]
         // seed chosen so that ticketIndex = 0 (likely but deterministic)
-        uint256 seed = uint256(keccak256(abi.encode(uint256(0), uint256(0), roundId))));
+        uint256 seed = uint256(keccak256(abi.encode(uint256(0), uint256(0), roundId)));
         lottery.fulfillRandomWords(requestId, seed);
 
         // Winner claims

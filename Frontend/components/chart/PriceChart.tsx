@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -14,6 +14,7 @@ import {
   Legend,
 } from "recharts";
 import { format } from "date-fns";
+import { usePriceHistory } from "@/hooks/usePriceHistory";
 import TimeRangeSelector, {
   type TimeRange,
   resolveRange,
@@ -26,15 +27,31 @@ export interface PricePoint {
   timestamp: number; // unix ms
   yesPrice: number;  // 0–1
   noPrice: number;   // 0–1
-  volume: number;
+  volume?: number;
 }
 
 interface PriceChartProps {
   data?: PricePoint[];
+  marketId?: string;
   /** Accent colour for YES line */
   yesColor?: string;
   /** Accent colour for NO line */
   noColor?: string;
+}
+
+// ─── Fallback ─────────────────────────────────────────────────────────────────
+
+function ChartFallback({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-lg py-8 text-xs"
+      style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
+  );
 }
 
 // ─── X-axis tick formatter ────────────────────────────────────────────────────
@@ -51,28 +68,7 @@ function xTickFormat(preset: PresetRange | null, ts: number): string {
   }
 }
 
-// ─── Mock data generator ──────────────────────────────────────────────────────
 
-function generateMockData(): PricePoint[] {
-  const points: PricePoint[] = [];
-  const now = Date.now();
-  let yes = 0.5;
-
-  // ~2 years of hourly data for "All" / "1Y" to be meaningful
-  const HOURS = 24 * 365 * 2;
-  for (let i = HOURS; i >= 0; i--) {
-    yes = Math.min(0.97, Math.max(0.03, yes + (Math.random() - 0.5) * 0.008));
-    points.push({
-      timestamp: now - i * 60 * 60 * 1000,
-      yesPrice: parseFloat(yes.toFixed(4)),
-      noPrice:  parseFloat((1 - yes).toFixed(4)),
-      volume:   Math.floor(Math.random() * 800 + 50),
-    });
-  }
-  return points;
-}
-
-const MOCK_DATA = generateMockData();
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
 
@@ -101,10 +97,13 @@ function ChartTooltip({ active, payload, label }: any) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PriceChart({
-  data = MOCK_DATA,
+  data: suppliedData,
+  marketId,
   yesColor = "#22c55e",
   noColor  = "#ef4444",
 }: PriceChartProps) {
+  const history = usePriceHistory(marketId, suppliedData);
+  const data = history.data;
   const [timeRange, setTimeRange] = useState<TimeRange>({
     type: "preset",
     preset: "1D",
@@ -115,6 +114,19 @@ export default function PriceChart({
   const [zoomRight, setZoomRight] = useState<number | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [domain,    setDomain]    = useState<[number, number] | null>(null);
+  const [tooSmall,  setTooSmall]  = useState(false);
+  const [renderError, setRenderError] = useState(false);
+
+  useEffect(() => {
+    setDomain(null);
+    setZoomLeft(null);
+    setZoomRight(null);
+    setSelecting(false);
+  }, [marketId]);
+
+  const handleResize = useCallback((w: number) => {
+    setTooSmall(w > 0 && w < 180);
+  }, []);
 
   // Resolve the selected time range to concrete timestamps
   const { from, to } = useMemo(() => resolveRange(timeRange), [timeRange]);
@@ -208,7 +220,18 @@ export default function PriceChart({
       </div>
 
       {/* Price chart */}
-      <ResponsiveContainer width="100%" height={200}>
+      {history.loading ? (
+        <ChartFallback message="Loading price history…" />
+      ) : history.error ? (
+        <ChartFallback message={history.error} />
+      ) : tooSmall ? (
+        <ChartFallback message="Chart area too small to display" />
+      ) : renderError ? (
+        <ChartFallback message="Unable to render price chart" />
+      ) : displayData.length === 0 ? (
+        <ChartFallback message="No price data available for the selected range" />
+      ) : (
+      <ResponsiveContainer width="100%" height={200} onResize={handleResize}>
         <ComposedChart
           data={displayData}
           margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -246,7 +269,7 @@ export default function PriceChart({
             )}
           />
           <Line
-            type="monotone"
+            type="linear"
             dataKey="yesPrice"
             name="YES"
             stroke={yesColor}
@@ -256,7 +279,7 @@ export default function PriceChart({
             isAnimationActive={displayData.length < 300}
           />
           <Line
-            type="monotone"
+            type="linear"
             dataKey="noPrice"
             name="NO"
             stroke={noColor}
@@ -276,8 +299,10 @@ export default function PriceChart({
           )}
         </ComposedChart>
       </ResponsiveContainer>
+      )}
 
       {/* Volume chart */}
+      {!history.loading && !history.error && displayData.length > 0 && !tooSmall && !renderError && (
       <ResponsiveContainer width="100%" height={64}>
         <ComposedChart
           data={displayData}
@@ -311,6 +336,7 @@ export default function PriceChart({
           />
         </ComposedChart>
       </ResponsiveContainer>
+      )}
 
       <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
         Click and drag on the price chart to zoom · Reset zoom to return

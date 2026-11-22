@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../contracts/MarketCap.sol";
+import "../src/MarketCap.sol";
 
 /// @title DeployMarketCap
 /// @notice Deployment script for MarketCap contract

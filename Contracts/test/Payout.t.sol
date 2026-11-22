@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/Payout.sol";
+import "../src/Payout.sol";
 import "../src/ERC20Token.sol";
 
 contract PayoutTest is Test {

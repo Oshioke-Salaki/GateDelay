@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2, CheckCircle2, XCircle, ArrowUpRight, AlertCircle, RefreshCw } from "lucide-react";
+import { useFocusTrap } from "../../hooks/useFocusTrap";
 
 export type ExecutionStatus = "idle" | "submitting" | "confirming" | "success" | "error";
 
@@ -30,6 +31,20 @@ export default function ExecutionProgress({
   price,
 }: ExecutionProgressProps) {
   const [errorMessage, setErrorMessage] = useState<string>("");
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, isOpen);
+
+  // Escape to close (only when not actively processing)
+  useEffect(() => {
+    if (!isOpen) return;
+    const canClose = status !== "submitting" && status !== "confirming";
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && canClose) { e.stopPropagation(); onClose(); }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [isOpen, status, onClose]);
 
   // Map common blockchain errors to user-friendly messages
   useEffect(() => {
@@ -99,6 +114,7 @@ export default function ExecutionProgress({
 
           {/* Modal Container */}
           <motion.div
+            ref={panelRef}
             key="progress-modal"
             role="dialog"
             aria-modal="true"

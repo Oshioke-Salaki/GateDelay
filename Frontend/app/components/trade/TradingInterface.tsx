@@ -8,6 +8,7 @@ import OrderPanel from "./OrderPanel";
 import OrderBookCompact from "./OrderBookCompact";
 import RecentTrades from "./RecentTrades";
 import UserPositions from "./UserPositions";
+import { MarketStatus } from "@/components/market/StatusBadge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ export interface Market {
     low24h: number;
     totalLiquidity: number;
     expiryDate: string;
-    status: "active" | "closed" | "resolved";
+    status: MarketStatus;
 }
 
 interface TradingInterfaceProps {

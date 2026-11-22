@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useAccount } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { format, subDays } from "date-fns";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ function HistoryBars({ history }: { history: FeeEntry[] }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function EarnedFees() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected } = useConnectKitBridge();
 
   const { data, isLoading, isError, dataUpdatedAt, refetch } = useQuery<EarnedFeesData>({
     queryKey: ["earnedFees", address],

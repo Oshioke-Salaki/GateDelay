@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApprovalService } from './approval.service';
 import {
@@ -19,12 +20,17 @@ import {
   ApprovalStatusQueryDto,
 } from './dto/approval.dto';
 
+@ApiTags('approvals')
+@ApiBearerAuth()
 @Controller('approvals')
 @UseGuards(JwtAuthGuard)
 export class ApprovalController {
   constructor(private readonly approvalService: ApprovalService) {}
 
   @Post('generate')
+  @ApiOperation({ summary: 'Create a new approval request' })
+  @ApiResponse({ status: 201, description: 'Approval created' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid JWT' })
   @HttpCode(HttpStatus.CREATED)
   generate(
     @Request() req: { user: { id: string } },

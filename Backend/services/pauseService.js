@@ -4,9 +4,15 @@
  * status tracking, duration monitoring, and event logging.
  *
  * Dependencies: web3.js, mongoose
+ *
+ * Every state transition below also writes a durable entry to the MongoDB audit
+ * trail via services/auditTrail.js (#914). The in-process `pauseEventLog` alone
+ * is not sufficient for this: it is lost on restart and is not queryable, so a
+ * pause that took a market offline left no surviving record of who did it.
  */
 
 const mongoose = require('mongoose');
+const auditTrail = require('./auditTrail');
 
 // ─────────────────────────────────────────────────────────────── Constants
 
@@ -165,6 +171,18 @@ async function pauseMarket({ marketId, operatorId, role, reason, notes, duration
     durationMs: durationMs || null,
   });
 
+  // Durable audit entry (#914). The auto-unpause timer below is separate, and
+  // fires through unpauseMarket() which writes its own MARKET_UNPAUSED entry.
+  await auditTrail.logMarketPaused({
+    marketId,
+    actor: operatorId,
+    reason,
+    notes,
+    durationMs,
+    beforeState: PAUSE_STATES.ACTIVE,
+    afterState: state.state,
+  });
+
   // Schedule auto-unpause if duration provided
   if (durationMs && durationMs > 0) {
     setTimeout(async () => {
@@ -228,6 +246,8 @@ async function unpauseMarket({ marketId, operatorId, role, notes }) {
     ? Date.now() - new Date(state.pausedAt).getTime()
     : 0;
 
+  const previousState = state.state;
+
   state.state = PAUSE_STATES.ACTIVE;
   state.unpausedBy = operatorId;
   state.unpausedAt = new Date().toISOString();
@@ -236,6 +256,15 @@ async function unpauseMarket({ marketId, operatorId, role, notes }) {
   const event = logEvent('MARKET_UNPAUSED', marketId, operatorId, role, {
     pauseDurationMs,
     notes: notes || null,
+  });
+
+  await auditTrail.logMarketUnpaused({
+    marketId,
+    actor: operatorId,
+    notes,
+    pauseDurationMs,
+    beforeState: previousState,
+    afterState: state.state,
   });
 
   return {
@@ -274,6 +303,8 @@ async function emergencyPause({ marketId, operatorId, role, notes }) {
     throw new Error(`Market "${marketId}" is already under EMERGENCY pause`);
   }
 
+  const previousState = state.state;
+
   state.state = PAUSE_STATES.EMERGENCY;
   state.pausedBy = operatorId;
   state.pausedAt = new Date().toISOString();
@@ -286,6 +317,15 @@ async function emergencyPause({ marketId, operatorId, role, notes }) {
 
   const event = logEvent('EMERGENCY_PAUSE', marketId, operatorId, role, {
     notes: notes || null,
+  });
+
+  await auditTrail.logMarketPaused({
+    marketId,
+    actor: operatorId,
+    reason: PAUSE_REASONS.EMERGENCY,
+    notes,
+    beforeState: previousState,
+    afterState: state.state,
   });
 
   console.warn(
@@ -329,6 +369,8 @@ async function emergencyUnpause({ marketId, operatorId, role, notes }) {
     ? Date.now() - new Date(state.pausedAt).getTime()
     : 0;
 
+  const previousState = state.state;
+
   state.state = PAUSE_STATES.ACTIVE;
   state.unpausedBy = operatorId;
   state.unpausedAt = new Date().toISOString();
@@ -337,6 +379,15 @@ async function emergencyUnpause({ marketId, operatorId, role, notes }) {
   const event = logEvent('EMERGENCY_UNPAUSE', marketId, operatorId, role, {
     pauseDurationMs,
     notes: notes || null,
+  });
+
+  await auditTrail.logMarketUnpaused({
+    marketId,
+    actor: operatorId,
+    notes,
+    pauseDurationMs,
+    beforeState: previousState,
+    afterState: state.state,
   });
 
   console.log(

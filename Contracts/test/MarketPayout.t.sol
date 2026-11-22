@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/MarketPayout.sol";
+import "../src/MarketPayout.sol";
 
 contract MarketPayoutTest is Test {
     MarketPayout payout;
@@ -794,6 +794,75 @@ contract MarketPayoutTest is Test {
         // Verify both markets have correct pending amounts
         assertEq(payout.getPendingDistribution(market1), 200 ether);
         assertEq(payout.getPendingDistribution(market2), 250 ether);
+    }
+
+    // -------------------------------------------------------------------------
+    // #969 – Flight outcome payout tests
+    // -------------------------------------------------------------------------
+
+    function test_payout_delayedFlight_yesHoldersReceivePayout() public {
+        // Flight WAS delayed → YES outcome wins
+        vm.prank(admin);
+        payout.registerResolution(market1, MarketPayout.Outcome.YES, 1000 ether, resolver);
+
+        vm.startPrank(admin);
+        payout.initiatePayout(market1, alice, 600 ether);
+        payout.initiatePayout(market1, bob, 400 ether);
+        payout.distributePayout(market1, alice);
+        payout.distributePayout(market1, bob);
+        vm.stopPrank();
+
+        assertEq(payout.getPendingDistribution(market1), 0);
+        assertEq(
+            uint256(payout.getPayoutRecord(market1, alice).status),
+            uint256(MarketPayout.PayoutStatus.COMPLETE)
+        );
+        assertEq(
+            uint256(payout.getPayoutRecord(market1, bob).status),
+            uint256(MarketPayout.PayoutStatus.COMPLETE)
+        );
+    }
+
+    function test_payout_onTimeFlight_noHoldersReceivePayout() public {
+        // Flight was ON TIME → NO outcome wins
+        vm.prank(admin);
+        payout.registerResolution(market1, MarketPayout.Outcome.NO, 800 ether, resolver);
+
+        vm.startPrank(admin);
+        payout.initiatePayout(market1, bob, 800 ether);
+        payout.distributePayout(market1, bob);
+        vm.stopPrank();
+
+        MarketPayout.PayoutRecord memory record = payout.getPayoutRecord(market1, bob);
+        assertEq(record.claimedAmount, 800 ether);
+        assertEq(uint256(record.status), uint256(MarketPayout.PayoutStatus.COMPLETE));
+        assertEq(payout.getPendingDistribution(market1), 0);
+    }
+
+    function test_payout_cancelledFlight_noneOutcomeRejected() public {
+        // Flight cancelled → Outcome.NONE is invalid; registerResolution must revert
+        vm.prank(admin);
+        vm.expectRevert(MarketPayout.InvalidOutcome.selector);
+        payout.registerResolution(market1, MarketPayout.Outcome.NONE, 1000 ether, resolver);
+
+        // Market remains unresolved
+        assertFalse(payout.getResolution(market1).finalized);
+    }
+
+    function test_payout_unresolvedFlight_allPayoutOpsRevert() public {
+        // No resolution registered → every payout operation must fail
+
+        // calculatePayout reverts
+        vm.expectRevert(MarketPayout.MarketNotResolved.selector);
+        payout.calculatePayout(market1, alice, 100 ether, 100 ether);
+
+        // initiatePayout reverts
+        vm.prank(admin);
+        vm.expectRevert(MarketPayout.MarketNotResolved.selector);
+        payout.initiatePayout(market1, alice, 100 ether);
+
+        // Pending distribution stays zero
+        assertEq(payout.getPendingDistribution(market1), 0);
     }
 
     function testFuzz_calculatePayout(

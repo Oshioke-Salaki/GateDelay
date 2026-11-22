@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {FeeHandler} from "../contracts/FeeHandler.sol";
+import {FeeHandler} from "../src/FeeHandler.sol";
 
 // ─── Mock ERC20 ────────────────────────────────────────────────────────────────
 
@@ -310,5 +310,101 @@ contract FeeHandlerTest is Test {
 
         // Handler should hold no residue after distribution
         assertEq(token.balanceOf(address(handler)), contractBefore, "no tokens left in handler");
+    }
+
+    // ── Fee recipient sum validation edge cases ────────────────────────────────
+    
+    function test_setFeeStructure_revertsOnShareSumTooLow() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](2);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 3_000});
+        r[1] = FeeHandler.FeeRecipient({account: bob, shareBps: 3_000}); // sum = 6,000 < 10,000
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_revertsOnShareSumTooHigh() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](2);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 6_000});
+        r[1] = FeeHandler.FeeRecipient({account: bob, shareBps: 5_000}); // sum = 11,000 > 10,000
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_revertsOnZeroShares() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](2);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 10_000});
+        r[1] = FeeHandler.FeeRecipient({account: bob, shareBps: 0}); // zero shares
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_revertsOnEmptyRecipients() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](0);
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_revertsOnDuplicateRecipients() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](2);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 5_000});
+        r[1] = FeeHandler.FeeRecipient({account: alice, shareBps: 5_000}); // duplicate
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_revertsOnShareSumOverflow() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](3);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: type(uint256).max});
+        r[1] = FeeHandler.FeeRecipient({account: bob, shareBps: 1});
+        r[2] = FeeHandler.FeeRecipient({account: charlie, shareBps: 1});
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 30, r);
+    }
+
+    function test_setFeeStructure_manyRecipients() public {
+        uint256 numRecipients = 100;
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](numRecipients);
+        for (uint256 i = 0; i < numRecipients; i++) {
+            // Generate unique address using keccak256
+            address addr = address(uint160(uint256(keccak256(abi.encodePacked("recipient", i)))));
+            r[i] = FeeHandler.FeeRecipient({
+                account: addr,
+                shareBps: 100 // 100 * 100 = 10,000
+            });
+        }
+        handler.setFeeStructure(TRADING, 30, r);
+        
+        (uint256 feeBps, bool active, FeeHandler.FeeRecipient[] memory recipients) = handler.getFeeStructure(TRADING);
+        assertEq(feeBps, 30);
+        assertTrue(active);
+        assertEq(recipients.length, numRecipients);
+    }
+
+    function test_distribute_withZeroShareRecipient_reverts() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](2);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 10_000});
+        r[1] = FeeHandler.FeeRecipient({account: bob, shareBps: 0}); // zero shares
+        vm.expectRevert(FeeHandler.InvalidRecipients.selector);
+        handler.setFeeStructure(TRADING, 100, r);
+    }
+
+    function test_collectAndDistribute_zeroFee() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](1);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 10_000});
+        handler.setFeeStructure(TRADING, 0, r); // 0% fee
+        
+        vm.prank(payer);
+        uint256 fee = handler.collectAndDistribute(address(token), 10_000 ether, TRADING);
+        
+        assertEq(fee, 0);
+        assertEq(token.balanceOf(alice), 0);
+    }
+
+    function test_calculateFee_zeroFeeBps() public {
+        FeeHandler.FeeRecipient[] memory r = new FeeHandler.FeeRecipient[](1);
+        r[0] = FeeHandler.FeeRecipient({account: alice, shareBps: 10_000});
+        handler.setFeeStructure(TRADING, 0, r);
+        
+        assertEq(handler.calculateFee(10_000 ether, TRADING), 0);
     }
 }

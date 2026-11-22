@@ -52,10 +52,11 @@ const SETTING_VALIDATORS: Record<
     largeTradeThreshold: (v) => typeof v === 'number' && v > 0,
   },
   display: {
-    theme: (v) => typeof v === 'string' && ['light', 'dark', 'system'].includes(v as string),
-    currency: (v) => typeof v === 'string' && /^[A-Z]{3}$/.test(v as string),
-    language: (v) => typeof v === 'string' && /^[a-z]{2}(-[A-Z]{2})?$/.test(v as string),
-    decimalPlaces: (v) => typeof v === 'number' && [0, 1, 2, 4, 6].includes(v as number),
+    theme: (v) =>
+      typeof v === 'string' && ['light', 'dark', 'system'].includes(v),
+    currency: (v) => typeof v === 'string' && /^[A-Z]{3}$/.test(v),
+    language: (v) => typeof v === 'string' && /^[a-z]{2}(-[A-Z]{2})?$/.test(v),
+    decimalPlaces: (v) => typeof v === 'number' && [0, 1, 2, 4, 6].includes(v),
   },
   security: {
     twoFactorEnabled: (v) => typeof v === 'boolean',
@@ -100,17 +101,26 @@ export class UserSettingsService {
     return this.getOrCreate(userId);
   }
 
-  getCategory(userId: string, category: SettingCategory): Record<string, SettingValue> {
+  getCategory(
+    userId: string,
+    category: SettingCategory,
+  ): Record<string, SettingValue> {
     this.assertValidCategory(category);
     return this.getOrCreate(userId).categories[category];
   }
 
-  getSetting(userId: string, category: SettingCategory, key: string): SettingValue {
+  getSetting(
+    userId: string,
+    category: SettingCategory,
+    key: string,
+  ): SettingValue {
     this.assertValidCategory(category);
     const settings = this.getOrCreate(userId);
     const entry = settings.categories[category][key];
     if (!entry) {
-      throw new NotFoundException(`Setting '${key}' not found in category '${category}'`);
+      throw new NotFoundException(
+        `Setting '${key}' not found in category '${category}'`,
+      );
     }
     return entry;
   }
@@ -125,7 +135,11 @@ export class UserSettingsService {
 
     const settings = this.getOrCreate(userId);
     const now = new Date();
-    const entry: SettingValue = { key: dto.key, value: dto.value, updatedAt: now };
+    const entry: SettingValue = {
+      key: dto.key,
+      value: dto.value,
+      updatedAt: now,
+    };
 
     settings.categories[category][dto.key] = entry;
     settings.syncToken = uuidv4();
@@ -135,7 +149,10 @@ export class UserSettingsService {
     return entry;
   }
 
-  updateCategory(userId: string, dto: UpdateCategoryDto): Record<string, SettingValue> {
+  updateCategory(
+    userId: string,
+    dto: UpdateCategoryDto,
+  ): Record<string, SettingValue> {
     this.assertValidCategory(dto.category);
 
     const settings = this.getOrCreate(userId);
@@ -177,7 +194,9 @@ export class UserSettingsService {
     settings.updatedAt = now;
     this.store.set(userId, settings);
 
-    this.logger.log(`Bulk updated ${categories.length} categories for user ${userId}`);
+    this.logger.log(
+      `Bulk updated ${categories.length} categories for user ${userId}`,
+    );
     return settings;
   }
 
@@ -188,7 +207,9 @@ export class UserSettingsService {
     const defaults = DEFAULT_SETTINGS[category];
 
     if (!(key in defaults)) {
-      throw new NotFoundException(`Setting '${key}' not found in category '${category}'`);
+      throw new NotFoundException(
+        `Setting '${key}' not found in category '${category}'`,
+      );
     }
 
     const now = new Date();
@@ -202,7 +223,10 @@ export class UserSettingsService {
     this.store.set(userId, settings);
   }
 
-  resetCategory(userId: string, category: SettingCategory): Record<string, SettingValue> {
+  resetCategory(
+    userId: string,
+    category: SettingCategory,
+  ): Record<string, SettingValue> {
     this.assertValidCategory(category);
 
     const settings = this.getOrCreate(userId);
@@ -240,7 +264,9 @@ export class UserSettingsService {
     return this.bulkUpdate(userId, { updates: dto.snapshot });
   }
 
-  private assertValidCategory(category: string): asserts category is SettingCategory {
+  private assertValidCategory(
+    category: string,
+  ): asserts category is SettingCategory {
     if (!VALID_CATEGORIES.includes(category as SettingCategory)) {
       throw new BadRequestException(
         `Invalid category '${category}'. Must be one of: ${VALID_CATEGORIES.join(', ')}`,

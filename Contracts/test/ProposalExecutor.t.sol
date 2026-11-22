@@ -76,9 +76,12 @@ contract ProposalExecutorTest is Test {
         // Skip timelock
         vm.warp(block.timestamp + 1 days + 1);
 
-        // This will fail because target doesn't have the function, but it tests the flow
-        vm.expectRevert(ProposalExecutor.ExecutionFailed.selector);
+        // Calling an EOA (non-contract) with value=0 succeeds in EVM (returns success=true)
+        // The proposal executes successfully but no actual function is called
         executor.executeProposal(proposalId);
+
+        (ProposalExecutor.ProposalStatus status,) = executor.getExecutionStatus(proposalId);
+        assertEq(uint256(status), uint256(ProposalExecutor.ProposalStatus.EXECUTED));
     }
 
     function test_IsTimelockReady() public {

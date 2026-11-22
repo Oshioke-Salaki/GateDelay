@@ -28,6 +28,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { buildMarketAuditSearchParams } from "../../lib/auditLogQuery";
 
 export interface AuditLog {
   id: string;
@@ -42,17 +43,18 @@ export interface AuditLog {
 }
 
 // ── mock data generator (fallback for visual completeness & pagination testing) ──
+const AUDIT_EVENT_TYPES = [
+  "CREATE_MARKET",
+  "RESOLVE_MARKET",
+  "UPDATE_ODDS",
+  "CANCEL_MARKET",
+  "PAUSE_MARKET",
+  "SETTLE_MARKET",
+  "SET_RETENTION",
+  "INTEGRITY_CHECK",
+] as const;
 const MOCK_LOGS: AuditLog[] = (() => {
-  const operations = [
-    "CREATE_MARKET",
-    "RESOLVE_MARKET",
-    "UPDATE_ODDS",
-    "CANCEL_MARKET",
-    "PAUSE_MARKET",
-    "SETTLE_MARKET",
-    "SET_RETENTION",
-    "INTEGRITY_CHECK",
-  ];
+  const operations = AUDIT_EVENT_TYPES;
   const actors = ["system", "oracle", "admin-01", "admin-02", "trader-alice", "trader-bob", "resolver-bot"];
   const severities: ("LOW" | "MEDIUM" | "HIGH" | "CRITICAL")[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
   
@@ -233,20 +235,44 @@ export default function AuditLogViewer() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [operationFilter, setOperationFilter] = useState("all");
   const [actorFilter, setActorFilter] = useState("all");
+  const [marketFilter, setMarketFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Fetch real backend data
+  // Fetch real backend data.
+  //
+  // The endpoint returns `{ success, data, meta }` so it can be paged alongside
+  // the other list endpoints (#916), but a bare array is still accepted so this
+  // viewer keeps working against an older backend. `limit` is capped at 1000 by
+  // the backend DTO — requesting more is a 400, not a silent truncation.
   const { data: backendLogs = [], isLoading, isError, refetch } = useQuery<AuditLog[], Error>({
-    queryKey: ["market-audit-logs"],
+    queryKey: [
+      "market-audit-logs",
+      operationFilter,
+      actorFilter,
+      marketFilter,
+      dateFrom,
+      dateTo,
+    ],
     queryFn: async () => {
-      const res = await fetch("/api/market-audit?limit=2000", {
+      const params = buildMarketAuditSearchParams({
+        operation: operationFilter,
+        actor: actorFilter,
+        marketId: marketFilter,
+        from: dateFrom,
+        to: dateTo,
+        limit: 1000,
+      });
+      const res = await fetch(`/api/market-audit?${params.toString()}`, {
         method: "GET",
       });
       if (!res.ok) {
         throw new Error(`API failed: ${res.statusText}`);
       }
-      return (await res.json()) as AuditLog[];
+      const payload = await res.json();
+      if (Array.isArray(payload)) return payload as AuditLog[];
+      if (payload && Array.isArray(payload.data)) return payload.data as AuditLog[];
+      throw new Error("Unexpected audit-log payload shape");
     },
     retry: 1,
   });
@@ -261,7 +287,8 @@ export default function AuditLogViewer() {
 
   // Derived filter options
   const operationOptions = useMemo(() => {
-    const ops = new Set(rawLogs.map((l) => l.operation));
+    const ops = new Set<string>(AUDIT_EVENT_TYPES);
+    rawLogs.forEach((l) => ops.add(l.operation));
     return Array.from(ops).sort();
   }, [rawLogs]);
 
@@ -338,6 +365,7 @@ export default function AuditLogViewer() {
     setSeverityFilter("all");
     setOperationFilter("all");
     setActorFilter("all");
+    setMarketFilter("");
     setDateFrom("");
     setDateTo("");
   };
@@ -368,9 +396,9 @@ export default function AuditLogViewer() {
   const pageCount = table.getPageCount();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div
           className="rounded-2xl p-5 flex items-center justify-between"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
@@ -460,7 +488,7 @@ export default function AuditLogViewer() {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => refetch()}
               title="Refresh logs from API"
@@ -491,7 +519,7 @@ export default function AuditLogViewer() {
         </div>
 
         {/* Multi-Filters Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
           {/* Severity */}
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none">Severity</span>
@@ -509,16 +537,22 @@ export default function AuditLogViewer() {
             </select>
           </div>
 
-          {/* Operation */}
+          {/* Event type (backend: operation) */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none">Operation</span>
+            <label
+              htmlFor="audit-filter-event-type"
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none"
+            >
+              Event type
+            </label>
             <select
+              id="audit-filter-event-type"
               value={operationFilter}
               onChange={(e) => setOperationFilter(e.target.value)}
               className="rounded-xl px-3 py-2 text-xs outline-none border bg-[var(--background)] text-[var(--foreground)]"
               style={{ borderColor: "var(--border)" }}
             >
-              <option value="all">All operations</option>
+              <option value="all">All event types</option>
               {operationOptions.map((op) => (
                 <option key={op} value={op}>{op}</option>
               ))}
@@ -527,8 +561,14 @@ export default function AuditLogViewer() {
 
           {/* Actor */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none">Actor</span>
+            <label
+              htmlFor="audit-filter-actor"
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none"
+            >
+              Actor
+            </label>
             <select
+              id="audit-filter-actor"
               value={actorFilter}
               onChange={(e) => setActorFilter(e.target.value)}
               className="rounded-xl px-3 py-2 text-xs outline-none border bg-[var(--background)] text-[var(--foreground)]"
@@ -541,12 +581,37 @@ export default function AuditLogViewer() {
             </select>
           </div>
 
+          {/* Market */}
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="audit-filter-market"
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none"
+            >
+              Market
+            </label>
+            <input
+              id="audit-filter-market"
+              type="text"
+              value={marketFilter}
+              onChange={(e) => setMarketFilter(e.target.value)}
+              placeholder="market-100"
+              className="rounded-xl px-3 py-2 text-xs outline-none border bg-[var(--background)] text-[var(--foreground)]"
+              style={{ borderColor: "var(--border)" }}
+            />
+          </div>
+
           {/* Date From */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none">From Date</span>
+            <label
+              htmlFor="audit-filter-from"
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none"
+            >
+              From date
+            </label>
             <div className="relative">
               <Calendar size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none" />
               <input
+                id="audit-filter-from"
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
@@ -558,10 +623,16 @@ export default function AuditLogViewer() {
 
           {/* Date To */}
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none">To Date</span>
+            <label
+              htmlFor="audit-filter-to"
+              className="text-[10px] font-bold uppercase tracking-wider text-[var(--muted)] select-none"
+            >
+              To date
+            </label>
             <div className="relative">
               <Calendar size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] pointer-events-none" />
               <input
+                id="audit-filter-to"
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
@@ -574,8 +645,8 @@ export default function AuditLogViewer() {
       </div>
 
       {/* Main Table Grid */}
-      <div className="overflow-x-auto rounded-2xl border" style={{ borderColor: "var(--border)" }}>
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="w-full max-w-full overflow-x-auto rounded-2xl border" style={{ borderColor: "var(--border)" }}>
+        <table className="w-full min-w-[880px] text-left text-xs border-collapse">
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} style={{ background: "var(--card)", borderBottom: "1px solid var(--border)" }}>

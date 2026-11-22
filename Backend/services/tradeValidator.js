@@ -337,6 +337,9 @@ async function checkMarketLiquidity(pair, side) {
 /**
  * Validate limit order price
  */
+/**
+ * Validate limit order price
+ */
 async function validateLimitPrice(pair, side, price) {
   const oracleService = require('./oracleService');
 
@@ -366,13 +369,96 @@ async function validateLimitPrice(pair, side, price) {
   }
 }
 
+/**
+ * Validate oracle freshness for a trade or pair
+ * @param {string|object} pairOrData - Trading pair string or object with pair/timestamp/oracleTimestamp
+ * @param {object} [options]
+ * @param {number} [options.maxAgeSeconds] - acceptable threshold
+ * @param {string} [options.onStale] - 'block' | 'warn' (default 'block')
+ * @returns {Promise<object>} Validation result containing freshness metrics
+ */
+async function validateOracleFreshness(pairOrData, options = {}) {
+  const oracleService = require('./oracleService');
+  const onStale = options.onStale || 'block';
+
+  let pair;
+  let oracleData;
+
+  if (typeof pairOrData === 'string') {
+    pair = pairOrData;
+    try {
+      const oracleRes = await oracleService.getPrice(pair, null, options);
+      oracleData = oracleRes.freshness ? oracleRes.freshness : { timestamp: oracleRes.timestamp, source: oracleRes.source };
+    } catch (err) {
+      if (err.oracleFreshness) {
+        oracleData = err.oracleFreshness;
+      } else {
+        const freshness = oracleService.checkOracleFreshness(null, options);
+        return {
+          valid: false,
+          code: 'ORACLE_UNAVAILABLE',
+          message: `Oracle pricing unavailable for ${pair}: ${err.message}`,
+          freshness,
+        };
+      }
+    }
+  } else if (typeof pairOrData === 'object' && pairOrData !== null) {
+    pair = pairOrData.pair;
+    if (pairOrData.oracleFreshness) {
+      oracleData = pairOrData.oracleFreshness;
+    } else {
+      oracleData = {
+        timestamp: pairOrData.oracleTimestamp || pairOrData.timestamp || pairOrData.updatedAt,
+        provider: pairOrData.oracleProvider || pairOrData.provider || pairOrData.source,
+      };
+    }
+  }
+
+  const freshness = oracleData && oracleData.isStale !== undefined
+    ? oracleData
+    : oracleService.checkOracleFreshness(oracleData, options);
+
+  if (freshness.isStale) {
+    if (onStale === 'block') {
+      logValidation('warn', 'Stale oracle data detected - blocking trade', { pair, freshness });
+      return {
+        valid: false,
+        code: 'STALE_ORACLE_DATA',
+        message: `Oracle price data for ${pair || 'trade'} is stale (${freshness.ageSeconds}s old exceeds acceptable limit of ${freshness.maxAgeSeconds}s)`,
+        freshness,
+      };
+    } else {
+      logValidation('warn', 'Stale oracle data detected - warning only', { pair, freshness });
+      return {
+        valid: true,
+        warning: `Oracle price data for ${pair || 'trade'} is stale (${freshness.ageSeconds}s old)`,
+        freshness,
+      };
+    }
+  }
+
+  if (freshness.isBorderline) {
+    logValidation('info', 'Borderline oracle data detected', { pair, freshness });
+    return {
+      valid: true,
+      warning: `Oracle price data for ${pair || 'trade'} is approaching staleness limit (${freshness.ageSeconds}s old)`,
+      freshness,
+    };
+  }
+
+  return {
+    valid: true,
+    freshness,
+  };
+}
+
 // ─── Main Validation Function ────────────────────────────────────────────────
 
 /**
  * Complete trade validation
  * Validates all aspects of a trade before execution
  */
-async function validateTrade(tradeData) {
+async function validateTrade(tradeData, options = {}) {
   const validationResults = {
     valid: true,
     checks: {},
@@ -429,6 +515,43 @@ async function validateTrade(tradeData) {
       if (!marketCheck.valid) {
         validationResults.valid = false;
         validationResults.errors.push({ field: 'market', message: marketCheck.message });
+      }
+    }
+
+    // 4.5 Oracle Freshness check for price-sensitive execution
+    if (paramCheck.valid) {
+      const isPriceSensitive =
+        tradeData.type === 'Market' ||
+        tradeData.type === 'Stop-Loss' ||
+        tradeData.priceSensitive === true ||
+        tradeData.oracleTimestamp !== undefined ||
+        options?.requireFreshOracle;
+
+      if (isPriceSensitive) {
+        const oracleCheck = await validateOracleFreshness(
+          tradeData.oracleTimestamp ? tradeData : paramCheck.value.pair,
+          options
+        );
+        validationResults.checks.oracleFreshness = oracleCheck;
+        if (oracleCheck.freshness) {
+          validationResults.oracleFreshness = oracleCheck.freshness;
+        }
+
+        if (!oracleCheck.valid) {
+          validationResults.valid = false;
+          validationResults.errors.push({
+            field: 'oracle',
+            code: oracleCheck.code || 'STALE_ORACLE_DATA',
+            message: oracleCheck.message,
+            freshness: oracleCheck.freshness,
+          });
+        } else if (oracleCheck.warning) {
+          validationResults.warnings.push({
+            field: 'oracle',
+            message: oracleCheck.warning,
+            freshness: oracleCheck.freshness,
+          });
+        }
       }
     }
 
@@ -503,6 +626,7 @@ module.exports = {
   validatePermissions,
   validateBalance,
   validateMarketConditions,
+  validateOracleFreshness,
   getValidationLogs,
   clearValidationLogs,
   TRADE_LIMITS,

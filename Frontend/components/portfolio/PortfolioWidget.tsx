@@ -14,8 +14,13 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { format, subDays, subWeeks, subMonths } from "date-fns";
-import { useAccount } from "@particle-network/connectkit";
+import { format, subDays, subMonths } from "date-fns";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
+import {
+  fetchPortfolioData,
+  PORTFOLIO_REFRESH_EVENT,
+  type PortfolioData,
+} from "../../lib/portfolioApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,8 +33,15 @@ export interface Position {
   avgCost: number;       // cost per share in USDC
   currentPrice: number;  // current price per share (0–1)
   status: "open" | "closed" | "resolved";
+  realizedPnl?: number;
   outcome?: "YES" | "NO";
 }
+
+const POSITION_STATUS_STYLES: Record<Position["status"], { bg: string; color: string }> = {
+  open: { bg: "#22c55e22", color: "#22c55e" },
+  closed: { bg: "#f59e0b22", color: "#f59e0b" },
+  resolved: { bg: "#3b82f622", color: "#3b82f6" },
+};
 
 export interface PortfolioSnapshot {
   timestamp: number; // unix ms
@@ -37,12 +49,8 @@ export interface PortfolioSnapshot {
 }
 
 export interface PortfolioWidgetProps {
-  /** Live positions — pass from API/contract; falls back to mock data */
-  positions?: Position[];
-  /** Historical snapshots for the performance chart */
-  history?: PortfolioSnapshot[];
-  /** Called on each refresh tick (use to re-fetch data) */
-  onRefresh?: () => void;
+  /** Called after authenticated portfolio data is refreshed. */
+  onRefresh?: () => void | Promise<void>;
   /** Auto-refresh interval in ms. 0 = disabled. Default: 30 000 */
   refreshInterval?: number;
 }
@@ -71,79 +79,6 @@ function xTickFormat(range: Range, ts: number): string {
   }
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const MOCK_POSITIONS: Position[] = [
-  {
-    id: "p1",
-    market: "Will AA123 arrive on time?",
-    marketId: "1",
-    side: "YES",
-    shares: 120,
-    avgCost: 0.55,
-    currentPrice: 0.62,
-    status: "open",
-  },
-  {
-    id: "p2",
-    market: "Will UA456 be delayed > 30 min?",
-    marketId: "2",
-    side: "NO",
-    shares: 80,
-    avgCost: 0.60,
-    currentPrice: 0.59,
-    status: "open",
-  },
-  {
-    id: "p3",
-    market: "Will DL789 be cancelled?",
-    marketId: "3",
-    side: "NO",
-    shares: 200,
-    avgCost: 0.88,
-    currentPrice: 0.92,
-    status: "closed",
-  },
-  {
-    id: "p4",
-    market: "Will SW101 depart on time?",
-    marketId: "4",
-    side: "YES",
-    shares: 50,
-    avgCost: 0.70,
-    currentPrice: 0.75,
-    status: "open",
-  },
-  {
-    id: "p5",
-    market: "Will BA202 arrive early?",
-    marketId: "5",
-    side: "YES",
-    shares: 150,
-    avgCost: 0.50,
-    currentPrice: 1.0,
-    status: "resolved",
-    outcome: "YES",
-  },
-];
-
-function generateMockHistory(): PortfolioSnapshot[] {
-  const points: PortfolioSnapshot[] = [];
-  const now = Date.now();
-  let value = 800;
-  // ~90 days of daily snapshots
-  for (let i = 90; i >= 0; i--) {
-    value = Math.max(200, value + (Math.random() - 0.45) * 40);
-    points.push({
-      timestamp: subDays(now, i).getTime(),
-      value: parseFloat(value.toFixed(2)),
-    });
-  }
-  return points;
-}
-
-const MOCK_HISTORY = generateMockHistory();
-
 // ─── Asset-type breakdown colours ────────────────────────────────────────────
 
 const PIE_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
@@ -162,6 +97,7 @@ function positionCost(p: Position): number {
 }
 
 function positionPnl(p: Position): number {
+  if (p.status === "closed") return p.realizedPnl ?? 0;
   return positionValue(p) - positionCost(p);
 }
 
@@ -195,11 +131,11 @@ function StatCard({
 }) {
   return (
     <div
-      className="rounded-xl px-4 py-3 flex flex-col gap-1"
+      className="flex min-w-0 flex-col gap-1 rounded-xl px-3 py-3 sm:px-4"
       style={{ background: "var(--card)", border: "1px solid var(--border)" }}
     >
       <p className="text-xs" style={{ color: "var(--muted)" }}>{label}</p>
-      <p className="text-xl font-bold" style={{ color: "var(--foreground)" }}>{value}</p>
+      <p className="break-words text-lg font-bold tabular-nums sm:text-xl" style={{ color: "var(--foreground)" }}>{value}</p>
       {sub !== undefined && (
         <p
           className="text-xs font-medium"
@@ -225,12 +161,7 @@ function PositionRow({ position }: { position: Position }) {
   const pnlPct = positionPnlPct(position);
   const isPositive = pnl >= 0;
 
-  const statusColors: Record<Position["status"], { bg: string; color: string }> = {
-    open:     { bg: "#22c55e22", color: "#22c55e" },
-    closed:   { bg: "#f59e0b22", color: "#f59e0b" },
-    resolved: { bg: "#3b82f622", color: "#3b82f6" },
-  };
-  const sc = statusColors[position.status];
+  const sc = POSITION_STATUS_STYLES[position.status];
 
   return (
     <tr style={{ borderTop: "1px solid var(--border)" }}>
@@ -298,6 +229,87 @@ function PositionRow({ position }: { position: Position }) {
   );
 }
 
+function PositionSummaryCard({ position }: { position: Position }) {
+  const value = positionValue(position);
+  const pnl = positionPnl(position);
+  const pnlPct = positionPnlPct(position);
+  const isPositive = pnl >= 0;
+  const price =
+    position.status === "resolved"
+      ? position.outcome === position.side
+        ? "100¢ ✓"
+        : "0¢ ✗"
+      : `${(position.currentPrice * 100).toFixed(0)}¢`;
+
+  return (
+    <article
+      className="min-w-0 rounded-lg p-3"
+      style={{ background: "var(--background)", border: "1px solid var(--border)" }}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-medium" style={{ color: "var(--foreground)" }}>
+            {position.market}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className="rounded px-1.5 py-0.5 text-xs font-semibold"
+              style={{
+                background: position.side === "YES" ? "#22c55e22" : "#ef444422",
+                color: position.side === "YES" ? "#22c55e" : "#ef4444",
+              }}
+            >
+              {position.side}
+            </span>
+            <span
+              className="rounded px-1.5 py-0.5 text-xs capitalize"
+              style={{
+                background: POSITION_STATUS_STYLES[position.status].bg,
+                color: POSITION_STATUS_STYLES[position.status].color,
+              }}
+            >
+              {position.status}
+            </span>
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-xs" style={{ color: "var(--muted)" }}>Value</p>
+          <p className="break-words text-sm font-semibold tabular-nums" style={{ color: "var(--foreground)" }}>
+            {formatUsd(value)}
+          </p>
+        </div>
+      </div>
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Shares</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {position.shares.toLocaleString()}
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Avg Cost</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {(position.avgCost * 100).toFixed(0)}¢
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>Price</dt>
+          <dd className="mt-0.5 font-medium tabular-nums" style={{ color: "var(--foreground)" }}>
+            {price}
+          </dd>
+        </div>
+        <div>
+          <dt style={{ color: "var(--muted)" }}>P&amp;L</dt>
+          <dd className="mt-0.5 break-words font-medium tabular-nums" style={{ color: isPositive ? "#22c55e" : "#ef4444" }}>
+            {isPositive ? "+" : ""}{formatUsd(pnl)} ({formatPct(pnlPct)})
+          </dd>
+        </div>
+      </dl>
+    </article>
+  );
+}
+
 function PortfolioTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
@@ -332,34 +344,90 @@ function PieTooltip({ active, payload }: any) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PortfolioWidget({
-  positions = MOCK_POSITIONS,
-  history = MOCK_HISTORY,
   onRefresh,
   refreshInterval = 30_000,
 }: PortfolioWidgetProps) {
-  const { isConnected } = useAccount();
+  const { isConnected } = useConnectKitBridge();
   const [range, setRange] = useState<Range>("1M");
   const [lastUpdated, setLastUpdated] = useState(Date.now());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(true);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refreshPortfolio = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isConnected) return;
+      setIsRefreshing(true);
+      setLoadError(null);
+      try {
+        const data = await fetchPortfolioData(signal);
+        if (signal?.aborted) return;
+        setPortfolio(data);
+        setLoadError(null);
+        setLastUpdated(Date.now());
+        await onRefresh?.();
+      } catch (error) {
+        if (signal?.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Could not load portfolio data.");
+      } finally {
+        if (!signal?.aborted) setIsRefreshing(false);
+      }
+    },
+    [isConnected, onRefresh],
+  );
+
+  useEffect(() => {
+    if (!isConnected) {
+      setPortfolio(null);
+      setLoadError(null);
+      setIsRefreshing(false);
+      return;
+    }
+    const controller = new AbortController();
+    void refreshPortfolio(controller.signal);
+    return () => controller.abort();
+  }, [isConnected, refreshPortfolio]);
+
+  useEffect(() => {
+    if (!refreshInterval || !isConnected) return;
+    const id = setInterval(() => void refreshPortfolio(), refreshInterval);
+    return () => clearInterval(id);
+  }, [isConnected, refreshInterval, refreshPortfolio]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    const refresh = () => void refreshPortfolio();
+    window.addEventListener(PORTFOLIO_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(PORTFOLIO_REFRESH_EVENT, refresh);
+  }, [isConnected, refreshPortfolio]);
+
+  const positions = useMemo<Position[]>(
+    () =>
+      (portfolio?.positions ?? []).map((position) => ({
+        id: position.id,
+        market: `Market #${position.marketId}`,
+        marketId: position.marketId,
+        side: position.side,
+        shares: position.shares,
+        avgCost: position.entryPrice,
+        currentPrice: position.currentPrice,
+        status: position.status,
+        realizedPnl: position.realizedPnl,
+      })),
+    [portfolio],
+  );
+  const history = portfolio?.history ?? [];
 
   // ── Derived stats ──────────────────────────────────────────────────────────
 
-  const totalValue = useMemo(
-    () => positions.reduce((sum, p) => sum + positionValue(p), 0),
-    [positions]
-  );
-
-  const totalCost = useMemo(
-    () => positions.reduce((sum, p) => sum + positionCost(p), 0),
-    [positions]
-  );
-
-  const totalPnl = totalValue - totalCost;
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const totalCost = portfolio?.summary.totalCost ?? 0;
+  const totalPnl = portfolio?.summary.totalPnl ?? 0;
+  const totalValue = totalCost + totalPnl;
+  const totalPnlPct = portfolio?.summary.totalPnlPct ?? 0;
   const isOverallPositive = totalPnl >= 0;
 
   const openPositions = positions.filter((p) => p.status === "open");
-  const resolvedPositions = positions.filter((p) => p.status === "resolved");
+  const closedPositions = positions.filter((p) => p.status === "closed");
 
   // ── Filtered history for chart ─────────────────────────────────────────────
 
@@ -394,20 +462,7 @@ export default function PortfolioWidget({
 
   // ── Auto-refresh ───────────────────────────────────────────────────────────
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    onRefresh?.();
-    // Simulate async refresh delay
-    await new Promise((r) => setTimeout(r, 600));
-    setLastUpdated(Date.now());
-    setIsRefreshing(false);
-  }, [onRefresh]);
-
-  useEffect(() => {
-    if (!refreshInterval) return;
-    const id = setInterval(handleRefresh, refreshInterval);
-    return () => clearInterval(id);
-  }, [handleRefresh, refreshInterval]);
+  const handleRefresh = () => void refreshPortfolio();
 
   const xFormatter = (ts: number) => xTickFormat(range, ts);
 
@@ -419,7 +474,7 @@ export default function PortfolioWidget({
   if (!isConnected) {
     return (
       <div
-        className="rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center"
+        className="flex w-full min-w-0 flex-col items-center justify-center gap-3 rounded-xl p-6 text-center sm:p-8"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         <span className="text-3xl" aria-hidden>💼</span>
@@ -433,8 +488,33 @@ export default function PortfolioWidget({
     );
   }
 
+  if (!portfolio && isRefreshing) {
+    return (
+      <p className="rounded-xl p-6 text-center text-sm" role="status"
+        style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)" }}>
+        Loading your portfolio…
+      </p>
+    );
+  }
+
+  if (!portfolio && loadError) {
+    return (
+      <div className="space-y-3 rounded-xl p-6 text-center"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+        <p role="alert" className="text-sm" style={{ color: "#ef4444" }}>
+          Could not load your portfolio: {loadError}
+        </p>
+        <button onClick={handleRefresh} disabled={isRefreshing}
+          className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+          style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="w-full min-w-0 space-y-4">
       {/* ── Header ── */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -444,6 +524,11 @@ export default function PortfolioWidget({
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
             Last updated {format(lastUpdated, "HH:mm:ss")}
           </p>
+          {loadError && (
+            <p role="alert" className="mt-1 text-xs" style={{ color: "#ef4444" }}>
+              Refresh failed: {loadError}
+            </p>
+          )}
         </div>
         <button
           onClick={handleRefresh}
@@ -458,7 +543,7 @@ export default function PortfolioWidget({
       </div>
 
       {/* ── Summary stats ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total Value"
           value={formatUsd(totalValue)}
@@ -477,15 +562,15 @@ export default function PortfolioWidget({
           positive={periodChange.abs >= 0}
         />
         <StatCard
-          label="Resolved"
-          value={String(resolvedPositions.length)}
+          label="Closed"
+          value={String(closedPositions.length)}
           sub={`${positions.length} total`}
         />
       </div>
 
       {/* ── Performance chart ── */}
       <div
-        className="rounded-xl p-4 space-y-3"
+        className="min-w-0 space-y-3 rounded-xl p-3 sm:p-4"
         style={{ background: "var(--card)", border: "1px solid var(--border)" }}
       >
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -520,7 +605,11 @@ export default function PortfolioWidget({
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={220}>
+        {filteredHistory.length === 0 ? (
+          <p className="py-12 text-center text-sm" role="status" style={{ color: "var(--muted)" }}>
+            No portfolio history is available yet.
+          </p>
+        ) : <ResponsiveContainer width="100%" height={220}>
           <AreaChart
             data={filteredHistory}
             margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -561,14 +650,14 @@ export default function PortfolioWidget({
               activeDot={{ r: 4, fill: "#3b82f6" }}
             />
           </AreaChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
 
       {/* ── Asset breakdown ── */}
-      <div className="grid sm:grid-cols-2 gap-4">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Pie chart */}
         <div
-          className="rounded-xl p-4"
+          className="min-w-0 rounded-xl p-3 sm:p-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <p className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
@@ -616,7 +705,7 @@ export default function PortfolioWidget({
 
         {/* Allocation list */}
         <div
-          className="rounded-xl p-4 space-y-2"
+          className="min-w-0 space-y-2 rounded-xl p-3 sm:p-4"
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <p className="text-sm font-semibold mb-3" style={{ color: "var(--foreground)" }}>
@@ -663,7 +752,7 @@ export default function PortfolioWidget({
 
       {/* ── Positions table ── */}
       <div
-        className="rounded-xl overflow-hidden"
+        className="w-full min-w-0 max-w-full overflow-hidden rounded-xl"
         style={{ border: "1px solid var(--border)" }}
       >
         <div
@@ -686,8 +775,14 @@ export default function PortfolioWidget({
             No positions found. Start trading to see your portfolio here.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm" style={{ background: "var(--background)" }}>
+          <>
+            <div className="grid gap-3 p-3 md:hidden">
+              {positions.map((position) => (
+                <PositionSummaryCard key={position.id} position={position} />
+              ))}
+            </div>
+            <div className="hidden max-w-full overflow-x-auto overscroll-x-contain md:block">
+              <table className="w-full min-w-[640px] text-sm" style={{ background: "var(--background)" }}>
               <thead>
                 <tr style={{ background: "var(--card)" }}>
                   {["Market", "Shares", "Avg Cost", "Price", "Value", "P&L"].map((h) => (
@@ -739,8 +834,9 @@ export default function PortfolioWidget({
                   </td>
                 </tr>
               </tfoot>
-            </table>
-          </div>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

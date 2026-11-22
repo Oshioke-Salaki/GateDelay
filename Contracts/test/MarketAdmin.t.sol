@@ -174,9 +174,10 @@ contract MarketAdminTest is Test {
     }
 
     function test_MultipleOperators() public {
-        vm.prank(alice);
+        vm.startPrank(alice);
         admin.addOperator(bob);
         admin.addOperator(charlie);
+        vm.stopPrank();
         
         assertTrue(admin.isOperator(bob));
         assertTrue(admin.isOperator(charlie));

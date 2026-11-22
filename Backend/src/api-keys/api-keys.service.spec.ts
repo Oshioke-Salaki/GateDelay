@@ -84,7 +84,11 @@ describe('ApiKeysService', () => {
       rateLimitPerMinute: 10,
     });
 
-    const revoked = service.revokeKey('user-1', created.key.id, 'manual revoke');
+    const revoked = service.revokeKey(
+      'user-1',
+      created.key.id,
+      'manual revoke',
+    );
     expect(revoked.status).toBe('revoked');
 
     const revokedValidation = service.validate({

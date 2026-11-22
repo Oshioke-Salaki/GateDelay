@@ -48,6 +48,11 @@ contract MarketAppeal {
     }
 
     /// @notice Submit an appeal for a market.
+    /// @param market Market address associated with this operation.
+    /// @param evidenceURI evidence uri used by this operation.
+    /// @return Value produced by the operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Already exists" if `a.status == AppealStatus.NONE` is false.
     function submitAppeal(
         address market,
         string calldata evidenceURI
@@ -69,6 +74,9 @@ contract MarketAppeal {
     }
 
     /// @notice Mark an appeal as under review. Owner only.
+    /// @param appealId Identifier of the relevant appeal.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Not submitted" if `a.status == AppealStatus.SUBMITTED` is false.
     function startReview(bytes32 appealId) external onlyOwner {
         Appeal storage a = _appeals[appealId];
         require(a.status == AppealStatus.SUBMITTED, "Not submitted");
@@ -77,6 +85,12 @@ contract MarketAppeal {
     }
 
     /// @notice Decide an appeal. Owner only. Optionally attach a verdict id to link to external execution.
+    /// @param appealId Identifier of the relevant appeal.
+    /// @param accept Whether accept is enabled or selected.
+    /// @param reason reason used by this operation.
+    /// @param verdictId Identifier of the relevant verdict.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: "Not under review" if `a.status == AppealStatus.UNDER_REVIEW` is false.
     function decideAppeal(
         bytes32 appealId,
         bool accept,
@@ -94,6 +108,16 @@ contract MarketAppeal {
     }
 
     /// @notice Query an appeal record.
+    /// @param appealId Identifier of the relevant appeal.
+    /// @return market market produced by the operation.
+    /// @return appellant appellant produced by the operation.
+    /// @return evidenceURI evidence uri produced by the operation.
+    /// @return submittedAt Unix timestamp of the event.
+    /// @return status Current status of the operation.
+    /// @return accepted accepted produced by the operation.
+    /// @return decisionReason decision reason produced by the operation.
+    /// @return verdictId Identifier of the relevant verdict.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getAppeal(
         bytes32 appealId
     )

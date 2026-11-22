@@ -1,5 +1,6 @@
 const Redis = require('ioredis');
-const _ = require('lodash');
+// TODO: Quarantined - lodash not in package.json. Add dependency or implement alternative.
+// const _ = require('lodash');
 
 const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',

@@ -37,6 +37,8 @@ contract VerdictExecution {
     event ExecutionSucceeded(bytes32 indexed verdictId);
     event ExecutionFailed(bytes32 indexed verdictId, string reason);
 
+    error ZeroAddress();
+
     modifier onlyArbitrator() {
         if (msg.sender != arbitrator) revert("Unauthorized");
         _;
@@ -48,11 +50,14 @@ contract VerdictExecution {
     }
 
     constructor(address _arbitrator) {
+        if (_arbitrator == address(0)) revert ZeroAddress();
         arbitrator = _arbitrator;
         owner = msg.sender;
     }
 
     /// @notice Set the `Resolution` contract address. Callable once by owner.
+    /// @param _resolution Address associated with resolution.
+    /// @dev Access: Caller must be the contract owner.
     function setResolution(address _resolution) external onlyOwner {
         resolution = Resolution(_resolution);
     }
@@ -61,6 +66,9 @@ contract VerdictExecution {
     /// @param verdictId  Unique identifier for the verdict.
     /// @param market     Target market address.
     /// @param outcome    Final outcome to apply.
+    /// @dev Access: Caller must satisfy `onlyArbitrator` access checks.
+    /// @dev Reverts: "Unauthorized" if the caller is not the arbitrator. "Already processed" if
+    ///     the verdict has already left the `UNKNOWN` state.
     function processVerdict(
         bytes32 verdictId,
         address market,
@@ -93,6 +101,14 @@ contract VerdictExecution {
     }
 
     /// @notice Query an execution record.
+    /// @param verdictId Identifier of the relevant verdict.
+    /// @return market market produced by the operation.
+    /// @return outcome outcome produced by the operation.
+    /// @return processedAt Unix timestamp of the event.
+    /// @return executedAt Unix timestamp of the event.
+    /// @return status Current status of the operation.
+    /// @return failureReason failure reason produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getExecution(
         bytes32 verdictId
     )

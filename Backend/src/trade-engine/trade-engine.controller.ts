@@ -21,11 +21,22 @@ import type { OrderStatus } from './schemas/order.schema';
 export class TradeEngineController {
   constructor(private readonly tradeEngineService: TradeEngineService) {}
 
-  /** POST /trade-engine/orders — place a new order */
+  /**
+   * POST /trade-engine/orders — place a new order
+   *
+   * Requires a configured CLOB venue and pair. An `Idempotency-Key` makes
+   * retries safe; matching is off-chain and does not settle on-chain (#912).
+   */
   @Post('orders')
   @HttpCode(HttpStatus.CREATED)
-  placeOrder(@Request() req: { user: { id: string } }, @Body() dto: PlaceOrderDto) {
-    return this.tradeEngineService.placeOrder(req.user.id, dto);
+  placeOrder(
+    @Request()
+    req: { user: { id: string }; headers: Record<string, string | undefined> },
+    @Body() dto: PlaceOrderDto,
+  ) {
+    return this.tradeEngineService.placeOrder(req.user.id, dto, {
+      idempotencyKey: req.headers?.['idempotency-key'],
+    });
   }
 
   /** DELETE /trade-engine/orders/:id — cancel an open order */
@@ -49,12 +60,18 @@ export class TradeEngineController {
     @Request() req: { user: { id: string } },
     @Query('status') status?: string,
   ) {
-    return this.tradeEngineService.getUserOrders(req.user.id, status as OrderStatus);
+    return this.tradeEngineService.getUserOrders(
+      req.user.id,
+      status as OrderStatus,
+    );
   }
 
-  /** GET /trade-engine/order-book/:pair — live order book for a pair */
+  /** GET /trade-engine/order-book/:pair — CLOB book scoped to a configured venue */
   @Get('order-book/:pair')
-  getOrderBook(@Param('pair') pair: string) {
-    return this.tradeEngineService.getOrderBook(pair);
+  getOrderBook(
+    @Param('pair') pair: string,
+    @Query('venueId') venueId: string,
+  ) {
+    return this.tradeEngineService.getOrderBook(venueId, pair);
   }
 }

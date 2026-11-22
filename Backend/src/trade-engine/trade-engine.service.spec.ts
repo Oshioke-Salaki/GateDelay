@@ -12,6 +12,9 @@ function makeOrder(overrides: Partial<Record<string, unknown>> = {}) {
   const base = {
     _id: 'order_' + Math.random().toString(36).slice(2),
     userId: 'user_A',
+    venueId: 'test-clob',
+    executionType: 'CLOB',
+    settlementStatus: 'NOT_ON_CHAIN',
     type: 'Limit',
     side: 'Buy',
     pair: 'ETH-USDT',
@@ -30,6 +33,7 @@ function makeOrder(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('TradeEngineService', () => {
   let service: TradeEngineService;
+  const originalClobVenues = process.env.CLOB_VENUES;
 
   /** Mocked Mongoose model */
   const mockOrderModel = {
@@ -43,6 +47,9 @@ describe('TradeEngineService', () => {
   };
 
   beforeEach(async () => {
+    process.env.CLOB_VENUES = JSON.stringify([
+      { id: 'test-clob', pairs: ['ETH-USDT'] },
+    ]);
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TradeEngineService,
@@ -57,6 +64,14 @@ describe('TradeEngineService', () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    if (originalClobVenues === undefined) {
+      delete process.env.CLOB_VENUES;
+    } else {
+      process.env.CLOB_VENUES = originalClobVenues;
+    }
+  });
+
   // ────────────────────────────────────────────── Constraint Validation
 
   describe('validateOrderConstraints (private via placeOrder)', () => {
@@ -65,6 +80,7 @@ describe('TradeEngineService', () => {
 
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Limit' as any,
           side: 'Buy' as any,
@@ -77,6 +93,7 @@ describe('TradeEngineService', () => {
     it('should throw BadRequestException for Stop-Loss with no stopPrice', async () => {
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Stop-Loss' as any,
           side: 'Sell' as any,
@@ -89,6 +106,7 @@ describe('TradeEngineService', () => {
     it('should throw BadRequestException for zero amount', async () => {
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Market' as any,
           side: 'Buy' as any,
@@ -102,8 +120,21 @@ describe('TradeEngineService', () => {
 
   describe('Unit Test: Partial fill logic and decimal precision', () => {
     it('should match partial fill leaving residual in order book', async () => {
-      const takerOrder = makeOrder({ amount: '1.05', side: 'Buy', price: '2000', filled: '0', status: 'Pending' });
-      const makerOrder = makeOrder({ userId: 'user_B', side: 'Sell', price: '2000', amount: '0.5', filled: '0', status: 'Pending' });
+      const takerOrder = makeOrder({
+        amount: '1.05',
+        side: 'Buy',
+        price: '2000',
+        filled: '0',
+        status: 'Pending',
+      });
+      const makerOrder = makeOrder({
+        userId: 'user_B',
+        side: 'Sell',
+        price: '2000',
+        amount: '0.5',
+        filled: '0',
+        status: 'Pending',
+      });
 
       mockOrderModel.create.mockResolvedValue(takerOrder);
       mockOrderModel.find.mockReturnValue({
@@ -118,6 +149,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Limit' as any,
         side: 'Buy' as any,
@@ -128,6 +160,12 @@ describe('TradeEngineService', () => {
       expect(result.matches).toHaveLength(1);
       expect(result.matches[0].amount).toBe('0.5');
       expect(result.matches[0].price).toBe('2000');
+      expect(result.execution).toEqual({
+        type: 'CLOB',
+        venueId: 'test-clob',
+        pair: 'ETH-USDT',
+        settlementStatus: 'NOT_ON_CHAIN',
+      });
 
       // Residual = 1.05 - 0.5 = 0.55
       const residual = new Big('1.05').minus('0.5').toString();
@@ -139,8 +177,23 @@ describe('TradeEngineService', () => {
 
   describe('Integration Test: Order matching sequence', () => {
     it('should fully fill a Market order against a resting Limit ask', async () => {
-      const takerOrder = makeOrder({ type: 'Market', side: 'Buy', amount: '1', filled: '0', status: 'Pending', price: '0' });
-      const makerOrder = makeOrder({ userId: 'user_B', type: 'Limit', side: 'Sell', price: '1900', amount: '1', filled: '0', status: 'Pending' });
+      const takerOrder = makeOrder({
+        type: 'Market',
+        side: 'Buy',
+        amount: '1',
+        filled: '0',
+        status: 'Pending',
+        price: '0',
+      });
+      const makerOrder = makeOrder({
+        userId: 'user_B',
+        type: 'Limit',
+        side: 'Sell',
+        price: '1900',
+        amount: '1',
+        filled: '0',
+        status: 'Pending',
+      });
 
       mockOrderModel.create.mockResolvedValue(takerOrder);
       mockOrderModel.find.mockReturnValue({
@@ -155,6 +208,7 @@ describe('TradeEngineService', () => {
       });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Market' as any,
         side: 'Buy' as any,
@@ -167,7 +221,14 @@ describe('TradeEngineService', () => {
     });
 
     it('should block self-trading: taker cannot match own resting orders', async () => {
-      const takerOrder = makeOrder({ type: 'Limit', side: 'Buy', price: '2000', amount: '1', filled: '0', status: 'Pending' });
+      const takerOrder = makeOrder({
+        type: 'Limit',
+        side: 'Buy',
+        price: '2000',
+        amount: '1',
+        filled: '0',
+        status: 'Pending',
+      });
       // Model returns no candidates (self-trading filtered by $ne userId)
       mockOrderModel.create.mockResolvedValue(takerOrder);
       mockOrderModel.find.mockReturnValue({
@@ -175,9 +236,13 @@ describe('TradeEngineService', () => {
         exec: jest.fn().mockResolvedValue([]),
       });
       mockOrderModel.findByIdAndUpdate.mockResolvedValue(true);
-      mockOrderModel.findById.mockResolvedValue({ ...takerOrder, status: 'Pending' });
+      mockOrderModel.findById.mockResolvedValue({
+        ...takerOrder,
+        status: 'Pending',
+      });
 
       const result = await service.placeOrder('user_A', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Limit' as any,
         side: 'Buy' as any,
@@ -194,10 +259,25 @@ describe('TradeEngineService', () => {
 
   describe('Stress Test: Whale order matched against multiple small orders', () => {
     it('should fully match a whale sell against 10 small buy orders', async () => {
-      const takerOrder = makeOrder({ type: 'Market', side: 'Sell', amount: '10', filled: '0', status: 'Pending', price: '0' });
+      const takerOrder = makeOrder({
+        type: 'Market',
+        side: 'Sell',
+        amount: '10',
+        filled: '0',
+        status: 'Pending',
+        price: '0',
+      });
 
       const makers = Array.from({ length: 10 }, (_, i) =>
-        makeOrder({ userId: `user_${i}`, type: 'Limit', side: 'Buy', price: '2000', amount: '1', filled: '0', status: 'Pending' }),
+        makeOrder({
+          userId: `user_${i}`,
+          type: 'Limit',
+          side: 'Buy',
+          price: '2000',
+          amount: '1',
+          filled: '0',
+          status: 'Pending',
+        }),
       );
 
       mockOrderModel.create.mockResolvedValue(takerOrder);
@@ -206,9 +286,14 @@ describe('TradeEngineService', () => {
         exec: jest.fn().mockResolvedValue(makers),
       });
       mockOrderModel.findByIdAndUpdate.mockResolvedValue(true);
-      mockOrderModel.findById.mockResolvedValue({ ...takerOrder, filled: '10', status: 'Filled' });
+      mockOrderModel.findById.mockResolvedValue({
+        ...takerOrder,
+        filled: '10',
+        status: 'Filled',
+      });
 
       const result = await service.placeOrder('user_whale', {
+        venueId: 'test-clob',
         pair: 'ETH-USDT',
         type: 'Market' as any,
         side: 'Sell' as any,
@@ -228,20 +313,37 @@ describe('TradeEngineService', () => {
   // ────────────────────────────────── Failure Test: Rollback on Error
 
   describe('Failure Test: Rollback verification', () => {
-    it('should propagate errors from the settlement stage', async () => {
-      const takerOrder = makeOrder({ type: 'Limit', side: 'Buy', price: '2000', amount: '1', filled: '0', status: 'Pending' });
-      const makerOrder = makeOrder({ userId: 'user_B', side: 'Sell', price: '2000', amount: '1', filled: '0', status: 'Pending' });
+    it('should propagate errors while persisting CLOB fills', async () => {
+      const takerOrder = makeOrder({
+        type: 'Limit',
+        side: 'Buy',
+        price: '2000',
+        amount: '1',
+        filled: '0',
+        status: 'Pending',
+      });
+      const makerOrder = makeOrder({
+        userId: 'user_B',
+        side: 'Sell',
+        price: '2000',
+        amount: '1',
+        filled: '0',
+        status: 'Pending',
+      });
 
       mockOrderModel.create.mockResolvedValue(takerOrder);
       mockOrderModel.find.mockReturnValue({
         sort: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue([makerOrder]),
       });
-      // Simulate DB failure during settlement
-      mockOrderModel.findByIdAndUpdate.mockRejectedValue(new Error('DB write failed'));
+      // Simulate a database failure while persisting matched fills.
+      mockOrderModel.findByIdAndUpdate.mockRejectedValue(
+        new Error('DB write failed'),
+      );
 
       await expect(
         service.placeOrder('user_A', {
+          venueId: 'test-clob',
           pair: 'ETH-USDT',
           type: 'Limit' as any,
           side: 'Buy' as any,
@@ -259,26 +361,32 @@ describe('TradeEngineService', () => {
       const order = makeOrder({ status: 'Pending' });
       mockOrderModel.findById.mockResolvedValue(order);
 
-      const result = await service.cancelOrder('user_A', order._id as string);
+      const result = await service.cancelOrder('user_A', order._id);
       expect(result.status).toBe('Canceled');
       expect(order.save).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when canceling unknown order', async () => {
       mockOrderModel.findById.mockResolvedValue(null);
-      await expect(service.cancelOrder('user_A', 'nonexistent')).rejects.toThrow(NotFoundException);
+      await expect(
+        service.cancelOrder('user_A', 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when canceling a Filled order', async () => {
       const order = makeOrder({ status: 'Filled' });
       mockOrderModel.findById.mockResolvedValue(order);
-      await expect(service.cancelOrder('user_A', order._id as string)).rejects.toThrow(BadRequestException);
+      await expect(service.cancelOrder('user_A', order._id)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException on unauthorized cancel', async () => {
       const order = makeOrder({ userId: 'user_B', status: 'Pending' });
       mockOrderModel.findById.mockResolvedValue(order);
-      await expect(service.cancelOrder('user_A', order._id as string)).rejects.toThrow(BadRequestException);
+      await expect(service.cancelOrder('user_A', order._id)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });

@@ -19,7 +19,10 @@ export interface UserSettings {
   updatedAt: Date;
 }
 
-export const DEFAULT_SETTINGS: Record<SettingCategory, Record<string, string | number | boolean>> = {
+export const DEFAULT_SETTINGS: Record<
+  SettingCategory,
+  Record<string, string | number | boolean>
+> = {
   notifications: {
     emailAlerts: true,
     pushAlerts: true,

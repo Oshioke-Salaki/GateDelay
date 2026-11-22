@@ -1,10 +1,12 @@
 const express = require('express');
 const ipfsService = require('../services/ipfsService');
-const multer = require('multer');
+// TODO: Quarantined - multer not in package.json. Add dependency or implement alternative.
+// const multer = require('multer');
 const { Readable } = require('stream');
 
 const router = express.Router();
-const upload = multer(); // For handling file uploads
+// TODO: Quarantined - multer not available, file upload endpoints disabled
+// const upload = multer(); // For handling file uploads
 
 /**
  * Error handling middleware

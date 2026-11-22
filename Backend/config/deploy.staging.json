@@ -1,0 +1,7 @@
+{
+  "registry": "registry.example.com",
+  "imageName": "gatedelay-backend",
+  "namespace": "staging",
+  "deploymentName": "gatedelay-backend",
+  "containerName": "backend"
+}

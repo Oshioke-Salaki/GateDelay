@@ -2,14 +2,14 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/EvidenceStorage.sol";
+import "../src/EvidenceStorage.sol";
 
 contract EvidenceStorageTest is Test {
     EvidenceStorage public storage_;
 
-    address public admin = address(0xADMIN);
-    address public alice = address(0xALICE);
-    address public bob = address(0xBOB);
+    address public admin = address(0xAD0111);
+    address public alice = address(0xA11CE);
+    address public bob = address(0xB0B);
 
     bytes32 public constant EVIDENCE_HASH_1 = keccak256("evidence1");
     bytes32 public constant EVIDENCE_HASH_2 = keccak256("evidence2");

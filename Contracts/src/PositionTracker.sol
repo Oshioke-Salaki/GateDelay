@@ -75,6 +75,9 @@ contract PositionTracker {
     // -------------------------------------------------------------------------
 
     /// @notice Update position for a user in a market
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function updatePosition(address user, address market) external {
         uint256 yesId = positionToken.yesId(market);
         uint256 noId = positionToken.noId(market);
@@ -120,21 +123,36 @@ contract PositionTracker {
     }
 
     /// @notice Get position for a user in a market
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Position returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPosition(address user, address market) external view returns (Position memory) {
         return _positions[user][market];
     }
 
     /// @notice Get all markets a user has positions in
+    /// @param user User address affected by this operation.
+    /// @return User markets returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserMarkets(address user) external view returns (address[] memory) {
         return _userMarkets[user];
     }
 
     /// @notice Get position history for a user in a market
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Position history returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getPositionHistory(address user, address market) external view returns (PositionChange[] memory) {
         return _positionHistory[user][market];
     }
 
     /// @notice Calculate current position value
+    /// @param user User address affected by this operation.
+    /// @param market Market address associated with this operation.
+    /// @return Position value returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function calculatePositionValue(address user, address market) external view returns (uint256) {
         uint256 yesId = positionToken.yesId(market);
         uint256 noId = positionToken.noId(market);
@@ -142,6 +160,9 @@ contract PositionTracker {
     }
 
     /// @notice Get total value across all positions for a user
+    /// @param user User address affected by this operation.
+    /// @return total total produced by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalValue(address user) external view returns (uint256 total) {
         address[] memory markets = _userMarkets[user];
         for (uint256 i = 0; i < markets.length; i++) {

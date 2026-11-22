@@ -15,6 +15,9 @@ describe('NonceManagerService', () => {
     set: jest.fn(async (key: string, value: unknown): Promise<void> => {
       cacheStore.set(key, value);
     }),
+    del: jest.fn(async (key: string): Promise<void> => {
+      cacheStore.delete(key);
+    }),
   };
 
   const config = {
@@ -43,10 +46,10 @@ describe('NonceManagerService', () => {
     }).compile();
 
     service = module.get<NonceManagerService>(NonceManagerService);
-    (service as unknown as { providerCache: Map<string, unknown> }).providerCache.set(
-      'mantle',
-      mockProvider,
-    );
+    // providerCache is now keyed by chainId (number). Mantle = 5000.
+    (
+      service as unknown as { providerCache: Map<number, unknown> }
+    ).providerCache.set(5000, mockProvider);
   });
 
   it('reserves nonces sequentially and avoids conflicts', async () => {
@@ -75,7 +78,12 @@ describe('NonceManagerService', () => {
     await service.commitReservation(testAddress, r3.reservationId, 'mantle');
     await service.releaseReservation(testAddress, r2.reservationId, 'mantle');
 
-    const result = await service.fillNonceGaps(testAddress, 'mantle', true, 60_000);
+    const result = await service.fillNonceGaps(
+      testAddress,
+      'mantle',
+      true,
+      60_000,
+    );
 
     expect(result.reserved).toBeDefined();
     expect(result.reserved?.nonce).toBe(11);

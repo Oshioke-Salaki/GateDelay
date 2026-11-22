@@ -31,7 +31,9 @@ export class ApiKeysService {
     const keyHash = this.hashKey(apiKey);
 
     if (this.keyHashToId.has(keyHash)) {
-      throw new BadRequestException('Generated API key collision. Retry request.');
+      throw new BadRequestException(
+        'Generated API key collision. Retry request.',
+      );
     }
 
     const record: ApiKeyRecord = {
@@ -301,7 +303,9 @@ export class ApiKeysService {
       .filter(Boolean);
 
     if (normalized.length === 0) {
-      throw new BadRequestException('At least one scope or permission is required');
+      throw new BadRequestException(
+        'At least one scope or permission is required',
+      );
     }
 
     return [...new Set(normalized)];

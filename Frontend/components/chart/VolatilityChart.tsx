@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import {
   ComposedChart,
   Area,
@@ -15,6 +15,21 @@ import {
   Legend,
 } from "recharts";
 import { format } from "date-fns";
+
+// ─── Fallback ─────────────────────────────────────────────────────────────────
+
+function ChartFallback({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-lg py-8 text-xs"
+      style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
+  );
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -229,6 +244,8 @@ export default function VolatilityChart({
   isLive = false,
 }: VolatilityChartProps) {
   const [timeframe, setTimeframe] = useState<Timeframe>("1D");
+  const [tooSmall, setTooSmall] = useState(false);
+  const handleResize = useCallback((w: number) => setTooSmall(w > 0 && w < 180), []);
 
   // Use provided data or generate mock data per timeframe
   const chartData = useMemo(
@@ -353,7 +370,10 @@ export default function VolatilityChart({
         <p className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
           Price with Bollinger Bands (20-period, 2σ)
         </p>
-        <ResponsiveContainer width="100%" height={220}>
+        {tooSmall || displayData.length === 0 ? (
+          <ChartFallback message={tooSmall ? "Chart area too small to display" : "No price data available"} />
+        ) : (
+        <ResponsiveContainer width="100%" height={220} onResize={handleResize}>
           <ComposedChart
             data={displayData}
             margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -445,6 +465,7 @@ export default function VolatilityChart({
             />
           </ComposedChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       {/* Volatility indicator chart */}
@@ -452,6 +473,9 @@ export default function VolatilityChart({
         <p className="mb-2 text-xs font-medium" style={{ color: "var(--muted)" }}>
           Realised Volatility (annualised)
         </p>
+        {tooSmall || displayData.length === 0 ? (
+          <ChartFallback message={tooSmall ? "Chart area too small to display" : "No volatility data available"} />
+        ) : (
         <ResponsiveContainer width="100%" height={90}>
           <ComposedChart
             data={displayData}
@@ -500,6 +524,7 @@ export default function VolatilityChart({
             />
           </ComposedChart>
         </ResponsiveContainer>
+        )}
         <p className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>
           Reference lines: 20% (low) · 40% (moderate) · 60% (high)
         </p>
@@ -510,6 +535,9 @@ export default function VolatilityChart({
         <p className="mb-1 text-xs font-medium" style={{ color: "var(--muted)" }}>
           Volume
         </p>
+        {tooSmall || displayData.length === 0 ? (
+          <ChartFallback message={tooSmall ? "Chart area too small to display" : "No volume data available"} />
+        ) : (
         <ResponsiveContainer width="100%" height={48}>
           <ComposedChart
             data={displayData}
@@ -542,6 +570,7 @@ export default function VolatilityChart({
             />
           </ComposedChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

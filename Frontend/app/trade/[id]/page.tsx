@@ -1,63 +1,175 @@
 "use client";
 
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { PageErrorBoundary } from "@/app/components/ui/PageErrorBoundary";
+import { useConnectKitBridge } from "@/app/components/ConnectKitBridgeContext";
 import TradingInterface, { Market } from "@/app/components/trade/TradingInterface";
+import { fetchMarketById } from "@/lib/marketApi";
 
-// ─── Mock Market Data ─────────────────────────────────────────────────────────
+type LoadState =
+  | { status: "loading" }
+  | { status: "loaded"; market: Market }
+  | { status: "not-found" }
+  | { status: "unavailable"; market: Market }
+  | { status: "error"; message: string };
 
-const MOCK_MARKETS: Record<string, Market> = {
-    "market-1": {
-        id: "market-1",
-        name: "AA 1234 - JFK to LAX",
-        description: "Will American Airlines flight 1234 from JFK to LAX be delayed by more than 30 minutes on Dec 25, 2026?",
-        currentPrice: 1.0025,
-        priceChange24h: 2.45,
-        volume24h: 125000,
-        high24h: 1.0150,
-        low24h: 0.9850,
-        totalLiquidity: 500000,
-        expiryDate: "2026-12-25T23:59:59Z",
-        status: "active",
-    },
-    "market-2": {
-        id: "market-2",
-        name: "UA 5678 - SFO to ORD",
-        description: "Will United Airlines flight 5678 from SFO to ORD be cancelled on Dec 26, 2026?",
-        currentPrice: 0.3500,
-        priceChange24h: -1.25,
-        volume24h: 85000,
-        high24h: 0.3750,
-        low24h: 0.3200,
-        totalLiquidity: 350000,
-        expiryDate: "2026-12-26T23:59:59Z",
-        status: "active",
-    },
-    "market-3": {
-        id: "market-3",
-        name: "DL 9012 - ATL to MIA",
-        description: "Will Delta flight 9012 from ATL to MIA depart on time on Dec 27, 2026?",
-        currentPrice: 0.7500,
-        priceChange24h: 0.85,
-        volume24h: 95000,
-        high24h: 0.7800,
-        low24h: 0.7200,
-        totalLiquidity: 420000,
-        expiryDate: "2026-12-27T23:59:59Z",
-        status: "active",
-    },
-};
+const UNAVAILABLE_STATUSES = new Set(["closed", "resolved", "disputed"]);
 
-// ─── Trade Page ───────────────────────────────────────────────────────────────
+function isNotFoundError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err as { status?: unknown; statusCode?: unknown; response?: { status?: unknown } };
+  return (
+    candidate.status === 404 ||
+    candidate.statusCode === 404 ||
+    candidate.response?.status === 404
+  );
+}
 
 export default function TradePage({ params }: { params: { id: string } }) {
-    const market = MOCK_MARKETS[params.id] || MOCK_MARKETS["market-1"];
+  const { address } = useConnectKitBridge();
+  const marketId = params.id;
+  const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [reloadKey, setReloadKey] = useState(0);
 
-    // Mock user address - in production, get from wallet connection
-    const userAddress = "0x1234567890abcdef1234567890abcdef12345678";
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
 
+    fetchMarketById(marketId)
+      .then((market) => {
+        if (cancelled) return;
+        if (!market) {
+          setState({ status: "not-found" });
+          return;
+        }
+        if (UNAVAILABLE_STATUSES.has(String(market.status).toLowerCase())) {
+          setState({ status: "unavailable", market });
+          return;
+        }
+        setState({ status: "loaded", market });
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        if (isNotFoundError(err)) {
+          setState({ status: "not-found" });
+          return;
+        }
+        setState({
+          status: "error",
+          message: err instanceof Error ? err.message : "Failed to load market",
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [marketId, reloadKey]);
+
+  const retry = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  if (state.status === "loading") {
     return (
-        <PageErrorBoundary>
-            <TradingInterface market={market} userAddress={userAddress} />
-        </PageErrorBoundary>
+      <main className="mx-auto max-w-xl px-4 py-12 space-y-4">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          Loading market
+        </h1>
+        <p style={{ color: "var(--muted)" }}>
+          Fetching market <code className="font-mono">{marketId}</code>…
+        </p>
+      </main>
     );
+  }
+
+  if (state.status === "not-found") {
+    return (
+      <main className="mx-auto max-w-xl px-4 py-12 space-y-4">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          Market not found
+        </h1>
+        <p style={{ color: "var(--muted)" }}>
+          No market exists for <code className="font-mono">{marketId}</code>.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Link
+            href="/dashboard"
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          >
+            Back to Markets
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (state.status === "unavailable") {
+    return (
+      <main className="mx-auto max-w-xl px-4 py-12 space-y-4">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          Market unavailable
+        </h1>
+        <p style={{ color: "var(--muted)" }}>
+          Market <code className="font-mono">{marketId}</code> is{" "}
+          <strong>{state.market.status}</strong> and is no longer open for
+          trading.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Link
+            href="/dashboard"
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          >
+            Back to Markets
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  if (state.status === "error") {
+    return (
+      <main className="mx-auto max-w-xl px-4 py-12 space-y-4">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          Could not load market
+        </h1>
+        <p style={{ color: "var(--muted)" }}>{state.message}</p>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <button
+            type="button"
+            onClick={retry}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: "#3b82f6" }}
+          >
+            Retry
+          </button>
+          <Link
+            href="/dashboard"
+            className="rounded-lg px-4 py-2 text-sm font-medium"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+          >
+            Back to Markets
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <PageErrorBoundary>
+      <TradingInterface market={state.market} userAddress={address} />
+    </PageErrorBoundary>
+  );
 }

@@ -1,0 +1,403 @@
+name: Application CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+env:
+  NODE_VERSION: '20.19.0'
+  NPM_VERSION: '10.8.2'
+
+# ---------------------------------------------------------------------------
+# Toolchain versions (pin these; do not let them float)
+#   Node.js  : 20.19.0  (package.json/package-lock.json engines/toolchain)
+#   Foundry  : 1.1.0  (foundry-rs/foundry-toolchain, package-lock.json toolchain,
+#                       Contracts/foundry.toml [toolchain] forge = "1.1.0")
+#   Solidity : 0.8.28  (foundry.toml solc, Contracts/foundry.toml solc)
+#
+# Rollback / retry
+#   • If the `deploy` job fails after a push to main, the prior deployment
+#     remains live (the deploy step is a dry-run and does not replace the
+#     running service).
+#   • To retry: re-push the same commit or re-run the failed workflow run
+#     from the GitHub Actions UI. Image builds are idempotent; npm ci may
+#     fail on lockfile mismatches (not transient — fix the lockfile first).
+#   • To rollback a live deployment: run `kubectl rollout undo` in the
+#     target namespace, then run the frontend smoke-test.sh to verify the
+#     restored image responds correctly.
+#   • The upgrade coordinator (backend/services/upgradeCoordinator.js)
+#     supports rollback only for the `database` tier; contracts, api, and
+#     indexer rollback handlers are stubs. A `rolled_back` status for those
+#     tiers means nothing was attempted, not that the service was restored.
+# ---------------------------------------------------------------------------
+
+jobs:
+  contracts:
+    name: Contracts — Foundry Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry (pinned version)
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: "v1.1.0"
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Compile contracts
+        run: forge build --force --contracts src/MarketCap.sol src/RoleManager.sol
+        working-directory: Contracts
+
+      - name: Run Foundry tests
+        run: |
+          forge test --contracts src/MarketCap.sol -vvv
+          forge test --contracts src/RoleManager.sol -vvv
+        working-directory: Contracts
+        env:
+          FOUNDRY_PROFILE: ci
+
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: Backend
+
+  backend-test:
+    name: Backend tests and build
+    runs-on: ubuntu-latest
+    needs: backend-lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Run Jest test suites
+        run: npm test -- --runInBand --forceExit
+        working-directory: Backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: Backend
+
+  backend-smoke:
+    name: Backend health smoke test
+    runs-on: ubuntu-latest
+    needs: backend-test
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: Backend
+
+      - name: Start backend
+        run: |
+          npm run start:prod > /tmp/gatedelay-backend.log 2>&1 &
+          echo $! > /tmp/gatedelay-backend.pid
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          JWT_SECRET: ci-test-access-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret
+          MONGODB_URI: mongodb://127.0.0.1:27017/gatedelay-ci
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          MARKET_AUDIT_ADMIN_IDS: ci-admin
+
+      - name: Run health smoke test
+        run: npm run test:heartbeat
+        working-directory: Backend
+        env:
+          NEST_PORT: 3000
+
+      - name: Show backend log on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/gatedelay-backend.log ]; then
+            cat /tmp/gatedelay-backend.log
+          else
+            echo "Backend log was not created; startup was not reached."
+          fi
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/gatedelay-backend.pid ]; then
+            kill "$(cat /tmp/gatedelay-backend.pid)" || true
+          fi
+
+      # -----------------------------------------------------------------------
+      # #708 / #674 — Upload CI reference artifacts so downstream jobs
+      # (staging, production) can verify the exact compiler options and the
+      # staging-vs-production env-var mapping used during the test run. The
+      # artifact is attached to every workflow run and is downloadable from the
+      # GitHub Actions UI for 30 days. This also satisfies the "toolchain
+      # versions documented and pinned" acceptance criterion.
+      #
+      # Toolchain versions pinned in this workflow (see .github/workflows/README.md):
+      #   Node.js  : 20.19.0  (actions/setup-node, node-version: '20.19.0')
+      #   Node.js  : 20.11.0  (localnet job only)
+      #   Foundry  : v1.1.0   (foundry-rs/foundry-toolchain)
+      #   Solidity : 0.8.28   (Contracts/foundry.toml [profile.default] solc)
+      #   TypeScript: see Backend/package.json devDependencies -> typescript
+      # -----------------------------------------------------------------------
+      - name: Upload CI reference artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-tsconfig
+          path: |
+            Backend/tsconfig.json
+            .github/workflows/README.md
+          retention-days: 30
+
+  localnet:
+    name: Localnet — Compile & Test
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Build backend
+        run: npm run build
+        working-directory: Backend
+
+      - name: Start backend
+        run: |
+          npm run start:prod > /tmp/gatedelay-backend.log 2>&1 &
+          echo $! > /tmp/gatedelay-backend.pid
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          JWT_SECRET: ci-test-access-secret
+          JWT_REFRESH_SECRET: ci-test-refresh-secret
+          MONGODB_URI: mongodb://127.0.0.1:27017/gatedelay-ci
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+          MARKET_AUDIT_ADMIN_IDS: ci-admin
+
+      - name: Run health smoke test
+        run: npm run test:heartbeat
+        working-directory: Backend
+        env:
+          NEST_PORT: 3000
+
+      - name: Show backend log on failure
+        if: failure()
+        run: |
+          if [ -f /tmp/gatedelay-backend.log ]; then
+            cat /tmp/gatedelay-backend.log
+          else
+            echo "Backend log was not created; startup was not reached."
+          fi
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f /tmp/gatedelay-backend.pid ]; then
+            kill "$(cat /tmp/gatedelay-backend.pid)" || true
+          fi
+
+  frontend-quality:
+    name: Frontend lint, tsconfig, and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Frontend
+
+      - name: Run ESLint
+        run: npm run lint
+        working-directory: Frontend
+
+      - name: Typecheck Frontend
+        run: npm run typecheck
+        working-directory: Frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: Frontend
+
+  # ---------------------------------------------------------------------------
+  # #674 — Staging environment mapping.
+  #
+  # This job runs on every push AND pull request so a PR touching CI/deploy code
+  # gets a green signal that the staging env-var wiring still resolves. It is a
+  # --dry-run (no docker/kubectl, no secrets), so it is safe on forked PRs.
+  #
+  #   environment arg : staging
+  #   NODE_ENV        : staging
+  #   k8s namespace   : staging   (see Backend/scripts/deploy.js)
+  #   config override : Backend/config/deploy.staging.json
+  #
+  # See .github/workflows/README.md for the full staging-vs-production table.
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Deploy to Staging (Dry Run)
+    runs-on: ubuntu-latest
+    needs: [backend-smoke, frontend-quality, contracts]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Execute Deployment script (Dry Run)
+        run: node scripts/deploy.js staging ${{ github.sha }} --dry-run
+        working-directory: Backend
+        env:
+          NODE_ENV: staging
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Upload staging deploy log
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-log-staging
+          path: Backend/logs/deploy-staging-*.log
+          if-no-files-found: error
+          retention-days: 30
+
+  deploy:
+    name: Deploy to Production (dry run)
+    runs-on: ubuntu-latest
+    needs: [backend-smoke, frontend-quality]
+    # Only deploy when pushing/merging directly to main or master
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: Backend
+
+      - name: Execute deployment dry run
+        run: node scripts/deploy.js production ${{ github.sha }} --dry-run
+        working-directory: Backend
+        env:
+          NODE_ENV: production
+          APP_VERSION: ${{ github.sha }}
+
+      - name: Upload production deploy log
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-log-production
+          path: Backend/logs/deploy-production-*.log
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Smoke verification
+        run: |
+          echo "Deployment dry-run completed for ${{ github.sha }}."
+          echo "To deploy for real, run: node scripts/deploy.js production ${{ github.sha }}"

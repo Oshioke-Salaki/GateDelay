@@ -1,34 +1,72 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { WithdrawalService } from './withdrawal.service';
 import { ethers } from 'ethers';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-function mockConfigService(overrides: Record<string, string> = {}): Partial<ConfigService> {
+function mockConfigService(
+  overrides: Record<string, string> = {},
+): Partial<ConfigService> {
   return {
     get: jest.fn((key: string, def?: unknown) => overrides[key] ?? def),
   };
 }
 
-/** Produce a real 65-byte personal-sign signature for `msg` using `wallet`. */
-async function sign(wallet: { signMessage(msg: string): Promise<string> }, msg: string): Promise<string> {
+/** Sign `msg` using `wallet` and return the EIP-191 personal_sign hex. */
+async function sign(
+  wallet: { signMessage(msg: string): Promise<string> },
+  msg: string,
+): Promise<string> {
   return wallet.signMessage(msg);
+}
+
+/**
+ * Build the canonical approval message for a given withdrawal record using
+ * the same logic as WithdrawalService.buildApprovalMessage so tests can
+ * produce valid signatures without calling the service method directly.
+ */
+function buildApprovalMsg(fields: {
+  domain: string;
+  chainId: number;
+  withdrawalId: string;
+  fromAddress: string;
+  toAddress: string;
+  tokenAddress: string;
+  amount: string;
+  expiry: number;
+}): string {
+  const KEY_ORDER = [
+    'amount',
+    'chainId',
+    'domain',
+    'expiry',
+    'fromAddress',
+    'toAddress',
+    'tokenAddress',
+    'withdrawalId',
+  ] as const;
+  return JSON.stringify(fields, [...KEY_ORDER]);
 }
 
 const AMOUNT = '1000000000000000000'; // 1 ETH in wei
 const USER_ID = 'user-abc';
 const OTHER_USER = 'user-xyz';
+const CHAIN_ID = 1;
+const EXPIRY = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
 
-// Use real deterministic wallets so checksum addresses are always valid.
 const walletA = ethers.Wallet.createRandom();
 const walletB = ethers.Wallet.createRandom();
 const walletC = ethers.Wallet.createRandom();
 
-const FROM = walletA.address; // checksummed
+const FROM = walletA.address;
 const TO = walletB.address;
-const TOKEN = '0x' + '1'.repeat(40); // valid-looking ERC-20 address
+const TOKEN = ethers.getAddress('0x' + '1'.repeat(40));
 
 // ── test suite ────────────────────────────────────────────────────────────────
 
@@ -46,10 +84,573 @@ describe('WithdrawalService', () => {
     service = module.get<WithdrawalService>(WithdrawalService);
   });
 
-  // ── initiation ────────────────────────────────────────────────────────────
+  // ── Issue 1: Amount validation ────────────────────────────────────────────
+  //
+  // validateAmount must enforce a canonical uint256-range decimal integer:
+  // no leading zeros, no sign, no decimal, no overflow.
 
-  describe('initiateWithdrawal', () => {
-    it('should create a pending withdrawal record for native transfer', () => {
+  describe('amount validation (Issue 1)', () => {
+    it('accepts a valid positive integer amount', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: AMOUNT,
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects zero', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '0',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a negative amount string', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '-1',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a fractional / decimal amount', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '1.5',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a non-canonical leading-zero string', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '01',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a hex-encoded amount', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '0x1',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects an octal-style leading-zero amount', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: '010',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a non-numeric string', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: 'not-a-number',
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('accepts uint256 max (2^256 - 1)', () => {
+      const uint256Max = (2n ** 256n - 1n).toString();
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: uint256Max,
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects uint256 overflow (2^256)', () => {
+      const overflow = (2n ** 256n).toString();
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: overflow,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects uint256 overflow on the ERC-20 path', () => {
+      const overflow = (2n ** 256n).toString();
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: TOKEN,
+          amount: overflow,
+        }),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  // ── Issue 2: Structured approval message ─────────────────────────────────
+  //
+  // Approval signatures must bind destination, asset, amount, chain, and
+  // expiry.  Mutating any field must invalidate the signature.
+
+  describe('structured approval message (Issue 2)', () => {
+    async function initiateMultiSig() {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 2,
+        multiSigSigners: [walletA.address, walletB.address, walletC.address],
+      });
+      return { withdrawalId, record };
+    }
+
+    it('buildApprovalMessage exposes all transfer/domain fields', async () => {
+      const { record } = await initiateMultiSig();
+      const { fields } = service.buildApprovalMessage(record);
+
+      expect(fields.domain).toBe('GateDelay-withdrawal-v1');
+      expect(fields.chainId).toBe(CHAIN_ID);
+      expect(fields.withdrawalId).toBe(record.id);
+      expect(fields.fromAddress).toBe(walletA.address);
+      expect(fields.toAddress).toBe(walletB.address);
+      expect(fields.tokenAddress).toBe('NATIVE');
+      expect(fields.amount).toBe(AMOUNT);
+      expect(fields.expiry).toBe(EXPIRY);
+    });
+
+    it('accepts a valid structured-message signature', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      const { message } = service.buildApprovalMessage(record);
+      const sig = await sign(walletA, message);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).not.toThrow();
+    });
+
+    it('rejects a signature over the old bare withdrawalId message', async () => {
+      const { withdrawalId } = await initiateMultiSig();
+      // Old weak message — should now be rejected.
+      const legacySig = await sign(walletA, `GateDelay withdrawal ${withdrawalId}`);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: legacySig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects when the toAddress field is mutated', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      // Sign a message with a different destination.
+      const mutated = buildApprovalMsg({
+        domain: 'GateDelay-withdrawal-v1',
+        chainId: CHAIN_ID,
+        withdrawalId,
+        fromAddress: record.fromAddress,
+        toAddress: walletC.address, // ← wrong destination
+        tokenAddress: record.tokenAddress,
+        amount: record.amount,
+        expiry: record.expiry,
+      });
+      const sig = await sign(walletA, mutated);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects when the amount field is mutated', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      const mutated = buildApprovalMsg({
+        domain: 'GateDelay-withdrawal-v1',
+        chainId: CHAIN_ID,
+        withdrawalId,
+        fromAddress: record.fromAddress,
+        toAddress: record.toAddress,
+        tokenAddress: record.tokenAddress,
+        amount: '1', // ← wrong amount
+        expiry: record.expiry,
+      });
+      const sig = await sign(walletA, mutated);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects when the chainId field is mutated', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      const mutated = buildApprovalMsg({
+        domain: 'GateDelay-withdrawal-v1',
+        chainId: 999, // ← wrong chain
+        withdrawalId,
+        fromAddress: record.fromAddress,
+        toAddress: record.toAddress,
+        tokenAddress: record.tokenAddress,
+        amount: record.amount,
+        expiry: record.expiry,
+      });
+      const sig = await sign(walletA, mutated);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects when the tokenAddress field is mutated', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      const mutated = buildApprovalMsg({
+        domain: 'GateDelay-withdrawal-v1',
+        chainId: CHAIN_ID,
+        withdrawalId,
+        fromAddress: record.fromAddress,
+        toAddress: record.toAddress,
+        tokenAddress: TOKEN, // ← wrong token
+        amount: record.amount,
+        expiry: record.expiry,
+      });
+      const sig = await sign(walletA, mutated);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects when the expiry field is mutated', async () => {
+      const { withdrawalId, record } = await initiateMultiSig();
+      const mutated = buildApprovalMsg({
+        domain: 'GateDelay-withdrawal-v1',
+        chainId: CHAIN_ID,
+        withdrawalId,
+        fromAddress: record.fromAddress,
+        toAddress: record.toAddress,
+        tokenAddress: record.tokenAddress,
+        amount: record.amount,
+        expiry: EXPIRY + 9999, // ← extended expiry
+      });
+      const sig = await sign(walletA, mutated);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('rejects a valid signature submitted after the expiry timestamp', async () => {
+      // Create and sign a valid intent, then submit it after it expires.
+      const expiry = Math.floor(Date.now() / 1000) + 60;
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry,
+        multiSigThreshold: 1,
+        multiSigSigners: [walletA.address, walletB.address],
+      });
+
+      const { message } = service.buildApprovalMessage(record);
+      const sig = await sign(walletA, message);
+
+      const clock = jest.spyOn(Date, 'now').mockReturnValue((expiry + 1) * 1000);
+      try {
+        expect(() =>
+          service.addMultiSigSignature(withdrawalId, USER_ID, {
+            signerAddress: walletA.address,
+            signature: sig,
+          }),
+        ).toThrow(BadRequestException);
+      } finally {
+        clock.mockRestore();
+      }
+    });
+
+    it('requires chainId for multi-sig withdrawals', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: walletA.address,
+          toAddress: walletB.address,
+          tokenAddress: 'NATIVE',
+          amount: AMOUNT,
+          expiry: EXPIRY,
+          multiSigThreshold: 2,
+          multiSigSigners: [walletA.address, walletB.address],
+          // chainId omitted intentionally
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('requires a future expiry for multi-sig withdrawals', () => {
+      expect(() =>
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: walletA.address,
+          toAddress: walletB.address,
+          tokenAddress: 'NATIVE',
+          amount: AMOUNT,
+          chainId: CHAIN_ID,
+          // expiry omitted — should fail
+          multiSigThreshold: 2,
+          multiSigSigners: [walletA.address, walletB.address],
+        }),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  // ── Issue 3: Multisig scope (off-chain approval workflow) ─────────────────
+  //
+  // The service is documented as an off-chain approval workflow.  The txData
+  // it returns is a plain single-owner transfer; it does NOT route through an
+  // on-chain multi-sig contract.  These tests confirm the scope boundaries.
+
+  describe('multisig scope — off-chain workflow (Issue 3)', () => {
+    it('buildApprovalMessage documents the off-chain scope', () => {
+      // This test is a compile-time / API-shape check.  The method must exist
+      // and return structured fields so the client can display them to signers.
+      const { record } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 2,
+        multiSigSigners: [walletA.address, walletB.address, walletC.address],
+      });
+
+      const result = service.buildApprovalMessage(record);
+      // All binding fields must be present so the client can display them.
+      expect(result.fields.fromAddress).toBeDefined();
+      expect(result.fields.toAddress).toBeDefined();
+      expect(result.fields.amount).toBeDefined();
+      expect(result.fields.tokenAddress).toBeDefined();
+      expect(result.fields.chainId).toBeDefined();
+      expect(result.fields.expiry).toBeDefined();
+      expect(result.message).toBe(
+        JSON.stringify(
+          result.fields,
+          [
+            'amount',
+            'chainId',
+            'domain',
+            'expiry',
+            'fromAddress',
+            'toAddress',
+            'tokenAddress',
+            'withdrawalId',
+          ],
+        ),
+      );
+    });
+
+    it('txData for a multisig withdrawal is a plain transfer (not a multisig-contract call)', () => {
+      const { txData } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 2,
+        multiSigSigners: [walletA.address, walletB.address, walletC.address],
+      });
+
+      // from is the EOA, not a contract address — this documents the off-chain
+      // scope: callers must relay through a real multisig contract themselves.
+      const tx = txData as { from: string; to: string };
+      expect(tx.from).toBe(walletA.address);
+      expect(tx.to).toBe(walletB.address);
+    });
+
+    it('submission is blocked until off-chain threshold is met', async () => {
+      const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 2,
+        multiSigSigners: [walletA.address, walletB.address],
+      });
+
+      await expect(
+        service.submitTxHash(withdrawalId, USER_ID, {
+          txHash: '0x' + 'c'.repeat(64),
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // ── Issue 4: Cancellation lifecycle + multisig atomicity ─────────────────
+  //
+  // Cancelled/failed/confirmed withdrawals must reject new signatures.
+  // cancelWithdrawal must atomically flip the linked multisig to 'rejected'.
+
+  describe('cancellation lifecycle and multisig atomicity (Issue 4)', () => {
+    async function pendingMultiSig() {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 2,
+        multiSigSigners: [walletA.address, walletB.address, walletC.address],
+      });
+      return { withdrawalId, record };
+    }
+
+    it('cancelling a multisig withdrawal atomically rejects the linked multisig', async () => {
+      const { withdrawalId, record } = await pendingMultiSig();
+
+      service.cancelWithdrawal(withdrawalId, USER_ID);
+
+      const ms = service.getMultiSigStatus(withdrawalId, USER_ID);
+      // The multisig must be rejected, not still pending.
+      expect(ms.status).toBe('rejected');
+      // The withdrawal record must be cancelled.
+      expect(record.status).toBe('cancelled');
+    });
+
+    it('rejects a new signature on a cancelled withdrawal', async () => {
+      const { withdrawalId, record } = await pendingMultiSig();
+      service.cancelWithdrawal(withdrawalId, USER_ID);
+
+      const { message } = service.buildApprovalMessage(record);
+      const sig = await sign(walletA, message);
+
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletA.address,
+          signature: sig,
+        }),
+      ).toThrow(BadRequestException);
+    });
+
+    it('does not mutate signature count or readiness after cancellation', async () => {
+      const { withdrawalId, record } = await pendingMultiSig();
+
+      // Add one valid signature before cancelling.
+      const { message } = service.buildApprovalMessage(record);
+      const sigA = await sign(walletA, message);
+      service.addMultiSigSignature(withdrawalId, USER_ID, {
+        signerAddress: walletA.address,
+        signature: sigA,
+      });
+
+      service.cancelWithdrawal(withdrawalId, USER_ID);
+
+      // Attempt to add a second signature post-cancellation.
+      const sigB = await sign(walletB, message);
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletB.address,
+          signature: sigB,
+        }),
+      ).toThrow(BadRequestException);
+
+      // Count must remain at 1 — the rejected multisig must not have advanced.
+      const ms = service.getMultiSigStatus(withdrawalId, USER_ID);
+      expect(ms.signaturesCollected).toBe(1);
+      expect(ms.status).toBe('rejected');
+    });
+
+    it('rejects a signature when the withdrawal is already submitted', async () => {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
+        fromAddress: walletA.address,
+        toAddress: walletB.address,
+        tokenAddress: 'NATIVE',
+        amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
+        multiSigThreshold: 1,
+        multiSigSigners: [walletA.address, walletB.address],
+      });
+
+      // Reach threshold so submission is allowed.
+      const { message } = service.buildApprovalMessage(record);
+      const sigA = await sign(walletA, message);
+      service.addMultiSigSignature(withdrawalId, USER_ID, {
+        signerAddress: walletA.address,
+        signature: sigA,
+      });
+
+      // Mock provider so confirmation tracking doesn't interfere.
+      (service as any).provider = {
+        waitForTransaction: jest.fn().mockReturnValue(new Promise(() => {})),
+      };
+
+      await service.submitTxHash(withdrawalId, USER_ID, {
+        txHash: '0x' + 'd'.repeat(64),
+      });
+
+      // Now in 'submitted' state — signature must be rejected.
+      const sigB = await sign(walletB, message);
+      expect(() =>
+        service.addMultiSigSignature(withdrawalId, USER_ID, {
+          signerAddress: walletB.address,
+          signature: sigB,
+        }),
+      ).toThrow(BadRequestException);
+    });
+  });
+
+  // ── Existing behaviour regression ─────────────────────────────────────────
+
+  describe('initiateWithdrawal — core behaviour', () => {
+    it('creates a pending native withdrawal record', () => {
       const result = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -63,7 +664,7 @@ describe('WithdrawalService', () => {
       expect(result.txData).toMatchObject({ from: FROM, to: TO });
     });
 
-    it('should create a pending withdrawal record for ERC-20 transfer', () => {
+    it('creates a pending ERC-20 withdrawal record', () => {
       const result = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -77,7 +678,7 @@ describe('WithdrawalService', () => {
       expect(tx.data).toMatch(/^0x/);
     });
 
-    it('should reject self-transfers', () => {
+    it('rejects self-transfers', () => {
       expect(() =>
         service.initiateWithdrawal(USER_ID, {
           fromAddress: FROM,
@@ -88,29 +689,7 @@ describe('WithdrawalService', () => {
       ).toThrow(BadRequestException);
     });
 
-    it('should reject zero or negative amounts', () => {
-      expect(() =>
-        service.initiateWithdrawal(USER_ID, {
-          fromAddress: FROM,
-          toAddress: TO,
-          tokenAddress: 'NATIVE',
-          amount: '0',
-        }),
-      ).toThrow(BadRequestException);
-    });
-
-    it('should reject non-numeric amounts', () => {
-      expect(() =>
-        service.initiateWithdrawal(USER_ID, {
-          fromAddress: FROM,
-          toAddress: TO,
-          tokenAddress: 'NATIVE',
-          amount: 'not-a-number',
-        }),
-      ).toThrow(BadRequestException);
-    });
-
-    it('should reject invalid from-address', () => {
+    it('rejects an invalid from-address', () => {
       expect(() =>
         service.initiateWithdrawal(USER_ID, {
           fromAddress: 'bad-address',
@@ -122,10 +701,8 @@ describe('WithdrawalService', () => {
     });
   });
 
-  // ── listing ───────────────────────────────────────────────────────────────
-
   describe('listWithdrawals', () => {
-    it('should return only withdrawals belonging to the user', () => {
+    it('returns only withdrawals for the requesting user', () => {
       service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -139,12 +716,12 @@ describe('WithdrawalService', () => {
         amount: AMOUNT,
       });
 
-      const list = service.listWithdrawals(USER_ID, {});
-      expect(list).toHaveLength(1);
-      expect(list[0].userId).toBe(USER_ID);
+      const page = service.listWithdrawals(USER_ID, {});
+      expect(page.data).toHaveLength(1);
+      expect(page.data[0].userId).toBe(USER_ID);
     });
 
-    it('should filter by status when provided', () => {
+    it('filters by status when provided', () => {
       service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -153,16 +730,51 @@ describe('WithdrawalService', () => {
       });
 
       const pending = service.listWithdrawals(USER_ID, { status: 'pending' });
-      const confirmed = service.listWithdrawals(USER_ID, { status: 'confirmed' });
-      expect(pending).toHaveLength(1);
-      expect(confirmed).toHaveLength(0);
+      const confirmed = service.listWithdrawals(USER_ID, {
+        status: 'confirmed',
+      });
+      expect(pending.data).toHaveLength(1);
+      expect(confirmed.data).toHaveLength(0);
+    });
+
+    it('should paginate and return a cursor when more records exist', () => {
+      // Create 3 withdrawals for the same user
+      for (let i = 0; i < 3; i++) {
+        service.initiateWithdrawal(USER_ID, {
+          fromAddress: FROM,
+          toAddress: TO,
+          tokenAddress: 'NATIVE',
+          amount: AMOUNT,
+        });
+      }
+
+      const page1 = service.listWithdrawals(USER_ID, { limit: 2 });
+      expect(page1.data).toHaveLength(2);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.nextCursor).not.toBeNull();
+
+      const page2 = service.listWithdrawals(USER_ID, {
+        limit: 2,
+        cursor: page1.nextCursor!,
+      });
+      expect(page2.data).toHaveLength(1);
+      expect(page2.hasMore).toBe(false);
+      expect(page2.nextCursor).toBeNull();
+
+      // No duplicate IDs across pages
+      const allIds = [...page1.data, ...page2.data].map((w) => w.id);
+      expect(new Set(allIds).size).toBe(3);
+    });
+
+    it('should reject an invalid cursor', () => {
+      expect(() =>
+        service.listWithdrawals(USER_ID, { cursor: '!!!not-base64url!!!' }),
+      ).toThrow(BadRequestException);
     });
   });
 
-  // ── cancellation ──────────────────────────────────────────────────────────
-
   describe('cancelWithdrawal', () => {
-    it('should cancel a pending withdrawal', () => {
+    it('cancels a plain pending withdrawal', () => {
       const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -174,7 +786,7 @@ describe('WithdrawalService', () => {
       expect(cancelled.status).toBe('cancelled');
     });
 
-    it('should throw when another user tries to cancel', () => {
+    it('throws when another user tries to cancel', () => {
       const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -182,12 +794,12 @@ describe('WithdrawalService', () => {
         amount: AMOUNT,
       });
 
-      expect(() =>
-        service.cancelWithdrawal(withdrawalId, OTHER_USER),
-      ).toThrow(ForbiddenException);
+      expect(() => service.cancelWithdrawal(withdrawalId, OTHER_USER)).toThrow(
+        ForbiddenException,
+      );
     });
 
-    it('should throw when cancelling an already cancelled withdrawal', () => {
+    it('throws when cancelling an already cancelled withdrawal', () => {
       const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -196,22 +808,20 @@ describe('WithdrawalService', () => {
       });
       service.cancelWithdrawal(withdrawalId, USER_ID);
 
-      expect(() =>
-        service.cancelWithdrawal(withdrawalId, USER_ID),
-      ).toThrow(BadRequestException);
+      expect(() => service.cancelWithdrawal(withdrawalId, USER_ID)).toThrow(
+        BadRequestException,
+      );
     });
 
-    it('should throw when withdrawal id does not exist', () => {
+    it('throws for a non-existent withdrawal id', () => {
       expect(() =>
         service.cancelWithdrawal('non-existent-id', USER_ID),
       ).toThrow(NotFoundException);
     });
   });
 
-  // ── tx hash submission ────────────────────────────────────────────────────
-
   describe('submitTxHash', () => {
-    it('should update status to submitted and set txHash', async () => {
+    it('updates status to submitted and sets txHash', async () => {
       const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -219,8 +829,6 @@ describe('WithdrawalService', () => {
         amount: AMOUNT,
       });
 
-      // Mock provider so trackConfirmations doesn't resolve synchronously and
-      // overwrite the 'submitted' status before the assertion runs.
       (service as any).provider = {
         waitForTransaction: jest.fn().mockReturnValue(new Promise(() => {})),
       };
@@ -233,7 +841,7 @@ describe('WithdrawalService', () => {
       expect(updated.txHash).toBe('0x' + 'a'.repeat(64));
     });
 
-    it('should throw when the withdrawal is not in pending state', async () => {
+    it('throws when the withdrawal is not in pending state', async () => {
       const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
         fromAddress: FROM,
         toAddress: TO,
@@ -250,80 +858,59 @@ describe('WithdrawalService', () => {
     });
   });
 
-  // ── multi-sig ─────────────────────────────────────────────────────────────
-
-  describe('multi-sig withdrawals', () => {
-    it('should create a multi-sig record and require threshold signatures before submission', async () => {
+  describe('multi-sig — threshold flow', () => {
+    it('advances from pending to ready when threshold is reached', async () => {
       const signers = [walletA.address, walletB.address, walletC.address];
 
-      const { withdrawalId, multiSigId } = service.initiateWithdrawal(USER_ID, {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
         fromAddress: walletA.address,
         toAddress: walletB.address,
         tokenAddress: 'NATIVE',
         amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
         multiSigThreshold: 2,
         multiSigSigners: signers,
       });
 
-      expect(multiSigId).toBeDefined();
+      const { message } = service.buildApprovalMessage(record);
 
-      // Only one signature so far — should NOT be ready
-      const sigA = await sign(walletA, `GateDelay withdrawal ${withdrawalId}`);
-      const msAfterFirst = service.addMultiSigSignature(
-        withdrawalId,
-        USER_ID,
-        { signerAddress: walletA.address, signature: sigA },
-      );
+      const sigA = await sign(walletA, message);
+      const msAfterFirst = service.addMultiSigSignature(withdrawalId, USER_ID, {
+        signerAddress: walletA.address,
+        signature: sigA,
+      });
       expect(msAfterFirst.status).toBe('pending');
 
-      // Second signature — threshold reached → ready
-      const sigB = await sign(walletB, `GateDelay withdrawal ${withdrawalId}`);
-      const msAfterSecond = service.addMultiSigSignature(
-        withdrawalId,
-        USER_ID,
-        { signerAddress: walletB.address, signature: sigB },
-      );
+      const sigB = await sign(walletB, message);
+      const msAfterSecond = service.addMultiSigSignature(withdrawalId, USER_ID, {
+        signerAddress: walletB.address,
+        signature: sigB,
+      });
       expect(msAfterSecond.status).toBe('ready');
     });
 
-    it('should block submission when multi-sig threshold not yet reached', async () => {
+    it('rejects a duplicate signature from the same signer', async () => {
       const signers = [walletA.address, walletB.address];
 
-      const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
         fromAddress: walletA.address,
         toAddress: walletC.address,
         tokenAddress: 'NATIVE',
         amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
         multiSigThreshold: 2,
         multiSigSigners: signers,
       });
 
-      await expect(
-        service.submitTxHash(withdrawalId, USER_ID, {
-          txHash: '0x' + 'c'.repeat(64),
-        }),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should reject a duplicate signature from the same signer', async () => {
-      const signers = [walletA.address, walletB.address];
-
-      const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
-        fromAddress: walletA.address,
-        toAddress: walletC.address,
-        tokenAddress: 'NATIVE',
-        amount: AMOUNT,
-        multiSigThreshold: 2,
-        multiSigSigners: signers,
-      });
-
-      const sigA = await sign(walletA, `GateDelay withdrawal ${withdrawalId}`);
+      const { message } = service.buildApprovalMessage(record);
+      const sigA = await sign(walletA, message);
       service.addMultiSigSignature(withdrawalId, USER_ID, {
         signerAddress: walletA.address,
         signature: sigA,
       });
 
-      // Same signer again
       expect(() =>
         service.addMultiSigSignature(withdrawalId, USER_ID, {
           signerAddress: walletA.address,
@@ -332,20 +919,23 @@ describe('WithdrawalService', () => {
       ).toThrow(BadRequestException);
     });
 
-    it('should reject a signature from an address that is not a registered signer', async () => {
+    it('rejects a signature from an address that is not a registered signer', async () => {
       const nonSigner = ethers.Wallet.createRandom();
       const signers = [walletA.address, walletB.address];
 
-      const { withdrawalId } = service.initiateWithdrawal(USER_ID, {
+      const { withdrawalId, record } = service.initiateWithdrawal(USER_ID, {
         fromAddress: walletA.address,
         toAddress: walletC.address,
         tokenAddress: 'NATIVE',
         amount: AMOUNT,
+        chainId: CHAIN_ID,
+        expiry: EXPIRY,
         multiSigThreshold: 2,
         multiSigSigners: signers,
       });
 
-      const sig = await sign(nonSigner, `GateDelay withdrawal ${withdrawalId}`);
+      const { message } = service.buildApprovalMessage(record);
+      const sig = await sign(nonSigner, message);
       expect(() =>
         service.addMultiSigSignature(withdrawalId, USER_ID, {
           signerAddress: nonSigner.address,
@@ -354,13 +944,15 @@ describe('WithdrawalService', () => {
       ).toThrow(ForbiddenException);
     });
 
-    it('should reject when threshold exceeds number of signers', () => {
+    it('rejects when threshold exceeds number of signers', () => {
       expect(() =>
         service.initiateWithdrawal(USER_ID, {
           fromAddress: walletA.address,
           toAddress: walletC.address,
           tokenAddress: 'NATIVE',
           amount: AMOUNT,
+          chainId: CHAIN_ID,
+          expiry: EXPIRY,
           multiSigThreshold: 3,
           multiSigSigners: [walletA.address, walletB.address],
         }),

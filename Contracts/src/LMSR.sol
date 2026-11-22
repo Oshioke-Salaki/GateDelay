@@ -42,6 +42,20 @@ library LMSR {
 
     // ── LMSR cost function ────────────────────────────────────────────────────
 
+    /// @notice Minimum initial collateral subsidy required to guarantee solvency
+    ///         for a market with `numOutcomes` outcomes and liquidity parameter `b`.
+    /// @dev Theoretical maximum LMSR market-maker loss is `b * ln(numOutcomes)`.
+    ///      Adds a 1 bps (0.01% of `b`) + 1 wei fixed-point cushion so truncation in
+    ///      `expWad`/`lnWad` across the valid `[0, 135*b]` domain cannot leave a
+    ///      market under-reserved when only one outcome is purchased.
+    function initialSubsidy(uint256 numOutcomes, uint256 b) internal pure returns (uint256) {
+        require(numOutcomes >= 2, "LMSR: need >= 2 outcomes");
+        require(b > 0, "LMSR: b must be > 0");
+        uint256 base = wadMul(b, lnWad(numOutcomes * WAD));
+        uint256 cushion = ((b + 9_999) / 10_000) + 1;
+        return base + cushion;
+    }
+
     /// @dev C(q) = b * ln( sum_i exp(q_i / b) )
     function costFunction(uint256[] memory q, uint256 b) internal pure returns (uint256) {
         uint256 len = q.length;
@@ -68,6 +82,7 @@ library LMSR {
     function expWad(uint256 x) internal pure returns (uint256 result) {
         // Solmate-style exp approximation (integer + fractional decomposition)
         // Accurate to ~1e-9 relative error for x in [0, 135e18]
+        if (x == 0) return WAD;
         require(x <= 135 * WAD, "LMSR: exp overflow");
         unchecked {
             // Split x = k*ln2 + r  where 0 <= r < ln2
@@ -108,6 +123,7 @@ library LMSR {
 
             // Normalise m = x / 2^e  into [WAD, 2*WAD)
             uint256 m = x >> e;
+            if (m == WAD) return e * ln2;
 
             // ln(m) for m in [1,2) via Padé approximant:
             // ln(m) ≈ 2*(m-1)/(m+1) * (1 + ((m-1)/(m+1))^2 / 3 + ...)

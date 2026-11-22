@@ -94,4 +94,22 @@ router.get(
   })
 );
 
+/**
+ * GET /archive
+ * Retrieve archived markets. When no outcome filter is supplied, the
+ * default archive includes both resolved and cancelled records.
+ */
+router.get(
+  '/archive',
+  handleErrors(async (req, res) => {
+    const { outcome } = req.query;
+
+    const data = outcome
+      ? await analyticsService.getArchivedMarkets({ outcome })
+      : await analyticsService.getArchivedMarkets();
+
+    res.json({ success: true, data });
+  })
+);
+
 module.exports = router;

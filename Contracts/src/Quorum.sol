@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@prb/math/src/Common.sol";
+import "./PRBMathUD60x18Compat.sol";
 
 /// @title Quorum
 /// @notice Manages quorum requirements for governance decisions.
 contract Quorum {
-    using PRBMath for uint256;
+    using PRBMathUD60x18Compat for uint256;
 
     // -------------------------------------------------------------------------
     // Custom errors
@@ -63,6 +63,8 @@ contract Quorum {
     /// @notice Calculate the required quorum threshold.
     /// @param totalVotes Total number of votes available.
     /// @return requiredVotes The number of votes required to achieve quorum.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroTotalVotes` if `totalVotes == 0` is true.
     function calculateQuorumThreshold(uint256 totalVotes) external view returns (uint256) {
         if (totalVotes == 0) revert ZeroTotalVotes();
 
@@ -78,6 +80,9 @@ contract Quorum {
     /// @param votesReceived Number of votes received.
     /// @param totalVotes Total number of votes available.
     /// @return achieved True if quorum is achieved, false otherwise.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ZeroTotalVotes` if `totalVotes == 0` is true. `QuorumNotAchieved` if
+    ///     `!achieved` is true.
     function validateQuorumAchievement(uint256 votesReceived, uint256 totalVotes)
         external
         returns (bool achieved)
@@ -97,6 +102,10 @@ contract Quorum {
     /// @notice Update the quorum configuration.
     /// @param _quorumType The type of quorum (ABSOLUTE or PERCENTAGE).
     /// @param _threshold The threshold value.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidQuorumPercentage` if `_quorumType == QuorumType.PERCENTAGE &&
+    ///     (_threshold > 100e18 || _threshold == 0)` is true. `InvalidQuorumPercentage` if
+    ///     `_quorumType == QuorumType.ABSOLUTE && _threshold == 0` is true.
     function updateQuorumConfig(QuorumType _quorumType, uint256 _threshold) external {
         if (_quorumType == QuorumType.PERCENTAGE && (_threshold > 100e18 || _threshold == 0)) {
             revert InvalidQuorumPercentage();
@@ -118,6 +127,7 @@ contract Quorum {
     /// @return quorumType The current quorum type.
     /// @return threshold The current threshold.
     /// @return lastUpdated The timestamp of the last update.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getQuorumStatus()
         external
         view

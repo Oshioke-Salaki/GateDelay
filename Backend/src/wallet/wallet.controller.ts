@@ -19,6 +19,18 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
+  /** GET /wallets/challenge — get a server-issued challenge for wallet connection */
+  @Get('challenge')
+  getChallenge() {
+    // Import ReplayProtectionService if needed
+    const nonce = this.walletService.generateChallenge();
+    return {
+      nonce,
+      timestamp: Date.now(),
+      expiresIn: 300000, // 5 minutes
+    };
+  }
+
   /** POST /wallets/connect — verify signature and store wallet association */
   @Post('connect')
   @HttpCode(HttpStatus.CREATED)

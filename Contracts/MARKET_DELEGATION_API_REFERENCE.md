@@ -7,6 +7,21 @@
 **License**: MIT  
 **Solidity Version**: ^0.8.20  
 
+## Deployment
+
+`MarketDelegation` takes **no constructor arguments**:
+
+```solidity
+constructor() Ownable(msg.sender) {}
+```
+
+The deploying address becomes the contract's `owner` (via OpenZeppelin `Ownable`) and is
+the only account that can call the admin-only `expireDelegation`. The contract has no
+external dependencies to wire up post-deploy — no other contract addresses, oracles, or
+initializer calls are required before it can be used. See
+`Contracts/test/MarketDelegation.t.sol` for end-to-end request/activate/revoke and
+permission-grant flows exercised against a fresh deployment.
+
 ## Table of Contents
 
 1. [Enums](#enums)

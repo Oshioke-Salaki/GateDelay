@@ -1,5 +1,6 @@
 const { Web3 } = require('web3');
-const math = require('mathjs');
+// TODO: Quarantined - mathjs not in package.json. Add dependency or implement alternative.
+// const math = require('mathjs');
 
 /**
  * LIQUIDITY MINING SERVICE

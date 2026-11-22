@@ -12,12 +12,23 @@ const RiskScoreSchema = new mongoose.Schema(
     components: {
       concentration: { score: String, level: String },
       leverage: { score: String, level: String },
-      liquidation: { score: String, level: String },
+      liquidation: { score: String, level: String, liquidationState: String },
       volatility: { score: String, level: String },
     },
+    reasons: [String],
+    confidence: { type: String, default: '0' },
+    inputSignals: [
+      {
+        signal: String,
+        value: String,
+        weight: String,
+        contribution: String,
+      },
+    ],
     alerts: [String],
     restrictions: mongoose.Schema.Types.Mixed,
     timestamp: { type: Date, default: Date.now },
+    providerTimestamp: { type: Date },
   },
   { timestamps: true },
 );

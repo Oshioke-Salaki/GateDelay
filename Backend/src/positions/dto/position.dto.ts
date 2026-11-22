@@ -1,30 +1,19 @@
-import {
-  IsString,
-  IsNotEmpty,
-  IsNumber,
-  IsPositive,
-  IsIn,
-} from 'class-validator';
+import { IsString, Matches, IsInt, Min } from 'class-validator';
 
-export class OpenPositionDto {
+/** No client supplied accounting values are accepted. */
+export class ExecutionPositionDto {
   @IsString()
-  @IsNotEmpty()
-  marketId: string;
+  @Matches(/^0x[0-9a-fA-F]{64}$/)
+  txHash: string;
 
-  @IsIn(['YES', 'NO'])
-  side: 'YES' | 'NO';
+  @IsInt()
+  @Min(0)
+  logIndex: number;
 
-  @IsNumber()
-  @IsPositive()
-  shares: number;
-
-  @IsNumber()
-  @IsPositive()
-  entryPrice: number;
+  @IsString()
+  @Matches(/^0x[0-9a-fA-F]+$/)
+  signature: string;
 }
 
-export class ClosePositionDto {
-  @IsNumber()
-  @IsPositive()
-  currentPrice: number;
-}
+export class OpenPositionDto extends ExecutionPositionDto {}
+export class ClosePositionDto extends ExecutionPositionDto {}

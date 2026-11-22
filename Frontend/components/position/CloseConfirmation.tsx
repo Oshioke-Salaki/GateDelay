@@ -11,13 +11,15 @@ export interface CloseConfirmationProps {
     /** Callback to close the modal */
     onClose: () => void;
     /** Callback when close is confirmed with the selected shares count, calculated P&L, and closing fee */
-    onConfirm: (sharesToClose: number, pnl: number, fee: number) => Promise<void> | void;
+    onConfirm?: (sharesToClose: number, pnl: number, fee: number) => Promise<void> | void;
+    onConfirmExact?: (sharesToClose: string, pnl: number, fee: number) => Promise<void> | void;
     /** Details of the position to close */
     position: {
         id: string;
         marketName: string;
         side: "YES" | "NO" | "long" | "short";
         shares: number;
+        sharesExact?: string;
         entryPrice: number;
         currentPrice: number;
     };
@@ -29,12 +31,15 @@ export default function CloseConfirmation({
     isOpen,
     onClose,
     onConfirm,
+    onConfirmExact,
     position,
     feePercentage = 0.02,
 }: CloseConfirmationProps) {
     // ─── Component State ──────────────────────────────────────────────────────
     const [closePercentage, setClosePercentage] = useState<number>(100);
-    const [closeSharesInput, setCloseSharesInput] = useState<string>(position.shares.toString());
+    const [closeSharesInput, setCloseSharesInput] = useState<string>(
+        position.sharesExact ?? position.shares.toString(),
+    );
     const [isConfirmed, setIsConfirmed] = useState<boolean>(false);
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
@@ -49,11 +54,20 @@ export default function CloseConfirmation({
     useEffect(() => {
         if (isOpen) {
             setClosePercentage(100);
-            setCloseSharesInput(position.shares.toString());
+            setCloseSharesInput(position.sharesExact ?? position.shares.toString());
             setIsConfirmed(false);
             setIsSubmitting(false);
         }
-    }, [isOpen, position]);
+    }, [
+        isOpen,
+        position.id,
+        position.marketName,
+        position.side,
+        position.shares,
+        position.sharesExact,
+        position.entryPrice,
+        position.currentPrice,
+    ]);
 
     // ─── Financial Calculations ───────────────────────────────────────────────
     // Parse shares to close safely, capping at the maximum owned shares
@@ -109,6 +123,10 @@ export default function CloseConfirmation({
     // Handler for the quick percentage buttons (25%, 50%, etc.)
     const handlePctSelect = (pct: number) => {
         setClosePercentage(pct);
+        if (pct === 100 && position.sharesExact) {
+            setCloseSharesInput(position.sharesExact);
+            return;
+        }
         const calculatedShares = (position.shares * (pct / 100));
         // Format to max 4 decimal places for precision without clutter
         setCloseSharesInput(parseFloat(calculatedShares.toFixed(4)).toString());
@@ -118,6 +136,10 @@ export default function CloseConfirmation({
     const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const pct = parseInt(e.target.value, 10);
         setClosePercentage(pct);
+        if (pct === 100 && position.sharesExact) {
+            setCloseSharesInput(position.sharesExact);
+            return;
+        }
         const calculatedShares = (position.shares * (pct / 100));
         setCloseSharesInput(parseFloat(calculatedShares.toFixed(4)).toString());
     };
@@ -139,11 +161,21 @@ export default function CloseConfirmation({
     // Form submit handler
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!isConfirmed || sharesToClose <= 0 || isSubmitting) return;
+        if (!isConfirmed || sharesToClose <= 0 || isSubmitting || (!onConfirm && !onConfirmExact)) return;
 
         setIsSubmitting(true);
         try {
-            await onConfirm(sharesToClose, pnl, closingFee);
+            const requestedShares = parseFloat(closeSharesInput);
+            const exactAmount = position.sharesExact && sharesToClose >= position.shares
+                ? position.sharesExact
+                : requestedShares > position.shares
+                    ? position.shares.toString()
+                    : closeSharesInput.trim();
+            if (onConfirmExact) {
+                await onConfirmExact(exactAmount, pnl, closingFee);
+            } else {
+                await onConfirm?.(sharesToClose, pnl, closingFee);
+            }
         } catch (error) {
             console.error("Failed to confirm position close:", error);
         } finally {

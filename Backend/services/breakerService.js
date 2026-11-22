@@ -44,6 +44,7 @@ const BREAKER_CONFIG = {
   SUCCESS_THRESHOLD: 2, // Successes to close from half-open
   TIMEOUT_MS: 60000, // Time before half-open attempt (1 min)
   RESET_TIMEOUT_MS: 300000, // Full reset timeout (5 min)
+  CALL_TIMEOUT_MS: 10000, // Call execution timeout (10 sec)
   MONITORED_SERVICES: [
     'trade-engine',
     'balance-service',
@@ -51,6 +52,9 @@ const BREAKER_CONFIG = {
     'liquidation-service',
     'blockchain-service',
     'market-data',
+    'bridge-service',
+    'swap-service',
+    'arbitrage-service',
   ],
 };
 
@@ -69,13 +73,15 @@ async function getBreakerState(serviceName) {
   try {
     if (redisClient) {
       const data = await redisClient.get(`breaker:${serviceName}`);
-      return data ? JSON.parse(data) : createDefaultState(serviceName);
+      return data ? JSON.parse(data) : (memoryStore.get(serviceName) || createDefaultState(serviceName));
     } else {
       return memoryStore.get(serviceName) || createDefaultState(serviceName);
     }
   } catch (err) {
     console.error('Failed to get breaker state:', err);
-    return createDefaultState(serviceName);
+    // Fall back to in-memory store instead of creating a fresh default (which
+    // would discard accumulated failure counts and cause state loss).
+    return memoryStore.get(serviceName) || createDefaultState(serviceName);
   }
 }
 
@@ -89,9 +95,13 @@ async function setBreakerState(serviceName, state) {
     } else {
       memoryStore.set(serviceName, state);
     }
+    // Always mirror to in-memory store so state survives Redis connection drops.
+    memoryStore.set(serviceName, state);
     return state;
   } catch (err) {
     console.error('Failed to set breaker state:', err);
+    // Persist to memory so state is not lost on Redis failures.
+    memoryStore.set(serviceName, state);
     return state;
   }
 }
@@ -188,7 +198,8 @@ async function tripBreaker(serviceName, reason = 'Manual trigger') {
   console.error(`[Breaker] TRIPPED: ${serviceName} - ${reason}`);
 
   // Schedule half-open attempt
-  setTimeout(() => attemptHalfOpen(serviceName), BREAKER_CONFIG.TIMEOUT_MS);
+  const timer = setTimeout(() => attemptHalfOpen(serviceName), BREAKER_CONFIG.TIMEOUT_MS);
+  if (timer && timer.unref) timer.unref();
 
   return state;
 }
@@ -279,21 +290,55 @@ async function isServiceAllowed(serviceName) {
 }
 
 /**
- * Execute function with circuit breaker protection
+ * Execute function with circuit breaker protection, timeout, and fallback support
+ * @param {string} serviceName
+ * @param {Function} fn
+ * @param {Object} [options]
+ * @param {number} [options.timeoutMs]
+ * @param {Function} [options.fallback]
  */
-async function executeWithBreaker(serviceName, fn) {
+async function executeWithBreaker(serviceName, fn, options = {}) {
   const check = await isServiceAllowed(serviceName);
 
   if (!check.allowed) {
-    throw new Error(`Service blocked by circuit breaker: ${serviceName} (${check.reason})`);
+    const err = new Error(`Service blocked by circuit breaker: ${serviceName} (${check.reason})`);
+    err.code = 'CIRCUIT_BREAKER_OPEN';
+    err.service = serviceName;
+    err.retryAfter = check.retryAfter;
+
+    if (typeof options.fallback === 'function') {
+      return await options.fallback(err);
+    }
+    throw err;
   }
 
+  const timeoutMs = options.timeoutMs || BREAKER_CONFIG.CALL_TIMEOUT_MS || 10000;
+  let timer = null;
+
   try {
-    const result = await fn();
+    const callPromise = fn();
+    const timeoutPromise = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        const timeoutErr = new Error(`Service call timeout after ${timeoutMs}ms: ${serviceName}`);
+        timeoutErr.code = 'ETIMEDOUT';
+        reject(timeoutErr);
+      }, timeoutMs);
+      if (timer && timer.unref) timer.unref();
+    });
+
+    const result = await Promise.race([callPromise, timeoutPromise]);
+    if (timer) clearTimeout(timer);
+
     await recordSuccess(serviceName);
     return result;
   } catch (err) {
+    if (timer) clearTimeout(timer);
+
     await recordFailure(serviceName, err);
+
+    if (typeof options.fallback === 'function') {
+      return await options.fallback(err);
+    }
     throw err;
   }
 }
@@ -411,12 +456,22 @@ function updateConfig(newConfig) {
   };
 }
 
+function closeRedis() {
+  if (redisClient) {
+    try {
+      redisClient.disconnect();
+    } catch (e) {}
+    redisClient = null;
+  }
+}
+
 module.exports = {
   getBreakerState,
   recordFailure,
   recordSuccess,
   tripBreaker,
   closeBreaker,
+  attemptHalfOpen,
   isServiceAllowed,
   executeWithBreaker,
   getAllBreakerStatus,
@@ -425,6 +480,7 @@ module.exports = {
   isolateService,
   getActivationHistory,
   updateConfig,
+  closeRedis,
   BREAKER_STATE,
   BREAKER_CONFIG,
 };

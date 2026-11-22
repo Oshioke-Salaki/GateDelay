@@ -700,10 +700,39 @@ function expireStaleWorkflows() {
   }
 }
 
-// Run expiry check every minute
-cron.schedule('* * * * *', expireStaleWorkflows);
+// Run expiry check every minute (gated behind APPROVAL_CRON_ENABLED env var)
+const cronEnabled = process.env.APPROVAL_CRON_ENABLED === 'true';
+let cronJob = null;
+
+if (cronEnabled) {
+  cronJob = cron.schedule('* * * * *', expireStaleWorkflows);
+  console.log('[approvalService] Cron job started — expiry check runs every minute');
+} else {
+  console.log('[approvalService] Cron job disabled — set APPROVAL_CRON_ENABLED=true to enable');
+}
 
 // ─────────────────────────────────────────────────────────────── Exports
+
+/**
+ * Start the expiry cron job programmatically.
+ */
+function startCron() {
+  if (!cronJob) {
+    cronJob = cron.schedule('* * * * *', expireStaleWorkflows);
+    console.log('[approvalService] Cron job started');
+  }
+}
+
+/**
+ * Stop the expiry cron job.
+ */
+function stopCron() {
+  if (cronJob) {
+    cronJob.stop();
+    cronJob = null;
+    console.log('[approvalService] Cron job stopped');
+  }
+}
 
 module.exports = {
   createWorkflow,
@@ -715,6 +744,8 @@ module.exports = {
   getApprovalHistory,
   getPendingNotifications,
   expireStaleWorkflows,
+  startCron,
+  stopCron,
   APPROVAL_STAGES,
   APPROVAL_STATUSES,
   WORKFLOW_STATUSES,

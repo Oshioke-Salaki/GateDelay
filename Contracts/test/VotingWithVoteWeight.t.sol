@@ -3,15 +3,15 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {console} from "forge-std/console.sol";
-import {VotingWithVoteWeight} from "../contracts/VotingWithVoteWeight.sol";
-import {VoteWeight} from "../contracts/VoteWeight.sol";
+import {VotingWithVoteWeight} from "../src/VotingWithVoteWeight.sol";
+import {VoteWeight} from "../src/VoteWeight.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /// @notice Mock ERC20 token for testing
 contract MockGovernanceToken is ERC20 {
     constructor() ERC20("Governance Token", "GOV") {
-        _mint(msg.sender, 1_000_000 * 10**18);
+        _mint(msg.sender, 1_000_000 * 10 ** 18);
     }
 
     function mint(address to, uint256 amount) external {
@@ -36,21 +36,14 @@ contract VotingWithVoteWeightTest is Test {
     address public charlie;
     address public dave;
 
-    uint256 constant INITIAL_BALANCE = 1000 * 10**18;
+    uint256 constant INITIAL_BALANCE = 1000 * 10 ** 18;
     uint256 constant VOTING_DURATION = 7 days;
 
     event ProposalCreated(
-        uint256 indexed proposalId,
-        string description,
-        uint256 startTime,
-        uint256 endTime,
-        uint256 snapshotId
+        uint256 indexed proposalId, string description, uint256 startTime, uint256 endTime, uint256 snapshotId
     );
     event VoteCast(
-        uint256 indexed proposalId,
-        address indexed voter,
-        VotingWithVoteWeight.VoteChoice choice,
-        uint256 weight
+        uint256 indexed proposalId, address indexed voter, VotingWithVoteWeight.VoteChoice choice, uint256 weight
     );
 
     function setUp() public {
@@ -89,7 +82,7 @@ contract VotingWithVoteWeightTest is Test {
 
     function test_CreateProposal_WithSnapshot() public {
         string memory description = "Test Proposal";
-        
+
         vm.expectEmit(true, true, true, true);
         emit ProposalCreated(1, description, block.timestamp, block.timestamp + VOTING_DURATION, 1);
 
@@ -107,7 +100,7 @@ contract VotingWithVoteWeightTest is Test {
 
     function test_CreateProposal_SnapshotCapturesWeights() public {
         uint256 proposalId = voting.createProposal("Test", VOTING_DURATION);
-        
+
         VotingWithVoteWeight.Proposal memory proposal = voting.getProposal(proposalId);
         uint256 snapshotId = proposal.snapshotId;
 
@@ -158,7 +151,7 @@ contract VotingWithVoteWeightTest is Test {
 
         // Alice transfers tokens after proposal creation
         vm.prank(alice);
-        token.transfer(dave, 500 * 10**18);
+        token.transfer(dave, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
 
         // Alice should still vote with original weight from snapshot
@@ -230,7 +223,7 @@ contract VotingWithVoteWeightTest is Test {
         // Snapshot should have original weights (delegation doesn't affect it)
         uint256 aliceWeight = voting.getVotingPowerAtProposal(proposalId, alice);
         uint256 bobWeight = voting.getVotingPowerAtProposal(proposalId, bob);
-        
+
         assertEq(aliceWeight, INITIAL_BALANCE);
         assertEq(bobWeight, INITIAL_BALANCE);
     }
@@ -294,8 +287,7 @@ contract VotingWithVoteWeightTest is Test {
         vm.prank(alice);
         voting.delegate(bob);
 
-        (uint256 base, uint256 received, uint256 given, uint256 total) = 
-            voting.getWeightBreakdown(bob);
+        (uint256 base, uint256 received, uint256 given, uint256 total) = voting.getWeightBreakdown(bob);
 
         assertEq(base, INITIAL_BALANCE);
         assertEq(received, INITIAL_BALANCE);
@@ -325,7 +317,9 @@ contract VotingWithVoteWeightTest is Test {
     }
 
     function test_GetWeightChangeHistory() public {
-        voteWeight.updateWeight(alice);
+        // setUp() already synced alice, so `updateWeight` would revert with
+        // NoWeightChange here. `syncWeight` is the idempotent form.
+        voteWeight.syncWeight(alice);
 
         VoteWeight.WeightChange[] memory history = voting.getWeightChangeHistory(alice);
         assertGt(history.length, 0);
@@ -372,7 +366,7 @@ contract VotingWithVoteWeightTest is Test {
 
         // Alice transfers tokens
         vm.prank(alice);
-        token.transfer(dave, 500 * 10**18);
+        token.transfer(dave, 500 * 10 ** 18);
         voteWeight.updateWeight(alice);
         voteWeight.updateWeight(dave);
 
@@ -384,7 +378,7 @@ contract VotingWithVoteWeightTest is Test {
         uint256 aliceWeight2 = voting.getVotingPowerAtProposal(proposal2, alice);
 
         assertEq(aliceWeight1, INITIAL_BALANCE);
-        assertEq(aliceWeight2, 500 * 10**18);
+        assertEq(aliceWeight2, 500 * 10 ** 18);
     }
 
     function test_DelegationChain() public {
@@ -399,9 +393,18 @@ contract VotingWithVoteWeightTest is Test {
         // Create proposal
         uint256 proposalId = voting.createProposal("Test", VOTING_DURATION);
 
-        // Charlie should have Alice's + Bob's + own weight
+        // Delegation is NOT transitive: `_createDelegation` delegates
+        // `balanceOf(delegator)`, i.e. the delegator's own tokens only. Bob
+        // therefore forwards his own balance to Charlie and keeps the weight
+        // Alice delegated to him. Charlie ends up with his own balance plus
+        // Bob's, not Alice's as well.
         uint256 charlieWeight = voting.getVotingPowerAtProposal(proposalId, charlie);
-        assertEq(charlieWeight, INITIAL_BALANCE * 3);
+        assertEq(charlieWeight, INITIAL_BALANCE * 2);
+
+        // Alice's delegation stays with Bob, which is what keeps the chain
+        // bounded: no recursive re-computation on every balance change.
+        uint256 bobWeight = voting.getVotingPowerAtProposal(proposalId, bob);
+        assertEq(bobWeight, INITIAL_BALANCE);
     }
 
     function test_VoteBuying_Prevention() public {
@@ -426,14 +429,14 @@ contract VotingWithVoteWeightTest is Test {
 
         // Transfer tokens
         vm.prank(alice);
-        token.transfer(bob, 100 * 10**18);
+        token.transfer(bob, 100 * 10 ** 18);
 
         // Batch update
         voting.batchUpdateWeights(accounts);
 
         // Verify updates
-        assertEq(voting.getVotingPower(alice), 900 * 10**18);
-        assertEq(voting.getVotingPower(bob), 1100 * 10**18);
+        assertEq(voting.getVotingPower(alice), 900 * 10 ** 18);
+        assertEq(voting.getVotingPower(bob), 1100 * 10 ** 18);
     }
 
     // ── Admin Tests ────────────────────────────────────────────────────────────
@@ -467,7 +470,7 @@ contract VotingWithVoteWeightTest is Test {
 
     function test_VoteWithZeroDelegatedWeight() public {
         address noTokens = makeAddr("noTokens");
-        
+
         // NoTokens delegates to Bob (but has no tokens)
         voteWeight.updateWeight(noTokens);
         vm.prank(noTokens);

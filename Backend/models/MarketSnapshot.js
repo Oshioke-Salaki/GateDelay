@@ -10,7 +10,17 @@ const MarketSnapshotSchema = new mongoose.Schema({
     bids: [{ price: String, amount: String }],
     asks: [{ price: String, amount: String }]
   },
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now },
+  resolutionState: {
+    type: String,
+    enum: ['proposed', 'submitted', 'confirmed'],
+    default: null
+  },
+  proposedAt: { type: Date, default: null },
+  submittedAt: { type: Date, default: null },
+  confirmedAt: { type: Date, default: null },
+  txHash: { type: String, default: null },
+  payoutTotals: { type: mongoose.Schema.Types.Mixed, default: null }
 }, { timestamps: true });
 
 // Index for efficient time-range queries per pair

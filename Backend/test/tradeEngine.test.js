@@ -78,6 +78,22 @@ describe('Trade Execution Engine', () => {
       };
 
       Balance.findOne.mockResolvedValue(mockBalance);
+
+      // The Order constructor must produce a document with filled:'0' so
+      // matchOrder's Big(order.filled) doesn't receive undefined.
+      const mockOrderInstance = {
+        _id: 'mock-order-id',
+        userId: 'u1',
+        side: 'Buy',
+        type: 'Limit',
+        pair: 'ETH-USDT',
+        amount: '1',
+        price: '2000',
+        filled: '0',
+        status: 'Pending',
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Order.mockImplementation(() => mockOrderInstance);
       Order.prototype.save = jest.fn().mockResolvedValue(true);
 
       const result = await tradeEngine.processOrder(orderData);
@@ -151,6 +167,20 @@ describe('Trade Execution Engine', () => {
       };
 
       Balance.findOne.mockResolvedValue(mockBalance);
+
+      const mockOrderInstance = {
+        _id: 'mock-order-id',
+        userId: 'u1',
+        side: 'Buy',
+        type: 'Limit',
+        pair: 'ETH-USDT',
+        amount: '1',
+        price: '2000',
+        filled: '0',
+        status: 'Pending',
+        save: jest.fn().mockResolvedValue(true),
+      };
+      Order.mockImplementation(() => mockOrderInstance);
       
       // Force an error in matching phase to simulate rollback/failure
       jest.spyOn(tradeEngine, 'matchOrder').mockImplementation((order, cb) => {

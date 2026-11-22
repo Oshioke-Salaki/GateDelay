@@ -3,12 +3,19 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MarketListSkeleton } from "./components/ui/Skeleton";
 import QuickTradeWidget from "../components/trade/QuickTradeWidget";
+import { formatOdds, formatVolume } from "@/lib/formatters";
+import { Compass, Search } from "lucide-react";
 
-const SAMPLE_MARKETS = [
-  { id: "1", title: "Will AA123 arrive on time?", yesPrice: 0.62, volume: 14820, status: "open" },
-  { id: "2", title: "Will UA456 be delayed > 30 min?", yesPrice: 0.41, volume: 8300, status: "open" },
-  { id: "3", title: "Will DL789 be cancelled?", yesPrice: 0.08, volume: 3200, status: "open" },
-];
+// Replace with a real API call (e.g. fetch /api/markets) once the backend
+// market-list endpoint is available.
+type HomeMarket = {
+  id: string;
+  title: string;
+  yesPrice: number;
+  volume: number;
+};
+
+const SAMPLE_MARKETS: HomeMarket[] = [];
 
 export default function Home() {
   return (
@@ -45,19 +52,50 @@ export default function Home() {
                   <div>
                     <p className="font-medium text-sm" style={{ color: "var(--foreground)" }}>{m.title}</p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
-                      Vol: ${m.volume.toLocaleString()}
+                      Vol: {formatVolume(m.volume)}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-semibold" style={{ color: "#22c55e" }}>
-                      YES {(m.yesPrice * 100).toFixed(0)}¢
+                      YES {formatOdds(m.yesPrice)}
                     </p>
                     <p className="text-xs" style={{ color: "#ef4444" }}>
-                      NO {((1 - m.yesPrice) * 100).toFixed(0)}¢
+                      NO {formatOdds(1 - m.yesPrice)}
                     </p>
                   </div>
                 </Link>
               ))}
+              {SAMPLE_MARKETS.length === 0 && (
+                <div
+                  className="rounded-lg border px-5 py-6"
+                  style={{ background: "var(--card)", borderColor: "var(--border)" }}
+                >
+                  <h3 className="font-semibold" style={{ color: "var(--foreground)" }}>
+                    No active markets to show yet
+                  </h3>
+                  <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+                    Search for a market or browse the full market list. You can favorite markets to keep them close.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      href="/dashboard"
+                      className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
+                      style={{ background: "#2563eb", color: "white" }}
+                    >
+                      <Compass size={15} aria-hidden="true" />
+                      Browse markets
+                    </Link>
+                    <Link
+                      href="/markets/search"
+                      className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold"
+                      style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+                    >
+                      <Search size={15} aria-hidden="true" />
+                      Search markets
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           </Suspense>
         </section>

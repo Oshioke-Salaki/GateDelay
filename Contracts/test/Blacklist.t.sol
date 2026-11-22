@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/Blacklist.sol";
+import "../src/Blacklist.sol";
 
 contract BlacklistTest is Test {
     Blacklist public blacklistContract;
@@ -106,7 +106,7 @@ contract BlacklistTest is Test {
         vm.prank(owner);
         blacklistContract.blacklist(alice);
 
-        vm.expectRevert(Blacklist.Blacklisted.selector);
+        vm.expectRevert(Blacklist.BlacklistedAccount.selector);
         blacklistContract.requireNotBlacklisted(alice);
     }
 

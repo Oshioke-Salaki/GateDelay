@@ -1,7 +1,10 @@
-const { Parser } = require('json2csv');
-const archiver = require('archiver');
+// TODO: Quarantined - json2csv not in package.json. Add dependency or implement alternative.
+// const { Parser } = require('json2csv');
+// TODO: Quarantined - archiver not in package.json. Add dependency or implement alternative.
+// const archiver = require('archiver');
 const crypto = require('crypto');
-const cron = require('node-cron');
+// TODO: Quarantined - node-cron not in package.json. Add dependency or implement alternative.
+// const cron = require('node-cron');
 const Order = require('../models/Order');
 const Balance = require('../models/Balance');
 const MarketSnapshot = require('../models/MarketSnapshot');
@@ -97,7 +100,13 @@ class ExportService {
     if (options.pair) query.pair = options.pair;
     if (options.startDate) query.timestamp = { $gte: new Date(options.startDate) };
     if (options.endDate) query.timestamp = { ...query.timestamp, $lte: new Date(options.endDate) };
-    
+    // Only exclude cancelled markets when an outcome filter is explicitly requested;
+    // the default archive includes both resolved and cancelled records.
+    if (options.outcome) {
+      query.outcome = options.outcome;
+      query.cancelled = { $ne: true };
+    }
+
     return MarketSnapshot.find(query).sort({ timestamp: -1 });
   }
 

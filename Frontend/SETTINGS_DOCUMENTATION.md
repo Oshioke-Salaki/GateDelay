@@ -334,6 +334,30 @@ const { settings } = useSettings();
 </motion.div>
 ```
 
+## Cross-Tab Synchronization
+
+`SettingsService` listens for the browser's `storage` events so a settings
+change saved in one tab propagates to every other open tab without a reload:
+
+- **Propagation**: when another tab writes the settings key, each remaining tab
+  parses the new value, merges it onto `DEFAULT_SETTINGS` (including theme
+  normalization), and notifies its subscribers exactly once. Components using
+  `useSettings` re-render with the fresh value; the theme provider reacts the
+  same way, so a theme change in one tab updates the others live.
+- **No echo loops**: the browser never fires `storage` in the tab that made the
+  write, and the receiving tab applies the value in memory without re-saving
+  it, so a single change cannot bounce between tabs.
+- **Unrelated events are ignored**: events for other keys, events originating
+  from `sessionStorage`, and synthetic events without a real storage area
+  never trigger updates.
+- **Removal**: if another tab removes the settings key, remaining tabs fall
+  back to `DEFAULT_SETTINGS`, matching what a freshly opened tab would load.
+- **Malformed payloads**: a value that fails to parse is reported to the
+  console and ignored; local settings stay intact.
+
+The persistence status badge is unaffected by remote updates: it reports
+whether *this* tab can save to localStorage.
+
 ## Custom Settings Components
 
 ### Creating a Custom Toggle

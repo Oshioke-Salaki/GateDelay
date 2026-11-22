@@ -24,6 +24,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { useToast } from "@/hooks/useToast";
+import { useTrackTransaction } from "@/hooks/useTransactionTracker";
 
 // ── Contract ABIs ──────────────────────────────────────────────────────────────
 
@@ -270,7 +271,7 @@ interface ProposalData {
   proposer: `0x${string}`;
 }
 
-type FilterStatus = "all" | "active" | "concluded";
+type FilterStatus = "all" | "active" | "pending" | "concluded";
 
 // ── Helper functions ───────────────────────────────────────────────────────────
 
@@ -823,6 +824,7 @@ export default function GovernanceUI() {
     isPending: isSigning,
     reset: resetWrite,
   } = useWriteContract();
+  useTrackTransaction(txHash, "Governance vote");
 
   const { isLoading: isConfirming, isSuccess: voteSuccess } =
     useWaitForTransactionReceipt({ hash: txHash });
@@ -858,6 +860,7 @@ export default function GovernanceUI() {
 
   const filteredProposals = useMemo(() => {
     if (filter === "active") return proposals.filter((p) => p.state === 1);
+    if (filter === "pending") return proposals.filter((p) => p.state === 0);
     if (filter === "concluded") return proposals.filter((p) => p.state !== 1 && p.state !== 0);
     return proposals;
   }, [proposals, filter]);
@@ -980,6 +983,42 @@ export default function GovernanceUI() {
         ))}
       </div>
 
+      {/* Voting eligibility notice */}
+      {!useMock && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+          style={
+            !isConnected
+              ? { background: "rgba(107,114,128,0.08)", border: "1px solid rgba(107,114,128,0.2)", color: "var(--muted)" }
+              : votingPower === 0n
+              ? { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }
+              : { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }
+          }
+        >
+          {!isConnected ? (
+            <>
+              <Wallet size={14} />
+              <span>Connect your wallet to participate in governance voting.</span>
+            </>
+          ) : votingPower === 0n ? (
+            <>
+              <AlertCircle size={14} />
+              <span>
+                You have no voting power. Acquire governance tokens to vote on proposals.
+              </span>
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={14} />
+              <span>
+                You have <strong>{formatBigIntSimple(votingPower)}</strong> voting power.
+                Click any active proposal to cast your vote.
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div
         className="flex rounded-xl overflow-hidden text-sm font-medium"
@@ -989,6 +1028,7 @@ export default function GovernanceUI() {
           [
             { key: "all", label: "All Proposals" },
             { key: "active", label: "Active" },
+            { key: "pending", label: "Pending" },
             { key: "concluded", label: "Concluded" },
           ] as const
         ).map(({ key, label }) => (
@@ -1024,6 +1064,10 @@ export default function GovernanceUI() {
             <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
               {filter === "active"
                 ? "There are no active proposals at the moment."
+                : filter === "pending"
+                ? "There are no pending proposals awaiting activation."
+                : filter === "concluded"
+                ? "No concluded proposals found."
                 : "No proposals match the selected filter."}
             </p>
           </motion.div>

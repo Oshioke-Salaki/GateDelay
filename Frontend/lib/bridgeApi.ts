@@ -4,7 +4,14 @@
  * Switch the BASE_URL env var to point at your NestJS instance.
  */
 
+import { contractFromDeploymentRegistry } from "./deploymentRegistry";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api";
+
+/** On-chain MarketBridge address from the deployment registry, when one is configured. */
+export function bridgeContractAddress(): `0x${string}` | undefined {
+  return contractFromDeploymentRegistry("MarketBridge")?.address;
+}
 
 // ─── Types (mirrors backend DTOs) ────────────────────────────────────────────
 

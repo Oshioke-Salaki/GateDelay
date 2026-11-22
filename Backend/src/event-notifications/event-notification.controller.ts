@@ -10,7 +10,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { EventNotificationService } from './event-notification.service';
-import { CreateEventFilterDto, GetNotificationsDto } from './dto/event-notification.dto';
+import {
+  CreateEventFilterDto,
+  GetNotificationsDto,
+} from './dto/event-notification.dto';
 import { BlockchainEventType } from './event-notification.entity';
 
 @Controller('event-notifications')

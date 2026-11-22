@@ -130,6 +130,10 @@ contract MarketIncentive {
     /// @param rewardPerUnit Reward tokens per unit of participation (WAD-scaled).
     /// @param startTime     Unix timestamp when the program starts.
     /// @param endTime       Unix timestamp when the program ends.
+    /// @return programId Identifier of the relevant program.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `InvalidParams` if `rewardPool == 0 || rewardPerUnit == 0` is true.
+    ///     `InvalidParams` if `endTime <= startTime || startTime < block.timestamp` is true.
     function createProgram(
         string calldata name,
         ProgramType programType,
@@ -163,6 +167,10 @@ contract MarketIncentive {
     }
 
     /// @notice Activate or deactivate a program.
+    /// @param programId Identifier of the relevant program.
+    /// @param active Whether active is enabled or selected.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true.
     function setProgramActive(uint256 programId, bool active) external onlyAdmin {
         if (programId >= _nextProgramId) revert ProgramNotFound();
         _programs[programId].active = active;
@@ -170,6 +178,10 @@ contract MarketIncentive {
     }
 
     /// @notice Top up the reward pool of an existing program.
+    /// @param programId Identifier of the relevant program.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true.
     function topUpRewardPool(uint256 programId, uint256 amount) external onlyAdmin {
         if (programId >= _nextProgramId) revert ProgramNotFound();
         IncentiveProgram storage program = _programs[programId];
@@ -188,6 +200,10 @@ contract MarketIncentive {
     /// @param participant  Address of the participant.
     /// @param market       Market address.
     /// @param units        Units of participation (e.g. trade volume in WAD).
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true. `ProgramInactive`
+    ///     if `!program.active` is true. `ProgramExpired` if `block.timestamp < program.startTime
+    ///     || block.timestamp > program.endTime` is true.
     function recordParticipation(
         uint256 programId,
         address participant,
@@ -235,6 +251,10 @@ contract MarketIncentive {
     // -------------------------------------------------------------------------
 
     /// @notice Claim earned rewards for a specific program and market.
+    /// @param programId Identifier of the relevant program.
+    /// @param market Market address associated with this operation.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `AlreadyClaimed` if `claimable == 0` is true.
     function claimReward(uint256 programId, address market) external {
         Participation storage p = _participations[programId][msg.sender][market];
         uint256 claimable = p.rewardEarned - p.rewardClaimed;
@@ -250,6 +270,9 @@ contract MarketIncentive {
 
     /// @notice Batch distribute rewards to all participants of a program (admin).
     ///         Useful for automatic end-of-program distribution.
+    /// @param programId Identifier of the relevant program.
+    /// @dev Access: Caller must be an administrator.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true.
     function distributeAll(uint256 programId) external onlyAdmin {
         if (programId >= _nextProgramId) revert ProgramNotFound();
         IncentiveProgram storage program = _programs[programId];
@@ -268,17 +291,28 @@ contract MarketIncentive {
     // -------------------------------------------------------------------------
 
     /// @notice Get an incentive program by ID.
+    /// @param programId Identifier of the relevant program.
+    /// @return Program returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true.
     function getProgram(uint256 programId) external view returns (IncentiveProgram memory) {
         if (programId >= _nextProgramId) revert ProgramNotFound();
         return _programs[programId];
     }
 
     /// @notice Get all program IDs (count).
+    /// @return Program count returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProgramCount() external view returns (uint256) {
         return _nextProgramId;
     }
 
     /// @notice Get participation record for a user on a program/market.
+    /// @param programId Identifier of the relevant program.
+    /// @param participant Address associated with participant.
+    /// @param market Market address associated with this operation.
+    /// @return Participation returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getParticipation(
         uint256 programId,
         address participant,
@@ -288,6 +322,11 @@ contract MarketIncentive {
     }
 
     /// @notice Get claimable reward for a user.
+    /// @param programId Identifier of the relevant program.
+    /// @param participant Address associated with participant.
+    /// @param market Market address associated with this operation.
+    /// @return Claimable reward returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getClaimableReward(
         uint256 programId,
         address participant,
@@ -298,11 +337,18 @@ contract MarketIncentive {
     }
 
     /// @notice Get all participants of a program.
+    /// @param programId Identifier of the relevant program.
+    /// @return Program participants returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getProgramParticipants(uint256 programId) external view returns (address[] memory) {
         return _programParticipants[programId];
     }
 
     /// @notice Get remaining reward pool for a program.
+    /// @param programId Identifier of the relevant program.
+    /// @return Remaining pool returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `ProgramNotFound` if `programId >= _nextProgramId` is true.
     function getRemainingPool(uint256 programId) external view returns (uint256) {
         if (programId >= _nextProgramId) revert ProgramNotFound();
         IncentiveProgram storage p = _programs[programId];

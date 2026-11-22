@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
 import { ConnectWalletDto } from './dto/wallet.dto';
+import { ReplayProtectionService } from '../common/services/replay-protection.service';
 
 export interface WalletEntry {
   address: string; // checksummed
@@ -33,13 +34,18 @@ export class WalletService {
   private readonly walletRegistry = new Map<string, WalletEntry>();
 
   private readonly provider: ethers.JsonRpcProvider;
+  private readonly replayProtection: ReplayProtectionService;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    replayProtection: ReplayProtectionService,
+  ) {
     const rpcUrl = this.config.get<string>(
       'BLOCKCHAIN_RPC_URL',
       'https://rpc.mantle.xyz',
     );
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.replayProtection = replayProtection;
   }
 
   async connectWallet(
@@ -47,7 +53,28 @@ export class WalletService {
     dto: ConnectWalletDto,
   ): Promise<WalletEntry> {
     const checksummed = this.validateAddress(dto.address);
-    this.verifySignature(checksummed, dto.message, dto.signature);
+
+    // SECURITY: Require replay protection in production
+    // Challenge (nonce + timestamp) is mandatory
+    if (!dto.nonce || !dto.timestamp) {
+      throw new BadRequestException(
+        'Wallet connection requires nonce and timestamp for replay protection',
+      );
+    }
+
+    const result = await this.replayProtection.verifyRequest({
+      nonce: dto.nonce,
+      timestamp: dto.timestamp,
+      signature: dto.signature,
+      signer: checksummed,
+      payload: { address: checksummed, message: dto.message },
+    });
+
+    if (!result.valid) {
+      throw new BadRequestException(
+        `Replay protection failed: ${result.error}`,
+      );
+    }
 
     if (this.walletRegistry.has(checksummed)) {
       const existing = this.walletRegistry.get(checksummed)!;
@@ -142,6 +169,10 @@ export class WalletService {
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
+
+  generateChallenge(): string {
+    return this.replayProtection.generateNonce();
+  }
 
   private validateAddress(raw: string): string {
     try {

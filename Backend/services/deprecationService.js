@@ -1,13 +1,12 @@
-const winston = require('winston');
+// TODO: Quarantined - winston not in package.json. Add dependency or implement alternative.
+// const winston = require('winston');
 
-const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.json(),
-  transports: [
-    new winston.transports.File({ filename: 'deprecation.log' }),
-    new winston.transports.Console()
-  ]
-});
+// Fallback logger using console
+const logger = {
+  info: (msg) => console.log('[INFO]', msg),
+  warn: (msg) => console.warn('[WARN]', msg),
+  error: (msg) => console.error('[ERROR]', msg)
+};
 
 class DeprecationService {
   constructor() {

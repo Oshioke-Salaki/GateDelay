@@ -1,3 +1,9 @@
+/**
+ * @description API Example Route Handler
+ * @dependencies express
+ * @notes Verified for local dev boot sequence.
+ */
+console.log("[api.example.js] Initializing API example routes...");
 const express = require('express');
 const router = express.Router();
 

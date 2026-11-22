@@ -9,6 +9,7 @@
 
 const express = require('express');
 const pauseService = require('../services/pauseService');
+const { pause: pauseSchemas, validateRequest } = require('../dto');
 
 const router = express.Router();
 
@@ -106,8 +107,9 @@ router.get(
  */
 router.get(
   '/status/:marketId',
+  validateRequest({ params: pauseSchemas.marketIdParam }, 'pause.status'),
   handleErrors(async (req, res) => {
-    const result = pauseService.getPauseStatus(req.params.marketId);
+    const result = pauseService.getPauseStatus(req.validated.params.marketId);
     res.status(200).json(result);
   })
 );
@@ -132,12 +134,13 @@ router.get(
  */
 router.get(
   '/events',
+  validateRequest({ query: pauseSchemas.pauseEventsQuery }, 'pause.events'),
   handleErrors(async (req, res) => {
-    const { marketId, eventType, limit } = req.query;
+    const { marketId, eventType, limit } = req.validated.query;
     const result = pauseService.getPauseEventLog({
       marketId,
       eventType,
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit,
     });
     res.status(200).json(result);
   })
@@ -155,7 +158,7 @@ router.get(
  * {
  *   "reason": "SCHEDULED_MAINTENANCE" | "VOLATILITY_CIRCUIT_BREAKER" | "LIQUIDITY_CRISIS" | "SECURITY_CONCERN" | "REGULATORY_HOLD" | "EMERGENCY" | "MANUAL",
  *   "notes": "string (optional)",
- *   "durationMs": number (optional — auto-unpause after this many milliseconds)
+ *   "durationMs": number (optional — auto-unpause after this many milliseconds, max 86400000)
  * }
  *
  * Response:
@@ -173,17 +176,13 @@ router.get(
 router.post(
   '/:marketId',
   requireOperator,
+  validateRequest(
+    { params: pauseSchemas.marketIdParam, body: pauseSchemas.pauseMarketBody },
+    'pause.market',
+  ),
   handleErrors(async (req, res) => {
-    const { marketId } = req.params;
-    const { reason, notes, durationMs } = req.body;
-
-    if (!reason) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required field: reason',
-        code: 'VALIDATION_ERROR',
-      });
-    }
+    const { marketId } = req.validated.params;
+    const { reason, notes, durationMs } = req.validated.body;
 
     const result = await pauseService.pauseMarket({
       marketId,
@@ -191,7 +190,7 @@ router.post(
       role: req.operatorRole,
       reason,
       notes,
-      durationMs: durationMs ? Number(durationMs) : undefined,
+      durationMs,
     });
 
     res.status(200).json(result);
@@ -224,9 +223,13 @@ router.post(
 router.post(
   '/:marketId/unpause',
   requireOperator,
+  validateRequest(
+    { params: pauseSchemas.marketIdParam, body: pauseSchemas.unpauseMarketBody },
+    'pause.unpause',
+  ),
   handleErrors(async (req, res) => {
-    const { marketId } = req.params;
-    const { notes } = req.body;
+    const { marketId } = req.validated.params;
+    const { notes } = req.validated.body;
 
     const result = await pauseService.unpauseMarket({
       marketId,
@@ -265,9 +268,13 @@ router.post(
 router.post(
   '/:marketId/emergency',
   requireOperator,
+  validateRequest(
+    { params: pauseSchemas.marketIdParam, body: pauseSchemas.emergencyPauseBody },
+    'pause.emergency',
+  ),
   handleErrors(async (req, res) => {
-    const { marketId } = req.params;
-    const { notes } = req.body;
+    const { marketId } = req.validated.params;
+    const { notes } = req.validated.body;
 
     const result = await pauseService.emergencyPause({
       marketId,
@@ -305,9 +312,13 @@ router.post(
 router.post(
   '/:marketId/emergency/lift',
   requireOperator,
+  validateRequest(
+    { params: pauseSchemas.marketIdParam, body: pauseSchemas.emergencyPauseBody },
+    'pause.emergency-lift',
+  ),
   handleErrors(async (req, res) => {
-    const { marketId } = req.params;
-    const { notes } = req.body;
+    const { marketId } = req.validated.params;
+    const { notes } = req.validated.body;
 
     const result = await pauseService.emergencyUnpause({
       marketId,

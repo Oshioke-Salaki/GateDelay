@@ -2,8 +2,9 @@
 
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
+import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useToast } from "../../hooks/useToast";
+import { truncateTxHash, explorerTxUrl } from "../../lib/txUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -162,8 +163,7 @@ export default function EmergencyWithdrawal({
   onWithdraw,
   networkStatus = MOCK_NETWORK,
 }: EmergencyWithdrawalProps) {
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { address, isConnected, disconnect } = useConnectKitBridge();
   const { success, error: toastError, warning } = useToast();
 
   const [showModal, setShowModal] = useState(false);
@@ -234,12 +234,19 @@ export default function EmergencyWithdrawal({
       success(
         "Emergency withdrawal initiated",
         `${balance} ${tokenSymbol} queued with ${priority} priority.`,
+        {
+          action: {
+            label: `View tx ${truncateTxHash(mockHash)}`,
+            onClick: () =>
+              window.open(explorerTxUrl(mockHash), "_blank", "noopener,noreferrer"),
+          },
+        },
       );
     } catch (err) {
       setStatus("failed");
       toastError(
-        "Withdrawal failed",
-        (err as Error)?.message ?? "Transaction could not be submitted.",
+        "Emergency withdrawal failed",
+        (err as Error)?.message ?? "Transaction could not be submitted. Your funds are safe.",
       );
     }
   }, [
@@ -327,6 +334,7 @@ export default function EmergencyWithdrawal({
                     <button
                       onClick={handleClose}
                       aria-label="Close"
+                      title="Close emergency withdrawal panel"
                       className="rounded-full p-1.5 text-red-300 transition-opacity hover:opacity-70"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5" aria-hidden="true">

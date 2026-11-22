@@ -1,10 +1,20 @@
 import { Module } from '@nestjs/common';
+import { createRequire } from 'module';
 import { MarketAuditController } from './market-audit.controller';
-import { MarketAuditService } from './market-audit.service';
+import {
+  BETA_ACCESS_CHECKER,
+  MarketAuditService,
+} from './market-audit.service';
+
+const nodeRequire = createRequire(__filename);
+const betaAccess = nodeRequire('../../../Backend/services/betaAccess');
 
 @Module({
   controllers: [MarketAuditController],
-  providers: [MarketAuditService],
+  providers: [
+    MarketAuditService,
+    { provide: BETA_ACCESS_CHECKER, useValue: betaAccess },
+  ],
   exports: [MarketAuditService],
 })
 export class MarketAuditModule {}

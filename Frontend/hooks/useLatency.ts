@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { LATENCY_THRESHOLDS_MS } from "@/lib/latency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,7 @@ const STATUS_DEBOUNCE_MS = 2_000;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type LatencyStatus = "excellent" | "fair" | "poor" | "unknown";
+export type LatencyStatus = "live" | "degraded" | "disconnected" | "unknown";
 
 export interface LatencyState {
   /** Latest measured RTT in milliseconds, or null while measuring. */
@@ -44,9 +45,9 @@ export interface LatencyState {
  * Excellent: ≤ 100 ms  |  Fair: 101–300 ms  |  Poor: > 300 ms
  */
 export function classifyLatency(ms: number): LatencyStatus {
-  if (ms <= 100) return "excellent";
-  if (ms <= 300) return "fair";
-  return "poor";
+  if (ms <= LATENCY_THRESHOLDS_MS.liveMax) return "live";
+  if (ms <= LATENCY_THRESHOLDS_MS.degradedMax) return "degraded";
+  return "disconnected";
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -138,9 +139,9 @@ export function useLatency(probeUrl = "/api/ping"): LatencyState {
         setStatus("unknown");
       }
     } catch {
-      // Network error – treat as poor (but only if we have no good signal)
+      // Network error - treat as disconnected (but only if we have no good signal)
       if (samplesRef.current.length === 0) {
-        setStatus("poor");
+        setStatus("disconnected");
       }
     } finally {
       setMeasuring(false);

@@ -72,12 +72,24 @@ contract ERC20Token {
     }
 
     // ── ERC20 core ────────────────────────────────────────────────────────────
+    /// @notice Transfers.
+    /// @param to Destination address for the transfer.
+    /// @param value Value to set or process.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `to == address(0)` is true.
     function transfer(address to, uint256 value) public returns (bool) {
         if (to == address(0)) revert ZeroAddress();
         _transfer(msg.sender, to, value);
         return true;
     }
 
+    /// @notice Approves.
+    /// @param spender Address associated with spender.
+    /// @param value Value to set or process.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `spender == address(0)` is true.
     function approve(address spender, uint256 value) public returns (bool) {
         if (spender == address(0)) revert ZeroAddress();
         allowance[msg.sender][spender] = value;
@@ -85,6 +97,14 @@ contract ERC20Token {
         return true;
     }
 
+    /// @notice Executes transferFrom.
+    /// @param from Source address for the transfer.
+    /// @param to Destination address for the transfer.
+    /// @param value Value to set or process.
+    /// @return True when the requested condition is met.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `ZeroAddress` if `to == address(0)` is true. `AllowanceExceeded` if `allowed !=
+    ///     type(uint256).max` is true. `AllowanceExceeded` if `allowed < value` is true.
     function transferFrom(address from, address to, uint256 value) public returns (bool) {
         if (to == address(0)) revert ZeroAddress();
         uint256 allowed = allowance[from][msg.sender];
@@ -97,15 +117,29 @@ contract ERC20Token {
     }
 
     // ── Mint / Burn ───────────────────────────────────────────────────────────
+    /// @notice Mints.
+    /// @param to Destination address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller must be an authorized minter.
+    /// @dev Reverts: `ZeroAddress` if `to == address(0)` is true.
     function mint(address to, uint256 amount) external onlyMinter {
         if (to == address(0)) revert ZeroAddress();
         _mint(to, amount);
     }
 
+    /// @notice Burns.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     function burn(uint256 amount) external {
         _burn(msg.sender, amount);
     }
 
+    /// @notice Executes burnFrom.
+    /// @param from Source address for the transfer.
+    /// @param amount Amount to process, in the relevant token units.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `AllowanceExceeded` if `allowed != type(uint256).max` is true.
+    ///     `AllowanceExceeded` if `allowed < amount` is true.
     function burnFrom(address from, uint256 amount) external {
         uint256 allowed = allowance[from][msg.sender];
         if (allowed != type(uint256).max) {
@@ -116,6 +150,17 @@ contract ERC20Token {
     }
 
     // ── EIP-2612 Permit ───────────────────────────────────────────────────────
+    /// @notice Executes permit.
+    /// @param _owner Address associated with owner.
+    /// @param spender Address associated with spender.
+    /// @param value Value to set or process.
+    /// @param deadline Latest timestamp at which the operation is valid.
+    /// @param v Numeric v used by this operation.
+    /// @param r Encoded data used for r.
+    /// @param s Encoded data used for s.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `PermitExpired` if `block.timestamp > deadline` is true. `InvalidSignature` if
+    ///     `recovered == address(0) || recovered != _owner` is true.
     function permit(
         address _owner,
         address spender,
@@ -140,16 +185,26 @@ contract ERC20Token {
     }
 
     // ── Access control ────────────────────────────────────────────────────────
+    /// @notice Executes addMinter.
+    /// @param minter Address associated with minter.
+    /// @dev Access: Caller must be the contract owner.
     function addMinter(address minter) external onlyOwner {
         minters[minter] = true;
         emit MinterAdded(minter);
     }
 
+    /// @notice Executes removeMinter.
+    /// @param minter Address associated with minter.
+    /// @dev Access: Caller must be the contract owner.
     function removeMinter(address minter) external onlyOwner {
         minters[minter] = false;
         emit MinterRemoved(minter);
     }
 
+    /// @notice Executes transferOwnership.
+    /// @param newOwner Address of the new owner.
+    /// @dev Access: Caller must be the contract owner.
+    /// @dev Reverts: `ZeroAddress` if `newOwner == address(0)` is true.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert ZeroAddress();
         emit OwnershipTransferred(owner, newOwner);

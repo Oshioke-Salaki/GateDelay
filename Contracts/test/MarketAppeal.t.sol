@@ -64,4 +64,60 @@ contract MarketAppealTest is Test {
         assertTrue(accepted);
         assertEq(reason, "upheld");
     }
+
+    function test_NonOwnerCannotStartOrDecideAppeal() public {
+        vm.prank(alice);
+        bytes32 id = appeal.submitAppeal(address(0x200), "evidence");
+
+        vm.prank(alice);
+        vm.expectRevert(bytes("Not owner"));
+        appeal.startReview(id);
+
+        vm.prank(alice);
+        vm.expectRevert(bytes("Not owner"));
+        appeal.decideAppeal(id, true, "upheld", bytes32(0));
+    }
+
+    // -------------------------------------------------------------------------
+    // #966 – Appeal lifecycle tests
+    // -------------------------------------------------------------------------
+
+    function test_appealLifecycle_cannotDecideWithoutStartingReview() public {
+        vm.prank(alice);
+        bytes32 id = appeal.submitAppeal(address(0x300), "evidence");
+
+        // status is SUBMITTED; decideAppeal requires UNDER_REVIEW
+        vm.expectRevert(bytes("Not under review"));
+        appeal.decideAppeal(id, true, "upheld", bytes32(0));
+    }
+
+    function test_appealLifecycle_cannotStartReviewTwice() public {
+        vm.prank(alice);
+        bytes32 id = appeal.submitAppeal(address(0x400), "evidence");
+
+        appeal.startReview(id);
+
+        // Already UNDER_REVIEW; startReview requires SUBMITTED
+        vm.expectRevert(bytes("Not submitted"));
+        appeal.startReview(id);
+    }
+
+    function test_appealLifecycle_allStatusTransitionsSucceed() public {
+        vm.prank(alice);
+        bytes32 id = appeal.submitAppeal(address(0x500), "ipfs://flight-evidence");
+
+        (, , , , MarketAppeal.AppealStatus s1, , , ) = appeal.getAppeal(id);
+        assertEq(uint256(s1), uint256(MarketAppeal.AppealStatus.SUBMITTED));
+
+        appeal.startReview(id);
+        (, , , , MarketAppeal.AppealStatus s2, , , ) = appeal.getAppeal(id);
+        assertEq(uint256(s2), uint256(MarketAppeal.AppealStatus.UNDER_REVIEW));
+
+        bytes32 vId = keccak256(abi.encodePacked("verdict1"));
+        appeal.decideAppeal(id, false, "rejected: no merit", vId);
+        (, , , , MarketAppeal.AppealStatus s3, bool accepted, , bytes32 storedVId) = appeal.getAppeal(id);
+        assertEq(uint256(s3), uint256(MarketAppeal.AppealStatus.DECIDED));
+        assertFalse(accepted);
+        assertEq(storedVId, vId);
+    }
 }

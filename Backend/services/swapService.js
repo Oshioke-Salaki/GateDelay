@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const breakerService = require('./breakerService');
 
 /**
  * SWAP SERVICE
@@ -126,46 +127,52 @@ function simulateHop(amountIn, tokenIn, tokenOut) {
  * @param {number} [params.slippageTolerance] - e.g. 0.005 for 0.5%
  * @returns {Promise<object>}
  */
-async function getQuote({ tokenIn, tokenOut, amountIn, slippageTolerance = 0.005 }) {
-  if (!SUPPORTED_TOKENS.includes(tokenIn)) throw new Error(`Unsupported token: ${tokenIn}`);
-  if (!SUPPORTED_TOKENS.includes(tokenOut)) throw new Error(`Unsupported token: ${tokenOut}`);
-  if (tokenIn === tokenOut) throw new Error('tokenIn and tokenOut must differ');
+async function getQuote({ tokenIn, tokenOut, amountIn, slippageTolerance = 0.005 }, options = {}) {
+  return breakerService.executeWithBreaker(
+    'swap-service',
+    async () => {
+      if (!SUPPORTED_TOKENS.includes(tokenIn)) throw new Error(`Unsupported token: ${tokenIn}`);
+      if (!SUPPORTED_TOKENS.includes(tokenOut)) throw new Error(`Unsupported token: ${tokenOut}`);
+      if (tokenIn === tokenOut) throw new Error('tokenIn and tokenOut must differ');
 
-  const amount = Number(amountIn);
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Invalid amountIn: ${amountIn}`);
+      const amount = Number(amountIn);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error(`Invalid amountIn: ${amountIn}`);
 
-  const route = buildRoute(tokenIn, tokenOut);
-  if (!route) throw new Error(`No route found for ${tokenIn} → ${tokenOut}`);
+      const route = buildRoute(tokenIn, tokenOut);
+      if (!route) throw new Error(`No route found for ${tokenIn} → ${tokenOut}`);
 
-  let currentAmount = amount;
-  let totalFee = 0;
-  let maxPriceImpact = 0;
+      let currentAmount = amount;
+      let totalFee = 0;
+      let maxPriceImpact = 0;
 
-  for (let i = 0; i < route.path.length - 1; i++) {
-    const hop = simulateHop(currentAmount, route.path[i], route.path[i + 1]);
-    totalFee += hop.fee;
-    maxPriceImpact = Math.max(maxPriceImpact, hop.priceImpact);
-    currentAmount = hop.amountOut;
-  }
+      for (let i = 0; i < route.path.length - 1; i++) {
+        const hop = simulateHop(currentAmount, route.path[i], route.path[i + 1]);
+        totalFee += hop.fee;
+        maxPriceImpact = Math.max(maxPriceImpact, hop.priceImpact);
+        currentAmount = hop.amountOut;
+      }
 
-  const amountOut = currentAmount;
-  const minimumAmountOut = amountOut * (1 - slippageTolerance);
-  const exchangeRate = amountOut / amount;
+      const amountOut = currentAmount;
+      const minimumAmountOut = amountOut * (1 - slippageTolerance);
+      const exchangeRate = amountOut / amount;
 
-  return {
-    tokenIn,
-    tokenOut,
-    amountIn: amount,
-    amountOut,
-    minimumAmountOut,
-    exchangeRate,
-    fee: totalFee,
-    priceImpact: maxPriceImpact,
-    route: route.path,
-    hops: route.hops,
-    slippageTolerance,
-    timestamp: new Date().toISOString(),
-  };
+      return {
+        tokenIn,
+        tokenOut,
+        amountIn: amount,
+        amountOut,
+        minimumAmountOut,
+        exchangeRate,
+        fee: totalFee,
+        priceImpact: maxPriceImpact,
+        route: route.path,
+        hops: route.hops,
+        slippageTolerance,
+        timestamp: new Date().toISOString(),
+      };
+    },
+    options
+  );
 }
 
 /**
@@ -179,36 +186,42 @@ async function getQuote({ tokenIn, tokenOut, amountIn, slippageTolerance = 0.005
  * @param {string} params.recipient
  * @returns {Promise<object>}
  */
-async function executeSwap({ tokenIn, tokenOut, amountIn, slippageTolerance = 0.005, sender, recipient }) {
-  if (!recipient || !ethers.isAddress(recipient)) {
-    throw new Error(`Invalid recipient address: ${recipient}`);
-  }
+async function executeSwap({ tokenIn, tokenOut, amountIn, slippageTolerance = 0.005, sender, recipient }, options = {}) {
+  return breakerService.executeWithBreaker(
+    'swap-service',
+    async () => {
+      if (!recipient || !ethers.isAddress(recipient)) {
+        throw new Error(`Invalid recipient address: ${recipient}`);
+      }
 
-  const quote = await getQuote({ tokenIn, tokenOut, amountIn, slippageTolerance });
+      const quote = await getQuote({ tokenIn, tokenOut, amountIn, slippageTolerance }, options);
 
-  const swapId = 'swp_' + Math.random().toString(36).substr(2, 9);
-  const txHash = '0x' + Math.random().toString(16).slice(2, 66);
+      const swapId = 'swp_' + Math.random().toString(36).substr(2, 9);
+      const txHash = '0x' + Math.random().toString(16).slice(2, 66);
 
-  const swap = {
-    id: swapId,
-    tokenIn: quote.tokenIn,
-    tokenOut: quote.tokenOut,
-    amountIn: quote.amountIn,
-    amountOut: quote.amountOut,
-    exchangeRate: quote.exchangeRate,
-    fee: quote.fee,
-    priceImpact: quote.priceImpact,
-    route: quote.route,
-    hops: quote.hops,
-    sender,
-    recipient,
-    txHash,
-    status: SWAP_STATUS.COMPLETED,
-    executedAt: new Date().toISOString(),
-  };
+      const swap = {
+        id: swapId,
+        tokenIn: quote.tokenIn,
+        tokenOut: quote.tokenOut,
+        amountIn: quote.amountIn,
+        amountOut: quote.amountOut,
+        exchangeRate: quote.exchangeRate,
+        fee: quote.fee,
+        priceImpact: quote.priceImpact,
+        route: quote.route,
+        hops: quote.hops,
+        sender,
+        recipient,
+        txHash,
+        status: SWAP_STATUS.COMPLETED,
+        executedAt: new Date().toISOString(),
+      };
 
-  swaps.set(swapId, swap);
-  return swap;
+      swaps.set(swapId, swap);
+      return swap;
+    },
+    options
+  );
 }
 
 /**

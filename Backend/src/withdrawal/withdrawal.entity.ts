@@ -14,6 +14,17 @@ export interface WithdrawalRecord {
   tokenAddress: string;
   /** amount in the smallest unit (wei for ETH, base units for ERC-20) */
   amount: string;
+  /**
+   * EIP-155 chain id the withdrawal was created for.
+   * Bound into multi-sig approval messages so a signature cannot be replayed
+   * on a different chain.
+   */
+  chainId: number;
+  /**
+   * Unix timestamp (seconds) after which approval signatures are no longer
+   * accepted.  Zero means no expiry (single-owner withdrawals).
+   */
+  expiry: number;
   txHash?: string;
   status: WithdrawalStatus;
   confirmations: number;

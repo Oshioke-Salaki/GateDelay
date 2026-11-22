@@ -17,6 +17,11 @@ const ImportWallet = dynamic(
   { ssr: false },
 );
 
+const MultisigUI = dynamic(
+  () => import("../../components/wallet/MultisigUI"),
+  { ssr: false },
+);
+
 export default function WalletClient() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
@@ -48,6 +53,11 @@ export default function WalletClient() {
             tokenSymbol="USDC"
           />
         </div>
+      </div>
+
+      {/* Multisig wallet operations — full width */}
+      <div className="lg:col-span-2">
+        <MultisigUI />
       </div>
     </div>
   );

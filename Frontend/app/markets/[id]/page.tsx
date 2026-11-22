@@ -1,11 +1,11 @@
 "use client";
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense, useEffect, useRef } from "react";
 import { StatsSkeleton, ChartSkeleton } from "../../components/ui/Skeleton";
 import StatusIndicator from "../../components/market/StatusIndicator";
 import OrderBook from "../../components/market/OrderBook";
 import TradeConfirmation from "../../../components/trade/TradeConfirmation";
 import LiquidityDisplay from "../../../components/market/LiquidityDisplay";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useSignMessage, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import PriceChart from "../../components/chart/PriceChart";
 import LiquidityChart from "../../../components/chart/LiquidityChart";
 import GasEstimator, { type GasSpeed, type GasEstimate } from "../../../components/gas/GasEstimator";
@@ -13,6 +13,13 @@ import AnalysisPanel from "../../../components/ai/AnalysisPanel";
 import MarketSentiment from "../../../components/market/MarketSentiment";
 import ExecutionProgress, { type ExecutionStatus } from "../../../components/trade/ExecutionProgress";
 import EventTimeline from "../../../components/market/EventTimeline";
+import { useToast } from "@/hooks/useToast";
+import { truncateTxHash, explorerTxUrl } from "@/lib/txUtils";
+import StalePriceWarning from "@/components/market/StalePriceWarning";
+import { formatCurrency, formatLiquidity, formatOdds, formatTokenAmount, formatVolume } from "@/lib/formatters";
+import { getMarketOutcomeLabel } from "@/lib/labels";
+import { useTrackTransaction } from "@/hooks/useTransactionTracker";
+import { getMarketMakerAddress, recordPositionExecution } from "@/lib/portfolioApi";
 
 // ── ABI (only the buy function) ──────────────────────────────────────────────
 const MARKET_MAKER_ABI = [
@@ -29,34 +36,35 @@ const MARKET_MAKER_ABI = [
   },
 ] as const;
 
-const MARKET_MAKER_ADDRESS =
-  (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
-
-// Mock data — replace with real contract/API calls
+// Replace with real contract/API calls when a market detail endpoint is wired.
 const MOCK_MARKET = {
-  id: "1",
-  title: "Will AA123 arrive on time?",
-  description: "American Airlines flight AA123 from JFK to LAX on Apr 25, 2026.",
-  status: "open" as "open" | "closed" | "resolved" | "disputed",
-  yesPrice: 0.62,
-  noPrice: 0.38,
-  volume: 14820,
-  liquidity: 5400,
-  participants: 87,
-  resolvedAt: undefined as string | undefined,
-  outcome: undefined as "YES" | "NO" | undefined,
-  recentTrades: [
-    { side: "YES", amount: 50, price: 0.62, time: "2m ago" },
-    { side: "NO", amount: 120, price: 0.38, time: "5m ago" },
-    { side: "YES", amount: 200, price: 0.61, time: "11m ago" },
-    { side: "NO", amount: 75, price: 0.39, time: "18m ago" },
-    { side: "YES", amount: 300, price: 0.60, time: "25m ago" },
-  ],
+  title: "Market unavailable",
+  description: "Market data is not available yet.",
+  status: "closed" as "open" | "closed" | "resolved" | "disputed",
+  yesPrice: 0,
+  noPrice: 0,
+  volume: 0,
+  liquidity: 0,
+  participants: 0,
+  resolvedAt: undefined,
+  outcome: undefined,
+  recentTrades: [] as Array<{
+    side: string;
+    amount: number;
+    price: number;
+    time: string;
+  }>,
 };
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
-  const { address, isConnected } = useAccount();
-  const market = { ...MOCK_MARKET, id: params.id };
+  const { address, chainId, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [market, setMarket] = useState<Market | null>(null);
+  const [isLoadingMarket, setIsLoadingMarket] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
@@ -66,15 +74,73 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
 
   // Trade execution hooks
   const { writeContract, data: txHash, isPending: isSigning, error: signError, reset: resetWrite } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess, error: confirmError } = useWaitForTransactionReceipt({ hash: txHash });
+  useTrackTransaction(txHash, "Market trade");
+  const { data: receipt, isLoading: isConfirming, isSuccess, error: confirmError } =
+    useWaitForTransactionReceipt({ hash: txHash, confirmations: 12 });
+  const syncedTransaction = useRef<string | null>(null);
 
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [progressStatus, setProgressStatus] = useState<ExecutionStatus>("idle");
 
+  // Load the actual market for this URL
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingMarket(true);
+    setLoadError(null);
+    setNotFound(false);
+    setMarket(null);
+
+    fetchMarketById(params.id)
+      .then((data) => {
+        if (cancelled) return;
+        setMarket(data);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        if (err?.status === 404 || err?.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          setLoadError(err?.message || "Failed to load market.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMarket(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, reloadKey]);
+
   const amountValue = parseFloat(amount) || 0;
-  const price = side === "YES" ? market.yesPrice : market.noPrice;
-  const shares = amountValue > 0 ? (amountValue / price).toFixed(2) : "—";
-  const isTradeValid = amountValue > 0 && market.status === "open";
+  const price = market ? (side === "YES" ? market.yesPrice : market.noPrice) : 0;
+  const shares = amountValue > 0 && price > 0 ? formatTokenAmount(amountValue / price) : "N/A";
+  const isTradeValid = amountValue > 0 && market?.status === "open";
+
+  useEffect(() => {
+    if (
+      !isSuccess ||
+      !receipt ||
+      !txHash ||
+      !address ||
+      !chainId ||
+      syncedTransaction.current === txHash
+    ) return;
+    syncedTransaction.current = txHash;
+    void recordPositionExecution({
+      action: "BUY",
+      account: address,
+      chainId,
+      marketId: BigInt(market.id || "1"),
+      receipt,
+      signMessage: (message) => signMessageAsync({ message }),
+    }).catch((error: unknown) => {
+      toastError(
+        "Position sync failed",
+        error instanceof Error ? error.message : "The confirmed trade could not be added to your portfolio.",
+      );
+    });
+  }, [address, chainId, isSuccess, market.id, receipt, signMessageAsync, toastError, txHash]);
 
   // Monitor transaction states
   useEffect(() => {
@@ -86,11 +152,31 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
       setProgressStatus("confirming");
     } else if (isSuccess) {
       setProgressStatus("success");
-      setConfirmationMessage(`Confirmed ${side} trade for ${amountValue.toFixed(2)} USDC at ${price.toFixed(2)} USDC per share.`);
+      const msg = `Confirmed ${getMarketOutcomeLabel(side)} trade for ${formatTokenAmount(amountValue, "USDC")} at ${formatCurrency(price)} per share.`;
+      setConfirmationMessage(msg);
+      toastSuccess(
+        `${getMarketOutcomeLabel(side)} trade confirmed`,
+        txHash
+          ? `${formatTokenAmount(amountValue, "USDC")} - ${truncateTxHash(txHash)}`
+          : msg,
+        txHash
+          ? {
+              action: {
+                label: `View tx ${truncateTxHash(txHash)}`,
+                onClick: () =>
+                  window.open(explorerTxUrl(txHash), "_blank", "noopener,noreferrer"),
+              },
+            }
+          : undefined,
+      );
     } else if (signError || confirmError) {
       setProgressStatus("error");
+      toastError(
+        "Trade failed",
+        (signError || confirmError)?.message || "Transaction could not be submitted.",
+      );
     }
-  }, [isProgressOpen, isSigning, isConfirming, isSuccess, signError, confirmError, side, amountValue, price]);
+  }, [isProgressOpen, isSigning, isConfirming, isSuccess, signError, confirmError, side, amountValue, price, txHash, toastSuccess, toastError]);
 
   const openConfirmation = () => {
     if (isTradeValid) {
@@ -99,6 +185,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   };
 
   const executeTrade = () => {
+    if (!market || market.status !== "open") return;
     setProgressStatus("submitting");
     setIsProgressOpen(true);
     
@@ -108,7 +195,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
     
     try {
       writeContract({
-        address: MARKET_MAKER_ADDRESS,
+        address: getMarketMakerAddress(chainId ?? 0),
         abi: MARKET_MAKER_ABI,
         functionName: "buy",
         args: [BigInt(market.id || "1"), BigInt(side === "YES" ? 0 : 1), sharesBigInt],
@@ -127,6 +214,59 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
     resetWrite();
     executeTrade();
   };
+
+  if (isLoadingMarket) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
+        <StatsSkeleton count={4} />
+        <ChartSkeleton height={300} />
+        <ChartSkeleton height={420} />
+      </main>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+            Market not found
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+            No market exists with ID #{params.id}.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError || !market) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-6 text-center space-y-3"
+          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+            Failed to load market
+          </h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {loadError || "Market data is not available."}
+          </p>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+            style={{ background: "#3b82f6" }}
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
@@ -151,9 +291,9 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
       <Suspense fallback={<StatsSkeleton count={4} />}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "YES Price", value: `${(market.yesPrice * 100).toFixed(0)}¢` },
-            { label: "Volume", value: `$${market.volume.toLocaleString()}` },
-            { label: "Liquidity", value: `$${market.liquidity.toLocaleString()}` },
+            { label: "YES Price", value: formatOdds(market.yesPrice) },
+            { label: "Volume", value: formatVolume(market.volume) },
+            { label: "Liquidity", value: formatLiquidity(market.liquidity) },
             { label: "Participants", value: market.participants },
           ].map((s) => (
             <div
@@ -170,7 +310,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
 
       {/* Price chart */}
       <Suspense fallback={<ChartSkeleton height={300} />}>
-        <PriceChart />
+        <PriceChart marketId={market.id} />
       </Suspense>
 
       <Suspense fallback={<ChartSkeleton height={420} />}>
@@ -178,10 +318,10 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
       </Suspense>
 
       {/* Liquidity display */}
-      <LiquidityDisplay marketId={params.id} />
+      <LiquidityDisplay marketId={market.id} />
 
       {/* Order Book */}
-      <OrderBook marketId={params.id} userAddress={address} />
+      <OrderBook marketId={market.id} userAddress={address} />
       {/* AI Analysis */}
       <AnalysisPanel
         marketId={market.id}
@@ -209,6 +349,8 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
           style={{ background: "var(--card)", border: "1px solid var(--border)" }}
         >
           <h2 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>Place Trade</h2>
+          {/* Warn the user when the price feed has gone stale */}
+          <StalePriceWarning marketId={market.id} />
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {(["YES", "NO"] as const).map((s) => (
               <button
@@ -237,7 +379,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
             />
           </div>
           <div className="flex justify-between text-xs" style={{ color: "var(--muted)" }}>
-            <span>Price per share</span><span>{price.toFixed(2)} USDC</span>
+            <span>Price per share</span><span>{formatTokenAmount(price, "USDC")}</span>
           </div>
           <div className="flex justify-between text-xs" style={{ color: "var(--muted)" }}>
             <span>Estimated shares</span><span>{shares}</span>
@@ -261,18 +403,18 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
               <span>Est. gas fee</span>
               <span>
                 {gasEstimate.feeUsd > 0
-                  ? `≈ $${gasEstimate.feeUsd < 0.01 ? "<0.01" : gasEstimate.feeUsd.toFixed(3)}`
-                  : `${parseFloat(gasEstimate.feeEth).toFixed(6)} MNT`}
+                  ? formatCurrency(gasEstimate.feeUsd < 0.01 ? 0.01 : gasEstimate.feeUsd)
+                  : formatTokenAmount(parseFloat(gasEstimate.feeEth), "MNT")}
               </span>
             </div>
           )}
           <button
-            disabled={!isTradeValid}
+            disabled={!isTradeValid || market.status !== "open"}
             onClick={openConfirmation}
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-40"
             style={{ background: side === "YES" ? "#22c55e" : "#ef4444" }}
           >
-            Buy {side}
+            {market.status === "open" ? `Buy ${getMarketOutcomeLabel(side)}` : "Market closed"}
           </button>
         </div>
 
@@ -292,7 +434,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
               </tr>
             </thead>
             <tbody>
-              {market.recentTrades.map((t, i) => (
+              {(market.recentTrades ?? []).map((t, i) => (
                 <tr key={i} style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}>
                   <td className="py-1.5">
                     <span
@@ -302,8 +444,8 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
                       {t.side}
                     </span>
                   </td>
-                  <td className="text-right">${t.amount}</td>
-                  <td className="text-right">{t.price.toFixed(2)}</td>
+                  <td className="text-right">{formatCurrency(t.amount)}</td>
+                  <td className="text-right">{formatCurrency(t.price)}</td>
                   <td className="text-right" style={{ color: "var(--muted)" }}>{t.time}</td>
                 </tr>
               ))}

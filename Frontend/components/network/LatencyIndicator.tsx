@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLatency, LatencyStatus } from "../../hooks/useLatency";
+import { formatLatencyThresholds, LATENCY_STATUS_COPY } from "@/lib/latency";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -18,8 +19,8 @@ interface StatusConfig {
 }
 
 const STATUS_CONFIG: Record<LatencyStatus, StatusConfig> = {
-  excellent: {
-    label: "Excellent",
+  live: {
+    label: LATENCY_STATUS_COPY.live.label,
     color: "#22c55e",
     bg: "rgba(34,197,94,0.12)",
     border: "rgba(34,197,94,0.35)",
@@ -28,8 +29,8 @@ const STATUS_CONFIG: Record<LatencyStatus, StatusConfig> = {
     warnBanner: false,
     warnText: "",
   },
-  fair: {
-    label: "Fair",
+  degraded: {
+    label: LATENCY_STATUS_COPY.degraded.label,
     color: "#f59e0b",
     bg: "rgba(245,158,11,0.12)",
     border: "rgba(245,158,11,0.35)",
@@ -38,8 +39,8 @@ const STATUS_CONFIG: Record<LatencyStatus, StatusConfig> = {
     warnBanner: false,
     warnText: "",
   },
-  poor: {
-    label: "Poor",
+  disconnected: {
+    label: LATENCY_STATUS_COPY.disconnected.label,
     color: "#ef4444",
     bg: "rgba(239,68,68,0.12)",
     border: "rgba(239,68,68,0.35)",
@@ -47,10 +48,10 @@ const STATUS_CONFIG: Record<LatencyStatus, StatusConfig> = {
     barHeights: ["6px", "4px", "4px"],
     warnBanner: true,
     warnText:
-      "⚠️ High network latency detected. Trade operations may be slower than usual.",
+      "Connection is degraded or unavailable. Trade operations may be slower than usual.",
   },
   unknown: {
-    label: "Measuring…",
+    label: LATENCY_STATUS_COPY.unknown.label,
     color: "#71717a",
     bg: "rgba(113,113,122,0.10)",
     border: "rgba(113,113,122,0.25)",
@@ -183,6 +184,9 @@ function Tooltip({
       >
         Network Latency
       </p>
+      <p style={{ marginBottom: "8px", color: "var(--muted)" }}>
+        {LATENCY_STATUS_COPY[status].description}
+      </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" }}>
         <span style={{ color: "var(--muted)" }}>Status</span>
@@ -214,7 +218,7 @@ function Tooltip({
           color: "var(--muted)",
         }}
       >
-        🟢 ≤ 100 ms · 🟡 101–300 ms · 🔴 &gt; 300 ms
+        {formatLatencyThresholds()}
       </div>
     </div>
   );
@@ -305,9 +309,9 @@ export default function LatencyIndicator({
     setMounted(true);
   }, []);
 
-  // Re-show banner when status flips to poor again
+  // Re-show banner when status flips to disconnected again
   useEffect(() => {
-    if (status !== "poor") {
+    if (status !== "disconnected") {
       setBannerDismissed(false);
     }
   }, [status]);

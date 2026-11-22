@@ -30,7 +30,8 @@ export class MarketMetadata {
   isActive: boolean;
 }
 
-export const MarketMetadataSchema = SchemaFactory.createForClass(MarketMetadata);
+export const MarketMetadataSchema =
+  SchemaFactory.createForClass(MarketMetadata);
 
 // Compound index for versioned lookups
 MarketMetadataSchema.index({ marketId: 1, version: -1 });

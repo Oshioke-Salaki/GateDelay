@@ -1,0 +1,4 @@
+# Require code-owner approval in the branch ruleset for these protections.
+/.github/workflows/ @Oshioke-Salaki
+/.github/CODEOWNERS @Oshioke-Salaki
+/scripts/security/ @Oshioke-Salaki

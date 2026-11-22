@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ResolutionService } from './resolution.service';
 import {
   RequestResolutionDto,
@@ -19,10 +20,14 @@ import {
   DisputeResolutionDto,
   ReviewDisputeDto,
 } from './dto/resolution.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 
+@ApiTags('resolution')
+@ApiBearerAuth()
 @Controller('resolution')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ResolutionController {
   constructor(private readonly resolutionService: ResolutionService) {}
 
@@ -50,6 +55,11 @@ export class ResolutionController {
 
   /** POST /api/resolution — submit a manual resolution request */
   @Post()
+  @Roles('market_admin', 'admin')
+  @ApiOperation({ summary: 'Request a manual resolution' })
+  @ApiResponse({ status: 201, description: 'Resolution request created' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid JWT' })
+  @ApiResponse({ status: 403, description: 'Insufficient role permissions' })
   request(
     @Request() req: { user: { id: string } },
     @Body() dto: RequestResolutionDto,
@@ -82,10 +92,16 @@ export class ResolutionController {
     return this.resolutionService.getConfirmations(id);
   }
 
-  /** PATCH /api/resolution/:id/finalise — finalise a confirmed resolution */
+  /**
+   * PATCH /api/resolution/:id/finalise — finalise a confirmed resolution
+   *
+   * The caller is passed through as the audit actor so the entry records who
+   * settled the market, not just that it was settled.
+   */
   @Patch(':id/finalise')
-  finalise(@Param('id') id: string) {
-    return this.resolutionService.finaliseResolution(id);
+  @Roles('market_admin', 'admin', 'settlement_admin')
+  finalise(@Request() req: { user: { id: string } }, @Param('id') id: string) {
+    return this.resolutionService.finaliseResolution(id, req.user.id);
   }
 
   // ── Reports ──────────────────────────────────────────────────────────────────
@@ -122,6 +138,7 @@ export class ResolutionController {
 
   /** PATCH /api/resolution/disputes/:disputeId/review — review (uphold/reject) a dispute */
   @Patch('disputes/:disputeId/review')
+  @Roles('market_admin', 'admin', 'settlement_admin')
   reviewDispute(
     @Param('disputeId') disputeId: string,
     @Body() dto: ReviewDisputeDto,

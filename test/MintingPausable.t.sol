@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/MintingPausable.sol";
+import "../Contracts/src/MintingPausable.sol";
 
 contract MintingPausableTest is Test {
     MintingPausable token;
@@ -366,7 +366,8 @@ contract MintingPausableTest is Test {
         vm.prank(pauser);
         token.pauseMinting("Pause");
 
-        (isCurrentlyPaused, uint256 totalTimePaused, pauseCountLifetime) =
+        uint256 totalTimePaused;
+        (isCurrentlyPaused, totalTimePaused, pauseCountLifetime) =
             token.getPausedReason();
 
         assertTrue(isCurrentlyPaused);

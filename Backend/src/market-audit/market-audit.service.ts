@@ -1,19 +1,42 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Optional,
+} from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { AuditLog, AuditReport } from './market-audit.entity';
+import { buildPaginationMeta, normalizePagination } from '../../utils/pagination';
+import type { PaginationMeta } from '../../utils/pagination';
+
+export const BETA_ACCESS_CHECKER = Symbol('BETA_ACCESS_CHECKER');
+
+export interface BetaAccessChecker {
+  checkAccess(
+    walletAddress: string,
+  ): Promise<{ hasAccess: boolean; reason?: string }>;
+}
 
 @Injectable()
 export class MarketAuditService {
   private logs: AuditLog[] = [];
   private retentionDays = 90;
 
-  createLog(input: {
+  constructor(
+    @Optional()
+    @Inject(BETA_ACCESS_CHECKER)
+    private readonly betaAccessChecker?: BetaAccessChecker,
+  ) {}
+
+  async createLog(input: {
     marketId: string;
     operation: string;
     actor: string;
     details: string;
     severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  }): AuditLog {
+  }): Promise<AuditLog> {
+    await this.requireBetaAccess(input.actor);
+
     const previousHash = this.logs.length
       ? this.logs[this.logs.length - 1].hash
       : 'GENESIS';
@@ -37,18 +60,36 @@ export class MarketAuditService {
     return log;
   }
 
-  queryLogs(filters: {
+  private async requireBetaAccess(actor: string): Promise<void> {
+    if (!this.betaAccessChecker) {
+      throw new ForbiddenException('Beta access gate is unavailable');
+    }
+
+    const access = await this.betaAccessChecker.checkAccess(actor);
+    if (!access.hasAccess) {
+      throw new ForbiddenException(access.reason ?? 'Beta access is required');
+    }
+  }
+
+  /**
+   * Apply the filter set and return matches in append order (oldest first).
+   *
+   * Extracted so `queryLogsPage` can reuse the exact same matching rules —
+   * a second, subtly different filter implementation in a hash-chained log is a
+   * correctness risk, since "the query returned nothing" and "the query is
+   * broken" are indistinguishable to a compliance reviewer.
+   */
+  private filterLogs(filters: {
     marketId?: string;
     operation?: string;
     actor?: string;
     from?: string;
     to?: string;
-    limit?: number;
   }): AuditLog[] {
     const fromTs = filters.from ? new Date(filters.from).getTime() : undefined;
     const toTs = filters.to ? new Date(filters.to).getTime() : undefined;
 
-    const result = this.logs.filter((entry) => {
+    return this.logs.filter((entry) => {
       if (filters.marketId && entry.marketId !== filters.marketId) return false;
       if (filters.operation && entry.operation !== filters.operation)
         return false;
@@ -60,16 +101,84 @@ export class MarketAuditService {
 
       return true;
     });
+  }
+
+  /**
+   * Most recent N matching entries, oldest-first.
+   *
+   * Retained unchanged for `generateReport()` and existing callers: this is a
+   * "give me the tail" read, not a page of a paginated list.
+   */
+  queryLogs(filters: {
+    marketId?: string;
+    operation?: string;
+    actor?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+  }): AuditLog[] {
+    const result = this.filterLogs(filters);
 
     const limit = filters.limit && filters.limit > 0 ? filters.limit : 100;
     return result.slice(-limit);
+  }
+
+  /**
+   * Paginated read with metadata, newest entry first (#916).
+   *
+   * Distinct from `queryLogs()` on purpose: `queryLogs` is bounded by a single
+   * `limit` and always returns the tail, so it cannot express page 2 and gives
+   * a client no way to know how much was skipped. Audit logs are append-only,
+   * so paging walks the chain backwards from the newest record, which is the
+   * order a reviewer reads them in.
+   *
+   * @param filters - Same filter set as `queryLogs()`.
+   * @param page - 1-based page number.
+   * @param limit - Page size, clamped to `MAX_QUERY_LIMIT`.
+   */
+  queryLogsPage(
+    filters: {
+      marketId?: string;
+      operation?: string;
+      actor?: string;
+      from?: string;
+      to?: string;
+    } = {},
+    page?: number,
+    limit?: number,
+  ): { logs: AuditLog[]; meta: PaginationMeta } {
+    const { page: safePage, limit: safeLimit, skip } = normalizePagination({
+      page,
+      limit,
+      defaultLimit: 100,
+      maxLimit: 1000,
+    });
+
+    const matches = this.filterLogs(filters).reverse();
+    const total = matches.length;
+    const logs = matches.slice(skip, skip + safeLimit);
+
+    return {
+      logs,
+      meta: buildPaginationMeta({
+        total,
+        count: logs.length,
+        page: safePage,
+        limit: safeLimit,
+        offset: skip,
+      }),
+    };
   }
 
   setRetentionPolicy(retentionDays: number): void {
     this.retentionDays = retentionDays;
   }
 
-  enforceRetention(): { removed: number; retained: number; retentionDays: number } {
+  enforceRetention(): {
+    removed: number;
+    retained: number;
+    retentionDays: number;
+  } {
     const cutoff = Date.now() - this.retentionDays * 24 * 60 * 60 * 1000;
     const originalCount = this.logs.length;
 
@@ -91,13 +200,15 @@ export class MarketAuditService {
       limit: Number.MAX_SAFE_INTEGER,
     });
 
-    const severityTemplate: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', number> =
-      {
-        LOW: 0,
-        MEDIUM: 0,
-        HIGH: 0,
-        CRITICAL: 0,
-      };
+    const severityTemplate: Record<
+      'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+      number
+    > = {
+      LOW: 0,
+      MEDIUM: 0,
+      HIGH: 0,
+      CRITICAL: 0,
+    };
 
     const byOperation: Record<string, number> = {};
     const marketSet = new Set<string>();

@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const balanceService = require('../services/balanceService');
 const { backwardCompatMiddleware, migrationGuide } = require('../middleware/backwardCompat');
 
 /**
@@ -100,11 +101,17 @@ router.get('/trading/order/:id', (req, res) => {
  */
 
 // GET /user/balance - Get user balance
-router.get('/user/balance', (req, res) => {
-  res.json({
-    success: true,
-    message: 'This endpoint is deprecated. Use GET /users/balance instead.',
-  });
+router.get('/user/balance', async (req, res) => {
+  if (!req.query.userId) {
+    return res.status(400).json({ success: false, error: 'userId is required' });
+  }
+
+  try {
+    const balances = await balanceService.getBalances(req.query.userId, req.query.asset);
+    res.json({ success: true, data: { userId: req.query.userId, balances } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Unable to load balance' });
+  }
 });
 
 // GET /user/profile - Get user profile

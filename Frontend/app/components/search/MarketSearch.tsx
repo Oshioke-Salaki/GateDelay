@@ -1,7 +1,8 @@
 "use client";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { debounce } from "lodash";
-import { ChevronDown, X, Share2, Bookmark } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, X, Share2, Bookmark, Search, Compass, Star } from "lucide-react";
 
 export interface Market {
   id: string;
@@ -17,7 +18,7 @@ export interface Market {
   createdAt?: string;
 }
 
-interface SearchFilters {
+export interface SearchFilters {
   query: string;
   category?: string;
   status?: string;
@@ -31,12 +32,16 @@ interface MarketSearchProps {
   markets: Market[];
   onSearch?: (filters: SearchFilters) => void;
   isLoading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 export default function MarketSearch({
   markets,
   onSearch,
   isLoading = false,
+  error = null,
+  onRetry,
 }: MarketSearchProps) {
   const [filters, setFilters] = useState<SearchFilters>({
     query: "",
@@ -61,7 +66,7 @@ export default function MarketSearch({
     debouncedSearch(newFilters);
   };
 
-  const handleFilterChange = (key: keyof SearchFilters, value: any) => {
+  const handleFilterChange = (key: keyof SearchFilters, value: string | number | undefined) => {
     const newFilters = { ...filters, [key]: value };
     setFilters(newFilters);
     onSearch?.(newFilters);
@@ -275,12 +280,14 @@ export default function MarketSearch({
             {/* Category */}
             <div>
               <label
+                htmlFor="filter-category"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 CATEGORY
               </label>
               <select
+                id="filter-category"
                 value={filters.category || ""}
                 onChange={(e) =>
                   handleFilterChange("category", e.target.value || undefined)
@@ -304,12 +311,14 @@ export default function MarketSearch({
             {/* Status */}
             <div>
               <label
+                htmlFor="filter-status"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 STATUS
               </label>
               <select
+                id="filter-status"
                 value={filters.status || ""}
                 onChange={(e) =>
                   handleFilterChange("status", e.target.value || undefined)
@@ -332,12 +341,14 @@ export default function MarketSearch({
             {/* Sort By */}
             <div>
               <label
+                htmlFor="filter-sort"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 SORT BY
               </label>
               <select
+                id="filter-sort"
                 value={filters.sortBy}
                 onChange={(e) =>
                   handleFilterChange(
@@ -362,12 +373,14 @@ export default function MarketSearch({
             {/* Min Volume */}
             <div>
               <label
+                htmlFor="filter-min-volume"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 MIN VOLUME
               </label>
               <input
+                id="filter-min-volume"
                 type="number"
                 placeholder="0"
                 value={filters.minVolume || ""}
@@ -389,12 +402,14 @@ export default function MarketSearch({
             {/* Max Volume */}
             <div>
               <label
+                htmlFor="filter-max-volume"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 MAX VOLUME
               </label>
               <input
+                id="filter-max-volume"
                 type="number"
                 placeholder="∞"
                 value={filters.maxVolume || ""}
@@ -416,12 +431,14 @@ export default function MarketSearch({
             {/* Min Liquidity */}
             <div>
               <label
+                htmlFor="filter-min-liquidity"
                 className="text-xs font-semibold"
                 style={{ color: "var(--muted)" }}
               >
                 MIN LIQUIDITY
               </label>
               <input
+                id="filter-min-liquidity"
                 type="number"
                 placeholder="0"
                 value={filters.minLiquidity || ""}
@@ -482,23 +499,97 @@ export default function MarketSearch({
       )}
 
       {/* Results */}
-      <div className="space-y-2">
+      <div className="space-y-2" aria-busy={isLoading}>
         <div className="flex items-center justify-between">
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            {isLoading ? "Searching..." : `${filteredMarkets.length} results`}
+          <p className="text-sm" role="status" aria-live="polite" style={{ color: "var(--muted)" }}>
+            {isLoading ? "Searching…" : `${filteredMarkets.length} results`}
           </p>
         </div>
 
-        {filteredMarkets.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-2" data-testid="market-list-loading" aria-hidden="true">
+            {[0, 1, 2].map((item) => (
+              <div
+                key={item}
+                className="animate-pulse rounded-lg border p-4"
+                style={{ background: "var(--card)", borderColor: "var(--border)" }}
+              >
+                <div className="mb-2 h-4 w-2/3 rounded bg-zinc-300/60" />
+                <div className="h-3 w-full rounded bg-zinc-300/40" />
+                <div className="mt-2 h-3 w-1/3 rounded bg-zinc-300/40" />
+              </div>
+            ))}
+          </div>
+        ) : error ? (
           <div
-            className="p-8 rounded-lg text-center"
+            className="rounded-lg border p-6 text-center"
+            style={{ background: "var(--card)", borderColor: "var(--border)" }}
+            role="alert"
+            data-testid="market-list-error"
+          >
+            <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+              Unable to load markets
+            </p>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>{error}</p>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="mt-4 rounded-lg px-3 py-2 text-sm font-medium text-white"
+                style={{ background: "#3b82f6" }}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : filteredMarkets.length === 0 ? (
+          <div
+            className="rounded-lg border p-8 text-center"
             style={{
               background: "var(--card)",
               borderColor: "var(--border)",
-              border: "1px solid var(--border)",
             }}
+            data-testid="market-list-empty"
           >
-            <p style={{ color: "var(--muted)" }}>No markets found</p>
+            <Search size={24} aria-hidden="true" className="mx-auto mb-3" style={{ color: "var(--muted)" }} />
+            <h3 className="font-semibold" style={{ color: "var(--foreground)" }}>
+              {isLoading ? "Searching markets" : "No markets found"}
+            </h3>
+            <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+              {isLoading
+                ? "Searching…"
+                : hasActiveFilters
+                ? "Try a different search or clear your filters to see more markets."
+                : "There aren't any markets to show right now. Browse or check back soon."}
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2">
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={handleClearFilters}
+                  className="rounded-lg px-4 py-2 text-sm font-semibold"
+                  style={{ background: "#2563eb", color: "white" }}
+                >
+                  Clear search and filters
+                </button>
+              )}
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+              >
+                <Compass size={15} aria-hidden="true" />
+                Browse markets
+              </Link>
+              <Link
+                href="/favorites"
+                className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+              >
+                <Star size={15} aria-hidden="true" />
+                View favorites
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-2">

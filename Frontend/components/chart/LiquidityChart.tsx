@@ -66,6 +66,21 @@ const MOCK_HISTORY_DATA: LiquidityHistoryPoint[] = [
   { timestamp: Date.UTC(2026, 3, 22), poolBalanceUsd: 402500, netFlowUsd: 4400, lpApr: 15.8, activeProviders: 111 },
 ];
 
+// ─── Fallback ─────────────────────────────────────────────────────────────────
+
+function ChartFallback({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-lg py-8 text-xs"
+      style={{ border: "1px dashed var(--border)", color: "var(--muted)" }}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </div>
+  );
+}
+
 function cutoff(range: Range, nowTs: number): number {
   switch (range) {
     case "1W":
@@ -78,9 +93,9 @@ function cutoff(range: Range, nowTs: number): number {
 }
 
 function formatLargeUsd(value: number): string {
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
-  return `$${value.toFixed(0)}`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return `${value.toFixed(0)}`;
 }
 
 function formatLargeCompact(value: number): string {
@@ -138,6 +153,7 @@ export default function LiquidityChart({
   marketTitle = "Market Liquidity",
 }: LiquidityChartProps) {
   const [range, setRange] = useState<Range>("1M");
+  const [tooSmall, setTooSmall] = useState(false);
 
   const nowTs = historyData[historyData.length - 1]?.timestamp ?? Date.now();
 
@@ -155,6 +171,8 @@ export default function LiquidityChart({
   const baseApr = latest?.lpApr ?? 0;
   const volumeBoost = latest ? Math.min(4.0, Math.max(1.2, latest.netFlowUsd / 2000)) : 1.2;
   const rebatePct = Math.min(35, Math.max(10, Math.round(baseApr * 1.6)));
+
+  const handleResize = (w: number) => setTooSmall(w > 0 && w < 180);
 
   return (
     <section
@@ -219,93 +237,103 @@ export default function LiquidityChart({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Depth chart */}
         <div className="rounded-lg p-3" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
           <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>Current Market Depth Curve</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={depthData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis
-                dataKey="notionalUsd"
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(value) => `$${formatLargeCompact(value)}`}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                width={42}
-                tickFormatter={(value) => `${value} bps`}
-              />
-              <Tooltip content={<DepthTooltip />} />
-              <Line type="monotone" dataKey="buySlippageBps" name="Buy impact" stroke="#0ea5e9" strokeWidth={2.2} dot={false} />
-              <Line type="monotone" dataKey="sellSlippageBps" name="Sell impact" stroke="#f59e0b" strokeWidth={2.2} dot={false} />
-              <ReferenceLine y={100} stroke="#64748b" strokeDasharray="4 3" />
-            </LineChart>
-          </ResponsiveContainer>
+          {tooSmall || depthData.length === 0 ? (
+            <ChartFallback message={tooSmall ? "Chart area too small to display" : "No depth data available"} />
+          ) : (
+            <ResponsiveContainer width="100%" height={220} onResize={handleResize}>
+              <LineChart data={depthData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="notionalUsd"
+                  tick={{ fontSize: 10, fill: "var(--muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `${formatLargeCompact(value)}`}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={42}
+                  tickFormatter={(value) => `${value} bps`}
+                />
+                <Tooltip content={<DepthTooltip />} />
+                <Line type="monotone" dataKey="buySlippageBps" name="Buy impact" stroke="#0ea5e9" strokeWidth={2.2} dot={false} />
+                <Line type="monotone" dataKey="sellSlippageBps" name="Sell impact" stroke="#f59e0b" strokeWidth={2.2} dot={false} />
+                <ReferenceLine y={100} stroke="#64748b" strokeDasharray="4 3" />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
           <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
             Hover points to compare price impact by trade size.
           </p>
         </div>
 
+        {/* History chart */}
         <div className="rounded-lg p-3" style={{ border: "1px solid var(--border)", background: "var(--background)" }}>
           <p className="text-xs mb-2" style={{ color: "var(--muted)" }}>Historical Pool Liquidity</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={filteredHistory} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="poolGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.36} />
-                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.04} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis
-                dataKey="timestamp"
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                minTickGap={32}
-                tickFormatter={(value) => format(value, "MMM d")}
-              />
-              <YAxis
-                yAxisId="left"
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                width={50}
-                tickFormatter={(value) => `$${formatLargeCompact(value)}`}
-              />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fontSize: 10, fill: "var(--muted)" }}
-                tickLine={false}
-                axisLine={false}
-                width={36}
-                tickFormatter={(value) => `${value}%`}
-              />
-              <Tooltip content={<HistoryTooltip />} />
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="poolBalanceUsd"
-                name="Pool balance"
-                stroke="#14b8a6"
-                fill="url(#poolGradient)"
-                strokeWidth={2.1}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="lpApr"
-                name="LP APR"
-                stroke="#a855f7"
-                strokeWidth={1.8}
-                dot={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {tooSmall || filteredHistory.length === 0 ? (
+            <ChartFallback message={tooSmall ? "Chart area too small to display" : "No liquidity history available"} />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={filteredHistory} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="poolGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.36} />
+                    <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis
+                  dataKey="timestamp"
+                  tick={{ fontSize: 10, fill: "var(--muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  minTickGap={32}
+                  tickFormatter={(value) => format(value, "MMM d")}
+                />
+                <YAxis
+                  yAxisId="left"
+                  tick={{ fontSize: 10, fill: "var(--muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={50}
+                  tickFormatter={(value) => `${formatLargeCompact(value)}`}
+                />
+                <YAxis
+                  yAxisId="right"
+                  orientation="right"
+                  tick={{ fontSize: 10, fill: "var(--muted)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={36}
+                  tickFormatter={(value) => `${value}%`}
+                />
+                <Tooltip content={<HistoryTooltip />} />
+                <Area
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="poolBalanceUsd"
+                  name="Pool balance"
+                  stroke="#14b8a6"
+                  fill="url(#poolGradient)"
+                  strokeWidth={2.1}
+                />
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="lpApr"
+                  name="LP APR"
+                  stroke="#a855f7"
+                  strokeWidth={1.8}
+                  dot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
           <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
             Historical APR overlays liquidity to show when incentive programs increased depth.
           </p>

@@ -19,7 +19,11 @@ router.post(
   '/',
   handleErrors(async (req, res) => {
     const { userId, dataType, format, options } = req.body;
-    const jobId = await exportService.exportData(userId, dataType, format, options);
+    const exportOptions = { ...options };
+    if (exportOptions.outcome === undefined) {
+      delete exportOptions.outcome;
+    }
+    const jobId = await exportService.exportData(userId, dataType, format, exportOptions);
     res.json({ success: true, jobId });
   })
 );
@@ -57,7 +61,11 @@ router.post(
   '/schedule',
   handleErrors(async (req, res) => {
     const { userId, dataType, format, cronExpression, options } = req.body;
-    const scheduleId = exportService.scheduleExport(userId, dataType, format, cronExpression, options);
+    const exportOptions = { ...options };
+    if (exportOptions.outcome === undefined) {
+      delete exportOptions.outcome;
+    }
+    const scheduleId = exportService.scheduleExport(userId, dataType, format, cronExpression, exportOptions);
     res.json({ success: true, scheduleId });
   })
 );

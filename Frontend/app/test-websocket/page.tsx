@@ -99,11 +99,19 @@ export default function TestWebSocketPage() {
                         </div>
                     )}
                     {websocket.error && (
-                        <div className="flex items-center space-x-4">
-                            <span className="font-medium w-32">Error:</span>
-                            <span className="text-red-600">{websocket.error.message}</span>
+                        <div className="flex items-start space-x-4" data-testid="websocket-error">
+                            <span className="font-medium w-32 shrink-0">Error:</span>
+                            <span className="text-red-600 font-mono text-sm">
+                                {websocket.error.message}
+                            </span>
                         </div>
                     )}
+                    <div className="flex items-start space-x-4">
+                        <span className="font-medium w-32 shrink-0">Backend URL:</span>
+                        <span className="font-mono text-sm">
+                            {process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000"}
+                        </span>
+                    </div>
                 </div>
 
                 {/* Manual Controls */}
@@ -207,13 +215,14 @@ export default function TestWebSocketPage() {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
                 <h2 className="text-xl font-semibold mb-4 text-blue-900">Testing Instructions</h2>
                 <ol className="list-decimal list-inside space-y-2 text-blue-800">
-                    <li>Verify the connection status shows "CONNECTED" (green)</li>
-                    <li>Watch for real-time price updates with flash animations</li>
-                    <li>Click "Disconnect" to test fallback to polling mode</li>
-                    <li>Click "Connect" to restore WebSocket connection</li>
-                    <li>Try subscribing to custom market IDs manually</li>
-                    <li>Open browser console to see WebSocket logs</li>
-                    <li>Test with multiple browser tabs to verify connection limits</li>
+                    <li>Confirm the Backend URL matches <code>Backend/.env</code> <code>PORT</code> (<code>4000</code> in <code>Backend/.env.example</code>; Nest falls back to <code>3000</code> if <code>PORT</code> is unset).</li>
+                    <li>The NestJS <code>/prices</code> gateway disconnects clients without a JWT. Register/login at <code>POST /api/auth/register</code> and <code>POST /api/auth/login</code>, then pass the access token to <code>WebSocketProvider</code>.</li>
+                    <li>If status is ERROR or DISCONNECTED, read the Error row and the browser console — do not ignore a generic offline badge.</li>
+                    <li>Watch for real-time price updates with flash animations after a successful authenticated connection.</li>
+                    <li>Click "Disconnect" to test fallback to polling mode.</li>
+                    <li>Click "Connect" to restore WebSocket connection.</li>
+                    <li>Try subscribing to custom market IDs manually.</li>
+                    <li>Open browser console to see WebSocket logs.</li>
                 </ol>
             </div>
 

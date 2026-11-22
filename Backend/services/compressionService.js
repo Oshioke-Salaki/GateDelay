@@ -1,5 +1,6 @@
 const zlib = require('zlib');
-const snappy = require('snappy');
+// TODO: Quarantined - snappy not in package.json. Add dependency or implement alternative.
+// const snappy = require('snappy');
 const Trade = require('../models/Trade'); // Assuming Trade model exists
 
 class CompressionService {

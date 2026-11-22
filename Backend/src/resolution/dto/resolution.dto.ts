@@ -3,7 +3,8 @@ import {
   IsNotEmpty,
   IsIn,
   IsOptional,
-  IsNumber,
+  IsInt,
+  Matches,
   IsPositive,
   MaxLength,
 } from 'class-validator';
@@ -23,12 +24,12 @@ export class RequestResolutionDto {
 }
 
 export class ConfirmResolutionDto {
-  @IsOptional()
   @IsString()
-  txHash?: string;
+  @Matches(/^0x[0-9a-fA-F]{64}$/)
+  txHash: string;
 
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @IsPositive()
   blockNumber?: number;
 }

@@ -2,16 +2,16 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../contracts/MarketArbitration.sol";
+import "../src/MarketArbitration.sol";
 
 contract MarketArbitrationTest is Test {
     MarketArbitration public arbitration;
 
-    address public admin = address(0xADMIN);
-    address public arb1 = address(0xARB1);
-    address public arb2 = address(0xARB2);
-    address public arb3 = address(0xARB3);
-    address public market = address(0xMARKET);
+    address public admin = address(0xAD0111);
+    address public arb1 = address(0xAEB001);
+    address public arb2 = address(0xAEB002);
+    address public arb3 = address(0xAEB003);
+    address public market = address(0xCAFE01);
 
     event ArbitrationCreated(
         uint256 indexed arbitrationId,
@@ -40,7 +40,7 @@ contract MarketArbitrationTest is Test {
     }
 
     function test_approveArbitrator() public {
-        address newArb = address(0xNEWARB);
+        address newArb = address(0xAEB004);
         
         vm.prank(admin);
         arbitration.approveArbitrator(newArb);
@@ -53,6 +53,24 @@ contract MarketArbitrationTest is Test {
         arbitration.revokeArbitrator(arb1);
 
         assertFalse(arbitration.isApprovedArbitrator(arb1));
+    }
+
+    function test_NonAdminCannotManageArbitrationsOrArbitrators() public {
+        address[] memory arbitrators = new address[](0);
+        bytes[] memory calls = new bytes[](5);
+        calls[0] = abi.encodeCall(arbitration.approveArbitrator, (arb1));
+        calls[1] = abi.encodeCall(arbitration.revokeArbitrator, (arb1));
+        calls[2] = abi.encodeCall(arbitration.createArbitration, (1, market, arbitrators));
+        calls[3] = abi.encodeCall(arbitration.startVoting, (1));
+        calls[4] = abi.encodeCall(arbitration.manualResolve, (1));
+
+        for (uint256 i; i < calls.length; ++i) {
+            vm.prank(arb1);
+            (bool success, bytes memory returnData) = address(arbitration).call(calls[i]);
+
+            assertFalse(success, "non-admin call unexpectedly succeeded");
+            assertEq(returnData, abi.encodeWithSelector(MarketArbitration.NotAuthorized.selector));
+        }
     }
 
     function test_createArbitration() public {
@@ -149,7 +167,7 @@ contract MarketArbitrationTest is Test {
         arbitration.startVoting(arbId);
         vm.stopPrank();
 
-        address notArbitrator = address(0xNOTARB);
+        address notArbitrator = address(0xAEB099);
         vm.prank(notArbitrator);
         vm.expectRevert(MarketArbitration.NotArbitrator.selector);
         arbitration.vote(arbId, MarketArbitration.Decision.UPHOLD, "");

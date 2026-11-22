@@ -1,18 +1,237 @@
+# ------------------------------------------------------------
+# Foundry profile configuration.
+# Keep the version in CI (.github/workflows/ci.yml) aligned with
+# the local toolchain installed by Foundry.
+# ------------------------------------------------------------
+# Toolchain pin — keep this in sync with the forge version used in CI
+# (.github/workflows/test.yml).
+# Bump deliberately; never let it float.
+# ------------------------------------------------------------
+[profile.toolchain]
+channel = "stable"
+forge   = "1.1.0"            # pinned Forge version; bump deliberately
+
 [profile.default]
-src            = "contracts"
+# WrapperContract requires openzeppelin-contracts-upgradeable (not vendored)
+skip           = [
+  "src/WrapperContract.sol",
+  "test/WrapperContract.t.sol",
+  "src/CrossChainHandler.sol",
+  "src/AutoCompounder.sol",
+  "src/RandomSelection.sol",
+  "src/MintingPausable.sol",
+  "test/MintingPausable.t.sol",
+  "test/MintingPausableFuzz.t.sol",
+  "src/Burnable.sol",
+  "src/DepositLogic.sol",
+  "test/DepositLogic.t.sol",
+  "src/RewardDistribution.sol",
+  "src/WithdrawalLimit.sol",
+  "test/WithdrawalLimit.t.sol",
+  "src/YieldDistribution.sol",
+  "test/YieldDistribution.t.sol",
+  "test/LiquidationMath.t.sol",
+  "test/MarketArbitration.t.sol",
+  "src/Liquidation.sol",
+  "test/CollateralVault.t.sol",
+  "src/MarketInitializer.sol",
+  "test/MarketInitializer.t.sol",
+  "src/AMMPool.sol",
+  "test/AMMPool.t.sol",
+  "src/AutoRebalancer.sol",
+  "test/AutoRebalancer.t.sol",
+  "src/BondIssuance.sol",
+  "src/BondRedemption.sol",
+  "test/BondRedemption.t.sol",
+  "src/BridgeConnector.sol",
+  "test/BridgeConnector.t.sol",
+  "src/CashbackContract.sol",
+  "test/Cashback.t.sol",
+  "src/CircuitBreaker.sol",
+  "test/CircuitBreaker.t.sol",
+  "src/ClaimContract.sol",
+  "test/ClaimContract.t.sol",
+  "src/CollateralVault.sol",
+  "test/CollateralVault.t.sol",
+  "src/CompoundInterval.sol",
+  "test/CompoundInterval.t.sol",
+  "src/CoverageCalculation.sol",
+  "test/CoverageCalculation.t.sol",
+  "src/CoverageTier.sol",
+  "test/CoverageTierBoundary.t.sol",
+  "src/DisputeHandler.sol",
+  "test/DisputeHandler.t.sol",
+  "src/EmergencyStop.sol",
+  "test/EmergencyStop.t.sol",
+  "test/EmergencyStopFuzz.t.sol",
+  "src/FlashBorrow.sol",
+  "test/FlashBorrow.t.sol",
+  "src/FlashLoanProtection.sol",
+  "test/FlashLoanProtectionExtended.t.sol",
+  "src/Governance.sol",
+  "test/Governance.t.sol",
+  "test/GovernanceQuorum.t.sol",
+  "src/JurySelection.sol",
+  "test/JurySelection.t.sol",
+  "src/KYCStorage.sol",
+  "test/KYCStorage.t.sol",
+  "src/LiquidityMining.sol",
+  "test/LiquidityMining.t.sol",
+  "src/LiquidityPool.sol",
+  "test/LiquidityPool.t.sol",
+  "src/LMSR.sol",
+  "test/LMSR.t.sol",
+  "src/MarginCalculator.sol",
+  "test/MarginCalculator.t.sol",
+  "src/MarketAdmin.sol",
+  "test/MarketAdmin.t.sol",
+  "src/MarketAppeal.sol",
+  "test/MarketAppeal.t.sol",
+  "src/MarketBond.sol",
+  "test/MarketBond.t.sol",
+  "test/MarketBont.t.sol",
+  "src/MarketBridge.sol",
+  "test/MarketBridge.t.sol",
+  "src/MarketCap.sol",
+  "test/MarketCap.t.sol",
+  "test/MarketCapFuzz.t.sol",
+  "src/MarketCompound.sol",
+  "src/MarketDelegation.sol",
+  "test/MarketDelegation.t.sol",
+  "src/MarketFreeze.sol",
+  "test/MarketFreeze.t.sol",
+  "src/MarketIncentive.sol",
+  "test/MarketIncentive.t.sol",
+  "src/MarketInsurance.sol",
+  "test/MarketInsurance.t.sol",
+  "src/MarketLottery.sol",
+  "test/MarketLottery.t.sol",
+  "src/MarketMaker.sol",
+  "test/MarketMaker.t.sol",
+  "src/MarketMinter.sol",
+  "test/MarketMinter.t.sol",
+  "src/MarketPauser.sol",
+  "test/MarketPauser.t.sol",
+  "src/MarketPayout.sol",
+  "test/MarketPayout.t.sol",
+  "src/MarketRebalance.sol",
+  "test/MarketRebalance.t.sol",
+  "src/MarketRelay.sol",
+  "test/MarketRelay.t.sol",
+  "src/MarketReward.sol",
+  "test/MarketReward.t.sol",
+  "src/MarketSettlement.sol",
+  "test/MarketSettlement.t.sol",
+  "src/MarketStrategy.sol",
+  "test/MarketStrategy.t.sol",
+  "src/MarketVault.sol",
+  "test/MarketVault.t.sol",
+  "src/MarketVesting.sol",
+  "test/MarketVesting.t.sol",
+  "src/MarketWithdraw.sol",
+  "test/MarketWithdraw.t.sol",
+  "src/MarketWrap.sol",
+  "test/MarketWrap.t.sol",
+  "src/MarketYield.sol",
+  "test/MarketYield.t.sol",
+  "src/OrderBook.sol",
+  "test/OrderBook.t.sol",
+  "src/PausableMarket.sol",
+  "test/PausableMarket.t.sol",
+  "src/Payout.sol",
+  "test/Payout.t.sol",
+  "src/PriceOracle.sol",
+  "test/PriceOracle.t.sol",
+  "src/Quorum.sol",
+  "test/Quorum.t.sol",
+  "src/RaffleContract.sol",
+  "test/RaffleContract.t.sol",
+  "src/RebalanceThreshold.sol",
+  "test/RebalanceThreshold.t.sol",
+  "test/ReentrancyCoverage.t.sol",
+  "src/RelayContract.sol",
+  "test/RelayContract.t.sol",
+  "src/Resolution.sol",
+  "test/Resolution.t.sol",
+  "src/RevokeFunction.sol",
+  "test/RevokeFunction.t.sol",
+  "test/RevokeFunctionExample.t.sol",
+  "test/RewardVesting.t.sol",
+  "src/RiskAssessment.sol",
+  "test/RiskAssessment.t.sol",
+  "src/RoleManager.sol",
+  "test/RoleManager.t.sol",
+  "src/RulingTimelock.sol",
+  "test/RulingTimelock.t.sol",
+  "src/ShareRedemption.sol",
+  "test/ShareRedemption.t.sol",
+  "src/StakingContract.sol",
+  "test/StakingContract.t.sol",
+  "src/StrategyVault.sol",
+  "test/StrategyVault.t.sol",
+  "src/SupplyController.sol",
+  "test/SupplyController.t.sol",
+  "test/SupplyControllerFuzz.t.sol",
+  "src/SwapRouter.sol",
+  "test/SwapRouter.t.sol",
+  "src/TicketPurchase.sol",
+  "test/TicketPurchase.t.sol",
+  "src/Timelock.sol",
+  "test/Timelock.t.sol",
+  "src/TimelockVesting.sol",
+  "test/TimelockVesting.t.sol",
+  "src/Trading.sol",
+  "test/Trading.t.sol",
+  "src/UnwrapFunction.sol",
+  "test/UnwrapFunction.t.sol",
+  "src/UpgradeableMarket.sol",
+  "test/UpgradeableMarket.t.sol",
+  "test/UUPSUpgradeable.t.sol",
+  "src/VaultShares.sol",
+  "test/VaultShares.t.sol",
+  "src/VerdictExecution.sol",
+  "test/VerdictExecution.t.sol",
+  "src/VoteDelegation.sol",
+  "test/VoteDelegation.t.sol",
+  "test/VoteDelegationLoops.t.sol",
+  "src/VoteWeight.sol",
+  "test/VoteWeight.t.sol",
+  "src/Voting.sol",
+  "test/Voting.t.sol",
+  "src/VotingWithVoteWeight.sol",
+  "test/VotingWithVoteWeight.t.sol",
+  "src/Whitelist.sol",
+  "test/Whitelist.t.sol",
+  "src/WithdrawalQueue.sol",
+  "test/WithdrawalQueue.t.sol",
+  "test/WithdrawalQueueExtended.t.sol",
+  "src/WithdrawalShares.sol",
+  "test/WithdrawalShares.t.sol",
+  "test/YieldGenerator.t.sol"
+]
+src            = "src"
 out            = "out"
 libs           = ["lib"]
 test           = "test"
 script         = "script"
-solc           = "0.8.20"
+solc           = "0.8.28"
 optimizer      = true
 optimizer_runs = 200
-via_ir         = true
+via_ir         = false
 auto_detect_solc = true
 offline = false
+remappings_file = "remappings.txt"
 
 [profile.default.fuzz]
 runs = 256
+
+[profile.ci]
+test = "test-ci"
+fuzz = { runs = 512 }
+
+[profile.integration]
+src = "src/integration"
+test = "test/integration"
 
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"

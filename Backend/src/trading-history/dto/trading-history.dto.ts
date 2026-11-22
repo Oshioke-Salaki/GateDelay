@@ -4,6 +4,8 @@ import {
   IsDateString,
   IsEnum,
   IsNumber,
+  IsInt,
+  Max,
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -13,11 +15,25 @@ const TRADE_STATUSES = ['pending', 'confirmed', 'failed'] as const;
 type TradeType = (typeof TRADE_TYPES)[number];
 type TradeStatus = (typeof TRADE_STATUSES)[number];
 
+/** Upper bound on a single trade-history page. */
+export const MAX_TRADING_HISTORY_PAGE_SIZE = 100;
+
 export class GetTradingHistoryDto {
+  /**
+   * 1-based page number (#916). Ignored when `offset` is supplied, so existing
+   * offset-based callers keep byte-for-byte identical results.
+   */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(1)
+  @Max(MAX_TRADING_HISTORY_PAGE_SIZE)
   limit?: number = 20;
 
   @IsOptional()

@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Search, Compass, Star } from "lucide-react";
+import StatusBadge, { MarketStatus } from "@/components/market/StatusBadge";
+import { useToast } from "@/hooks/useToast";
+import { fetchMarketsByIds } from "@/lib/marketApi";
 
 interface FavoritedMarket {
   id: string;
@@ -12,14 +15,17 @@ interface FavoritedMarket {
   noPrice: number;
   volume: number;
   liquidity: number;
-  status: "open" | "closed" | "resolved" | "disputed";
+  status: MarketStatus;
 }
 
 export default function FavoritesPage() {
-  const router = useRouter();
+  const { success, error } = useToast();
   const [favorites, setFavorites] = useState<string[]>([]);
   const [markets, setMarkets] = useState<FavoritedMarket[]>([]);
+  const [missing, setMissing] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingMarkets, setIsFetchingMarkets] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Load favorites from localStorage
   useEffect(() => {
@@ -28,33 +34,55 @@ export default function FavoritesPage() {
     setIsLoading(false);
   }, []);
 
-  // Simulate fetching market data for favorites
+  // Resolve saved favorite IDs through the market API
   useEffect(() => {
     if (favorites.length === 0) {
       setMarkets([]);
+      setMissing([]);
+      setFetchError(null);
+      setIsFetchingMarkets(false);
       return;
     }
 
-    // In a real app, this would fetch from an API
-    const mockMarkets: FavoritedMarket[] = favorites.map((id, index) => ({
-      id,
-      title: `Flight ${id.slice(0, 3).toUpperCase()} - On Time Delivery`,
-      description: `Market for flight ${id} arriving on schedule`,
-      yesPrice: 0.5 + Math.random() * 0.3,
-      noPrice: 0.5 - Math.random() * 0.3,
-      volume: Math.floor(Math.random() * 50000) + 10000,
-      liquidity: Math.floor(Math.random() * 100000) + 50000,
-      status: (["open", "closed", "resolved", "disputed"] as const)[index % 4],
-    }));
+    let cancelled = false;
+    setIsFetchingMarkets(true);
+    setFetchError(null);
 
-    setMarkets(mockMarkets);
+    fetchMarketsByIds(favorites)
+      .then((result) => {
+        if (cancelled) return;
+        setMarkets(result.markets);
+        setMissing(result.missing);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setMarkets([]);
+        setMissing([]);
+        setFetchError(
+          err instanceof Error ? err.message : "Failed to load favorite markets"
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsFetchingMarkets(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [favorites]);
 
-  const handleRemoveFavorite = (marketId: string) => {
+  const handleRemoveFavorite = useCallback((marketId: string) => {
     const updated = favorites.filter((id) => id !== marketId);
     localStorage.setItem("market_favorites", JSON.stringify(updated));
     setFavorites(updated);
-  };
+    success("Removed from favorites", undefined, { duration: 2500 });
+  }, [favorites, success]);
+
+  const handleRetry = useCallback(() => {
+    // Re-trigger the fetch effect by resetting favorites to a new array reference
+    setFavorites((current) => [...current]);
+  }, []);
 
   if (isLoading) {
     return (
@@ -88,23 +116,57 @@ export default function FavoritesPage() {
             className="rounded-xl p-12 text-center"
             style={{ background: "var(--card)", border: "1px solid var(--border)" }}
           >
-            <div className="text-4xl mb-4">⭐</div>
+            <Star size={30} aria-hidden="true" className="mx-auto mb-4" style={{ color: "#d49a18" }} />
             <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--foreground)" }}>
-              No Favorites Yet
+              Your watchlist is empty
             </h2>
-            <p className="mb-6" style={{ color: "var(--muted)" }}>
-              Start favoriting markets to keep track of your favorite trading opportunities.
+            <p className="mx-auto mb-6 max-w-lg" style={{ color: "var(--muted)" }}>
+              Save markets here to follow their odds and activity. Browse open markets, then select the star on any market to add it to your favorites.
             </p>
-            <Link
-              href="/markets"
-              className="inline-block px-6 py-2 rounded-lg font-semibold transition-all"
-              style={{
-                background: "#3b82f6",
-                color: "white",
-              }}
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 font-semibold transition-opacity hover:opacity-90"
+                style={{ background: "#2563eb", color: "white" }}
+              >
+                <Compass size={16} aria-hidden="true" />
+                Browse markets
+              </Link>
+              <Link
+                href="/markets/search"
+                className="inline-flex items-center gap-2 rounded-lg border px-5 py-2.5 font-semibold transition-colors hover:bg-black/5"
+                style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
+              >
+                <Search size={16} aria-hidden="true" />
+                Search markets
+              </Link>
+            </div>
+          </div>
+        ) : isFetchingMarkets ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mx-auto mb-4" />
+              <p style={{ color: "var(--muted)" }}>Loading market data...</p>
+            </div>
+          </div>
+        ) : fetchError ? (
+          <div
+            className="rounded-xl p-12 text-center"
+            style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+          >
+            <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--foreground)" }}>
+              Couldn&apos;t load your favorites
+            </h2>
+            <p className="mx-auto mb-6 max-w-lg" style={{ color: "var(--muted)" }}>
+              {fetchError}
+            </p>
+            <button
+              onClick={handleRetry}
+              className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 font-semibold transition-opacity hover:opacity-90"
+              style={{ background: "#2563eb", color: "white" }}
             >
-              Browse Markets
-            </Link>
+              Try again
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -144,31 +206,7 @@ export default function FavoritesPage() {
                   </p>
 
                   {/* Status Badge */}
-                  <div>
-                    <span
-                      className="inline-block px-2 py-1 rounded text-xs font-semibold"
-                      style={{
-                        background:
-                          market.status === "open"
-                            ? "#22c55e18"
-                            : market.status === "closed"
-                              ? "#f59e0b18"
-                              : market.status === "resolved"
-                                ? "#6366f118"
-                                : "#ef444418",
-                        color:
-                          market.status === "open"
-                            ? "#22c55e"
-                            : market.status === "closed"
-                              ? "#f59e0b"
-                              : market.status === "resolved"
-                                ? "#6366f1"
-                                : "#ef4444",
-                      }}
-                    >
-                      {market.status.charAt(0).toUpperCase() + market.status.slice(1)}
-                    </span>
-                  </div>
+                  <StatusBadge status={market.status} />
 
                   {/* Prices */}
                   <div className="flex gap-2">
@@ -217,6 +255,55 @@ export default function FavoritesPage() {
                   >
                     Trade
                   </Link>
+                </div>
+              </div>
+            ))}
+
+            {missing.map((marketId) => (
+              <div
+                key={marketId}
+                className="rounded-xl overflow-hidden"
+                style={{ background: "var(--card)", border: "1px dashed var(--border)" }}
+              >
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
+                        Market no longer available
+                      </h3>
+                      <p className="text-xs mt-1 break-all" style={{ color: "var(--muted)" }}>
+                        ID: {marketId}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFavorite(marketId)}
+                      className="shrink-0 p-1.5 rounded-lg transition-all"
+                      style={{
+                        background: "#ef444418",
+                        color: "#ef4444",
+                        border: "1px solid #ef444444",
+                      }}
+                      aria-label="Remove from favorites"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>
+                    This market may have been deleted or is no longer publicly listed. You can remove it from your favorites.
+                  </p>
+                  <button
+                    onClick={() => handleRemoveFavorite(marketId)}
+                    className="block w-full py-2 px-3 rounded-lg font-semibold text-center text-sm transition-all"
+                    style={{
+                      background: "transparent",
+                      color: "#ef4444",
+                      border: "1px solid #ef444444",
+                    }}
+                  >
+                    Remove from favorites
+                  </button>
                 </div>
               </div>
             ))}

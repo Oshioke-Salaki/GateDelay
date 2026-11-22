@@ -270,6 +270,11 @@ contract MarketInsurance {
     /// @param tier Coverage tier (BASIC, STANDARD, PREMIUM, PLATINUM)
     /// @param autoRenewal Whether policy auto-renews on expiry
     /// @return policyId ID of the created policy
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Invalid market" if `market != address(0)` is false. require condition
+    ///     `coverageAmount > 0` must hold. require condition `durationDays >= MIN_COVERAGE_DURATION
+    ///     && durationDays <= MAX_COVERAGE_DURATION` must hold. require condition `premium > 0`
+    ///     must hold.
     function createPolicy(
         address market,
         uint256 coverageAmount,
@@ -339,6 +344,11 @@ contract MarketInsurance {
     /// @notice Renew an existing policy
     /// @param policyId ID of the policy to renew
     /// @param newDurationDays New duration in days
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `policy.policyHolder == msg.sender` must hold. require
+    ///     condition `policy.status == PolicyStatus.ACTIVE || policy.status ==
+    ///     PolicyStatus.EXPIRED` must hold. require condition `newDurationDays >=
+    ///     MIN_COVERAGE_DURATION && newDurationDays <= MAX_COVERAGE_DURATION` must hold.
     function renewPolicy(uint256 policyId, uint256 newDurationDays) external {
         InsurancePolicy storage policy = _policies[policyId];
         require(policy.policyHolder == msg.sender, Unauthorized());
@@ -362,6 +372,9 @@ contract MarketInsurance {
 
     /// @notice Cancel a policy and refund unused premium
     /// @param policyId ID of the policy to cancel
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `policy.policyHolder == msg.sender` must hold. require
+    ///     condition `policy.status == PolicyStatus.ACTIVE` must hold.
     function cancelPolicy(uint256 policyId) external {
         InsurancePolicy storage policy = _policies[policyId];
         require(policy.policyHolder == msg.sender, Unauthorized());
@@ -391,6 +404,7 @@ contract MarketInsurance {
     /// @param policyHolder Address of the policy holder
     /// @param market Address of the market
     /// @return coverage Coverage information
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getCoverageInfo(
         address policyHolder,
         address market
@@ -402,6 +416,9 @@ contract MarketInsurance {
     /// @param policyHolder Address of the policy holder
     /// @param market Address of the market
     /// @param utilizationAmount Amount of coverage being utilized
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "Coverage not active" if `coverage.isActive` is false. require condition
+    ///     `utilizationAmount <= coverage.coveredAmount` must hold.
     function updateCoverageUtilization(
         address policyHolder,
         address market,
@@ -429,6 +446,7 @@ contract MarketInsurance {
     /// @param policyHolder Address of the policy holder
     /// @param market Address of the market
     /// @return activeCoverage Amount of active coverage
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getActiveCoverage(
         address policyHolder,
         address market
@@ -449,6 +467,11 @@ contract MarketInsurance {
     /// @param claimAmount Amount to claim
     /// @param claimReason Reason for the claim
     /// @return claimId ID of the submitted claim
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `policy.policyHolder == msg.sender` must hold. require
+    ///     condition `policy.status == PolicyStatus.ACTIVE` must hold. "Policy expired" if
+    ///     `policy.expiryTime > block.timestamp` is false. require condition `claimAmount > 0` must
+    ///     hold. require condition `claimAmount <= policy.coverageAmount` must hold.
     function submitClaim(
         uint256 policyId,
         uint256 claimAmount,
@@ -487,6 +510,11 @@ contract MarketInsurance {
     /// @notice Approve an insurance claim
     /// @param claimId ID of the claim to approve
     /// @param approvedAmount Amount to approve for payment
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. "Claim not pending" if
+    ///     `claim.status == ClaimStatus.PENDING` is false. require condition `approvedAmount > 0 &&
+    ///     approvedAmount <= claim.claimAmount` must hold. require condition `approvedAmount <=
+    ///     insuranceFundBalance` must hold.
     function approveClaim(uint256 claimId, uint256 approvedAmount) external {
         require(msg.sender == admin, Unauthorized());
 
@@ -511,6 +539,9 @@ contract MarketInsurance {
     /// @notice Reject an insurance claim
     /// @param claimId ID of the claim to reject
     /// @param reason Reason for rejection
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. "Claim not pending" if
+    ///     `claim.status == ClaimStatus.PENDING` is false.
     function rejectClaim(uint256 claimId, string calldata reason) external {
         require(msg.sender == admin, Unauthorized());
 
@@ -525,6 +556,10 @@ contract MarketInsurance {
 
     /// @notice Pay out an approved claim
     /// @param claimId ID of the claim to pay
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: "Claim not approved" if `claim.status == ClaimStatus.APPROVED` is false.
+    ///     require condition `block.timestamp <= claim.processedTime + CLAIM_PROCESSING_PERIOD`
+    ///     must hold.
     function payClaim(uint256 claimId) external {
         InsuranceClaim storage claim = _claims[claimId];
         require(claim.status == ClaimStatus.APPROVED, "Claim not approved");
@@ -545,6 +580,8 @@ contract MarketInsurance {
     /// @notice Get claim details
     /// @param claimId ID of the claim
     /// @return claim Claim information
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `claimId < _nextClaimId` must hold.
     function getClaim(
         uint256 claimId
     ) external view returns (InsuranceClaim memory claim) {
@@ -561,6 +598,9 @@ contract MarketInsurance {
     /// @param durationDays Duration in days
     /// @param tier Coverage tier
     /// @return premium Calculated premium amount
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `coverageAmount > 0` must hold. "Invalid duration" if
+    ///     `durationDays > 0` is false.
     function calculatePremium(
         uint256 coverageAmount,
         uint256 durationDays,
@@ -580,6 +620,8 @@ contract MarketInsurance {
     /// @notice Get the premium rate for a coverage tier
     /// @param tier Coverage tier
     /// @return rate Premium rate in basis points
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: `InvalidPremiumRate` when its validation condition fails.
     function getTierPremiumRate(
         CoverageTier tier
     ) public view returns (uint256 rate) {
@@ -595,6 +637,9 @@ contract MarketInsurance {
     /// @param standardRate New standard rate
     /// @param premiumRate New premium rate
     /// @param platinumRate New platinum rate
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. require condition `basicRate
+    ///     > 0 && standardRate > 0 && premiumRate > 0 && platinumRate > 0` must hold.
     function updatePremiumRates(
         uint256 basicRate,
         uint256 standardRate,
@@ -624,6 +669,8 @@ contract MarketInsurance {
 
     /// @notice Deposit funds into the insurance fund
     /// @param amount Amount to deposit
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: "Amount must be greater than 0" if `amount > 0` is false.
     function depositInsuranceFund(uint256 amount) external {
         require(amount > 0, "Amount must be greater than 0");
 
@@ -634,6 +681,10 @@ contract MarketInsurance {
 
     /// @notice Withdraw funds from the insurance fund (admin only)
     /// @param amount Amount to withdraw
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. "Amount must be greater than
+    ///     0" if `amount > 0` is false. require condition `amount <= insuranceFundBalance` must
+    ///     hold.
     function withdrawInsuranceFund(uint256 amount) external {
         require(msg.sender == admin, Unauthorized());
         require(amount > 0, "Amount must be greater than 0");
@@ -646,6 +697,7 @@ contract MarketInsurance {
 
     /// @notice Get current insurance fund balance
     /// @return balance Current balance
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getInsuranceFundBalance() external view returns (uint256 balance) {
         return insuranceFundBalance;
     }
@@ -657,6 +709,8 @@ contract MarketInsurance {
     /// @notice Get policy details
     /// @param policyId ID of the policy
     /// @return policy Policy information
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `policyId < _nextPolicyId` must hold.
     function getPolicy(
         uint256 policyId
     ) external view returns (InsurancePolicy memory policy) {
@@ -667,6 +721,7 @@ contract MarketInsurance {
     /// @notice Get all policies for a user
     /// @param policyHolder Address of the policy holder
     /// @return policies Array of policy IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getUserPolicies(
         address policyHolder
     ) external view returns (uint256[] memory policies) {
@@ -676,6 +731,7 @@ contract MarketInsurance {
     /// @notice Get all policies for a market
     /// @param market Address of the market
     /// @return policies Array of policy IDs
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketPolicies(
         address market
     ) external view returns (uint256[] memory policies) {
@@ -685,6 +741,7 @@ contract MarketInsurance {
     /// @notice Check if a policy is active
     /// @param policyId ID of the policy
     /// @return isActive True if policy is active and not expired
+    /// @dev Access: No caller-specific access restriction is imposed.
     function isPolicyActive(
         uint256 policyId
     ) external view returns (bool isActive) {
@@ -697,6 +754,7 @@ contract MarketInsurance {
     /// @notice Get total coverage for a policy holder across all markets
     /// @param policyHolder Address of the policy holder
     /// @return totalCoverage Total active coverage amount
+    /// @dev Access: No caller-specific access restriction is imposed.
     function getTotalCoverage(
         address policyHolder
     ) external view returns (uint256 totalCoverage) {
@@ -718,6 +776,8 @@ contract MarketInsurance {
     /// @notice Get total claims processed for a policy
     /// @param policyId ID of the policy
     /// @return totalProcessed Total amount of claims processed
+    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Reverts: require condition `policyId < _nextPolicyId` must hold.
     function getTotalClaimsProcessed(
         uint256 policyId
     ) external view returns (uint256 totalProcessed) {
@@ -731,6 +791,9 @@ contract MarketInsurance {
 
     /// @notice Update admin address
     /// @param newAdmin Address of the new admin
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: require condition `msg.sender == admin` must hold. "Invalid admin address" if
+    ///     `newAdmin != address(0)` is false.
     function updateAdmin(address newAdmin) external {
         require(msg.sender == admin, Unauthorized());
         require(newAdmin != address(0), "Invalid admin address");

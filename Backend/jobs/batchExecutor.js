@@ -1,5 +1,7 @@
-const cron = require('node-cron');
-const async = require('async');
+// TODO: Quarantined - node-cron not in package.json. Add dependency or implement alternative.
+// const cron = require('node-cron');
+// TODO: Quarantined - async not in package.json. Add dependency or implement alternative.
+// const async = require('async');
 const batchProcessor = require('../services/batchProcessor');
 
 /**

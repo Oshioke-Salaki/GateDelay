@@ -2,18 +2,35 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
+  "packageManager": "npm@10.2.4",
   "scripts": {
     "dev": "next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "check:staged-source": "node scripts/check-staged-source.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:smoke": "playwright test",
+    "docker:build": "docker build -t gatedelay-frontend:local .",
+    "docker:smoke": "bash scripts/smoke-test.sh gatedelay-frontend:local"
   },
   "dependencies": {
     "@particle-network/connectkit": "^3.0.0-alpha.4",
     "@react-pdf/renderer": "^3.4.5",
     "@tanstack/react-query": "^5.99.2",
     "@tanstack/react-table": "^8.21.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/crypto-js": "^4.2.2",
     "bip39": "^3.1.0",
+    "canvas-confetti": "^1.9.4",
+    "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "ethers": "^6.17.0",
     "framer-motion": "^12.38.0",
@@ -32,15 +49,26 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.2.0",
+    "@testing-library/user-event": "^14.6.6",
     "@types/lodash": "^4.14.202",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-modal": "^3.16.3",
+    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "jsdom": "^26.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@playwright/test": "^1.49.1",
+    "vitest": "^3.0.5"
+  },
+  "overrides": {
+    "zod": "^3.25.0"
   }
 }

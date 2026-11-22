@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useAccount, useDisconnect } from "@particle-network/connectkit";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import { useConnectKitBridge } from "./ConnectKitBridgeContext";
+import { useToast } from "@/hooks/useToast";
 
 const ConnectModal = dynamic(
   () => import("../../components/wallet/ConnectModal"),
@@ -14,14 +15,44 @@ function truncate(addr: string) {
 }
 
 export default function WalletButton() {
-  const { isConnected, address, isConnecting } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { isAvailable, isConnected, address, isConnecting, disconnect } = useConnectKitBridge();
   const [modalOpen, setModalOpen] = useState(false);
+  const { success, info } = useToast();
+
+  // Track previous connection state so we only fire toasts on transitions,
+  // not on the initial render.
+  const prevConnectedRef = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    // Skip the very first render (null → first real value)
+    if (prevConnectedRef.current === null) {
+      prevConnectedRef.current = isConnected;
+      return;
+    }
+
+    const prev = prevConnectedRef.current;
+    prevConnectedRef.current = isConnected;
+
+    if (!prev && isConnected && address) {
+      // just connected
+      success("Wallet connected", truncate(address));
+    } else if (prev && !isConnected) {
+      // just disconnected
+      info("Wallet disconnected", undefined, { duration: 3000 });
+    }
+  }, [isConnected, address, success, info]);
+
+  const handleDisconnect = () => {
+    disconnect();
+    // Toast fires via the useEffect above on the next render cycle
+  };
 
   if (isConnecting) {
     return (
       <button
         disabled
+        aria-label="Wallet connection in progress"
+        title="Wallet connection in progress"
         className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium opacity-60"
         style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--foreground)" }}
       >
@@ -42,8 +73,10 @@ export default function WalletButton() {
           {truncate(address)}
         </span>
         <button
-          onClick={() => disconnect()}
-          className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:opacity-80"
+          onClick={handleDisconnect}
+          aria-label={`Disconnect wallet ${truncate(address)}`}
+          title={`Disconnect wallet ${truncate(address)}`}
+          className="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
           style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)" }}
         >
           Disconnect
@@ -56,10 +89,13 @@ export default function WalletButton() {
     <>
       <button
         onClick={() => setModalOpen(true)}
-        className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+        aria-label={isAvailable ? "Connect wallet" : "Wallet signing unavailable; open setup details"}
+        aria-haspopup="dialog"
+        title={isAvailable ? "Connect wallet" : "Signing unavailable: configure Particle credentials"}
+        className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
         style={{ background: "#3b82f6" }}
       >
-        Connect Wallet
+        {isAvailable ? "Connect Wallet" : "Signing unavailable"}
       </button>
 
       <ConnectModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />

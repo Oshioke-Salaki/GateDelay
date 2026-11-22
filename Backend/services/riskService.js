@@ -41,6 +41,17 @@ const RISK_SCORE_WEIGHTS = {
   CORRELATION: '0.15',
 };
 
+// ─── Liquidation State Constants ─────────────────────────────────────────────
+
+const LIQUIDATION_STATES = {
+  NORMAL: 'normal',
+  PARTIAL: 'partial_liquidation',
+  FULL: 'fully_liquidated',
+  BOUNDARY: 'boundary_collateral',
+};
+
+const COLLATERAL_BOUNDARY_THRESHOLD = '10'; // Within 10% of liquidation threshold
+
 // ─── Helper Functions ──────────────────────────────────────────────────────────
 
 function validateNumber(value, name = 'value') {
@@ -234,7 +245,10 @@ async function calculateLeverageRisk(userId) {
 
 /**
  * D. CALCULATE LIQUIDATION PROXIMITY RISK
- * Measures distance from liquidation
+ * Measures distance from liquidation, covering:
+ * - Boundary collateral ratios (within threshold margin of liquidation)
+ * - Partial liquidation scenarios
+ * - Already-liquidated accounts
  *
  * @param {string} userId - User ID
  * @returns {Promise<object>} Liquidation risk metrics
@@ -246,23 +260,85 @@ async function calculateLiquidationProximityRisk(userId) {
       return { score: '0', level: RISK_LEVELS.LOW, marginRatio: '0' };
     }
 
-    const marginRatio = new Big(account.marginRatio);
+    const marginRatio = new Big(account.marginRatio || '0');
     const liquidationThreshold = new Big('5'); // 5% minimum
 
-    if (marginRatio.lte(liquidationThreshold)) {
+    // ── Scenario: Already-liquidated accounts ──────────────────────────────
+    if (account.status === 'Liquidated' || marginRatio.lte(0)) {
       return {
         success: true,
         data: {
           metric: RISK_METRICS.LIQUIDATION_PROXIMITY,
           score: '100',
           level: RISK_LEVELS.CRITICAL,
-          marginRatio: account.marginRatio,
+          marginRatio: marginRatio.toFixed(2),
           liquidationThreshold: '5',
+          liquidationState: LIQUIDATION_STATES.FULL,
           atRisk: true,
+          reasons: [
+            `Account margin ratio (${marginRatio.toFixed(2)}%) indicates full liquidation has occurred`,
+            'Account status is marked as Liquidated',
+            'No remaining collateral to support open positions',
+          ],
         },
       };
     }
 
+    // ── Scenario: Partial liquidation ──────────────────────────────────────
+    if (account.status === 'PartiallyLiquidated' || account.partialLiquidation) {
+      const liquidationDamage = marginRatio.lt(liquidationThreshold.times(2)) ? 'high' : 'moderate';
+      const partialScore = new Big('75');
+
+      return {
+        success: true,
+        data: {
+          metric: RISK_METRICS.LIQUIDATION_PROXIMITY,
+          score: partialScore.toFixed(2),
+          level: RISK_LEVELS.HIGH,
+          marginRatio: marginRatio.toFixed(2),
+          liquidationThreshold: '5',
+          liquidationState: LIQUIDATION_STATES.PARTIAL,
+          atRisk: true,
+          reasons: [
+            `Partial liquidation has occurred on this account`,
+            `Remaining margin ratio (${marginRatio.toFixed(2)}%) reflects ${liquidationDamage} liquidation damage`,
+            'Historical partial liquidation indicates elevated risk profile',
+          ],
+        },
+      };
+    }
+
+    // ── Scenario: Boundary collateral ratios ───────────────────────────────
+    // Margin ratio is within COLLATERAL_BOUNDARY_THRESHOLD% of the liquidation threshold
+    const boundaryZone = liquidationThreshold.times(1).plus(
+      new Big(COLLATERAL_BOUNDARY_THRESHOLD).div(100).times(liquidationThreshold)
+    );
+    if (marginRatio.gt(liquidationThreshold) && marginRatio.lte(boundaryZone)) {
+      const proximityPercent = liquidationThreshold.div(marginRatio).times(100);
+      const boundaryScore = proximityPercent.times(0.8).plus(10); // Elevated base score
+
+      return {
+        success: true,
+        data: {
+          metric: RISK_METRICS.LIQUIDATION_PROXIMITY,
+          score: boundaryScore.toFixed(2),
+          level: RISK_LEVELS.HIGH,
+          marginRatio: marginRatio.toFixed(2),
+          liquidationThreshold: '5',
+          boundaryZoneUpper: boundaryZone.toFixed(2),
+          liquidationState: LIQUIDATION_STATES.BOUNDARY,
+          atRisk: true,
+          proximityPercent: proximityPercent.toFixed(2),
+          reasons: [
+            `Margin ratio (${marginRatio.toFixed(2)}%) is within ${COLLATERAL_BOUNDARY_THRESHOLD}% boundary zone of liquidation threshold (${liquidationThreshold}%)`,
+            'Buffer is critically thin - small price movements can trigger liquidation',
+            'No significant collateral cushion to absorb market volatility',
+          ],
+        },
+      };
+    }
+
+    // ── Scenario: Normal (not near liquidation) ───────────────────────────
     const proximityPercent = liquidationThreshold.div(marginRatio).times(100);
     const score = proximityPercent;
 
@@ -272,10 +348,14 @@ async function calculateLiquidationProximityRisk(userId) {
         metric: RISK_METRICS.LIQUIDATION_PROXIMITY,
         score: score.toFixed(2),
         level: getRiskLevel(score),
-        marginRatio: account.marginRatio,
+        marginRatio: marginRatio.toFixed(2),
         liquidationThreshold: '5',
+        liquidationState: LIQUIDATION_STATES.NORMAL,
         proximityPercent: proximityPercent.toFixed(2),
-        atRisk: false,
+        atRisk: score.gte(50),
+        reasons: [
+          `Margin ratio (${marginRatio.toFixed(2)}%) is comfortably above liquidation threshold (${liquidationThreshold}%)`,
+        ],
       },
     };
   } catch (error) {
@@ -285,10 +365,11 @@ async function calculateLiquidationProximityRisk(userId) {
 
 /**
  * E. CALCULATE OVERALL RISK SCORE
- * Weighted combination of all risk metrics
+ * Weighted combination of all risk metrics with explainability fields
  *
  * @param {string} userId - User ID
- * @returns {Promise<object>} Overall risk assessment
+ * @returns {Promise<object>} Overall risk assessment with reasons, confidence,
+ *   input signals, and provider timestamp
  */
 async function calculateOverallRiskScore(userId) {
   try {
@@ -312,6 +393,80 @@ async function calculateOverallRiskScore(userId) {
       .plus(leverageScore.times(w_lev))
       .plus(liquidationScore.times(w_liq));
 
+    // ── Build explainability fields ────────────────────────────────────────
+
+    const reasons = [];
+    const inputSignals = [];
+
+    // Concentration reasons
+    if (concentrationScore.gt(50)) {
+      reasons.push(
+        `High portfolio concentration: max single asset at ${concentration.data?.maxConcentration || 'N/A'}% (threshold: ${DEFAULT_RISK_CONFIG.PORTFOLIO_CONCENTRATION_THRESHOLD}%)`,
+      );
+    } else {
+      reasons.push('Portfolio concentration is within acceptable limits');
+    }
+    inputSignals.push({
+      signal: 'portfolio_concentration',
+      value: concentration.data?.maxConcentration || '0',
+      weight: RISK_SCORE_WEIGHTS.CONCENTRATION,
+      contribution: concentrationScore.times(w_conc).toFixed(2),
+    });
+
+    // Leverage reasons
+    if (leverageScore.gt(50)) {
+      reasons.push(
+        `Elevated leverage: average ${leverage.data?.averageLeverage || 'N/A'}x, max ${leverage.data?.maxLeverage || 'N/A'}x (threshold: ${DEFAULT_RISK_CONFIG.LEVERAGE_THRESHOLD}x)`,
+      );
+    } else {
+      reasons.push('Leverage levels are within acceptable range');
+    }
+    inputSignals.push({
+      signal: 'leverage_ratio',
+      value: leverage.data?.averageLeverage || '1',
+      weight: RISK_SCORE_WEIGHTS.LEVERAGE,
+      contribution: leverageScore.times(w_lev).toFixed(2),
+    });
+
+    // Liquidation proximity reasons (includes boundary, partial, and liquidated scenarios)
+    if (liquidation.data?.reasons) {
+      reasons.push(...liquidation.data.reasons);
+    } else if (liquidationScore.gt(50)) {
+      reasons.push(
+        `Margin ratio (${liquidation.data?.marginRatio || 'N/A'}%) approaching liquidation threshold (${liquidation.data?.liquidationThreshold || '5'}%)`,
+      );
+    } else {
+      reasons.push('Margin ratio is safely above liquidation threshold');
+    }
+
+    inputSignals.push({
+      signal: 'liquidation_proximity',
+      value: liquidation.data?.marginRatio || '0',
+      weight: RISK_SCORE_WEIGHTS.LIQUIDATION,
+      contribution: liquidationScore.times(w_liq).toFixed(2),
+    });
+
+    // Confidence: based on data completeness and agreement between components
+    const componentScores = [concentrationScore, leverageScore, liquidationScore];
+    const maxComponentScore = componentScores.reduce(
+      (max, s) => (s.gt(max) ? s : max),
+      new Big(0),
+    );
+    const minComponentScore = componentScores.reduce(
+      (min, s) => (s.lt(min) ? s : min),
+      new Big(100),
+    );
+    const scoreSpread = maxComponentScore.minus(minComponentScore);
+    // Higher spread = lower confidence; also factor in data availability
+    const hasAllData = !!(concentration.data && leverage.data && liquidation.data);
+    let confidence = new Big(100).minus(scoreSpread.times(0.5));
+    if (!hasAllData) confidence = confidence.times(0.7);
+    if (confidence.lt(0)) confidence = new Big(0);
+    if (confidence.gt(100)) confidence = new Big(100);
+
+    // Provider timestamp: when the data was actually computed (server-side)
+    const providerTimestamp = new Date().toISOString();
+
     return {
       success: true,
       data: {
@@ -329,10 +484,15 @@ async function calculateOverallRiskScore(userId) {
           liquidation: {
             score: liquidation.data?.score || '0',
             level: liquidation.data?.level || RISK_LEVELS.LOW,
+            liquidationState: liquidation.data?.liquidationState || LIQUIDATION_STATES.NORMAL,
           },
         },
+        reasons,
+        confidence: confidence.toFixed(1),
+        inputSignals,
         weights: RISK_SCORE_WEIGHTS,
         timestamp: new Date(),
+        providerTimestamp,
       },
     };
   } catch (error) {
@@ -594,4 +754,6 @@ module.exports = {
   RISK_LEVELS,
   RISK_METRICS,
   DEFAULT_RISK_CONFIG,
+  LIQUIDATION_STATES,
+  COLLATERAL_BOUNDARY_THRESHOLD,
 };
