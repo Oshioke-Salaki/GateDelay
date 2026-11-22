@@ -11,6 +11,7 @@ export type ResolutionOutcome = 'YES' | 'NO' | 'INVALID';
 export type DisputeStatus = 'open' | 'under_review' | 'upheld' | 'rejected';
 
 export interface MarketResolution {
+  attempt: number;
   id: string;
   marketId: string;
   /** User who submitted the manual resolution request */
@@ -28,6 +29,8 @@ export interface MarketResolution {
 }
 
 export interface ResolutionDispute {
+  attempt: number;
+  priorStatus: 'requested' | 'confirmed';
   id: string;
   resolutionId: string;
   marketId: string;
@@ -43,6 +46,13 @@ export interface ResolutionDispute {
 }
 
 export interface ResolutionConfirmation {
+  attempt: number;
+  outcome: ResolutionOutcome;
+  chainId: number;
+  contractAddress: string;
+  blockHash: string;
+  logIndex: number;
+  invalidatedAt?: Date;
   id: string;
   resolutionId: string;
   marketId: string;
