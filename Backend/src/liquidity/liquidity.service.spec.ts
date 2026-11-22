@@ -1,6 +1,8 @@
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Test, TestingModule } from '@nestjs/testing';
+import { getModelToken } from '@nestjs/mongoose';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import { MarketRecord } from '../markets/schemas/market.schema';
 import { CacheService } from '../cache/cache.service';
 import { CacheRefreshService } from '../cache/cache-refresh.service';
 import { LiquidityService } from './liquidity.service';
@@ -23,9 +25,58 @@ describe('LiquidityService', () => {
     totalNoStake: 2_000_000_000_000_000_000n,
     status: 'active' as const,
   };
+  const marketRecords = new Map<string, Record<string, unknown>>();
+  type MarketQuery<T> = {
+    lean: () => MarketQuery<T>;
+    sort: (...args: unknown[]) => MarketQuery<T>;
+    exec: () => Promise<T>;
+  };
+  const makeQuery = <T>(resolve: () => Promise<T>) => {
+    let chain: MarketQuery<T>;
+    chain = {
+      lean: () => chain,
+      sort: () => chain,
+      exec: resolve,
+    };
+    return chain;
+  };
+  const marketModel = {
+    createIndexes: jest.fn().mockResolvedValue(undefined),
+    find: jest.fn(() => makeQuery(async () => Array.from(marketRecords.values()))),
+    findOne: jest.fn(({ id }: { id: string }) =>
+      makeQuery(async () => marketRecords.get(id) ?? null),
+    ),
+    updateOne: jest.fn(
+      (
+        { id, status }: { id: string; status?: string },
+        update: {
+          $set: Record<string, unknown>;
+          $unset?: Record<string, 1>;
+        },
+        options?: { upsert?: boolean },
+      ) => ({
+        exec: jest.fn(async () => {
+          const existing = marketRecords.get(id);
+          if (
+            (!existing && !options?.upsert) ||
+            (existing && status && existing.status !== status)
+          ) {
+            return { matchedCount: 0 };
+          }
+          const next = { ...existing, ...update.$set };
+          for (const key of Object.keys(update.$unset ?? {})) {
+            delete next[key];
+          }
+          marketRecords.set(id, next);
+          return { matchedCount: existing ? 1 : 0 };
+        }),
+      }),
+    ),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    marketRecords.clear();
     cacheMock.get.mockResolvedValue(undefined);
     cacheMock.set.mockResolvedValue(undefined);
     cacheMock.del.mockResolvedValue(undefined);
@@ -40,12 +91,16 @@ describe('LiquidityService', () => {
           provide: CACHE_MANAGER,
           useValue: cacheMock,
         },
+        {
+          provide: getModelToken(MarketRecord.name),
+          useValue: marketModel,
+        },
       ],
     }).compile();
 
     service = module.get<LiquidityService>(LiquidityService);
     marketResolver = module.get<MarketResolverService>(MarketResolverService);
-    marketResolver.registerMarket(baseMarket);
+    await marketResolver.registerMarket(baseMarket);
   });
 
   it('tracks LP positions and supports add/remove lifecycle', async () => {

@@ -16,6 +16,33 @@ export interface Market {
   createdAt: string;
   resolvedAt: string | null;
   outcome: string | null;
+  deadline?: string;
+  metadata?: {
+    title: string;
+    description: string | null;
+    categoryId: string | null;
+    deadline: string;
+  };
+  lifecycle?: {
+    status: string;
+    resolvedAt: string | null;
+  };
+  deployment?: {
+    marketId: string;
+    contractName: string;
+    contractAddress: string | null;
+    factoryAddress: string | null;
+    creator: string | null;
+    collateralToken: string | null;
+    chainId: number | null;
+    abiVersion: string | null;
+    factoryAbiVersion: string | null;
+  } | null;
+  outcomes?: {
+    yes: { totalStake: string };
+    no: { totalStake: string };
+    result: string | null;
+  };
 }
 
 export interface MarketSearchFilters {
@@ -124,20 +151,29 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 function normalizeMarket(raw: any): Market {
+  const lifecycle = raw?.lifecycle ?? {};
+  const metadata = raw?.metadata ?? {};
+  const outcomes = raw?.outcomes;
+
   return {
     id: String(raw?.id ?? raw?.marketId ?? ''),
-    title: String(raw?.title ?? raw?.question ?? raw?.name ?? ''),
-    description: String(raw?.description ?? ''),
-    category: String(raw?.category ?? ''),
-    status: String(raw?.status ?? ''),
+    title: String(raw?.title ?? metadata.title ?? raw?.question ?? raw?.name ?? ''),
+    description: String(raw?.description ?? metadata.description ?? ''),
+    category: String(raw?.category ?? metadata.categoryId ?? ''),
+    status: String(raw?.status ?? lifecycle.status ?? ''),
     yesPrice: Number(raw?.yesPrice ?? raw?.yes_price ?? 0),
     noPrice: Number(raw?.noPrice ?? raw?.no_price ?? 0),
     volume: Number(raw?.volume ?? 0),
     liquidity: Number(raw?.liquidity ?? 0),
     participants: Number(raw?.participants ?? raw?.participantCount ?? 0),
     createdAt: String(raw?.createdAt ?? raw?.created_at ?? ''),
-    resolvedAt: raw?.resolvedAt ?? raw?.resolved_at ?? null,
-    outcome: raw?.outcome ?? null,
+    resolvedAt: raw?.resolvedAt ?? raw?.resolved_at ?? lifecycle.resolvedAt ?? null,
+    outcome: raw?.outcome ?? outcomes?.result ?? null,
+    deadline: metadata.deadline ?? raw?.deadline,
+    metadata: raw?.metadata,
+    lifecycle: raw?.lifecycle,
+    deployment: raw?.deployment,
+    outcomes,
   };
 }
 

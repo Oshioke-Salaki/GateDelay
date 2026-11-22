@@ -440,12 +440,11 @@ export class WebhookService implements OnModuleInit {
       status: 'active',
     };
 
-    // registerMarket is synchronous and throws on structural errors.
-    // Any exception propagates to runAttempt which decides retry vs. dead-letter.
-    this.marketResolver.registerMarket(market, 'webhook');
+    // Any persistence exception propagates to runAttempt, which decides retry vs. dead-letter.
+    await this.marketResolver.registerMarket(market, 'webhook');
 
     // Verify the market actually landed in the registry before declaring success.
-    const stored = this.marketResolver.getMarket(payload.marketId);
+    const stored = await this.marketResolver.getMarket(payload.marketId);
     if (!stored) {
       throw new Error(
         `Market ${payload.marketId} was not found in the registry after registration`,

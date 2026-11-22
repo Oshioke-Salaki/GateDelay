@@ -15,9 +15,10 @@ adapters and must not receive prediction-market orders as a fallback. CLOB
 matching is only for a separately identified/configured token pair. See the
 [accepted trading-model ADR](../docs/adr/0001-lmsr-vs-clob-ambiguity.md).
 
-This routing is an architectural decision, not a claim of completed wiring:
-contract addresses, LMSR transaction handling, and event indexing still need
-to be implemented before the backend exposes live core trading.
+This routing is an architectural decision, not a claim of completed trading
+wiring. MarketFactory creation events are indexed by the Nest backend; contract
+addresses and LMSR transaction handling still need to be configured and
+implemented before the backend exposes live core trading.
 
 ## Required environment variables
 
