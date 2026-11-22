@@ -25,6 +25,10 @@ import { Session } from './entities/session.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { ResetOutboxEntry } from './entities/reset-outbox.entity';
 import { normalizeEmail } from './email-normalization';
+import {
+  GoogleIdTokenPayload,
+  VerifiedSocialProfile,
+} from './interfaces/google-token.interface';
 
 @Injectable()
 export class AuthService {
@@ -446,64 +450,92 @@ switch (provider) {
   }
 
   /**
-   * BE-004: Verify Google OAuth token
-   * Checks issuer, audience, expiry, and email verification
+   * BE-004 / #1443: Verify Google OAuth identity token
+   * Strictly validates accepted token type, issuer, audience, expiry, subject,
+   * and email verification truthiness.
    */
   private async verifyGoogleToken(
-  token: string,
-): Promise < { id: string; email: string; name: string } > {
-  const googleClientId = this.configService.get<string>(
-    'GOOGLE_OAUTH_CLIENT_ID',
-  );
-  if(!googleClientId) {
-    throw new BadRequestException(
-      'Google OAuth is not properly configured',
+    token: string,
+  ): Promise<VerifiedSocialProfile> {
+    if (!token || typeof token !== 'string' || !token.trim()) {
+      throw new UnauthorizedException('Google identity token is required');
+    }
+
+    const googleClientId = this.configService.get<string>(
+      'GOOGLE_OAUTH_CLIENT_ID',
     );
-  }
+    if (!googleClientId) {
+      throw new BadRequestException(
+        'Google OAuth is not properly configured',
+      );
+    }
 
     try {
-    // In production, use Google's token verification library
-    // const ticket = await client.verifyIdToken({
-    //   idToken: token,
-    //   audience: googleClientId,
-    // });
-    // const payload = ticket.getPayload();
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token.trim())}`,
+      );
 
-    // Placeholder implementation for demonstration
-    const response = await fetch(
-      `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`,
-    );
+      if (!response.ok) {
+        throw new UnauthorizedException('Invalid Google token');
+      }
 
-    if(!response.ok) {
-  throw new UnauthorizedException('Invalid Google token');
-}
+      const payload = (await response.json()) as GoogleIdTokenPayload;
 
-const payload = await response.json();
+      // 1. Strict Issuer Validation:
+      // Google OIDC identity tokens must be issued by accounts.google.com or https://accounts.google.com
+      const validIssuers = ['https://accounts.google.com', 'accounts.google.com'];
+      if (!payload.iss || typeof payload.iss !== 'string' || !validIssuers.includes(payload.iss)) {
+        throw new UnauthorizedException('Invalid token issuer');
+      }
 
-// BE-004: Verify token properties
-if (payload.aud !== googleClientId) {
-  throw new UnauthorizedException('Invalid audience');
-}
+      // 2. Strict Audience Validation:
+      // aud must strictly match the configured Google OAuth client ID
+      if (!payload.aud || typeof payload.aud !== 'string' || payload.aud !== googleClientId) {
+        throw new UnauthorizedException('Invalid audience');
+      }
 
-if (!payload.email_verified) {
-  throw new UnauthorizedException('Email not verified');
-}
+      // 3. Strict Subject Validation:
+      // sub is the unique Google user identifier and must be a non-empty string
+      if (!payload.sub || typeof payload.sub !== 'string' || !payload.sub.trim()) {
+        throw new UnauthorizedException('Invalid token subject');
+      }
 
-if (payload.exp && payload.exp * 1000 < Date.now()) {
-  throw new UnauthorizedException('Token expired');
-}
+      // 4. Strict Expiry Validation:
+      // exp must be a valid numeric timestamp in seconds and must not be expired
+      const exp = Number(payload.exp);
+      if (!payload.exp || isNaN(exp) || exp * 1000 <= Date.now()) {
+        throw new UnauthorizedException('Token expired');
+      }
 
-return {
-  id: payload.sub,
-  email: payload.email,
-  name: payload.name || payload.email,
-};
+      // 5. Strict Email & Email-Verification Truthiness Validation:
+      // Google returns email_verified as boolean or string ('true' / 'false').
+      // Enforce strict truthiness checks (must be strictly true or 'true', not false or 'false')
+      const isEmailVerified =
+        payload.email_verified === true || payload.email_verified === 'true';
+      if (!isEmailVerified) {
+        throw new UnauthorizedException('Email not verified');
+      }
+
+      if (!payload.email || typeof payload.email !== 'string' || !payload.email.trim()) {
+        throw new UnauthorizedException('Invalid token email');
+      }
+
+      return {
+        id: payload.sub.trim(),
+        email: payload.email.trim(),
+        name: (payload.name && typeof payload.name === 'string' && payload.name.trim())
+          ? payload.name.trim()
+          : payload.email.trim(),
+      };
     } catch (error) {
-  if (error instanceof UnauthorizedException) {
-    throw error;
-  }
-  throw new UnauthorizedException('Failed to verify Google token');
-}
+      if (
+        error instanceof UnauthorizedException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new UnauthorizedException('Failed to verify Google token');
+    }
   }
 
   /**
