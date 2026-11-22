@@ -2,6 +2,10 @@
  * Shared helpers for surfacing on-chain transaction references in toasts and UI.
  */
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAccount, useReadContract, useWatchContractEvent } from "wagmi";
+import { formatUnits, parseUnits } from "viem";
+
 /** Shorten a 0x… hash for display: 0x1234…abcd */
 export function truncateTxHash(hash: string): string {
   if (hash.length < 14) return hash;

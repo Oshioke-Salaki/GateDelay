@@ -11,6 +11,7 @@ import { useToast } from "../../hooks/useToast";
 import { useSettings } from "../../hooks/useSettings";
 import { ErrorBoundary } from "../../app/components/ui/ErrorBoundary";
 import { isParticleConnectKitConfigured } from "../../lib/walletDetection";
+import { useCollateralBalance } from "../../lib/txUtils";
 import { truncateTxHash, explorerTxUrl } from "../../lib/txUtils";
 import { 
   Zap, 
@@ -182,6 +183,14 @@ function QuickTradeWidgetInner() {
   const toast = useToast();
   const { settings } = useSettings();
   const globalState = useQuickTradeState();
+
+  // Connected wallet collateral balance (refetched on account/chain changes)
+  const {
+    balance: collateralBalance,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+    refetch: refetchBalance,
+  } = useCollateralBalance(address, chain?.id);
 
   // Local state
   const [recentMarkets, setRecentMarkets] = useState<QuickTradeMarket[]>([]);
@@ -475,9 +484,21 @@ function QuickTradeWidgetInner() {
       return;
     }
 
-    const mockBalance = 1000; // Mock balance matching project standard
-    if (tradeAmount > mockBalance) {
-      toast.error("Insufficient Balance", "Your order size exceeds your available balance (1000 USDC).");
+    if (isBalanceLoading) {
+      toast.error("Balance Loading", "Fetching your collateral balance. Please try again in a moment.");
+      return;
+    }
+
+    if (isBalanceError || collateralBalance === undefined) {
+      toast.error("Balance Unavailable", "Could not read your collateral balance. Please retry.");
+      return;
+    }
+
+    if (tradeAmount > collateralBalance) {
+      toast.error(
+        "Insufficient Balance",
+        `Your order size exceeds your available balance (${collateralBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC).`
+      );
       return;
     }
 
@@ -1016,7 +1037,15 @@ function QuickTradeWidgetInner() {
         {/* Account balance context */}
         <div className="flex justify-between items-center text-[10px] px-1" style={{ color: "var(--muted)" }}>
           <span className="flex items-center gap-1"><Wallet size={10} /> Available Balance:</span>
-          <span className="font-bold">1,000.00 USDC</span>
+          <span className="font-bold">
+            {!isConnected
+              ? "—"
+              : isBalanceLoading
+                ? "Loading..."
+                : isBalanceError || collateralBalance === undefined
+                  ? "Unavailable"
+                  : `${collateralBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`}
+          </span>
         </div>
 
         {/* Submit manual trade */}
