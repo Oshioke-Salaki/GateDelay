@@ -1,18 +1,25 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { decodeEventLog, toEventSelector } from "viem";
 import { useTrackTransaction } from "@/hooks/useTransactionTracker";
 import {
   MARKET_RULES,
   validateResolutionDeadline,
   validateOutcomesDistinct,
   validateMinLiquidity,
+  validateCollateralAddress,
 } from "@/lib/validationRules";
+import {
+  getBrowserTimeZone,
+  toLocalDateInputValue,
+  toLocalDateTimeInputValue,
+} from "@/lib/localDateTime";
 
-// ── ABI (only the createMarket function) ─────────────────────────────────────
+// ── ABI (createMarket function + MarketCreated event) ────────────────────────
 const MARKET_FACTORY_ABI = [
   {
     name: "createMarket",
@@ -26,11 +33,27 @@ const MARKET_FACTORY_ABI = [
     ],
     outputs: [{ name: "market", type: "address" }],
   },
+  {
+    name: "MarketCreated",
+    type: "event",
+    inputs: [
+      { name: "market", type: "address", indexed: true },
+      { name: "creator", type: "address", indexed: true },
+      { name: "collateralToken", type: "address", indexed: false },
+      { name: "resolutionDeadline", type: "uint256", indexed: false },
+      { name: "minLiquidity", type: "uint256", indexed: false },
+      { name: "metadataURI", type: "string", indexed: false },
+    ],
+  },
 ] as const;
 
 const MARKET_FACTORY_ADDRESS =
   (process.env.NEXT_PUBLIC_MARKET_FACTORY_ADDRESS as `0x${string}`) ??
   "0x0000000000000000000000000000000000000000";
+
+const MARKET_CREATED_TOPIC = toEventSelector(
+  "MarketCreated(address,address,address,uint256,uint256,string)"
+);
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormValues {
@@ -57,7 +80,13 @@ function buildMetadataURI(values: FormValues): string {
     flightDate: values.flightDate,
     outcomes: [values.outcomeYes, values.outcomeNo],
   };
-  return `data:application/json;base64,${btoa(JSON.stringify(meta))}`;
+  // Encode UTF-8 bytes before Base64 so arbitrary Unicode text is preserved.
+  const bytes = new TextEncoder().encode(JSON.stringify(meta));
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return `data:application/json;base64,${btoa(binary)}`;
 }
 
 function toUnixTimestamp(dateStr: string): bigint {
@@ -69,20 +98,7 @@ function parseMinLiquidity(val: string): bigint {
   return BigInt(Math.floor(parseFloat(val) * 1_000_000));
 }
 
-/**
- * Attempt an EIP-55 checksum. Returns the checksummed address if the library
- * is available, otherwise returns the input unchanged.
- */
-function toChecksumAddress(addr: string): string {
-  try {
-    // viem ships with the project and exports getAddress for checksumming
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { getAddress } = require("viem");
-    return getAddress(addr);
-  } catch {
-    return addr;
-  }
-}
+
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -255,12 +271,15 @@ function StepDetails({
             id="cmf-fdate"
             {...register("flightDate", { required: "Flight date is required" })}
             type="date"
-            min={new Date().toISOString().split("T")[0]}
+            min={toLocalDateInputValue(new Date())}
             className={inputCls}
             style={inputStyle}
             aria-invalid={!!errors.flightDate}
           />
           <FieldError message={errors.flightDate?.message} />
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            Flight dates use your browser time zone ({getBrowserTimeZone()}).
+          </p>
         </div>
       </div>
     </div>
@@ -363,7 +382,7 @@ function StepSettings({
 }) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().slice(0, 16);
+  const minDate = toLocalDateTimeInputValue(tomorrow);
 
   return (
     <div className="space-y-4">
@@ -391,7 +410,7 @@ function StepSettings({
         <FieldError message={errors.resolutionDeadline?.message} />
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
           Must be in the future and after the flight date. This is when the oracle resolves the
-          market.
+          market. Times use your browser time zone ({getBrowserTimeZone()}).
         </p>
       </div>
 
@@ -409,18 +428,9 @@ function StepSettings({
               message: "Must be a valid EVM address (0x followed by 40 hex characters)",
             },
             validate: (v) => {
-              // Warn user if the address is not checksummed (all lower / all upper)
-              try {
-                const checksummed = toChecksumAddress(v);
-                // getAddress throws on invalid addresses, so we're fine here
-                if (checksummed !== v && v !== v.toLowerCase()) {
-                  // Address is mixed-case but doesn't match EIP-55 checksum
-                  return "Address checksum mismatch — please use the exact address from your token contract";
-                }
-              } catch {
-                return "Must be a valid EVM address (0x followed by 40 hex characters)";
-              }
-              return true;
+              // Propagate validation failures instead of silently accepting them.
+              const result = validateCollateralAddress(v);
+              return result === true ? true : result;
             },
           })}
           placeholder="0x…"
@@ -541,9 +551,21 @@ export default function CreateMarketForm() {
   const [step, setStep] = useState<Step>(0);
   const [txError, setTxError] = useState<string | null>(null);
 
-  const { writeContract, data: txHash, isPending: isSigning } = useWriteContract();
+  const {
+    writeContract,
+    data: txHash,
+    isPending: isSigning,
+    error: writeError,
+    isError: isWriteError,
+  } = useWriteContract();
   useTrackTransaction(txHash, "Create market");
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    data: receipt,
+    error: receiptError,
+    isError: isReceiptError,
+  } = useWaitForTransactionReceipt({
     hash: txHash,
   });
 
@@ -584,6 +606,12 @@ export default function CreateMarketForm() {
       setTxError("Please connect your wallet first.");
       return;
     }
+    // Reject invalid / non-checksummed collateral before requesting a tx.
+    const collateralCheck = validateCollateralAddress(values.collateralToken);
+    if (collateralCheck !== true) {
+      setTxError(collateralCheck);
+      return;
+    }
     setTxError(null);
     try {
       writeContract({
@@ -602,10 +630,50 @@ export default function CreateMarketForm() {
     }
   };
 
-  // Redirect after confirmation
-  if (isSuccess && txHash) {
-    router.push(`/markets/${txHash}`);
-  }
+  // Redirect after confirmation, using the created market's address.
+  useEffect(() => {
+    if (!isSuccess || !receipt) return;
+    const createdLog = receipt.logs.find(
+      (log) =>
+        log.address.toLowerCase() === MARKET_FACTORY_ADDRESS.toLowerCase() &&
+        log.topics[0] === MARKET_CREATED_TOPIC
+    );
+    if (!createdLog) {
+      setTxError(
+        "Market creation confirmed, but the MarketCreated event was not found. Please check your wallet's transaction history."
+      );
+      return;
+    }
+    try {
+      const decoded = decodeEventLog({
+        abi: MARKET_FACTORY_ABI,
+        eventName: "MarketCreated",
+        data: createdLog.data,
+        topics: createdLog.topics,
+      });
+      const marketAddress = (decoded.args as { market: `0x${string}` }).market;
+      router.push(`/markets/${marketAddress}`);
+    } catch {
+      setTxError(
+        "Market creation confirmed, but the created market could not be decoded. Please check your wallet's transaction history."
+      );
+    }
+  }, [isSuccess, receipt, router]);
+
+  // Surface asynchronous failures without unmounting the form.
+  const asyncError: string | null = (() => {
+    if (isWriteError && writeError) {
+      const msg = writeError.message ?? "";
+      if (/reject|denied|cancel/i.test(msg)) {
+        return "Transaction rejected in wallet. You can review your details and try again.";
+      }
+      return `Could not submit transaction: ${msg || "unknown error"}`;
+    }
+    if (isReceiptError && receiptError) {
+      return `Transaction failed on-chain: ${receiptError.message || "unknown error"}`;
+    }
+    return null;
+  })();
 
   const isSubmitting = isSigning || isConfirming;
 
@@ -638,8 +706,8 @@ export default function CreateMarketForm() {
         )}
         {step === 3 && <StepPreview values={getValues()} />}
 
-        {/* Tx error */}
-        {txError && (
+        {/* Tx error (sync validation + async wallet/receipt failures) */}
+        {(txError || asyncError) && (
           <div
             role="alert"
             className="mt-4 rounded-lg px-4 py-3 text-sm"
@@ -649,7 +717,7 @@ export default function CreateMarketForm() {
               color: "#ef4444",
             }}
           >
-            {txError}
+            {txError ?? asyncError}
           </div>
         )}
 
