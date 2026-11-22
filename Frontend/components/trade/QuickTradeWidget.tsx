@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import {
+  useAccount,
+  useSignMessage,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { useToast } from "../../hooks/useToast";
 import { useSettings } from "../../hooks/useSettings";
 import { ErrorBoundary } from "../../app/components/ui/ErrorBoundary";
@@ -23,6 +28,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTrackTransaction } from "../../hooks/useTransactionTracker";
+import { getMarketMakerAddress, recordPositionExecution } from "../../lib/portfolioApi";
 
 // ─── Contract Configuration ──────────────────────────────────────────────────
 
@@ -37,42 +43,6 @@ const MARKET_MAKER_ABI = [
       { name: "shares", type: "uint256" },
     ],
     outputs: [],
-  },
-] as const;
-
-const MARKET_MAKER_ADDRESS =
-  (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
-
-const COLLATERAL_TOKEN_ADDRESS =
-  (process.env.NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
-
-const ERC20_ABI = [
-  {
-    name: "allowance",
-    type: "function",
-    stateMutability: "view",
-    inputs: [
-      { name: "owner", type: "address" },
-      { name: "spender", type: "address" },
-    ],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-  {
-    name: "approve",
-    type: "function",
-    stateMutability: "nonpayable",
-    inputs: [
-      { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
-    ],
-    outputs: [{ name: "", type: "bool" }],
-  },
-  {
-    name: "decimals",
-    type: "function",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ name: "", type: "uint8" }],
   },
 ] as const;
 
@@ -214,7 +184,8 @@ function useQuickTradeState() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 function QuickTradeWidgetInner() {
-  const { isConnected, address } = useAccount();
+  const { address, chainId, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const toast = useToast();
   const { settings } = useSettings();
   const globalState = useQuickTradeState();
@@ -229,12 +200,13 @@ function QuickTradeWidgetInner() {
   const [customSide, setCustomSide] = useState<"YES" | "NO">("YES");
 
   const isExecutingHere = useRef(false);
-  const pendingTradeRef = useRef<{ side: "YES" | "NO"; tradeAmount: number; market: QuickTradeMarket } | null>(null);
+  const syncedTransaction = useRef<string | null>(null);
 
   // Wagmi hooks
   const { writeContract, data: txHash, isPending: isSigning, error: signError, reset: resetWrite } = useWriteContract();
   useTrackTransaction(txHash, "Quick trade");
-  const { isLoading: isConfirming, isSuccess, error: confirmError } = useWaitForTransactionReceipt({ hash: txHash });
+  const { data: receipt, isLoading: isConfirming, isSuccess, error: confirmError } =
+    useWaitForTransactionReceipt({ hash: txHash, confirmations: 12 });
 
   // Approval transaction hooks
   const {
@@ -390,15 +362,32 @@ function QuickTradeWidgetInner() {
       quickTradeStore.setState({ status: "submitting" });
     } else if (txHash && globalState.status === "submitting") {
       quickTradeStore.setState({ status: "confirming", txHash });
-    } else if (isSuccess) {
-      quickTradeStore.setState({ status: "success" });
-      toast.success(
-        "Trade Confirmed",
-        `Successfully bought $${globalState.activeAmount} of ${globalState.activeSide} shares! (${truncateTxHash(txHash)})`
-      );
-      isExecutingHere.current = false;
-      pendingTradeRef.current = null;
-      // Refresh balance or update store state
+    } else if (isSuccess && receipt && txHash && address && chainId) {
+      if (syncedTransaction.current === txHash) return;
+      syncedTransaction.current = txHash;
+      void recordPositionExecution({
+        action: "BUY",
+        account: address,
+        chainId,
+        marketId: BigInt(selectedMarket.id),
+        receipt,
+        signMessage: (message) => signMessageAsync({ message }),
+      }).then(() => {
+        quickTradeStore.setState({ status: "success" });
+        toast.success("Quick Trade Executed", `Successfully bought $${globalState.activeAmount} of ${globalState.activeSide} shares!`);
+      }).catch((error: unknown) => {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "The confirmed trade could not be added to your portfolio.";
+        quickTradeStore.setState({
+          status: "error",
+          error: error instanceof Error ? error : null,
+          errorMessage,
+        });
+        toast.error("Portfolio Update Failed", errorMessage);
+      }).finally(() => {
+        isExecutingHere.current = false;
+      });
     } else if (signError || confirmError) {
       const err = signError || confirmError;
       const errorMsg = describeError(err, "trade");
@@ -411,19 +400,7 @@ function QuickTradeWidgetInner() {
       isExecutingHere.current = false;
       pendingTradeRef.current = null;
     }
-  }, [
-    isSigning,
-    txHash,
-    isSuccess,
-    signError,
-    confirmError,
-    globalState.phase,
-    globalState.status,
-    globalState.activeAmount,
-    globalState.activeSide,
-    describeError,
-    toast,
-  ]);
+  }, [address, chainId, isSigning, txHash, isSuccess, receipt, signError, confirmError, globalState.status, globalState.activeAmount, globalState.activeSide, selectedMarket.id, signMessageAsync, toast]);
 
   // Execute Order handler
   const handleExecuteTrade = useCallback(async (side: "YES" | "NO", tradeAmount: number) => {
@@ -486,11 +463,11 @@ function QuickTradeWidgetInner() {
     });
 
     try {
-      writeApproval({
-        address: COLLATERAL_TOKEN_ADDRESS,
-        abi: ERC20_ABI,
-        functionName: "approve",
-        args: [MARKET_MAKER_ADDRESS, requiredAmount],
+      writeContract({
+        address: getMarketMakerAddress(chainId ?? 0),
+        abi: MARKET_MAKER_ABI,
+        functionName: "buy",
+        args: [BigInt(selectedMarket.id), BigInt(side === "YES" ? 0 : 1), sharesBigInt],
       });
     } catch (err: any) {
       const errorMsg = describeError(err, "approval");
@@ -503,19 +480,7 @@ function QuickTradeWidgetInner() {
       isExecutingHere.current = false;
       pendingTradeRef.current = null;
     }
-  }, [
-    isConnected,
-    selectedMarket,
-    allowance,
-    refetchAllowance,
-    tokenDecimals,
-    writeApproval,
-    resetWrite,
-    resetApprovalWrite,
-    submitBuy,
-    describeError,
-    toast,
-  ]);
+  }, [isConnected, address, chainId, selectedMarket, writeContract, resetWrite, toast]);
 
   const handlePresetClick = (side: "YES" | "NO", presetAmount: number) => {
     if (oneClickMode) {

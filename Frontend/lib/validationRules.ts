@@ -6,6 +6,8 @@
  * so changes to backend limits only need to be reflected here.
  */
 
+import { parseLocalDateInputValue } from "./localDateTime";
+
 // ─── Trade Limits (mirrors Backend/services/tradeValidator.js TRADE_LIMITS) ──
 
 export const TRADE_LIMITS = {
@@ -30,6 +32,46 @@ export const MARKET_RULES = {
   /** Suggested minimum liquidity to attract meaningful trading */
   SUGGESTED_LIQUIDITY_USDC: 100,
 } as const;
+
+// ─── Address Checksum ────────────────────────────────────────────────────────
+
+import { getAddress } from "viem";
+
+/**
+ * Returns the EIP-55 checksummed form of an EVM address.
+ *
+ * Unlike a lenient helper, this does NOT fall back to the original input on
+ * failure: invalid addresses (including mixed-case addresses with a bad
+ * checksum) cause an error to be thrown so callers can reject them before
+ * requesting a wallet transaction.
+ */
+export function toChecksumAddress(address: string): string {
+  if (typeof address !== "string" || !MARKET_RULES.EVM_ADDRESS_PATTERN.test(address)) {
+    throw new Error(`Invalid EVM address: ${String(address)}`);
+  }
+  // getAddress throws on invalid mixed-case (bad checksum) addresses.
+  return getAddress(address);
+}
+
+// ─── Metadata Encoding ───────────────────────────────────────────────────────
+
+/**
+ * Serializes `data` to JSON and encodes it as Base64 over its UTF-8 bytes.
+ *
+ * `btoa` only accepts Latin-1 strings, so arbitrary Unicode text (e.g.
+ * international market titles/descriptions) must be converted to UTF-8 bytes
+ * first. This mirrors the standard `btoa(unescape(encodeURIComponent(s)))`
+ * pattern without relying on deprecated globals.
+ */
+export function encodeUtf8ToBase64(data: unknown): string {
+  const json = JSON.stringify(data);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
 
 // ─── Shared Validation Helpers ────────────────────────────────────────────────
 
@@ -88,8 +130,8 @@ export function validateResolutionDeadline(
   if (isNaN(deadline.getTime())) return "Resolution deadline must be a valid date";
   if (deadline <= new Date()) return "Resolution deadline must be in the future";
   if (flightDateStr) {
-    const flight = new Date(flightDateStr);
-    if (!isNaN(flight.getTime()) && deadline <= flight) {
+    const flight = parseLocalDateInputValue(flightDateStr);
+    if (flight && deadline <= flight) {
       return "Resolution deadline must be after the flight date";
     }
   }
