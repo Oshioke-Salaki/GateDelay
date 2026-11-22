@@ -4,6 +4,10 @@ pragma solidity ^0.8.20;
 import {PositionToken} from "./PositionToken.sol";
 import {PredictionMarket} from "./PredictionMarket.sol";
 
+interface IERC20Metadata {
+    function decimals() external view returns (uint8);
+}
+
 /// @title MarketFactory
 /// @notice Deploys and registers prediction market instances.
 contract MarketFactory {
@@ -20,6 +24,7 @@ contract MarketFactory {
     error DeploymentFailed();
     error MarketAlreadyExists();
     error InvalidRange();
+    error UnsupportedCollateralDecimals();
     error NotRegisteredMarket();
 
     // -------------------------------------------------------------------------
@@ -116,6 +121,10 @@ contract MarketFactory {
         if (minLiquidity == 0) revert ZeroMinLiquidity();
         if (bytes(metadataURI).length == 0) revert EmptyMetadataURI();
 
+        // Scale the minimum liquidity by the collateral token's actual precision
+        // instead of assuming six decimals.
+        uint256 scaledMinLiquidity = _scaleMinLiquidity(collateralToken, minLiquidity);
+
         // Generate a unique salt per market creation
         // Using msg.sender, block.timestamp, and market count for uniqueness
         bytes32 salt = keccak256(abi.encodePacked(msg.sender, block.timestamp, _marketList.length));
@@ -127,7 +136,7 @@ contract MarketFactory {
             address(positionToken),
             collateralToken,
             resolutionDeadline,
-            minLiquidity,
+            scaledMinLiquidity,
             metadataURI
         );
         
@@ -140,7 +149,7 @@ contract MarketFactory {
             creator: msg.sender,
             collateralToken: collateralToken,
             resolutionDeadline: resolutionDeadline,
-            minLiquidity: minLiquidity,
+            minLiquidity: scaledMinLiquidity,
             metadataURI: metadataURI,
             status: MarketStatus.OPEN
         });
@@ -203,14 +212,17 @@ contract MarketFactory {
         string calldata metadataURI
     ) external view returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(creator, timestamp, index));
-        
+
+        // Mirror createMarket's scaling so predicted addresses match deployment.
+        uint256 scaledMinLiquidity = _scaleMinLiquidity(collateralToken, minLiquidity);
+
         // The deployment code is creationCode + abi.encode(arguments)
         bytes memory constructorArgs = abi.encode(
             address(this),
             address(positionToken),
             collateralToken,
             resolutionDeadline,
-            minLiquidity,
+            scaledMinLiquidity,
             metadataURI
         );
         
@@ -316,5 +328,23 @@ contract MarketFactory {
     /// @dev Access: No caller-specific access restriction is imposed.
     function getMarketInfo(address market) external view returns (MarketInfo memory) {
         return _markets[market];
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal functions
+    // -------------------------------------------------------------------------
+
+    /// @dev Scales `minLiquidity` by 10**decimals of the collateral token.
+    ///      Reverts with `UnsupportedCollateralDecimals` if the token does not
+    ///      expose `decimals()` or reports an out-of-range value.
+    function _scaleMinLiquidity(address collateralToken, uint256 minLiquidity) internal view returns (uint256) {
+        uint8 decimals;
+        try IERC20Metadata(collateralToken).decimals() returns (uint8 d) {
+            decimals = d;
+        } catch {
+            revert UnsupportedCollateralDecimals();
+        }
+        if (decimals > 77) revert UnsupportedCollateralDecimals();
+        return minLiquidity * (10 ** uint256(decimals));
     }
 }

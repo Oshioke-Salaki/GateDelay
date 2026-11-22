@@ -11,6 +11,7 @@ import { useToast } from "../../hooks/useToast";
 import { useSettings } from "../../hooks/useSettings";
 import { ErrorBoundary } from "../../app/components/ui/ErrorBoundary";
 import { isParticleConnectKitConfigured } from "../../lib/walletDetection";
+import { truncateTxHash, explorerTxUrl } from "../../lib/txUtils";
 import { 
   Zap, 
   Loader2, 
@@ -125,6 +126,9 @@ const toMarketMetadata = (meta: MarketMetadata): QuickTradeMarket => ({
 
 export type TradeExecutionState = {
   status: "idle" | "submitting" | "confirming" | "success" | "error";
+  phase?: "approving" | "trading";
+  approvalTxHash?: `0x${string}`;
+  approvalConfirmed?: boolean;
   activeMarketId?: string;
   activeSide?: "YES" | "NO";
   activeAmount?: number;
@@ -201,7 +205,44 @@ function QuickTradeWidgetInner() {
   const { data: receipt, isLoading: isConfirming, isSuccess, error: confirmError } =
     useWaitForTransactionReceipt({ hash: txHash, confirmations: 12 });
 
-  // Load verified market IDs + deployment config, then fetch verified market metadata
+  // Approval transaction hooks
+  const {
+    writeContract: writeApproval,
+    data: approvalTxHash,
+    isPending: isApprovalSigning,
+    error: approvalSignError,
+    reset: resetApprovalWrite,
+  } = useWriteContract();
+  useTrackTransaction(approvalTxHash, "Collateral approval");
+  const {
+    isLoading: isApprovalConfirming,
+    isSuccess: isApprovalSuccess,
+    error: approvalConfirmError,
+  } = useWaitForTransactionReceipt({ hash: approvalTxHash });
+
+  // Collateral token decimals
+  const { data: collateralDecimals } = useReadContract({
+    address: COLLATERAL_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "decimals",
+    query: { enabled: Boolean(address) },
+  });
+
+  const tokenDecimals = collateralDecimals ?? 18;
+
+  // Current allowance for the MarketMaker
+  const {
+    data: allowance,
+    refetch: refetchAllowance,
+  } = useReadContract({
+    address: COLLATERAL_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: address ? [address, MARKET_MAKER_ADDRESS] : undefined,
+    query: { enabled: Boolean(address) },
+  });
+
+  // Initialize cached recent assets
   useEffect(() => {
     let cancelled = false;
 
@@ -264,9 +305,109 @@ function QuickTradeWidgetInner() {
     };
   }, []);
 
-  // Synchronize local hook events to the global store
+  const describeError = useCallback((err: any, step: "approval" | "trade") => {
+    const rawMsg = err?.message || "";
+    if (rawMsg.includes("User rejected") || rawMsg.includes("UserRejectedRequestError") || rawMsg.includes("rejected the request")) {
+      return step === "approval"
+        ? "Collateral approval was cancelled in wallet."
+        : "Transaction was cancelled in wallet.";
+    }
+    if (rawMsg.includes("insufficient funds")) {
+      return "Insufficient balance for transaction & gas.";
+    }
+    if (rawMsg.includes("reverted") || rawMsg.includes("execution reverted")) {
+      return step === "approval"
+        ? "Collateral approval reverted."
+        : "Slippage tolerance exceeded or market contract reverted.";
+    }
+    return err?.message || "Transaction failed.";
+  }, []);
+
+  const submitBuy = useCallback((side: "YES" | "NO", tradeAmount: number, market: QuickTradeMarket) => {
+    const price = side === "YES" ? market.yesPrice : market.noPrice;
+    const calculatedShares = tradeAmount / price;
+    const sharesBigInt = BigInt(Math.floor(calculatedShares * 1e18));
+
+    quickTradeStore.setState({
+      status: "submitting",
+      phase: "trading",
+      activeMarketId: market.id,
+      activeSide: side,
+      activeAmount: tradeAmount,
+      error: null,
+      errorMessage: "",
+      txHash: undefined,
+    });
+
+    try {
+      writeContract({
+        address: MARKET_MAKER_ADDRESS,
+        abi: MARKET_MAKER_ABI,
+        functionName: "buy",
+        args: [BigInt(market.id), BigInt(side === "YES" ? 0 : 1), sharesBigInt],
+      });
+    } catch (err: any) {
+      quickTradeStore.setState({
+        status: "error",
+        error: err,
+        errorMessage: err.message || "Failed to trigger wallet.",
+      });
+      toast.error("Wallet Trigger Failed", err.message || "Could not write to contract.");
+      isExecutingHere.current = false;
+    }
+  }, [writeContract, toast]);
+
+  // Synchronize approval hook events to the global store
   useEffect(() => {
     if (!isExecutingHere.current) return;
+    if (globalState.phase !== "approving") return;
+
+    if (isApprovalSigning) {
+      quickTradeStore.setState({ status: "submitting" });
+    } else if (approvalTxHash && globalState.status === "submitting") {
+      quickTradeStore.setState({ status: "confirming", approvalTxHash });
+    } else if (isApprovalSuccess) {
+      quickTradeStore.setState({ status: "confirming", approvalConfirmed: true });
+      toast.success(
+        "Approval Confirmed",
+        `Collateral approval confirmed (${truncateTxHash(approvalTxHash)}). Submitting trade...`
+      );
+      refetchAllowance().then(() => {
+        const pending = pendingTradeRef.current;
+        if (pending) {
+          submitBuy(pending.side, pending.tradeAmount, pending.market);
+        }
+      });
+    } else if (approvalSignError || approvalConfirmError) {
+      const err = approvalSignError || approvalConfirmError;
+      const errorMsg = describeError(err, "approval");
+      quickTradeStore.setState({
+        status: "error",
+        error: err,
+        errorMessage: errorMsg,
+      });
+      toast.error("Approval Failed", errorMsg);
+      isExecutingHere.current = false;
+      pendingTradeRef.current = null;
+    }
+  }, [
+    isApprovalSigning,
+    approvalTxHash,
+    isApprovalSuccess,
+    approvalSignError,
+    approvalConfirmError,
+    globalState.phase,
+    globalState.status,
+    refetchAllowance,
+    submitBuy,
+    describeError,
+    toast,
+  ]);
+
+  // Synchronize trade hook events to the global store
+  useEffect(() => {
+    if (!isExecutingHere.current) return;
+    if (globalState.phase === "approving") return;
 
     if (isSigning) {
       quickTradeStore.setState({ status: "submitting" });
@@ -300,19 +441,7 @@ function QuickTradeWidgetInner() {
       });
     } else if (signError || confirmError) {
       const err = signError || confirmError;
-      let errorMsg = "Transaction failed.";
-      const rawMsg = err?.message || "";
-
-      if (rawMsg.includes("User rejected") || rawMsg.includes("UserRejectedRequestError") || rawMsg.includes("rejected the request")) {
-        errorMsg = "Transaction was cancelled in wallet.";
-      } else if (rawMsg.includes("insufficient funds")) {
-        errorMsg = "Insufficient balance for transaction & gas.";
-      } else if (rawMsg.includes("reverted") || rawMsg.includes("execution reverted")) {
-        errorMsg = "Slippage tolerance exceeded or market contract reverted.";
-      } else if (err) {
-        errorMsg = err.message;
-      }
-
+      const errorMsg = describeError(err, "trade");
       quickTradeStore.setState({
         status: "error",
         error: err,
@@ -320,6 +449,7 @@ function QuickTradeWidgetInner() {
       });
       toast.error("Quick Trade Failed", errorMsg);
       isExecutingHere.current = false;
+      pendingTradeRef.current = null;
     }
   }, [address, chainId, isSigning, txHash, isSuccess, receipt, signError, confirmError, globalState.status, globalState.activeAmount, globalState.activeSide, selectedMarket.id, signMessageAsync, toast]);
 
@@ -379,10 +509,33 @@ function QuickTradeWidgetInner() {
     // Flag this instance as the execution manager
     isExecutingHere.current = true;
     resetWrite();
+    resetApprovalWrite();
+    pendingTradeRef.current = { side, tradeAmount, market: selectedMarket };
 
-    // Update global store
+    const requiredAmount = BigInt(Math.floor(tradeAmount * 10 ** tokenDecimals));
+
+    // Check current allowance before trading
+    let currentAllowance = allowance;
+    try {
+      const refreshed = await refetchAllowance();
+      if (refreshed?.data !== undefined) {
+        currentAllowance = refreshed.data;
+      }
+    } catch (err) {
+      // Fall back to the last known allowance value
+    }
+
+    if (currentAllowance !== undefined && currentAllowance >= requiredAmount) {
+      submitBuy(side, tradeAmount, selectedMarket);
+      return;
+    }
+
+    // Allowance insufficient: request approval first
     quickTradeStore.setState({
       status: "submitting",
+      phase: "approving",
+      approvalTxHash: undefined,
+      approvalConfirmed: false,
       activeMarketId: selectedMarket.id,
       activeSide: side,
       activeAmount: tradeAmount,
@@ -399,13 +552,15 @@ function QuickTradeWidgetInner() {
         args: [BigInt(selectedMarket.id), BigInt(side === "YES" ? 0 : 1), quote.sharesWad],
       });
     } catch (err: any) {
+      const errorMsg = describeError(err, "approval");
       quickTradeStore.setState({
         status: "error",
         error: err,
-        errorMessage: err.message || "Failed to trigger wallet.",
+        errorMessage: errorMsg,
       });
-      toast.error("Wallet Trigger Failed", err.message || "Could not write to contract.");
+      toast.error("Approval Failed", errorMsg);
       isExecutingHere.current = false;
+      pendingTradeRef.current = null;
     }
   }, [isConnected, address, chainId, selectedMarket, writeContract, resetWrite, toast]);
 
@@ -419,9 +574,11 @@ function QuickTradeWidgetInner() {
   };
 
   const handleDismiss = () => {
-    quickTradeStore.setState({ status: "idle" });
+    quickTradeStore.setState({ status: "idle", phase: undefined, approvalTxHash: undefined, approvalConfirmed: false });
     resetWrite();
+    resetApprovalWrite();
     isExecutingHere.current = false;
+    pendingTradeRef.current = null;
   };
 
   const parsedAmount = parseFloat(amount) || 0;
@@ -650,10 +807,17 @@ function QuickTradeWidgetInner() {
                 {globalState.status === "success" && <CheckCircle2 size={14} className="text-emerald-500" />}
                 {globalState.status === "error" && <XCircle size={14} className="text-rose-500" />}
                 <span>
-                  {globalState.status === "submitting" && "Submitting..."}
-                  {globalState.status === "confirming" && "Confirming..."}
-                  {globalState.status === "success" && "Success"}
-                  {globalState.status === "error" && "Execution Failed"}
+                  {globalState.status === "submitting" &&
+                    (globalState.phase === "approving" ? "Approving Collateral..." : "Submitting...")}
+                  {globalState.status === "confirming" &&
+                    (globalState.phase === "approving"
+                      ? globalState.approvalConfirmed
+                        ? "Approval Confirmed"
+                        : "Confirming Approval..."
+                      : "Confirming Trade...")}
+                  {globalState.status === "success" && "Trade Confirmed"}
+                  {globalState.status === "error" &&
+                    (globalState.phase === "approving" ? "Approval Failed" : "Execution Failed")}
                 </span>
               </div>
 
@@ -668,16 +832,39 @@ function QuickTradeWidgetInner() {
             </div>
 
             <p style={{ color: "var(--muted)" }}>
-              {isBusy && `Buying $${globalState.activeAmount} of ${globalState.activeSide} shares. Confirm wallet...`}
+              {isBusy &&
+                (globalState.phase === "approving"
+                  ? globalState.approvalConfirmed
+                    ? "Approval confirmed. Submitting trade..."
+                    : `Approving collateral for $${globalState.activeAmount} USDC. Confirm wallet...`
+                  : `Buying $${globalState.activeAmount} of ${globalState.activeSide} shares. Confirm wallet...`)}
               {globalState.status === "success" && `Completed buying $${globalState.activeAmount} of ${globalState.activeSide} shares.`}
               {globalState.status === "error" && globalState.errorMessage}
             </p>
 
+            {globalState.approvalTxHash && (
+              <div className="pt-2 border-t flex justify-between items-center text-[10px]" style={{ borderColor: "var(--border)" }}>
+                <span className="font-mono text-zinc-400 truncate max-w-[60%]">
+                  Approval: {truncateTxHash(globalState.approvalTxHash)}
+                </span>
+                <a
+                  href={explorerTxUrl(globalState.approvalTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-0.5 text-blue-500 hover:underline"
+                >
+                  Explorer <ArrowUpRight size={10} />
+                </a>
+              </div>
+            )}
+
             {globalState.txHash && (
               <div className="pt-2 border-t flex justify-between items-center text-[10px]" style={{ borderColor: "var(--border)" }}>
-                <span className="font-mono text-zinc-400 truncate max-w-[60%]">{globalState.txHash}</span>
+                <span className="font-mono text-zinc-400 truncate max-w-[60%]">
+                  Trade: {truncateTxHash(globalState.txHash)}
+                </span>
                 <a
-                  href={`https://etherscan.io/tx/${globalState.txHash}`} // Replace with Mantle explorer if config supports it
+                  href={explorerTxUrl(globalState.txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-0.5 text-blue-500 hover:underline"

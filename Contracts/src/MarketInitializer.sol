@@ -14,6 +14,8 @@ contract MarketInitializer {
     error ZeroMinLiquidity();
     error EmptyMetadataURI();
     error InitializationFailed();
+    error InvalidCollateralDecimals();
+    error MinLiquidityPrecisionMismatch();
 
     // -------------------------------------------------------------------------
     // Types
@@ -50,6 +52,9 @@ contract MarketInitializer {
 
     /// @dev all initialized markets
     address[] private _initializedMarkets;
+
+    /// @dev collateral token => cached decimals (0 means not yet resolved)
+    mapping(address => uint8) private _collateralDecimals;
 
     // -------------------------------------------------------------------------
     // Events
@@ -234,5 +239,43 @@ contract MarketInitializer {
         if (params.resolutionDeadline <= block.timestamp) revert InvalidDeadline();
         if (params.minLiquidity == 0) revert ZeroMinLiquidity();
         if (bytes(params.metadataURI).length == 0) revert EmptyMetadataURI();
+
+        uint8 decimals = _readCollateralDecimals(params.collateralToken);
+        // Reject values that assume a hardcoded 6-decimal precision when the
+        // collateral token actually uses a different precision.
+        if (decimals != 6 && params.minLiquidity == 1e6) {
+            revert MinLiquidityPrecisionMismatch();
+        }
+    }
+
+    /// @notice Read the decimals of a collateral token, reverting on failure.
+    /// @param collateralToken Collateral token address.
+    /// @return decimals Token decimals in the range [0, 77].
+    function _readCollateralDecimals(address collateralToken)
+        internal
+        view
+        returns (uint8 decimals)
+    {
+        (bool success, bytes memory data) =
+            collateralToken.staticcall(abi.encodeWithSignature("decimals()"));
+        if (!success || data.length < 32) revert InvalidCollateralDecimals();
+        uint256 raw = abi.decode(data, (uint256));
+        if (raw > 77) revert InvalidCollateralDecimals();
+        decimals = uint8(raw);
+    }
+
+    /// @notice Get the minimum liquidity scaled to the collateral token's precision.
+    /// @param collateralToken Collateral token address.
+    /// @param wholeTokens Minimum liquidity expressed in whole tokens.
+    /// @return Scaled minimum liquidity in the token's native precision.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    function getScaledMinLiquidity(address collateralToken, uint256 wholeTokens)
+        external
+        view
+        returns (uint256)
+    {
+        if (collateralToken == address(0)) revert ZeroCollateralToken();
+        uint8 decimals = _readCollateralDecimals(collateralToken);
+        return wholeTokens * (10 ** uint256(decimals));
     }
 }
