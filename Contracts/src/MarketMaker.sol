@@ -46,6 +46,7 @@ contract MarketMaker {
     error InsufficientShares();
     error ZeroAmount();
     error ZeroAddress();
+    error InsufficientLiquidity();
 
     // ── Constructor ───────────────────────────────────────────────────────────
     constructor(address _collateral) {
@@ -100,6 +101,7 @@ contract MarketMaker {
     function buy(uint256 marketId, uint256 outcome, uint256 shares) external {
         if (shares == 0) revert ZeroAmount();
         Market storage m = _activeMarket(marketId, outcome);
+        if (!_hasMinLiquidity(m)) revert InsufficientLiquidity();
 
         uint256[] memory qNew = _copyQuantities(m);
         qNew[outcome] += shares;
@@ -217,6 +219,16 @@ contract MarketMaker {
         m = markets[marketId];
         if (m.resolved) revert MarketAlreadyResolved();
         if (outcome >= m.numOutcomes) revert InvalidOutcome();
+    }
+
+    /// @dev Enforces the PredictionMarket minimum-liquidity reserve before trading.
+    ///      The collateral reserve held by this contract must cover the market's
+    ///      required liquidity (derived from the LMSR `b` parameter) before a buy
+    ///      can proceed, mirroring PredictionMarket.hasMinLiquidity().
+    function _hasMinLiquidity(Market storage m) internal view returns (bool) {
+        uint256 required = m.b;
+        if (required == 0) return false;
+        return collateral.balanceOf(address(this)) >= required;
     }
 
     function _copyQuantities(Market storage m) internal view returns (uint256[] memory q) {

@@ -60,7 +60,11 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
   const { success: toastSuccess, error: toastError } = useToast();
-  const market = { ...MOCK_MARKET, id: params.id };
+  const [market, setMarket] = useState<Market | null>(null);
+  const [isLoadingMarket, setIsLoadingMarket] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [side, setSide] = useState<"YES" | "NO">("YES");
   const [amount, setAmount] = useState("");
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
@@ -78,10 +82,40 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [progressStatus, setProgressStatus] = useState<ExecutionStatus>("idle");
 
+  // Load the actual market for this URL
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingMarket(true);
+    setLoadError(null);
+    setNotFound(false);
+    setMarket(null);
+
+    fetchMarketById(params.id)
+      .then((data) => {
+        if (cancelled) return;
+        setMarket(data);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        if (err?.status === 404 || err?.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          setLoadError(err?.message || "Failed to load market.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMarket(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id, reloadKey]);
+
   const amountValue = parseFloat(amount) || 0;
-  const price = side === "YES" ? market.yesPrice : market.noPrice;
+  const price = market ? (side === "YES" ? market.yesPrice : market.noPrice) : 0;
   const shares = amountValue > 0 && price > 0 ? formatTokenAmount(amountValue / price) : "N/A";
-  const isTradeValid = amountValue > 0 && market.status === "open";
+  const isTradeValid = amountValue > 0 && market?.status === "open";
 
   useEffect(() => {
     if (
@@ -151,6 +185,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   };
 
   const executeTrade = () => {
+    if (!market || market.status !== "open") return;
     setProgressStatus("submitting");
     setIsProgressOpen(true);
     
@@ -179,6 +214,59 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
     resetWrite();
     executeTrade();
   };
+
+  if (isLoadingMarket) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
+        <StatsSkeleton count={4} />
+        <ChartSkeleton height={300} />
+        <ChartSkeleton height={420} />
+      </main>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-6 text-center"
+          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+            Market not found
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--muted)" }}>
+            No market exists with ID #{params.id}.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (loadError || !market) {
+    return (
+      <main className="max-w-4xl mx-auto px-4 py-10">
+        <div
+          className="rounded-xl p-6 text-center space-y-3"
+          style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <h1 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
+            Failed to load market
+          </h1>
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            {loadError || "Market data is not available."}
+          </p>
+          <button
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+            style={{ background: "#3b82f6" }}
+          >
+            Retry
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
@@ -222,7 +310,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
 
       {/* Price chart */}
       <Suspense fallback={<ChartSkeleton height={300} />}>
-        <PriceChart />
+        <PriceChart marketId={market.id} />
       </Suspense>
 
       <Suspense fallback={<ChartSkeleton height={420} />}>
@@ -230,10 +318,10 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
       </Suspense>
 
       {/* Liquidity display */}
-      <LiquidityDisplay marketId={params.id} />
+      <LiquidityDisplay marketId={market.id} />
 
       {/* Order Book */}
-      <OrderBook marketId={params.id} userAddress={address} />
+      <OrderBook marketId={market.id} userAddress={address} />
       {/* AI Analysis */}
       <AnalysisPanel
         marketId={market.id}
@@ -262,7 +350,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
         >
           <h2 className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>Place Trade</h2>
           {/* Warn the user when the price feed has gone stale */}
-          <StalePriceWarning marketId={params.id} />
+          <StalePriceWarning marketId={market.id} />
           <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
             {(["YES", "NO"] as const).map((s) => (
               <button
@@ -321,12 +409,12 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
             </div>
           )}
           <button
-            disabled={!isTradeValid}
+            disabled={!isTradeValid || market.status !== "open"}
             onClick={openConfirmation}
             className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-40"
             style={{ background: side === "YES" ? "#22c55e" : "#ef4444" }}
           >
-            Buy {getMarketOutcomeLabel(side)}
+            {market.status === "open" ? `Buy ${getMarketOutcomeLabel(side)}` : "Market closed"}
           </button>
         </div>
 
@@ -346,7 +434,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
               </tr>
             </thead>
             <tbody>
-              {market.recentTrades.map((t, i) => (
+              {(market.recentTrades ?? []).map((t, i) => (
                 <tr key={i} style={{ color: "var(--foreground)", borderTop: "1px solid var(--border)" }}>
                   <td className="py-1.5">
                     <span

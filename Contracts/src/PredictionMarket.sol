@@ -20,6 +20,7 @@ contract PredictionMarket {
     error InsufficientAllowance();
     error InvalidResolution();
     error OnlyFactory();
+    error InsufficientLiquidity();
 
     // -------------------------------------------------------------------------
     // Types
@@ -131,8 +132,14 @@ contract PredictionMarket {
 
     /// @notice Check if market has minimum liquidity.
     /// @return True if minimum liquidity is met.
-    function hasMinLiquidity() external view returns (bool) {
+    function hasMinLiquidity() public view returns (bool) {
         return totalLiquidity >= minLiquidity;
+    }
+
+    /// @notice Revert if the market does not have the required minimum liquidity.
+    /// @dev Intended for external integrators (e.g. MarketMaker) to consult before trading.
+    function requireMinLiquidity() external view {
+        if (!hasMinLiquidity()) revert InsufficientLiquidity();
     }
 
     // -------------------------------------------------------------------------
@@ -144,6 +151,7 @@ contract PredictionMarket {
     /// @dev Access: Only callable by authorized contracts.
     function mintPosition(uint256 outcome, uint256 shares) external {
         if (state != MarketState.OPEN) revert InvalidMarketState();
+        if (!hasMinLiquidity()) revert InsufficientLiquidity();
         if (outcome != 1 && outcome != 2) revert InvalidOutcome();
         if (shares == 0) revert ZeroAmount();
         
@@ -160,6 +168,7 @@ contract PredictionMarket {
     /// @dev Access: Only callable by authorized contracts.
     function burnPosition(uint256 outcome, uint256 shares) external {
         if (state != MarketState.OPEN) revert InvalidMarketState();
+        if (!hasMinLiquidity()) revert InsufficientLiquidity();
         if (outcome != 1 && outcome != 2) revert InvalidOutcome();
         if (shares == 0) revert ZeroAmount();
         if (userPositions[msg.sender][outcome] < shares) revert InsufficientBalance();
