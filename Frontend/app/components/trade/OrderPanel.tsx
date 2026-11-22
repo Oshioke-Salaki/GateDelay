@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { Market } from "./TradingInterface";
 import { useToast } from "@/hooks/useToast";
 import { useSettings } from "@/hooks/useSettings";
@@ -14,6 +15,12 @@ import {
   getSlippageWarning,
 } from "@/lib/validationRules";
 import StalePriceWarning from "@/components/market/StalePriceWarning";
+import {
+  useCollateralBalance,
+  useLmsrQuote,
+  useTrackTransaction,
+  getOrderContractConfig,
+} from "@/lib/txUtils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,6 +76,33 @@ export default function OrderPanel({
   const toast = useToast();
   const { settings } = useSettings();
 
+  // ─── Wallet / transaction wiring ───────────────────────────────────────────
+  const { address: connectedAddress, isConnected } = useAccount();
+  const account = userAddress ?? connectedAddress;
+
+  const {
+    balance,
+    isLoading: isBalanceLoading,
+    isError: isBalanceError,
+    refetch: refetchBalance,
+  } = useCollateralBalance(account);
+
+  const {
+    writeContractAsync,
+    data: txHash,
+    isPending: isWritePending,
+    reset: resetWrite,
+  } = useWriteContract();
+
+  const {
+    isLoading: isConfirming,
+    isSuccess: isConfirmed,
+    isError: isReceiptError,
+    error: receiptError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
+
+  const { trackTransaction } = useTrackTransaction();
+
   const {
     register,
     handleSubmit,
@@ -90,15 +124,29 @@ export default function OrderPanel({
   const price    = watch("price")  || market.currentPrice;
   const leverage = watch("leverage") || 1;
 
+  // ─── Size-dependent LMSR quote ─────────────────────────────────────────────
+  // Quote the entire trade size so the preview reflects the LMSR price curve
+  // rather than a linear shares × spot-price estimate.
+  const {
+    cost: quotedCost,
+    isLoading: isQuoteLoading,
+    isError: isQuoteError,
+    error: quoteError,
+  } = useLmsrQuote({
+    marketId: market.id,
+    amount,
+    side: activeTab,
+    enabled: amount > 0,
+  });
+
   // ─── Derived figures ───────────────────────────────────────────────────────
   const effectivePrice = orderType === "market" ? market.currentPrice : price;
-  const positionSize   = amount * effectivePrice;
+  const positionSize   = amount > 0 && quotedCost != null ? quotedCost : 0;
   const requiredMargin = positionSize / leverage;
 
-  // Mock balance — replace with real wallet / backend query
-  const balance        = 1000;
-  const purchasingPower = balance * leverage;
-  const maxAmount       = purchasingPower / effectivePrice;
+  const availableBalance = balance ?? 0;
+  const purchasingPower  = availableBalance * leverage;
+  const maxAmount        = effectivePrice > 0 ? purchasingPower / effectivePrice : 0;
 
   // ─── Slippage warning (inline) ─────────────────────────────────────────────
   const slippageWarning = getSlippageWarning(
@@ -121,6 +169,13 @@ export default function OrderPanel({
     amount > 0 && positionSize > purchasingPower
       ? `Insufficient purchasing power. You need $${positionSize.toFixed(2)} but have $${purchasingPower.toFixed(2)}.`
       : null;
+
+  // ─── Refresh balance after confirmed transactions ──────────────────────────
+  useEffect(() => {
+    if (isConfirmed) {
+      refetchBalance();
+    }
+  }, [isConfirmed, refetchBalance]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -154,9 +209,47 @@ export default function OrderPanel({
       if (!confirmed) return;
     }
 
+    if (isQuoteError || quotedCost == null) {
+      toast.error(
+        "Quote Unavailable",
+        quoteError?.message ?? "Unable to quote this trade size. Please try again.",
+      );
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const contract = getOrderContractConfig(market);
+      const hash = await writeContractAsync({
+        ...contract,
+        functionName: activeTab === "buy" ? "buy" : "sell",
+        args: [
+          market.id,
+          data.amount,
+          orderType === "market" ? 0 : Number(data.price),
+          leverage,
+          quotedCost,
+        ],
+      });
+
+      trackTransaction(hash, {
+        type: "order",
+        marketId: market.id,
+        side: activeTab,
+        amount: data.amount,
+      });
+
+      // Wait for the receipt; success is only reported once execution confirms.
+      const receipt = await waitForReceipt(hash);
+
+      if (receipt.status !== "success") {
+        toast.error(
+          "Order Failed",
+          "The transaction was reverted on-chain. No order was placed.",
+        );
+        return;
+      }
+
       toast.success(
         "Order Placed",
         `${activeTab.toUpperCase()} order for ${data.amount} shares at ${leverage}x leverage placed successfully`,
@@ -164,10 +257,17 @@ export default function OrderPanel({
       setValue("amount", 0);
       setValue("total", 0);
       setValue("leverage", 1);
-    } catch {
-      toast.error("Order Failed", "Failed to place order. Please try again.");
+      refetchBalance();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (/user rejected|denied/i.test(message)) {
+        toast.error("Transaction Rejected", "You rejected the transaction in your wallet.");
+      } else {
+        toast.error("Order Failed", message || "Failed to place order. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
+      resetWrite();
     }
   };
 
@@ -318,23 +418,42 @@ export default function OrderPanel({
         <div className="space-y-2 p-4 bg-gray-50 border border-gray-200 rounded-lg text-sm">
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Position Size</span>
-            <span className="font-semibold text-gray-900">${positionSize.toFixed(2)}</span>
+            <span className="font-semibold text-gray-900">
+              {isQuoteLoading ? "Quoting…" : `$${positionSize.toFixed(2)}`}
+            </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Required Margin</span>
-            <span className="font-bold text-blue-600">${requiredMargin.toFixed(2)}</span>
+            <span className="font-bold text-blue-600">
+              {isQuoteLoading ? "…" : `$${requiredMargin.toFixed(2)}`}
+            </span>
           </div>
+          {isQuoteError && (
+            <p role="alert" className="text-xs" style={{ color: "#ef4444" }}>
+              Unable to quote this trade size. Please try again.
+            </p>
+          )}
         </div>
 
         {/* Balance context */}
         <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg space-y-1">
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">Available Balance:</span>
-            <span className="font-semibold text-gray-900">${balance.toFixed(2)}</span>
+            <span className="font-semibold text-gray-900">
+              {!isConnected && !userAddress
+                ? "—"
+                : isBalanceLoading
+                ? "Loading…"
+                : isBalanceError
+                ? "Unavailable"
+                : `$${availableBalance.toFixed(2)}`}
+            </span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">Total Purchasing Power:</span>
-            <span className="font-medium text-blue-700">${purchasingPower.toFixed(2)}</span>
+            <span className="font-medium text-blue-700">
+              {isBalanceLoading || isBalanceError ? "—" : `$${purchasingPower.toFixed(2)}`}
+            </span>
           </div>
         </div>
 
@@ -378,8 +497,10 @@ export default function OrderPanel({
               : "bg-red-600 hover:bg-red-700 disabled:bg-gray-400"
           } disabled:cursor-not-allowed`}
         >
-          {isSubmitting
-            ? "Processing…"
+          {isSubmitting || isWritePending || isConfirming
+            ? isConfirming
+              ? "Confirming…"
+              : "Processing…"
             : !userAddress
             ? "Connect Wallet"
             : `${activeTab === "buy" ? "Buy" : "Sell"} ${market.name.split(" ")[0]}`}
