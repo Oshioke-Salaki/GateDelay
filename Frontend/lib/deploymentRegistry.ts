@@ -71,3 +71,27 @@ export function contractFromDeploymentRegistry(name: string): DeploymentEntry | 
   if (!raw) return undefined;
   return findDeployment(parseDeploymentRegistry(raw), name);
 }
+
+/**
+ * Resolve the verified MarketMaker deployment.
+ * Returns undefined when the registry is unset or does not contain MarketMaker.
+ * Callers must disable execution rather than falling back to a zero address.
+ */
+export function getMarketMakerDeployment(): DeploymentEntry | undefined {
+  return contractFromDeploymentRegistry("MarketMaker");
+}
+
+/**
+ * Load the verified market IDs from `NEXT_PUBLIC_VERIFIED_MARKET_IDS`
+ * (comma-separated list). Returns an empty array when the variable is unset
+ * or contains no valid entries, so callers can disable execution.
+ */
+export function loadVerifiedMarketIds(): string[] {
+  const raw = process.env.NEXT_PUBLIC_VERIFIED_MARKET_IDS;
+  if (!raw) return [];
+
+  return raw
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+}
