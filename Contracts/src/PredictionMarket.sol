@@ -208,7 +208,7 @@ contract PredictionMarket {
     // Admin functions
     // -------------------------------------------------------------------------
     /// @notice Pause the market.
-    /// @dev Access: Only callable by factory.
+    /// @dev Access: Only callable by factory (governance forwards through the factory).
     function pause() external {
         if (msg.sender != factory) revert OnlyFactory();
         if (state != MarketState.OPEN) revert InvalidMarketState();
@@ -218,7 +218,7 @@ contract PredictionMarket {
     }
 
     /// @notice Unpause the market.
-    /// @dev Access: Only callable by factory.
+    /// @dev Access: Only callable by factory (governance forwards through the factory).
     function unpause() external {
         if (msg.sender != factory) revert OnlyFactory();
         if (state != MarketState.PAUSED) revert InvalidMarketState();
