@@ -1,5 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import {
+  ApiParam,
   ApiOperation,
   ApiQuery,
   ApiResponse,
@@ -10,6 +11,7 @@ import { MarketResolverService } from './market-resolver.service';
 import { ListMarketsQueryDto } from './dto/list-markets.dto';
 import { CacheService } from '../cache/cache.service';
 import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
+import { BlockchainService } from '../blockchain/blockchain.service';
 
 // Use the existing CommonJS tradeAggregator for real-time stats
 const nodeRequire = createRequire(__filename);
@@ -27,26 +29,27 @@ const normalizeArchiveOutcome = (value?: string): 'yes' | 'no' | 'cancelled' => 
 };
 
 @ApiTags('markets')
-@Controller('api/markets')
+@Controller('markets')
 export class MarketsController {
   constructor(
     private readonly marketResolver: MarketResolverService,
     private readonly cache: CacheService,
+    private readonly blockchain: BlockchainService,
   ) {}
 
   /**
    * GET /markets — paginated market list.
    *
-   * `page` / `limit` come in through `ListMarketsQueryDto`; the registry is
-   * sliced in memory, and the response carries the standard `meta` block so
-   * markets, trades, audit logs and notifications page identically (#916).
+   * `page` / `limit` come in through `ListMarketsQueryDto`; the persisted
+   * catalog is paginated with the standard `meta` block so markets, trades,
+   * audit logs and notifications page identically (#916).
    *
    * Pages are cached briefly and evicted on `market.updated` /
    * `market.resolved` (see cache-refresh.policy.ts).
    */
   @Get()
   async list(@Query() query: ListMarketsQueryDto) {
-    const { meta } = this.marketResolver.getMarketsPage(query);
+    const { meta } = await this.marketResolver.getMarketsPage(query);
     return this.cache.getOrSet(
       CacheKeys.marketsList(meta.page, meta.limit),
       () => this.buildPage(query),
@@ -67,7 +70,7 @@ export class MarketsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Archived market list' })
-  getArchive(@Query() query: Record<string, unknown> = {}) {
+  async getArchive(@Query() query: Record<string, unknown> = {}) {
     const category =
       typeof query.category === 'string' ? query.category.trim().toLowerCase() : undefined;
     const outcome =
@@ -83,8 +86,8 @@ export class MarketsController {
     const toMs =
       typeof query.to === 'string' && query.to ? Date.parse(query.to) : undefined;
 
-    const archived = this.marketResolver
-      .getAllMarkets()
+    const markets = await this.marketResolver.getAllMarkets();
+    const archived = markets
       .filter((market) => !!market)
       .filter((market) => market.status === 'resolved' || market.status === 'cancelled')
       .filter((market) => {
@@ -140,8 +143,61 @@ export class MarketsController {
     };
   }
 
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get a market by ID',
+    description:
+      'Returns market metadata, MarketMaker deployment identity, YES/NO stake totals, and lifecycle state.',
+  })
+  @ApiParam({ name: 'id', description: 'Market identifier' })
+  @ApiResponse({ status: 200, description: 'Market detail' })
+  @ApiResponse({ status: 404, description: 'Market not found' })
+  async getById(@Param('id') id: string) {
+    const market = await this.marketResolver.getMarket(id);
+    if (!market) {
+      throw new NotFoundException(`Market ${id} not found`);
+    }
+
+    const deployment = market.marketAddress
+      ? undefined
+      : this.blockchain.getDeployedContract('MarketMaker');
+
+    return {
+      success: true,
+      data: {
+        id: market.id,
+        metadata: {
+          title: market.title,
+          description: market.description ?? null,
+          categoryId: market.categoryId ?? null,
+          deadline: market.deadline.toISOString(),
+        },
+        deployment: {
+          marketId: market.id,
+          contractName: market.marketAddress ? 'PredictionMarket' : 'MarketMaker',
+          contractAddress: market.marketAddress ?? deployment?.address ?? null,
+          factoryAddress: market.factoryAddress ?? null,
+          creator: market.creator ?? null,
+          collateralToken: market.collateralToken ?? null,
+          chainId: market.chainId ?? deployment?.chainId ?? null,
+          abiVersion: deployment?.abiVersion ?? null,
+          factoryAbiVersion: market.factoryAbiVersion ?? null,
+        },
+        outcomes: {
+          yes: { totalStake: market.totalYesStake.toString() },
+          no: { totalStake: market.totalNoStake.toString() },
+          result: market.outcome ?? null,
+        },
+        lifecycle: {
+          status: market.status,
+          resolvedAt: market.resolvedAt?.toISOString() ?? null,
+        },
+      },
+    };
+  }
+
   private async buildPage(query: ListMarketsQueryDto) {
-    const { markets, meta } = this.marketResolver.getMarketsPage(query);
+    const { markets, meta } = await this.marketResolver.getMarketsPage(query);
 
     const data = await Promise.all(
       markets.map(async (m) => {

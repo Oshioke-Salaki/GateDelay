@@ -170,8 +170,8 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
     const previousCategoryId =
-      this.marketResolverService.getMarket(marketId)?.categoryId;
-    this.marketResolverService.updateMarketCategory(marketId, categoryId);
+      (await this.marketResolverService.getMarket(marketId))?.categoryId;
+    await this.marketResolverService.updateMarketCategory(marketId, categoryId);
     await this.cacheRefresh.refresh({
       type: 'market.category_changed',
       marketId,

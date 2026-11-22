@@ -91,6 +91,7 @@ export const envValidationSchema = Joi.object({
   MARKET_CONTRACT_ADDRESS: Joi.string().pattern(/^0x[a-fA-F0-9]{40}$/).optional(),
   PRIVATE_KEY: Joi.string().pattern(/^0x[a-fA-F0-9]{64}$/).optional(),
   DEPLOYMENT_REGISTRY_JSON: Joi.string().allow('').optional(),
+  MARKET_FACTORY_START_BLOCK: Joi.number().integer().min(0).optional(),
   CONTRACT_ABI_EXPECTATIONS_JSON: Joi.string().allow('').optional(),
 
   WEBHOOK_SECRET: Joi.string()

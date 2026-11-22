@@ -43,6 +43,22 @@ Minimum local variables:
 
 Provider keys may be omitted in development, but health checks will report the related dependency as `DEGRADED`.
 
+## MarketFactory event indexing
+
+The Nest market catalog indexes `MarketCreated` events from every
+`MarketFactory` entry in `DEPLOYMENT_REGISTRY_JSON` whose `chainId` matches
+`BLOCKCHAIN_RPC_URL`. Set `MARKET_FACTORY_START_BLOCK` to the factory deployment
+block to avoid scanning older chain history on the first run; it defaults to
+block `0`. Existing checkpoints are retained when this value changes.
+
+The indexer waits for two confirmations, scans bounded block ranges, and stores
+per-chain/factory checkpoints in MongoDB alongside the market catalog. A failed
+event leaves its block range uncheckpointed so the next poll can retry it.
+Duplicate logs are safe to replay because discovered markets are inserted
+idempotently by market address. A single `BLOCKCHAIN_RPC_URL` can index only
+deployments on that RPC's chain; deployments for other chains are skipped and
+logged.
+
 ## Health Endpoints
 
 NestJS:
