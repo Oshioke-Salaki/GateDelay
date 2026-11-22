@@ -1,11 +1,11 @@
 "use client";
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense, useEffect, useRef } from "react";
 import { StatsSkeleton, ChartSkeleton } from "../../components/ui/Skeleton";
 import StatusIndicator from "../../components/market/StatusIndicator";
 import OrderBook from "../../components/market/OrderBook";
 import TradeConfirmation from "../../../components/trade/TradeConfirmation";
 import LiquidityDisplay from "../../../components/market/LiquidityDisplay";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useSignMessage, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import PriceChart from "../../components/chart/PriceChart";
 import LiquidityChart from "../../../components/chart/LiquidityChart";
 import GasEstimator, { type GasSpeed, type GasEstimate } from "../../../components/gas/GasEstimator";
@@ -19,6 +19,7 @@ import StalePriceWarning from "@/components/market/StalePriceWarning";
 import { formatCurrency, formatLiquidity, formatOdds, formatTokenAmount, formatVolume } from "@/lib/formatters";
 import { getMarketOutcomeLabel } from "@/lib/labels";
 import { useTrackTransaction } from "@/hooks/useTransactionTracker";
+import { getMarketMakerAddress, recordPositionExecution } from "@/lib/portfolioApi";
 
 // ── ABI (only the buy function) ──────────────────────────────────────────────
 const MARKET_MAKER_ABI = [
@@ -34,9 +35,6 @@ const MARKET_MAKER_ABI = [
     outputs: [],
   },
 ] as const;
-
-const MARKET_MAKER_ADDRESS =
-  (process.env.NEXT_PUBLIC_MARKET_MAKER_ADDRESS as `0x${string}`) ?? "0x0000000000000000000000000000000000000000";
 
 // Replace with real contract/API calls when a market detail endpoint is wired.
 const MOCK_MARKET = {
@@ -59,7 +57,8 @@ const MOCK_MARKET = {
 };
 
 export default function MarketDetailPage({ params }: { params: { id: string } }) {
-  const { address, isConnected } = useAccount();
+  const { address, chainId, isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const { success: toastSuccess, error: toastError } = useToast();
   const market = { ...MOCK_MARKET, id: params.id };
   const [side, setSide] = useState<"YES" | "NO">("YES");
@@ -72,7 +71,9 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   // Trade execution hooks
   const { writeContract, data: txHash, isPending: isSigning, error: signError, reset: resetWrite } = useWriteContract();
   useTrackTransaction(txHash, "Market trade");
-  const { isLoading: isConfirming, isSuccess, error: confirmError } = useWaitForTransactionReceipt({ hash: txHash });
+  const { data: receipt, isLoading: isConfirming, isSuccess, error: confirmError } =
+    useWaitForTransactionReceipt({ hash: txHash, confirmations: 12 });
+  const syncedTransaction = useRef<string | null>(null);
 
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [progressStatus, setProgressStatus] = useState<ExecutionStatus>("idle");
@@ -81,6 +82,31 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
   const price = side === "YES" ? market.yesPrice : market.noPrice;
   const shares = amountValue > 0 && price > 0 ? formatTokenAmount(amountValue / price) : "N/A";
   const isTradeValid = amountValue > 0 && market.status === "open";
+
+  useEffect(() => {
+    if (
+      !isSuccess ||
+      !receipt ||
+      !txHash ||
+      !address ||
+      !chainId ||
+      syncedTransaction.current === txHash
+    ) return;
+    syncedTransaction.current = txHash;
+    void recordPositionExecution({
+      action: "BUY",
+      account: address,
+      chainId,
+      marketId: BigInt(market.id || "1"),
+      receipt,
+      signMessage: (message) => signMessageAsync({ message }),
+    }).catch((error: unknown) => {
+      toastError(
+        "Position sync failed",
+        error instanceof Error ? error.message : "The confirmed trade could not be added to your portfolio.",
+      );
+    });
+  }, [address, chainId, isSuccess, market.id, receipt, signMessageAsync, toastError, txHash]);
 
   // Monitor transaction states
   useEffect(() => {
@@ -134,7 +160,7 @@ export default function MarketDetailPage({ params }: { params: { id: string } })
     
     try {
       writeContract({
-        address: MARKET_MAKER_ADDRESS,
+        address: getMarketMakerAddress(chainId ?? 0),
         abi: MARKET_MAKER_ABI,
         functionName: "buy",
         args: [BigInt(market.id || "1"), BigInt(side === "YES" ? 0 : 1), sharesBigInt],

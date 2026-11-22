@@ -11,6 +11,11 @@ import {
   validateOutcomesDistinct,
   validateMinLiquidity,
 } from "@/lib/validationRules";
+import {
+  getBrowserTimeZone,
+  toLocalDateInputValue,
+  toLocalDateTimeInputValue,
+} from "@/lib/localDateTime";
 
 // ── ABI (only the createMarket function) ─────────────────────────────────────
 const MARKET_FACTORY_ABI = [
@@ -255,12 +260,15 @@ function StepDetails({
             id="cmf-fdate"
             {...register("flightDate", { required: "Flight date is required" })}
             type="date"
-            min={new Date().toISOString().split("T")[0]}
+            min={toLocalDateInputValue(new Date())}
             className={inputCls}
             style={inputStyle}
             aria-invalid={!!errors.flightDate}
           />
           <FieldError message={errors.flightDate?.message} />
+          <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
+            Flight dates use your browser time zone ({getBrowserTimeZone()}).
+          </p>
         </div>
       </div>
     </div>
@@ -363,7 +371,7 @@ function StepSettings({
 }) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().slice(0, 16);
+  const minDate = toLocalDateTimeInputValue(tomorrow);
 
   return (
     <div className="space-y-4">
@@ -391,7 +399,7 @@ function StepSettings({
         <FieldError message={errors.resolutionDeadline?.message} />
         <p className="text-xs mt-1" style={{ color: "var(--muted)" }}>
           Must be in the future and after the flight date. This is when the oracle resolves the
-          market.
+          market. Times use your browser time zone ({getBrowserTimeZone()}).
         </p>
       </div>
 
