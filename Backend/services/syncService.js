@@ -11,6 +11,92 @@ const syncQueue = new Queue('market-data-sync', {
 
 const syncStatus = new Map();
 
+// Resolution states for a market snapshot, tracked separately so that a market
+// is never treated as resolved until the on-chain confirmation is observed (#1355).
+//   'proposed'  -> resolver computed a proposed resolution (off-chain only)
+//   'submitted' -> resolution tx submitted to the contract, awaiting confirmation
+//   'confirmed' -> on-chain confirmation event observed
+const RESOLUTION_STATES = Object.freeze({
+  PROPOSED: 'proposed',
+  SUBMITTED: 'submitted',
+  CONFIRMED: 'confirmed'
+});
+
+// In-memory store of resolution records keyed by marketId. In production this
+// would be backed by the MarketSnapshot persistence layer.
+const resolutionRecords = new Map();
+
+function getResolutionRecord(marketId) {
+  return resolutionRecords.get(marketId) || null;
+}
+
+function setResolutionState(marketId, state, details = {}) {
+  const existing = resolutionRecords.get(marketId) || { marketId };
+  const updated = { ...existing, ...details, resolutionState: state, updatedAt: new Date() };
+  resolutionRecords.set(marketId, updated);
+  return updated;
+}
+
+function recordProposedResolution(marketId, details = {}) {
+  return setResolutionState(marketId, RESOLUTION_STATES.PROPOSED, details);
+}
+
+function recordSubmittedResolution(marketId, txHash, details = {}) {
+  return setResolutionState(marketId, RESOLUTION_STATES.SUBMITTED, { ...details, txHash });
+}
+
+// Applies an on-chain confirmation event, moving 'submitted' -> 'confirmed'.
+// Returns the updated record, or null if the event is unknown/stale.
+function handleResolutionConfirmation(event = {}) {
+  const { marketId, txHash, confirmedAt } = event;
+  if (!marketId) {
+    console.warn('[SyncService] Ignoring resolution confirmation without marketId');
+    return null;
+  }
+
+  const existing = resolutionRecords.get(marketId);
+  if (!existing) {
+    console.warn(`[SyncService] Confirmation for unknown market ${marketId}; recording as confirmed`);
+  } else if (existing.resolutionState === RESOLUTION_STATES.CONFIRMED) {
+    return existing;
+  } else if (existing.resolutionState !== RESOLUTION_STATES.SUBMITTED) {
+    console.warn(
+      `[SyncService] Confirmation for market ${marketId} arrived in state ` +
+      `'${existing.resolutionState}'; promoting to confirmed`
+    );
+  }
+
+  return setResolutionState(marketId, RESOLUTION_STATES.CONFIRMED, {
+    txHash: txHash || (existing && existing.txHash) || null,
+    confirmedAt: confirmedAt ? new Date(confirmedAt) : new Date()
+  });
+}
+
+// Polls the contract for resolution confirmation events and reconciles them
+// into the resolution records. Returns the list of newly confirmed markets.
+async function pollResolutionConfirmations(fetchEvents) {
+  if (typeof fetchEvents !== 'function') {
+    return [];
+  }
+
+  const events = await fetchEvents();
+  const confirmed = [];
+
+  for (const event of events || []) {
+    const record = handleResolutionConfirmation(event);
+    if (record && record.resolutionState === RESOLUTION_STATES.CONFIRMED) {
+      confirmed.push(record);
+    }
+  }
+
+  return confirmed;
+}
+
+function isMarketResolved(marketId) {
+  const record = resolutionRecords.get(marketId);
+  return !!record && record.resolutionState === RESOLUTION_STATES.CONFIRMED;
+}
+
 const marketDataSources = [
   { id: 'binance', name: 'Binance', enabled: true },
   { id: 'coinbase', name: 'Coinbase', enabled: true },
@@ -45,7 +131,21 @@ async function resolveConflicts(data1, data2) {
 }
 
 async function syncMarketData(options = {}) {
-  const { incremental = true, sources = marketDataSources.filter(s => s.enabled).map(s => s.id) } = options;
+  const {
+    incremental = true,
+    sources = marketDataSources.filter(s => s.enabled).map(s => s.id),
+    fetchResolutionEvents = null
+  } = options;
+
+  // Reconcile on-chain resolution confirmations before reporting any market as
+  // resolved, so a market is never treated as resolved without confirmation (#1355).
+  if (fetchResolutionEvents) {
+    try {
+      await pollResolutionConfirmations(fetchResolutionEvents);
+    } catch (error) {
+      console.error('[SyncService] Failed to poll resolution confirmations:', error);
+    }
+  }
   const lastSync = await redis.get('lastSyncTime');
   const lastSyncTime = incremental && lastSync ? new Date(lastSync) : null;
   
@@ -71,8 +171,13 @@ async function syncMarketData(options = {}) {
   }
   
   await redis.set('lastSyncTime', new Date().toISOString());
-  
-  return { sources: sources, syncedAt: new Date(), data: finalData };
+
+  // Only markets with an observed on-chain confirmation are reported as resolved.
+  const resolvedMarkets = Array.from(resolutionRecords.values())
+    .filter(record => record.resolutionState === RESOLUTION_STATES.CONFIRMED)
+    .map(record => record.marketId);
+
+  return { sources: sources, syncedAt: new Date(), data: finalData, resolvedMarkets };
 }
 
 function getSyncStatus() {
@@ -94,5 +199,12 @@ module.exports = {
   syncMarketData,
   getSyncStatus,
   queueSyncJob,
-  syncQueue
+  syncQueue,
+  RESOLUTION_STATES,
+  getResolutionRecord,
+  recordProposedResolution,
+  recordSubmittedResolution,
+  handleResolutionConfirmation,
+  pollResolutionConfirmations,
+  isMarketResolved
 };
