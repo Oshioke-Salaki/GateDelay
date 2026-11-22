@@ -82,4 +82,45 @@ router.get('/providers', (req, res) => {
   res.json({ success: true, data: oracleService.PROVIDERS });
 });
 
+/**
+ * POST /api/oracle/resolution/:marketId/propose
+ * Propose a resolution outcome for a market (off-chain, not yet on-chain)
+ */
+router.post('/resolution/:marketId/propose', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+  const { outcome, payoutTotals } = req.body || {};
+
+  const state = await oracleService.proposeResolution(marketId, { outcome, payoutTotals });
+  res.json({ success: true, data: state });
+}));
+
+/**
+ * POST /api/oracle/resolution/:marketId/submit
+ * Submit the proposed resolution on-chain and record the transaction hash
+ */
+router.post('/resolution/:marketId/submit', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+
+  const state = await oracleService.submitResolution(marketId);
+  res.json({ success: true, data: state });
+}));
+
+/**
+ * GET /api/oracle/resolution/:marketId
+ * Query the current resolution state (proposed/submitted/confirmed).
+ * A market is only reported as resolved once the confirmed state is reached.
+ */
+router.get('/resolution/:marketId', handleErrors(async (req, res) => {
+  const { marketId } = req.params;
+
+  const state = await oracleService.getResolutionState(marketId);
+  res.json({
+    success: true,
+    data: {
+      ...state,
+      resolved: state.status === 'confirmed',
+    },
+  });
+}));
+
 module.exports = router;

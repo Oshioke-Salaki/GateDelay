@@ -25,6 +25,7 @@ contract MarketFactory {
     error MarketAlreadyExists();
     error InvalidRange();
     error UnsupportedCollateralDecimals();
+    error NotRegisteredMarket();
 
     // -------------------------------------------------------------------------
     // Types
@@ -49,6 +50,10 @@ contract MarketFactory {
         address indexed collateralToken,
         uint256 resolutionDeadline
     );
+
+    event MarketPaused(address indexed market);
+
+    event MarketUnpaused(address indexed market);
 
     // -------------------------------------------------------------------------
     // Storage
@@ -155,6 +160,36 @@ contract MarketFactory {
         positionToken.authorise(market);
 
         emit MarketCreated(market, msg.sender, collateralToken, resolutionDeadline);
+    }
+
+    /// @notice Pause a registered market via the factory's privileged lifecycle hook.
+    /// @param market Address of a factory-deployed market.
+    /// @dev Access: Restricted to `governance`; reverts with `NotGovernance` otherwise.
+    /// @dev Reverts: `NotRegisteredMarket` if `market` is not a registered factory market.
+    ///     Propagates any revert from the market's `pause()` call.
+    function pauseMarket(address market) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (_markets[market].creator == address(0)) revert NotRegisteredMarket();
+
+        PredictionMarket(market).pause();
+        _markets[market].status = MarketStatus.PAUSED;
+
+        emit MarketPaused(market);
+    }
+
+    /// @notice Unpause a registered market via the factory's privileged lifecycle hook.
+    /// @param market Address of a factory-deployed market.
+    /// @dev Access: Restricted to `governance`; reverts with `NotGovernance` otherwise.
+    /// @dev Reverts: `NotRegisteredMarket` if `market` is not a registered factory market.
+    ///     Propagates any revert from the market's `unpause()` call.
+    function unpauseMarket(address market) external {
+        if (msg.sender != governance) revert NotGovernance();
+        if (_markets[market].creator == address(0)) revert NotRegisteredMarket();
+
+        PredictionMarket(market).unpause();
+        _markets[market].status = MarketStatus.OPEN;
+
+        emit MarketUnpaused(market);
     }
 
     /// @notice Compute the deterministic address for a market without deploying.
