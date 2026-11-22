@@ -169,6 +169,42 @@ class AnalyticsService {
   }
 
   /**
+   * Build the query used for archive results.
+   * Cancelled markets are excluded only when an outcome filter is explicitly supplied.
+   * When no outcome filter is present, both resolved and cancelled records are included.
+   */
+  buildArchiveQuery(filters = {}) {
+    const query = {};
+
+    if (filters.pair) {
+      query.pair = filters.pair;
+    }
+
+    if (filters.outcome) {
+      query.outcome = filters.outcome;
+      // Only exclude cancelled markets when an outcome filter is requested
+      query.status = { $ne: 'cancelled' };
+    }
+
+    if (filters.from || filters.to) {
+      query.updatedAt = {};
+      if (filters.from) query.updatedAt.$gte = new Date(filters.from);
+      if (filters.to) query.updatedAt.$lte = new Date(filters.to);
+    }
+
+    return query;
+  }
+
+  /**
+   * Retrieve archive results based on supplied filters.
+   * Default (unfiltered) results include both resolved and cancelled records.
+   */
+  async getArchiveResults(filters = {}) {
+    const query = this.buildArchiveQuery(filters);
+    return Order.find(query).sort({ updatedAt: -1 });
+  }
+
+  /**
    * Export analytics data
    */
   async exportAnalyticsData(pair, format = 'json') {
