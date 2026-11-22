@@ -53,8 +53,9 @@ export class TradingHistoryService {
 
     // Apply sorting
     userTrades.sort((a, b) => {
-      let aVal: any = a[dto.sortBy as keyof Trade] ?? 0;
-      let bVal: any = b[dto.sortBy as keyof Trade] ?? 0;
+      const sortKey: keyof Trade = dto.sortBy === "date" || !dto.sortBy ? "createdAt" : dto.sortBy as keyof Trade;
+      let aVal: any = a[sortKey] ?? 0;
+      let bVal: any = b[sortKey] ?? 0;
 
       if (typeof aVal === 'string') {
         aVal = aVal.localeCompare(bVal);
