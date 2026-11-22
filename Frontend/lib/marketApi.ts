@@ -12,6 +12,26 @@ export interface Market {
   noPrice: number;
   volume: number;
   liquidity: number;
+  prices?: {
+    yes: number | null;
+    no: number | null;
+  };
+  tradingVolume?: number | null;
+  tradingVolumeWindow?: 'ALL_TIME';
+  tradingVolumeBaseUnits?: string | null;
+  availableLiquidity?: number | null;
+  availableLiquidityBaseUnits?: string | null;
+  fees?: {
+    buyBps: string | null;
+    sellBps: string;
+  };
+  feePercent?: number | null;
+  metricSources?: {
+    price: string | null;
+    volume: string | null;
+    liquidity: string | null;
+    fees: string | null;
+  };
   participants: number;
   createdAt: string;
   resolvedAt: string | null;
@@ -154,6 +174,11 @@ function normalizeMarket(raw: any): Market {
   const lifecycle = raw?.lifecycle ?? {};
   const metadata = raw?.metadata ?? {};
   const outcomes = raw?.outcomes;
+  const nullableNumber = (value: unknown): number | null => {
+    if (value === undefined || value === null || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
 
   return {
     id: String(raw?.id ?? raw?.marketId ?? ''),
@@ -163,8 +188,19 @@ function normalizeMarket(raw: any): Market {
     status: String(raw?.status ?? lifecycle.status ?? ''),
     yesPrice: Number(raw?.yesPrice ?? raw?.yes_price ?? 0),
     noPrice: Number(raw?.noPrice ?? raw?.no_price ?? 0),
-    volume: Number(raw?.volume ?? 0),
-    liquidity: Number(raw?.liquidity ?? 0),
+    volume: Number(raw?.tradingVolume ?? raw?.volume ?? 0),
+    liquidity: Number(raw?.availableLiquidity ?? raw?.liquidity ?? 0),
+    prices: {
+      yes: nullableNumber(raw?.prices?.yes ?? raw?.yesPrice ?? raw?.yes_price),
+      no: nullableNumber(raw?.prices?.no ?? raw?.noPrice ?? raw?.no_price),
+    },
+    tradingVolume: nullableNumber(raw?.tradingVolume),
+    tradingVolumeBaseUnits: raw?.tradingVolumeBaseUnits ?? null,
+    availableLiquidity: nullableNumber(raw?.availableLiquidity),
+    availableLiquidityBaseUnits: raw?.availableLiquidityBaseUnits ?? null,
+    fees: raw?.fees,
+    feePercent: nullableNumber(raw?.feePercent),
+    metricSources: raw?.metricSources,
     participants: Number(raw?.participants ?? raw?.participantCount ?? 0),
     createdAt: String(raw?.createdAt ?? raw?.created_at ?? ''),
     resolvedAt: raw?.resolvedAt ?? raw?.resolved_at ?? lifecycle.resolvedAt ?? null,

@@ -1,7 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Schema as MongooseSchema } from 'mongoose';
 import type { Document } from 'mongoose';
-import type { MarketOutcome, MarketStatus } from '../market-resolver.service';
+import type {
+  MarketOutcome,
+  MarketResolutionCriteria,
+  MarketStatus,
+} from '../market-resolver.service';
 
 export type MarketDocument = MarketRecord & Document;
 
@@ -80,6 +84,9 @@ export class MarketRecord {
 
   @Prop()
   creationLogIndex?: number;
+
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  resolutionCriteria?: MarketResolutionCriteria;
 }
 
 export const MarketSchema = SchemaFactory.createForClass(MarketRecord);

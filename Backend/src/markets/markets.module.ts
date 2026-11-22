@@ -5,6 +5,9 @@ import { MarketsController } from './markets.controller';
 import { AppCacheModule } from '../cache/cache.module';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 import { MarketFactoryIndexerService } from './market-factory-indexer.service';
+import { MarketMakerQuoteService } from './market-maker-quote.service';
+import { MarketMakerMetricsService } from './market-maker-metrics.service';
+import { MarketDataModule } from '../market-data/market-data.module';
 import {
   MarketFactoryCheckpoint,
   MarketFactoryCheckpointSchema,
@@ -16,6 +19,7 @@ import {
   imports: [
     AppCacheModule,
     BlockchainModule,
+    MarketDataModule,
     MongooseModule.forFeature([
       { name: MarketRecord.name, schema: MarketSchema },
       {
@@ -24,7 +28,12 @@ import {
       },
     ]),
   ],
-  providers: [MarketResolverService, MarketFactoryIndexerService],
+  providers: [
+    MarketResolverService,
+    MarketFactoryIndexerService,
+    MarketMakerQuoteService,
+    MarketMakerMetricsService,
+  ],
   controllers: [MarketsController],
   exports: [MarketResolverService],
 })

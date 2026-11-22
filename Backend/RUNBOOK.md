@@ -59,6 +59,35 @@ idempotently by market address. A single `BLOCKCHAIN_RPC_URL` can index only
 deployments on that RPC's chain; deployments for other chains are skipped and
 logged.
 
+The market list reads YES/NO prices and available liquidity from the canonical
+`MarketMaker` contract. Trading volume (`tradingVolumeWindow: ALL_TIME`) is the
+cumulative collateral amount in canonical `SharesBought`/`SharesSold` events
+since the market's indexed creation block. Buy fee basis points come from a
+configured `Trading` deployment only when it references that same MarketMaker;
+the canonical sell fee is zero.
+Values include exact `*BaseUnits` fields; unavailable sources are returned as
+`null`, not inferred from unrelated spot trades or stake totals.
+
+Markets are automatically resolved only when they include valid
+`resolutionCriteria` in inline factory metadata or signed webhook metadata:
+`{"type":"flight_departure_delay","flightIata":"AA123","scheduledDeparture":"2026-11-22T12:00:00.000Z","delayThresholdMinutes":15,"delayedOutcome":"YES"}`.
+The resolver requires exactly one AviationStack record matching the IATA code
+and scheduled departure, an active or landed flight status, and a valid actual
+departure timestamp. `YES`/`NO` is assigned according to whether the observed
+departure delay (rounded to whole minutes) exceeds the configured threshold.
+Missing, ambiguous, malformed, or unavailable evidence leaves the market active
+for a later retry; titles are never used as resolution evidence.
+
+## Off-chain CLOB matching
+
+The `trade-engine` and legacy `orders` matcher accept orders only when both the
+`venueId` and generic token `pair` appear in `CLOB_VENUES`. Configure it as a
+JSON array, for example
+`[{"id":"spot-clob","pairs":["ETH-USDT","BTC-USDT"]}]`. Leave it empty to
+disable off-chain matching. Order-book reads require the same venue and pair.
+Responses label executions as CLOB and `NOT_ON_CHAIN`; they are not prediction
+market positions and do not represent LMSR settlement.
+
 ## Health Endpoints
 
 NestJS:

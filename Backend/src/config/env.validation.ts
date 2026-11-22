@@ -92,6 +92,46 @@ export const envValidationSchema = Joi.object({
   PRIVATE_KEY: Joi.string().pattern(/^0x[a-fA-F0-9]{64}$/).optional(),
   DEPLOYMENT_REGISTRY_JSON: Joi.string().allow('').optional(),
   MARKET_FACTORY_START_BLOCK: Joi.number().integer().min(0).optional(),
+  CLOB_VENUES: Joi.string()
+    .allow('')
+    .default('')
+    .custom((value, helpers) => {
+      if (!value) return value;
+      let venues: unknown;
+      try {
+        venues = JSON.parse(value) as unknown;
+      } catch {
+        return helpers.error('any.invalid');
+      }
+      if (!Array.isArray(venues) || venues.length === 0) {
+        return helpers.error('any.invalid');
+      }
+      const ids = new Set<string>();
+      for (const venue of venues) {
+        if (
+          !venue ||
+          typeof venue !== 'object' ||
+          !('id' in venue) ||
+          typeof venue.id !== 'string' ||
+          venue.id.trim() === '' ||
+          !('pairs' in venue) ||
+          !Array.isArray(venue.pairs) ||
+          venue.pairs.length === 0 ||
+          !venue.pairs.every(
+            (pair: unknown) => typeof pair === 'string' && pair.trim() !== '',
+          ) ||
+          ids.has(venue.id.trim())
+        ) {
+          return helpers.error('any.invalid');
+        }
+        ids.add(venue.id.trim());
+      }
+      return value;
+    })
+    .messages({
+      'any.invalid':
+        'CLOB_VENUES must be a JSON array of {id, pairs} CLOB venue entries',
+    }),
   CONTRACT_ABI_EXPECTATIONS_JSON: Joi.string().allow('').optional(),
 
   WEBHOOK_SECRET: Joi.string()

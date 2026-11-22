@@ -33,10 +33,10 @@ export class OrderMatcherController {
 
   @Get('book')
   book(
-    @Query('marketId') marketId: string,
-    @Query('outcome') outcome: 'YES' | 'NO',
+    @Query('venueId') venueId: string,
+    @Query('pair') pair: string,
   ) {
-    return this.orderMatcher.getOrderBook(marketId, outcome);
+    return this.orderMatcher.getOrderBook(venueId, pair);
   }
 
   @Get('mine')

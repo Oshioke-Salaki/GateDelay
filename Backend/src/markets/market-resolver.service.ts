@@ -6,6 +6,7 @@ import { createRequire } from 'module';
 import { paginate } from '../../utils/pagination';
 import type { PaginationMeta } from '../../utils/pagination';
 import { CacheRefreshService } from '../cache/cache-refresh.service';
+import { MarketDataService } from '../market-data/market-data.service';
 import { MarketRecord } from './schemas/market.schema';
 import type { MarketDocument } from './schemas/market.schema';
 
@@ -39,6 +40,48 @@ const auditTrail = nodeRequire('../../services/auditTrail') as {
 export type MarketStatus = 'active' | 'resolving' | 'resolved' | 'cancelled';
 export type MarketOutcome = 'YES' | 'NO' | 'VOID';
 
+export interface MarketResolutionCriteria {
+  type: 'flight_departure_delay';
+  flightIata: string;
+  scheduledDeparture: string;
+  delayThresholdMinutes: number;
+  delayedOutcome: 'YES' | 'NO';
+}
+
+export function isMarketResolutionCriteria(
+  value: unknown,
+): value is MarketResolutionCriteria {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const criteria = value as Record<string, unknown>;
+  return (
+    criteria.type === 'flight_departure_delay' &&
+    typeof criteria.flightIata === 'string' &&
+    /^[A-Z0-9]{2,3}\d{1,4}[A-Z]?$/i.test(criteria.flightIata) &&
+    typeof criteria.scheduledDeparture === 'string' &&
+    Number.isFinite(Date.parse(criteria.scheduledDeparture)) &&
+    new Date(criteria.scheduledDeparture).toISOString() ===
+      criteria.scheduledDeparture &&
+    typeof criteria.delayThresholdMinutes === 'number' &&
+    Number.isInteger(criteria.delayThresholdMinutes) &&
+    criteria.delayThresholdMinutes >= 0 &&
+    criteria.delayThresholdMinutes <= 1440 &&
+    (criteria.delayedOutcome === 'YES' || criteria.delayedOutcome === 'NO')
+  );
+}
+
+interface FlightOracleData {
+  source: 'aviationstack';
+  flightIata: string;
+  scheduledDeparture: string;
+  actualDeparture: string;
+  delayMinutes: number;
+  delayThresholdMinutes: number;
+  delayed: boolean;
+  delayedOutcome: 'YES' | 'NO';
+  flightStatus: 'active' | 'landed';
+  retrievedAt: string;
+}
+
 export interface Market {
   id: string;
   title: string;
@@ -62,6 +105,7 @@ export interface Market {
   creationBlockNumber?: number;
   creationTransactionHash?: string;
   creationLogIndex?: number;
+  resolutionCriteria?: MarketResolutionCriteria;
 }
 
 export interface ResolutionEvent {
@@ -84,6 +128,7 @@ export class MarketResolverService implements OnModuleInit {
     @InjectModel(MarketRecord.name)
     private readonly marketModel: Model<MarketDocument>,
     private readonly cacheRefresh: CacheRefreshService,
+    private readonly marketData: MarketDataService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -130,6 +175,7 @@ export class MarketResolverService implements OnModuleInit {
       | 'creationBlockNumber'
       | 'creationTransactionHash'
       | 'creationLogIndex'
+      | 'resolutionCriteria'
     >,
   ): Market {
     return {
@@ -155,6 +201,9 @@ export class MarketResolverService implements OnModuleInit {
       creationBlockNumber: record.creationBlockNumber,
       creationTransactionHash: record.creationTransactionHash,
       creationLogIndex: record.creationLogIndex,
+      resolutionCriteria: record.resolutionCriteria as
+        | MarketResolutionCriteria
+        | undefined,
     };
   }
 
@@ -182,6 +231,7 @@ export class MarketResolverService implements OnModuleInit {
       creationBlockNumber: market.creationBlockNumber,
       creationTransactionHash: market.creationTransactionHash,
       creationLogIndex: market.creationLogIndex,
+      resolutionCriteria: market.resolutionCriteria,
     };
   }
 
@@ -203,6 +253,10 @@ export class MarketResolverService implements OnModuleInit {
     if (market.categoryId === undefined) {
       unset.categoryId = 1;
       delete set.categoryId;
+    }
+    if (market.resolutionCriteria === undefined) {
+      unset.resolutionCriteria = 1;
+      delete set.resolutionCriteria;
     }
 
     await this.marketModel
@@ -379,7 +433,10 @@ export class MarketResolverService implements OnModuleInit {
   async resolveExpiredMarkets(): Promise<void> {
     const now = new Date();
     const expired = (await this.getAllMarkets()).filter(
-      (m) => m.status === 'active' && m.deadline <= now,
+      (m) =>
+        m.status === 'active' &&
+        m.deadline <= now &&
+        isMarketResolutionCriteria(m.resolutionCriteria),
     );
 
     if (!expired.length) return;
@@ -447,7 +504,7 @@ export class MarketResolverService implements OnModuleInit {
       auditLog.push(`[${new Date().toISOString()}] Oracle data received`);
 
       // 2. Determine outcome
-      outcome = this.calculateOutcome(market, oracleData);
+      outcome = this.calculateOutcome(oracleData);
       auditLog.push(
         `[${new Date().toISOString()}] Outcome calculated: ${outcome}`,
       );
@@ -526,23 +583,97 @@ export class MarketResolverService implements OnModuleInit {
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
-  /**
-   * Stub oracle integration. In production replace with an on-chain oracle call
-   * (e.g. Chainlink, UMA Optimistic Oracle) or a trusted REST feed.
-   */
-  private async fetchOracleData(
-    market: Market,
-  ): Promise<{ onTime: boolean; source: string }> {
-    // Deterministic stub: markets with even char count → YES, odd → NO
-    const onTime = market.title.length % 2 === 0;
-    return { onTime, source: 'stub-oracle' };
+  private async fetchOracleData(market: Market): Promise<FlightOracleData> {
+    const criteria = market.resolutionCriteria;
+    if (!isMarketResolutionCriteria(criteria)) {
+      throw new Error(
+        `Market ${market.id} has no valid flight resolution criteria`,
+      );
+    }
+
+    const response = await this.marketData.getFlightResolutionEvidence(
+      criteria.flightIata,
+    );
+    const data =
+      response && typeof response === 'object' && 'data' in response
+        ? response.data
+        : undefined;
+    if (!Array.isArray(data)) {
+      throw new Error('AviationStack returned an invalid flight response');
+    }
+
+    const matches = (data as unknown[]).filter((candidate: unknown) => {
+      if (!candidate || typeof candidate !== 'object') return false;
+      const record = candidate as { flight?: unknown; departure?: unknown };
+      if (
+        !record.flight ||
+        typeof record.flight !== 'object' ||
+        !record.departure ||
+        typeof record.departure !== 'object'
+      ) {
+        return false;
+      }
+      const flight = record.flight as { iata?: unknown };
+      const departure = record.departure as { scheduled?: unknown };
+      return (
+        typeof flight.iata === 'string' &&
+        flight.iata.toUpperCase() === criteria.flightIata.toUpperCase() &&
+        typeof departure.scheduled === 'string' &&
+        Date.parse(departure.scheduled) === Date.parse(criteria.scheduledDeparture)
+      );
+    });
+    if (matches.length !== 1) {
+      throw new Error(
+        `Expected one matching flight record for ${criteria.flightIata} at ${criteria.scheduledDeparture}; received ${matches.length}`,
+      );
+    }
+
+    const matchedRecord = matches[0] as {
+      flight?: unknown;
+      departure?: unknown;
+    };
+    const flight = matchedRecord.flight as { status?: unknown };
+    const departure = matchedRecord.departure as {
+      scheduled?: unknown;
+      actual?: unknown;
+    };
+    const status =
+      typeof flight.status === 'string' ? flight.status.toLowerCase() : undefined;
+    const scheduled = departure.scheduled;
+    const actual = departure.actual;
+    const scheduledMs =
+      typeof scheduled === 'string' ? Date.parse(scheduled) : NaN;
+    const actualMs = typeof actual === 'string' ? Date.parse(actual) : NaN;
+    if (
+      (status !== 'active' && status !== 'landed') ||
+      !Number.isFinite(scheduledMs) ||
+      !Number.isFinite(actualMs) ||
+      actualMs > Date.now()
+    ) {
+      throw new Error(
+        `AviationStack has no valid actual departure evidence for ${criteria.flightIata}`,
+      );
+    }
+
+    const delayMinutes = Math.round((actualMs - scheduledMs) / 60_000);
+    return {
+      source: 'aviationstack',
+      flightIata: criteria.flightIata.toUpperCase(),
+      scheduledDeparture: new Date(scheduledMs).toISOString(),
+      actualDeparture: new Date(actualMs).toISOString(),
+      delayMinutes,
+      delayThresholdMinutes: criteria.delayThresholdMinutes,
+      delayed: delayMinutes > criteria.delayThresholdMinutes,
+      delayedOutcome: criteria.delayedOutcome,
+      flightStatus: status,
+      retrievedAt: new Date().toISOString(),
+    };
   }
 
-  private calculateOutcome(
-    _market: Market,
-    oracleData: { onTime: boolean; source: string },
-  ): MarketOutcome {
-    return oracleData.onTime ? 'YES' : 'NO';
+  private calculateOutcome(oracleData: FlightOracleData): MarketOutcome {
+    const delayedOutcome = oracleData.delayedOutcome;
+    if (oracleData.delayed) return delayedOutcome;
+    return delayedOutcome === 'YES' ? 'NO' : 'YES';
   }
 
   private calculatePayouts(

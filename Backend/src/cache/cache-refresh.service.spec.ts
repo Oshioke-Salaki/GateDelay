@@ -6,6 +6,7 @@ import {
   planCacheRefresh,
 } from './cache-refresh.policy';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import type { MarketDataService } from '../market-data/market-data.service';
 import type { MarketDocument } from '../markets/schemas/market.schema';
 import type { Model } from 'mongoose';
 
@@ -188,7 +189,9 @@ describe('MarketResolverService cache refresh', () => {
     marketModel = model as unknown as Model<MarketDocument>;
     resolver = new MarketResolverService(marketModel, {
       refresh,
-    } as unknown as CacheRefreshService);
+    } as unknown as CacheRefreshService, {
+      getFlightResolutionEvidence: jest.fn(),
+    } as unknown as MarketDataService);
   });
 
   it('refreshes on register and update', async () => {
@@ -213,7 +216,9 @@ describe('MarketResolverService cache refresh', () => {
 
     const restarted = new MarketResolverService(marketModel, {
       refresh,
-    } as unknown as CacheRefreshService);
+    } as unknown as CacheRefreshService, {
+      getFlightResolutionEvidence: jest.fn(),
+    } as unknown as MarketDataService);
     await restarted.onModuleInit();
 
     await expect(restarted.getMarket('m1')).resolves.toMatchObject({
