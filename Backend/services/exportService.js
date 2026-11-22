@@ -100,7 +100,13 @@ class ExportService {
     if (options.pair) query.pair = options.pair;
     if (options.startDate) query.timestamp = { $gte: new Date(options.startDate) };
     if (options.endDate) query.timestamp = { ...query.timestamp, $lte: new Date(options.endDate) };
-    
+    // Only exclude cancelled markets when an outcome filter is explicitly requested;
+    // the default archive includes both resolved and cancelled records.
+    if (options.outcome) {
+      query.outcome = options.outcome;
+      query.cancelled = { $ne: true };
+    }
+
     return MarketSnapshot.find(query).sort({ timestamp: -1 });
   }
 
