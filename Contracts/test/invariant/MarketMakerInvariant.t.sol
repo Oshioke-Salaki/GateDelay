@@ -14,7 +14,13 @@ contract LMSRMarketMakerHandler is Test {
 
     ERC20Token public immutable token;
     MarketMaker public immutable marketMaker;
-    uint256 public immutable marketId;
+    address public immutable resolver;
+    address public immutable evidenceApprover;
+    uint256 public marketId;
+    uint256 public isolatedMarketId;
+    uint256 public initialSubsidy;
+    uint256 public isolatedSubsidy;
+    uint256 public resolutionTime;
 
     address[4] private _actors;
     uint256[3] private _quantities;
@@ -29,20 +35,43 @@ contract LMSRMarketMakerHandler is Test {
     bool public redeemAllCalled;
     bool public pricingConsistent = true;
 
-    constructor(ERC20Token token_, MarketMaker marketMaker_, address[4] memory actors_) {
+    constructor(
+        ERC20Token token_,
+        MarketMaker marketMaker_,
+        address resolver_,
+        address evidenceApprover_,
+        address[4] memory actors_
+    ) {
         token = token_;
         marketMaker = marketMaker_;
+        resolver = resolver_;
+        evidenceApprover = evidenceApprover_;
         _actors = actors_;
-        marketId = marketMaker_.createMarket("LMSR invariant market", OUTCOME_COUNT, LIQUIDITY_PARAMETER);
+    }
+
+    function initMarkets() external {
+        resolutionTime = block.timestamp + 7 days;
+
+        // Fund ONLY the required LMSR initial subsidies (zero extra bailout)
+        initialSubsidy = marketMaker.requiredInitialSubsidy(OUTCOME_COUNT, LIQUIDITY_PARAMETER);
+        isolatedSubsidy = marketMaker.requiredInitialSubsidy(2, LIQUIDITY_PARAMETER);
+
+        token.approve(address(marketMaker), initialSubsidy + isolatedSubsidy);
+        marketId = marketMaker.createMarket(
+            "LMSR invariant market", OUTCOME_COUNT, LIQUIDITY_PARAMETER, resolutionTime, resolver, initialSubsidy
+        );
+        isolatedMarketId = marketMaker.createMarket(
+            "Isolated sibling market", 2, LIQUIDITY_PARAMETER, resolutionTime, resolver, isolatedSubsidy
+        );
 
         for (uint256 i; i < _actors.length; ++i) {
             vm.prank(_actors[i]);
-            token_.approve(address(marketMaker_), type(uint256).max);
+            token.approve(address(marketMaker), type(uint256).max);
         }
     }
 
     function buy(uint256 actorSeed, uint256 outcomeSeed, uint256 amountSeed) external {
-        if (resolved) return;
+        if (resolved || block.timestamp >= resolutionTime) return;
 
         address actor = _actors[actorSeed % _actors.length];
         uint256 outcome = outcomeSeed % OUTCOME_COUNT;
@@ -54,18 +83,15 @@ contract LMSRMarketMakerHandler is Test {
         vm.prank(actor);
         marketMaker.buy(marketId, outcome, shares);
 
-        uint256 spent = balanceBefore - token.balanceOf(address(marketMaker));
+        uint256 spent = token.balanceOf(address(marketMaker)) - balanceBefore;
         uint256 priceAfter = marketMaker.getPrice(marketId, outcome);
         uint256[] memory quantitiesBefore = _quantitySnapshot();
         uint256[] memory quantitiesAfter = _quantitySnapshot();
         quantitiesAfter[outcome] += shares;
         int256 expectedCost = LMSR.cost(quantitiesBefore, quantitiesAfter, LIQUIDITY_PARAMETER);
 
-        pricingConsistent = pricingConsistent
-            && expectedCost > 0
-            && quotedCost == uint256(expectedCost)
-            && spent == quotedCost
-            && priceAfter >= priceBefore;
+        pricingConsistent = pricingConsistent && expectedCost > 0 && quotedCost == uint256(expectedCost)
+            && spent == quotedCost && priceAfter >= priceBefore;
 
         _quantities[outcome] += shares;
         _shares[actor][outcome] += shares;
@@ -73,7 +99,7 @@ contract LMSRMarketMakerHandler is Test {
     }
 
     function sell(uint256 actorSeed, uint256 outcomeSeed, uint256 amountSeed) external {
-        if (resolved) return;
+        if (resolved || block.timestamp >= resolutionTime) return;
 
         address actor = _actors[actorSeed % _actors.length];
         uint256 outcome = outcomeSeed % OUTCOME_COUNT;
@@ -93,11 +119,9 @@ contract LMSRMarketMakerHandler is Test {
         vm.prank(actor);
         marketMaker.sell(marketId, outcome, shares);
 
-        uint256 proceeds = token.balanceOf(address(marketMaker)) - balanceBefore;
+        uint256 proceeds = balanceBefore - token.balanceOf(address(marketMaker));
         uint256 priceAfter = marketMaker.getPrice(marketId, outcome);
-        pricingConsistent = pricingConsistent
-            && expectedDelta < 0
-            && proceeds == uint256(-expectedDelta)
+        pricingConsistent = pricingConsistent && expectedDelta < 0 && proceeds == uint256(-expectedDelta)
             && priceAfter <= priceBefore;
 
         _quantities[outcome] -= shares;
@@ -109,7 +133,16 @@ contract LMSRMarketMakerHandler is Test {
         if (resolved) return;
 
         winningOutcome = outcomeSeed % OUTCOME_COUNT;
-        marketMaker.resolve(marketId, winningOutcome);
+        if (block.timestamp < resolutionTime) {
+            vm.warp(resolutionTime);
+        }
+
+        bytes32 evidenceHash = keccak256(abi.encode("invariant-evidence", marketId, winningOutcome));
+        vm.prank(evidenceApprover);
+        marketMaker.approveEvidence(marketId, winningOutcome, evidenceHash, "ipfs://invariant-evidence");
+
+        vm.prank(resolver);
+        marketMaker.resolve(marketId, winningOutcome, evidenceHash);
         resolved = true;
     }
 
@@ -169,8 +202,9 @@ contract LMSRMarketMakerHandler is Test {
 
 contract MarketMakerInvariantTest is StdInvariant, Test {
     uint256 private constant WAD = 1e18;
-    uint256 private constant INITIAL_LIQUIDITY = 1_000_000 * WAD;
     uint256 private constant ACTOR_FUNDS = 1_000_000 * WAD;
+    address private constant RESOLVER = address(0x123456);
+    address private constant EVIDENCE_APPROVER = address(0x654321);
 
     ERC20Token private token;
     MarketMaker private marketMaker;
@@ -179,7 +213,8 @@ contract MarketMakerInvariantTest is StdInvariant, Test {
     function setUp() public {
         token = new ERC20Token(0);
         marketMaker = new MarketMaker(address(token));
-        token.mint(address(marketMaker), INITIAL_LIQUIDITY);
+        marketMaker.setApprovedResolver(RESOLVER, true);
+        marketMaker.setEvidenceApprover(EVIDENCE_APPROVER, true);
 
         address[4] memory actors;
         actors[0] = address(0xA11CE);
@@ -190,7 +225,14 @@ contract MarketMakerInvariantTest is StdInvariant, Test {
             token.mint(actors[i], ACTOR_FUNDS);
         }
 
-        handler = new LMSRMarketMakerHandler(token, marketMaker, actors);
+        // Deploy handler, fund it with ONLY the exact LMSR initial subsidies, then initialize markets
+        handler = new LMSRMarketMakerHandler(token, marketMaker, RESOLVER, EVIDENCE_APPROVER, actors);
+        uint256 sub0 = marketMaker.requiredInitialSubsidy(3, 100 * WAD);
+        uint256 sub1 = marketMaker.requiredInitialSubsidy(2, 100 * WAD);
+        token.mint(address(handler), sub0 + sub1);
+        handler.initMarkets();
+
+        targetContract(address(handler));
         bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = LMSRMarketMakerHandler.buy.selector;
         selectors[1] = LMSRMarketMakerHandler.sell.selector;
@@ -207,6 +249,8 @@ contract MarketMakerInvariantTest is StdInvariant, Test {
         uint256[] memory quantities = new uint256[](3);
         for (uint256 outcome; outcome < 3; ++outcome) {
             quantities[outcome] = handler.quantityAt(outcome);
+        }
+        for (uint256 outcome; outcome < 3; ++outcome) {
             uint256 price = marketMaker.getPrice(handler.marketId(), outcome);
             assertGt(price, 0);
             assertLe(price, WAD);
@@ -222,19 +266,22 @@ contract MarketMakerInvariantTest is StdInvariant, Test {
             address actor = handler.actorAt(actorIndex);
             for (uint256 outcome; outcome < 3; ++outcome) {
                 assertEq(
-                    marketMaker.positions(actor, handler.marketId(), outcome),
-                    handler.sharesOf(actor, outcome)
+                    marketMaker.positions(actor, handler.marketId(), outcome), handler.sharesOf(actor, outcome)
                 );
             }
         }
     }
 
     function invariant_collateralLedgerAndSolvency() public view {
-        uint256 expectedBalance = INITIAL_LIQUIDITY
-            + handler.grossBuyCollateral()
-            - handler.grossSellProceeds()
-            - handler.totalPayouts();
-        assertEq(token.balanceOf(address(marketMaker)), expectedBalance);
+        uint256 expectedMarket0Reserve = handler.initialSubsidy() + handler.grossBuyCollateral()
+            - handler.grossSellProceeds() - handler.totalPayouts();
+        uint256 expectedMarket1Reserve = handler.isolatedSubsidy();
+
+        // Strict per-market reserve accounting and sibling isolation
+        assertEq(marketMaker.getMarketReserve(handler.marketId()), expectedMarket0Reserve);
+        assertEq(marketMaker.getMarketReserve(handler.isolatedMarketId()), expectedMarket1Reserve);
+        assertEq(marketMaker.totalReservedCollateral(), expectedMarket0Reserve + expectedMarket1Reserve);
+        assertEq(token.balanceOf(address(marketMaker)), marketMaker.totalReservedCollateral());
 
         uint256 requiredLiquidity;
         if (handler.resolved()) {
@@ -245,7 +292,12 @@ contract MarketMakerInvariantTest is StdInvariant, Test {
                 if (liability > requiredLiquidity) requiredLiquidity = liability;
             }
         }
-        assertGe(token.balanceOf(address(marketMaker)), requiredLiquidity);
+
+        // Market 0 is solvent purely from its own isolated reserve (never touching sibling market 1)
+        assertEq(marketMaker.getMarketLiability(handler.marketId()), requiredLiquidity);
+        assertGe(marketMaker.getMarketReserve(handler.marketId()), requiredLiquidity);
+        assertTrue(marketMaker.isMarketSolvent(handler.marketId()));
+        assertTrue(marketMaker.isMarketSolvent(handler.isolatedMarketId()));
     }
 
     function invariant_redemptionsConserveWinningPayout() public view {

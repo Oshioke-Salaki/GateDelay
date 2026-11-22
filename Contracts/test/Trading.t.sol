@@ -40,9 +40,14 @@ contract TradingTest is Test {
         token.mint(alice, 10_000 * WAD);
         token.mint(bob, 10_000 * WAD);
 
-        // Trading contract needs to be approved as a minter so MM can pull from it
-        // (Trading holds MM positions on behalf of traders)
-        marketId = mm.createMarket("Flight delayed?", 2, B);
+        address resolver = address(0xBEEF);
+        mm.setApprovedResolver(resolver, true);
+        uint256 subsidy = mm.requiredInitialSubsidy(2, B);
+        token.mint(address(this), subsidy);
+        token.approve(address(mm), subsidy);
+
+        // Trading contract holds MM positions on behalf of traders
+        marketId = mm.createMarket("Flight delayed?", 2, B, block.timestamp + 1 days, resolver, subsidy);
     }
 
     // ── Fee calculation ───────────────────────────────────────────────────────

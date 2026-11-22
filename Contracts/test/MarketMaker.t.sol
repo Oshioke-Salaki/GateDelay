@@ -11,50 +11,73 @@ contract MarketMakerTest is Test {
 
     address alice = address(0xA);
     address bob = address(0xB);
+    address resolver = address(0xBEEF);
+    address evidenceApprover = address(0xE01D);
 
     uint256 constant WAD = 1e18;
     uint256 constant B = 100 * WAD;
     uint256 marketId;
+    uint256 resolutionTime;
+    uint256 initialSubsidy;
 
     function setUp() public {
         token = new ERC20Token(0);
         mm = new MarketMaker(address(token));
 
-        // Grant MarketMaker minting rights so it can be funded
-        token.addMinter(address(mm));
+        mm.setApprovedResolver(resolver, true);
+        mm.setEvidenceApprover(evidenceApprover, true);
 
-        // Fund alice and bob
+        // Fund alice, bob, and the market creator (this contract)
         token.mint(alice, 10_000 * WAD);
         token.mint(bob, 10_000 * WAD);
 
-        // Fund the MarketMaker contract with enough collateral for redemptions
-        token.mint(address(mm), 100_000 * WAD);
+        initialSubsidy = mm.requiredInitialSubsidy(2, B);
+        token.mint(address(this), 10_000 * WAD);
+        token.approve(address(mm), initialSubsidy);
 
-        // Create a binary market
-        marketId = mm.createMarket("Will flight be delayed?", 2, B);
+        resolutionTime = block.timestamp + 1 days;
+
+        // Create a funded, timed, resolver-gated binary market
+        marketId = mm.createMarket("Will flight be delayed?", 2, B, resolutionTime, resolver, initialSubsidy);
+    }
+
+    function _approveAndResolve(uint256 mid, uint256 winningOutcome) internal {
+        bytes32 evidenceHash = keccak256(abi.encode("flight-report", mid, winningOutcome));
+        vm.prank(evidenceApprover);
+        mm.approveEvidence(mid, winningOutcome, evidenceHash, "ipfs://evidence-report");
+
+        vm.prank(resolver);
+        mm.resolve(mid, winningOutcome, evidenceHash);
     }
 
     // ── Market creation ───────────────────────────────────────────────────────
     function testCreateMarket() public view {
-(
-    string memory desc,
-    uint256 b,
-    uint256 numOutcomes,
-    bool resolved,
-    ,
-    address creator
-) = mm.markets(marketId);
+        (string memory desc, uint256 b, uint256 numOutcomes, bool resolved,, address creator) = mm.markets(marketId);
+        MarketMaker.MarketMeta memory meta = mm.getMarketMeta(marketId);
 
-assertEq(desc, "Will flight be delayed?");
-assertEq(b, B);
+        assertEq(desc, "Will flight be delayed?");
+        assertEq(b, B);
         assertEq(numOutcomes, 2);
         assertFalse(resolved);
         assertEq(creator, address(this));
+        assertEq(meta.resolutionTime, resolutionTime);
+        assertFalse(meta.paused);
+        assertEq(meta.resolver, resolver);
+        assertEq(meta.factoryMarket, address(0));
+        assertEq(mm.getMarketReserve(marketId), initialSubsidy);
+        assertEq(mm.totalReservedCollateral(), initialSubsidy);
     }
 
     function testCreateMarketRequiresMinOutcomes() public {
         vm.expectRevert("MM: need >= 2 outcomes");
-        mm.createMarket("bad", 1, B);
+        mm.createMarket("bad", 1, B, resolutionTime, resolver, initialSubsidy);
+    }
+
+    function testCreateMarketRequiresSufficientSubsidy() public {
+        uint256 required = mm.requiredInitialSubsidy(2, B);
+        token.approve(address(mm), required - 1);
+        vm.expectRevert(abi.encodeWithSelector(MarketMaker.InsufficientSubsidy.selector, required - 1, required));
+        mm.createMarket("underfunded", 2, B, resolutionTime, resolver, required - 1);
     }
 
     // ── Buy ───────────────────────────────────────────────────────────────────
@@ -69,6 +92,9 @@ assertEq(b, B);
 
         assertEq(mm.positions(alice, marketId, 0), shares);
         assertEq(token.balanceOf(alice), 10_000 * WAD - cost);
+        assertEq(mm.getMarketReserve(marketId), initialSubsidy + cost);
+        assertEq(mm.getMarketLiability(marketId), shares);
+        assertTrue(mm.isMarketSolvent(marketId));
     }
 
     function testBuyZeroReverts() public {
@@ -92,6 +118,8 @@ assertEq(b, B);
 
         assertEq(mm.positions(alice, marketId, 0), 0);
         assertGt(token.balanceOf(alice), balBefore);
+        assertEq(mm.getMarketReserve(marketId), initialSubsidy);
+        assertEq(mm.getMarketLiability(marketId), 0);
     }
 
     function testSellInsufficientShares() public {
@@ -131,7 +159,8 @@ assertEq(b, B);
         mm.buy(marketId, 0, shares);
         vm.stopPrank();
 
-        mm.resolve(marketId, 0); // outcome 0 wins
+        vm.warp(resolutionTime);
+        _approveAndResolve(marketId, 0); // outcome 0 wins
 
         uint256 balBefore = token.balanceOf(alice);
         vm.prank(alice);
@@ -139,18 +168,40 @@ assertEq(b, B);
 
         assertEq(token.balanceOf(alice), balBefore + shares);
         assertEq(mm.positions(alice, marketId, 0), 0);
+        assertEq(mm.getMarketLiability(marketId), 0);
     }
 
-    function testResolveUnauthorized() public {
+    function testResolveUnauthorizedOwnerAndCreatorRevert() public {
+        vm.warp(resolutionTime);
+        bytes32 evidenceHash = keccak256("evidence");
+        vm.prank(evidenceApprover);
+        mm.approveEvidence(marketId, 0, evidenceHash, "ipfs://evidence");
+
+        // Even owner/creator cannot resolve directly
+        vm.expectRevert(MarketMaker.Unauthorized.selector);
+        mm.resolve(marketId, 0, evidenceHash);
+
+        // Random user cannot resolve
         vm.prank(alice);
         vm.expectRevert(MarketMaker.Unauthorized.selector);
-        mm.resolve(marketId, 0);
+        mm.resolve(marketId, 0, evidenceHash);
+    }
+
+    function testResolveBeforeResolutionTimeReverts() public {
+        bytes32 evidenceHash = keccak256("evidence");
+        vm.prank(resolver);
+        vm.expectRevert(MarketMaker.ResolutionTooEarly.selector);
+        mm.resolve(marketId, 0, evidenceHash);
     }
 
     function testResolveAlreadyResolved() public {
-        mm.resolve(marketId, 0);
+        vm.warp(resolutionTime);
+        _approveAndResolve(marketId, 0);
+
+        bytes32 secondHash = keccak256("second");
+        vm.prank(resolver);
         vm.expectRevert(MarketMaker.MarketAlreadyResolved.selector);
-        mm.resolve(marketId, 1);
+        mm.resolve(marketId, 1, secondHash);
     }
 
     function testRedeemBeforeResolution() public {
@@ -161,7 +212,9 @@ assertEq(b, B);
 
     // ── Multiple outcomes ─────────────────────────────────────────────────────
     function testMultipleOutcomes() public {
-        uint256 mid = mm.createMarket("3-outcome market", 3, B);
+        uint256 sub3 = mm.requiredInitialSubsidy(3, B);
+        token.approve(address(mm), sub3);
+        uint256 mid = mm.createMarket("3-outcome market", 3, B, resolutionTime, resolver, sub3);
         uint256 p0 = mm.getPrice(mid, 0);
         uint256 p1 = mm.getPrice(mid, 1);
         uint256 p2 = mm.getPrice(mid, 2);
