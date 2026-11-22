@@ -138,6 +138,7 @@ export class ResolutionController {
 
   /** PATCH /api/resolution/disputes/:disputeId/review — review (uphold/reject) a dispute */
   @Patch('disputes/:disputeId/review')
+  @Roles('market_admin', 'admin', 'settlement_admin')
   reviewDispute(
     @Param('disputeId') disputeId: string,
     @Body() dto: ReviewDisputeDto,
