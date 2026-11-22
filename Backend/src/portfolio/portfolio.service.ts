@@ -1,7 +1,5 @@
 import Big from 'big.js';
-import { Injectable, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
+import { Injectable } from '@nestjs/common';
 import { PositionsService } from '../positions/positions.service';
 
 export interface PortfolioSnapshot {
@@ -15,18 +13,10 @@ export interface PortfolioSnapshot {
 export class PortfolioService {
   private readonly history = new Map<string, PortfolioSnapshot[]>();
 
-  constructor(
-    private readonly positionsService: PositionsService,
-    @Inject(CACHE_MANAGER) private readonly cache: Cache,
-  ) {}
+  constructor(private readonly positionsService: PositionsService) {}
 
   async getPortfolio(userId: string) {
-    const cacheKey = `portfolio:${userId}`;
-    const cached = await this.cache.get(cacheKey);
-    if (cached) return cached;
-    const result = await this._calculate(userId);
-    await this.cache.set(cacheKey, result, 30_000);
-    return result;
+    return this._calculate(userId);
   }
 
   getHistory(userId: string): PortfolioSnapshot[] {

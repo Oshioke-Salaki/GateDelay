@@ -23,255 +23,166 @@ export function explorerTxUrl(hash: string): string {
   return `${base}/tx/${hash}`;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              Contract config                               */
-/* -------------------------------------------------------------------------- */
+/** Order side for slippage bounds. */
+export type OrderSide = "buy" | "sell";
 
-/** Collateral (ERC-20) token address used for trading. */
-export const COLLATERAL_TOKEN_ADDRESS = (process.env
-  .NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS ?? "") as `0x${string}`;
-
-/** LMSR market / AMM contract address used for trade quotes. */
-export const LMSR_CONTRACT_ADDRESS = (process.env
-  .NEXT_PUBLIC_LMSR_CONTRACT_ADDRESS ?? "") as `0x${string}`;
-
-/** Number of decimals used by the collateral token (USDC-style default). */
-export const COLLATERAL_DECIMALS = Number(
-  process.env.NEXT_PUBLIC_COLLATERAL_DECIMALS ?? 6,
-);
-
-/** Minimal ERC-20 ABI for balance reads. */
-const ERC20_ABI = [
-  {
-    type: "function",
-    name: "balanceOf",
-    stateMutability: "view",
-    inputs: [{ name: "account", type: "address" }],
-    outputs: [{ name: "", type: "uint256" }],
-  },
-] as const;
-
-/**
- * Minimal LMSR ABI. `quoteCost` returns the total cost (in collateral units)
- * to buy `shares` of the given outcome. Adjust the name/signature to match the
- * deployed contract if it differs.
- */
-const LMSR_ABI = [
-  {
-    type: "function",
-    name: "quoteCost",
-    stateMutability: "view",
-    inputs: [
-      { name: "marketId", type: "uint256" },
-      { name: "outcome", type: "uint8" },
-      { name: "shares", type: "uint256" },
-    ],
-    outputs: [{ name: "cost", type: "uint256" }],
-  },
-] as const;
-
-/* -------------------------------------------------------------------------- */
-/*                          Collateral balance hook                           */
-/* -------------------------------------------------------------------------- */
-
-export interface CollateralBalanceResult {
-  /** Human-readable balance (already divided by token decimals). */
-  balance: number;
-  /** Raw on-chain balance in base units. */
-  rawBalance: bigint;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
+/** Slippage-adjusted execution bounds derived from a quote price. */
+export interface SlippageBounds {
+  /** The original quote price. */
+  quotePrice: number;
+  /** The applied tolerance in percent (clamped to a sane range). */
+  slippagePercent: number;
+  /** Minimum acceptable price (sells) — quote reduced by tolerance. */
+  minPrice: number;
+  /** Maximum acceptable price (buys) — quote increased by tolerance. */
+  maxPrice: number;
+  /**
+   * The bound that protects the trader for the given side:
+   * `maxPrice` for buys, `minPrice` for sells.
+   */
+  limitPrice: number;
 }
 
 /**
- * Reads the connected account's collateral balance.
+ * Convert a selected slippage tolerance into executable price bounds.
  *
- * Automatically refetches when:
- *  - the connected account changes,
- *  - the active chain changes,
- *  - a Transfer event involving the account is observed (covers confirmed
- *    transactions that move collateral).
+ * Buys must not pay more than the quote plus tolerance; sells must not
+ * receive less than the quote minus tolerance. The tolerance is clamped to
+ * [0, 100] so a malformed preference can never produce negative prices.
  */
-export function useCollateralBalance(): CollateralBalanceResult {
-  const { address, chainId } = useAccount();
+export function applySlippage(
+  quotePrice: number,
+  side: OrderSide,
+  slippagePercent: number,
+): SlippageBounds {
+  const safeQuote = Number.isFinite(quotePrice) && quotePrice > 0 ? quotePrice : 0;
+  const safeSlippage = Number.isFinite(slippagePercent)
+    ? Math.min(Math.max(slippagePercent, 0), 100)
+    : 0;
 
-  const enabled =
-    Boolean(address) &&
-    Boolean(COLLATERAL_TOKEN_ADDRESS) &&
-    COLLATERAL_TOKEN_ADDRESS.startsWith("0x");
-
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useReadContract({
-    address: COLLATERAL_TOKEN_ADDRESS,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    chainId,
-    query: {
-      enabled,
-      // Keep the balance reasonably fresh.
-      staleTime: 5_000,
-    },
-  });
-
-  // Refetch whenever the account or chain changes.
-  useEffect(() => {
-    if (enabled) {
-      void refetch();
-    }
-  }, [address, chainId, enabled, refetch]);
-
-  // Refetch after confirmed transactions that move collateral.
-  useWatchContractEvent({
-    address: COLLATERAL_TOKEN_ADDRESS,
-    abi: ERC20_ABI,
-    eventName: "Transfer",
-    chainId,
-    enabled,
-    onLogs: () => {
-      void refetch();
-    },
-  });
-
-  const rawBalance = (data as bigint | undefined) ?? 0n;
-  const balance = useMemo(() => {
-    try {
-      return Number(formatUnits(rawBalance, COLLATERAL_DECIMALS));
-    } catch {
-      return 0;
-    }
-  }, [rawBalance]);
+  const delta = safeQuote * (safeSlippage / 100);
+  const minPrice = Math.max(safeQuote - delta, 0);
+  const maxPrice = safeQuote + delta;
 
   return {
-    balance,
-    rawBalance,
-    isLoading: enabled ? isLoading : false,
-    error: (error as Error | null) ?? null,
-    refetch: () => {
-      void refetch();
-    },
+    quotePrice: safeQuote,
+    slippagePercent: safeSlippage,
+    minPrice,
+    maxPrice,
+    limitPrice: side === "buy" ? maxPrice : minPrice,
   };
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              LMSR trade quote                              */
-/* -------------------------------------------------------------------------- */
-
-export interface TradeQuoteParams {
-  marketId: bigint | number | string;
-  outcome: number;
-  /** Number of shares to trade (human-readable, e.g. 12.5). */
-  shares: number;
+/** Minimal provider surface needed for gas estimation. */
+export interface GasEstimationProvider {
+  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
 }
 
-export interface TradeQuoteResult {
-  /** Total cost in collateral units for the entire trade size. */
-  cost: number;
-  /** Raw cost in base units. */
-  rawCost: bigint;
-  isLoading: boolean;
-  error: Error | null;
-  refetch: () => void;
+/** Gas price preference used to scale the base gas price. */
+export type GasPreference = "low" | "standard" | "fast";
+
+/** Result of estimating the cost of a transaction. */
+export interface GasEstimate {
+  /** Estimated gas units (eth_estimateGas result). */
+  gasUnits: bigint;
+  /** Total estimated cost in wei (gasUnits * gasPrice). */
+  gasCostWei: bigint;
+  /** Estimated cost in USD, or null when no price feed is available. */
+  gasCostUsd: number | null;
+  /** The gas price (in wei) used for the estimate. */
+  gasPriceWei: bigint;
+  /** Populated when estimation failed; other fields are zeroed. */
+  error?: string;
+}
+
+const GAS_PREFERENCE_MULTIPLIER: Record<GasPreference, number> = {
+  low: 0.9,
+  standard: 1,
+  fast: 1.25,
+};
+
+function toBigInt(value: unknown): bigint | null {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.length > 0) {
+    try {
+      return BigInt(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
- * Requests an LMSR quote for the entire trade size.
+ * Estimate the gas cost of a transaction request.
  *
- * Uses the on-chain `quoteCost` view function so the preview reflects the
- * full price curve rather than a spot-price multiplication.
+ * Calls `eth_estimateGas` for the units and `eth_gasPrice` for the current
+ * price, applying a multiplier based on the user's gas preference. Errors are
+ * caught and surfaced via the returned `error` field so callers can render a
+ * fallback without throwing.
+ *
+ * @param provider  An EIP-1193 style provider.
+ * @param txRequest The transaction to estimate (to, data, value, from, …).
+ * @param gasPreference Speed preference used to scale the gas price.
+ * @param nativeUsdPrice Optional native-token USD price for `gasCostUsd`.
  */
-export function useTradeQuote(
-  params: TradeQuoteParams | null,
-): TradeQuoteResult {
-  const { chainId } = useAccount();
-
-  const sharesRaw = useMemo(() => {
-    if (!params || !Number.isFinite(params.shares) || params.shares <= 0) {
-      return 0n;
-    }
-    try {
-      return parseUnits(params.shares.toString(), COLLATERAL_DECIMALS);
-    } catch {
-      return 0n;
-    }
-  }, [params?.shares]);
-
-  const enabled =
-    Boolean(params) &&
-    sharesRaw > 0n &&
-    Boolean(LMSR_CONTRACT_ADDRESS) &&
-    LMSR_CONTRACT_ADDRESS.startsWith("0x");
-
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useReadContract({
-    address: LMSR_CONTRACT_ADDRESS,
-    abi: LMSR_ABI,
-    functionName: "quoteCost",
-    args:
-      params && enabled
-        ? [BigInt(params.marketId), params.outcome, sharesRaw]
-        : undefined,
-    chainId,
-    query: {
-      enabled,
-      staleTime: 2_000,
-    },
-  });
-
-  const rawCost = (data as bigint | undefined) ?? 0n;
-  const cost = useMemo(() => {
-    try {
-      return Number(formatUnits(rawCost, COLLATERAL_DECIMALS));
-    } catch {
-      return 0;
-    }
-  }, [rawCost]);
-
-  return {
-    cost,
-    rawCost,
-    isLoading: enabled ? isLoading : false,
-    error: (error as Error | null) ?? null,
-    refetch: () => {
-      void refetch();
-    },
+export async function estimateGasCost(
+  provider: GasEstimationProvider,
+  txRequest: Record<string, unknown>,
+  gasPreference: GasPreference = "standard",
+  nativeUsdPrice?: number,
+): Promise<GasEstimate> {
+  const empty: GasEstimate = {
+    gasUnits: 0n,
+    gasCostWei: 0n,
+    gasCostUsd: null,
+    gasPriceWei: 0n,
   };
+
+  try {
+    const [unitsRaw, priceRaw] = await Promise.all([
+      provider.request({ method: "eth_estimateGas", params: [txRequest] }),
+      provider.request({ method: "eth_gasPrice" }),
+    ]);
+
+    const gasUnits = toBigInt(unitsRaw);
+    const basePrice = toBigInt(priceRaw);
+
+    if (gasUnits === null || basePrice === null) {
+      return { ...empty, error: "Invalid gas estimation response" };
+    }
+
+    const multiplier = GAS_PREFERENCE_MULTIPLIER[gasPreference] ?? 1;
+    const gasPriceWei = BigInt(Math.round(Number(basePrice) * multiplier));
+    const gasCostWei = gasUnits * gasPriceWei;
+
+    let gasCostUsd: number | null = null;
+    if (
+      typeof nativeUsdPrice === "number" &&
+      Number.isFinite(nativeUsdPrice) &&
+      nativeUsdPrice > 0
+    ) {
+      const nativeAmount = Number(gasCostWei) / 1e18;
+      gasCostUsd = nativeAmount * nativeUsdPrice;
+    }
+
+    return { gasUnits, gasCostWei, gasCostUsd, gasPriceWei };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to estimate gas";
+    return { ...empty, error: message };
+  }
 }
 
 /**
- * Imperative LMSR quote helper for callers that need a one-off quote outside
- * of React render (e.g. right before submitting a transaction).
- *
- * Falls back to the backend quote endpoint when configured, otherwise returns
- * the on-chain quote via the provided reader.
+ * Compute the trading fee for a notional amount given a fee in basis points.
+ * 1 bps = 0.01%. Returns the fee amount in the same units as `notional`.
  */
-export async function getTradeQuote(
-  params: TradeQuoteParams,
-  readContract: (args: {
-    address: `0x${string}`;
-    abi: typeof LMSR_ABI;
-    functionName: "quoteCost";
-    args: [bigint, number, bigint];
-  }) => Promise<bigint>,
-): Promise<{ cost: number; rawCost: bigint }> {
-  const sharesRaw = parseUnits(params.shares.toString(), COLLATERAL_DECIMALS);
-  const rawCost = await readContract({
-    address: LMSR_CONTRACT_ADDRESS,
-    abi: LMSR_ABI,
-    functionName: "quoteCost",
-    args: [BigInt(params.marketId), params.outcome, sharesRaw],
-  });
-  return {
-    cost: Number(formatUnits(rawCost, COLLATERAL_DECIMALS)),
-    rawCost,
-  };
+export function computeTradingFee(notional: number, feeBps: number): number {
+  const safeNotional = Number.isFinite(notional) && notional > 0 ? notional : 0;
+  const safeBps = Number.isFinite(feeBps) && feeBps > 0 ? feeBps : 0;
+  return safeNotional * (safeBps / 10_000);
 }

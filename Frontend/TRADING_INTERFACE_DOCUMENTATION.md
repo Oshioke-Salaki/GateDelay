@@ -100,7 +100,7 @@ All live under `app/components/trade/` (alias `@/app/components/trade/...`).
 | `OrderPanel.tsx` | Buy/Sell + market/limit + leverage UI. Balance is a local `1000` fixture. Disabled **Connect Wallet** when `userAddress` is missing. Submit is a 1.5s delay + toast (`TODO: Implement actual order submission`). |
 | `OrderBookCompact.tsx` | Five local bid/ask rows; All / Bids / Asks toggle. No WebSocket. |
 | `RecentTrades.tsx` | Twenty local rows generated on mount. No live trade feed. |
-| `UserPositions.tsx` | Two local positions when a wallet address is passed. History tab is empty. Close updates local state only. |
+| `UserPositions.tsx` | Loads JWT-authenticated positions for the connected account and market. Sells are submitted to MarketMaker, then recorded after 12 confirmations with a wallet-signed execution proof; history lists closed positions. |
 
 `Market` type (what the page passes in):
 
