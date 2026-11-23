@@ -223,6 +223,7 @@ contract MarketMaker {
     error MarketAlreadyResolved();
     error MarketNotResolved();
     error MarketPaused();
+    error TradingIsHalted();
     error InvalidOutcome();
     error InsufficientShares();
     error ZeroAmount();
@@ -244,7 +245,6 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
-    error TradingIsHalted();
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
