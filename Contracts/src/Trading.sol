@@ -150,7 +150,7 @@ contract Trading {
     /// @param shares Numeric shares used by this operation.
     /// @param minProceeds Minimum proceeds required.
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
-    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `rawProceeds <
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `actualProceeds <
     ///     minProceeds` is true.
     function executeSell(
         uint256 marketId,
@@ -160,15 +160,15 @@ contract Trading {
     ) external {
         if (shares == 0) revert ZeroAmount();
 
-        // MarketMaker does not expose a sell proceeds view, so we use getCostToBuy as a proxy.
-        uint256 rawProceeds = marketMaker.getCostToBuy(marketId, outcome, shares);
-        if (rawProceeds < minProceeds) revert SlippageExceeded();
+        // Get actual sell proceeds from MarketMaker
+        uint256 actualProceeds = marketMaker.getProceedsToSell(marketId, outcome, shares);
+        if (actualProceeds < minProceeds) revert SlippageExceeded();
 
         // Execute sell with sellFor to ensure trader's shares are consumed and proceeds delivered to trader.
         // No on-chain fee/rebate taken.
         marketMaker.sellFor(marketId, msg.sender, outcome, shares, minProceeds);
 
-        emit TradeExecuted(msg.sender, marketId, outcome, false, shares, rawProceeds, 0, 0, address(0));
+        emit TradeExecuted(msg.sender, marketId, outcome, false, shares, actualProceeds, 0, 0, address(0));
     }
 
     // ── Fee management ───────────────────────────────────────────────────────

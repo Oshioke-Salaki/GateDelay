@@ -110,8 +110,15 @@ contract Resolution is ReentrancyGuard {
     /// @param pool        The LiquidityPool address for this market.
     /// @param deadline    The resolution deadline (Unix timestamp).
     /// @param oracleFeedId The PriceOracle feed ID for this market's outcome.
-    /// @dev Access: No caller-specific access restriction is imposed.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `NotAdmin` if `msg.sender != admin` is true. "Market already registered" if
+    ///     `_marketStatus[market] != MarketFactory.MarketStatus(0)` is true.
     function registerMarket(address market, address pool, uint256 deadline, bytes32 oracleFeedId) external {
+        if (msg.sender != admin) revert NotAdmin();
+        require(_marketStatus[market] == MarketFactory.MarketStatus(0), "Market already registered");
+        require(market != address(0) && pool != address(0), "Zero address");
+        require(deadline > block.timestamp, "Invalid deadline");
+        
         _pools[market] = pool;
         _deadlines[market] = deadline;
         _oracleFeedIds[market] = oracleFeedId;

@@ -308,12 +308,27 @@ contract PredictionMarket {
     // -------------------------------------------------------------------------
 
     /// @notice Legacy unpriced minting; disabled on canonical LMSR-bound markets.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `CanonicalMarketUsesMarketMaker` if `canonicalBound` is true.
+    ///     `InvalidMarketState` if `state != MarketState.OPEN` is true. `InsufficientLiquidity` if
+    ///     `!hasMinLiquidity()` is true. `InvalidOutcome` if `outcome != 1 && outcome != 2` is true.
+    ///     `ZeroAmount` if `shares == 0` is true. "Payment required" if `collateralAmount == 0` is
+    ///     true.
     function mintPosition(uint256 outcome, uint256 shares) external {
         if (canonicalBound) revert CanonicalMarketUsesMarketMaker();
         if (state != MarketState.OPEN) revert InvalidMarketState();
         if (!hasMinLiquidity()) revert InsufficientLiquidity();
         if (outcome != 1 && outcome != 2) revert InvalidOutcome();
         if (shares == 0) revert ZeroAmount();
+
+        // Collect collateral equal to shares minted
+        uint256 collateralAmount = shares;
+        require(collateralAmount > 0, "Payment required");
+        
+        bool ok = IERC20(collateralToken).transferFrom(msg.sender, address(this), collateralAmount);
+        if (!ok) revert TransferFailed();
+        
+        totalLiquidity += collateralAmount;
 
         PositionToken(positionToken).mint(msg.sender, _positionId(outcome), shares, "");
         userPositions[msg.sender][outcome] += shares;
@@ -342,8 +357,15 @@ contract PredictionMarket {
 
     /// @notice Legacy resolution entrypoint; disabled on canonical LMSR-bound markets so
     ///         approved resolver, evidence, and timing checks in `MarketMaker` cannot be bypassed.
+    /// @dev Access: Caller permissions are checked against the sender or assigned roles.
+    /// @dev Reverts: `CanonicalMarketUsesMarketMaker` if `canonicalBound` is true. `Unauthorized`
+    ///     if `msg.sender != factory` is true. `MarketAlreadyResolved` if `state ==
+    ///     MarketState.RESOLVED` is true. `InvalidResolution` if `block.timestamp <
+    ///     resolutionDeadline` is true. `InvalidOutcome` if `_winningOutcome != 1 && _winningOutcome
+    ///     != 2` is true.
     function resolve(uint256 _winningOutcome) external {
         if (canonicalBound) revert CanonicalMarketUsesMarketMaker();
+        if (msg.sender != factory) revert Unauthorized();
         if (state == MarketState.RESOLVED) revert MarketAlreadyResolved();
         if (block.timestamp < resolutionDeadline) revert InvalidResolution();
         if (_winningOutcome != 1 && _winningOutcome != 2) revert InvalidOutcome();
