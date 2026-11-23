@@ -117,14 +117,6 @@ contract MarketMaker {
         uint256 minLiquidity;
     }
 
-    // ── Constants ─────────────────────────────────────────────────────────────
-
-    /// @notice Maximum outcomes per market. Every buy/sell quote loops over all
-    ///         outcomes (one cold SLOAD + one `expWad` each, ~3.2k gas), so a
-    ///         trade on a 64-outcome market costs roughly 215k gas cold: well
-    ///         inside block limits even when routed through `PredictionMarket`.
-    uint256 public constant MAX_OUTCOMES = 64;
-
     // ── State ─────────────────────────────────────────────────────────────────
 
     ERC20Token public immutable collateral;
@@ -132,6 +124,12 @@ contract MarketMaker {
     address public marketFactory;
     address public defaultResolver;
     IEvidenceStorage public evidenceStorage;
+
+    /// @notice Maximum outcomes per market. Every buy/sell quote loops over all
+    ///         outcomes (one cold SLOAD + one `expWad` each, ~3.2k gas), so a
+    ///         trade on a 64-outcome market costs roughly 215k gas cold: well
+    ///         inside block limits even when routed through `PredictionMarket`.
+    uint256 public constant MAX_OUTCOMES = 64;
 
     uint256 public marketCount;
 
@@ -226,6 +224,7 @@ contract MarketMaker {
     error ZeroAddress();
     error InsufficientLiquidity();
     error InsufficientSubsidy(uint256 provided, uint256 required);
+    error TooManyOutcomes(uint256 provided, uint256 max);
     error InsufficientMarketReserve();
     error InvalidResolutionTime();
     error TradingClosed();
@@ -241,7 +240,6 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
-    error TooManyOutcomes(uint256 provided, uint256 max);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
