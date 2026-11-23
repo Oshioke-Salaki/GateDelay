@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useId } from "react";
+import { useState, useMemo, useCallback, useId, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,6 +12,10 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/react-table";
+import { useAccount } from "wagmi";
+import { getAccessToken } from "@/lib/portfolioApi";
+import { resolveApiBase } from "@/lib/apiBase";
+import { explorerTxUrl, truncateTxHash } from "@/lib/txUtils";
 import { format, isWithinInterval, parseISO } from "date-fns";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -28,29 +32,6 @@ export interface Transaction {
   status: TransactionStatus;
   txHash: string;
 }
-
-// ── Mock data (replace with real API fetch) ───────────────────────────────────
-
-const MOCK_TRANSACTIONS: Transaction[] = Array.from({ length: 47 }, (_, i) => {
-  const types: TransactionType[] = ["buy", "sell", "redeem", "deposit", "withdraw"];
-  const statuses: TransactionStatus[] = ["confirmed", "pending", "failed"];
-  const markets = [
-    "AA123 on-time?",
-    "UA456 delay >30m?",
-    "DL789 cancelled?",
-    "SW101 on-time?",
-  ];
-  const d = new Date(2026, 3, 23 - (i % 30));
-  return {
-    id: `tx-${i + 1}`,
-    date: d.toISOString(),
-    type: types[i % types.length],
-    market: markets[i % markets.length],
-    amount: parseFloat((Math.random() * 500 + 5).toFixed(2)),
-    status: statuses[i % statuses.length],
-    txHash: `0x${Math.random().toString(16).slice(2, 10)}…`,
-  };
-});
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,12 +54,12 @@ function exportCSV(rows: Transaction[]) {
   const lines = rows.map((r) => [
     format(parseISO(r.date), "yyyy-MM-dd HH:mm"),
     r.type,
-    `"${r.market}"`,
+    r.market,
     r.amount.toFixed(2),
     r.status,
     r.txHash,
   ]);
-  const csv = [header, ...lines].map((l) => l.join(",")).join("\n");
+  const csv = [header, ...lines].map((l) => l.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
@@ -133,9 +114,9 @@ const COLUMNS = [
     header: "Tx Hash",
     enableSorting: false,
     cell: (info) => (
-      <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-        {info.getValue()}
-      </span>
+      /^(0x)[a-fA-F0-9]{64}$/.test(info.getValue()) ? (
+        <a className="font-mono text-xs" href={explorerTxUrl(info.getValue())} title={info.getValue()} target="_blank" rel="noopener noreferrer">{truncateTxHash(info.getValue())}</a>
+      ) : <span>Unavailable</span>
     ),
   }),
 ];
@@ -173,11 +154,47 @@ function PaginationBtn({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  /** Pass real data from an API; falls back to mock data */
+  /** Optional caller-provided transaction records. */
   data?: Transaction[];
 }
 
-export default function TransactionHistory({ data = MOCK_TRANSACTIONS }: Props) {
+export default function TransactionHistory({ data: suppliedData }: Props) {
+  const { address, chainId } = useAccount();
+  const identity = address ? address.toLowerCase() + ":" + chainId : "";
+  const [history, setHistory] = useState<{ identity: string; data: Transaction[]; message: string }>({ identity: "", data: [], message: "Loading transactions…" });
+  useEffect(() => {
+    if (suppliedData !== undefined) return;
+    const controller = new AbortController();
+    setHistory({ identity, data: [], message: address ? "Loading transactions…" : "Connect your wallet to view transactions." });
+    if (!address) return () => controller.abort();
+    void (async () => {
+      try {
+        const token = getAccessToken();
+        const records: Transaction[] = [];
+        let offset = 0;
+        while (true) {
+          const response = await fetch(resolveApiBase() + "/trading-history?limit=100&offset=" + offset + "&sortBy=date&sortOrder=desc", { signal: controller.signal, headers: { Authorization: "Bearer " + token } });
+          if (!response.ok) throw new Error("Transaction history unavailable (" + response.status + ").");
+          const body = await response.json();
+          if (!Array.isArray(body.data) || !Number.isInteger(body.total) || body.total < 0) throw new Error("Invalid transaction history response.");
+          for (const row of body.data) {
+            if (!row || typeof row !== "object") throw new Error("Invalid transaction record.");
+            const date = new Date(row.createdAt);
+            if (!row || !Number.isFinite(date.getTime()) || !Object.prototype.hasOwnProperty.call(TYPE_LABELS, row.type) || !Object.prototype.hasOwnProperty.call(STATUS_STYLES, row.status) || !Number.isFinite(row.amount)) throw new Error("Invalid transaction record.");
+            records.push({ id: String(row.id), date: date.toISOString(), type: row.type, market: row.marketId || "—", amount: row.amount, status: row.status, txHash: typeof row.txHash === "string" ? row.txHash : "" });
+          }
+          offset += body.data.length;
+          if (offset >= body.total) break;
+          if (body.data.length === 0) throw new Error("Transaction history is incomplete.");
+        }
+        if (!controller.signal.aborted) setHistory({ identity, data: records, message: records.length ? "Authenticated account transaction history." : "No transactions found for your signed-in account." });
+      } catch (error) {
+        if (!controller.signal.aborted) setHistory({ identity, data: [], message: error instanceof Error ? error.message : "Transaction history unavailable." });
+      }
+    })();
+    return () => controller.abort();
+  }, [identity, address, suppliedData]);
+  const data = suppliedData ?? (history.identity === identity ? history.data : []);
   const tableId = useId(); // stable id for aria-labelledby
 
   const [sorting, setSorting]             = useState<SortingState>([{ id: "date", desc: true }]);
@@ -341,6 +358,8 @@ export default function TransactionHistory({ data = MOCK_TRANSACTIONS }: Props) 
         </button>
       </div>
 
+      {suppliedData === undefined && <p className="text-xs" role="status">{history.identity === identity ? history.message : "Loading transactions…"}</p>}
+
       {/* ── Row-count summary (live region so screen readers announce filter changes) */}
       <p
         id={`${tableId}-summary`}
@@ -425,7 +444,7 @@ export default function TransactionHistory({ data = MOCK_TRANSACTIONS }: Props) 
                   className="px-4 py-10 text-center text-sm"
                   style={{ color: "var(--muted)" }}
                 >
-                  No transactions found.
+                  {suppliedData !== undefined ? "No transactions found." : history.identity === identity ? history.message : "Loading transactions…"}
                 </td>
               </tr>
             ) : (

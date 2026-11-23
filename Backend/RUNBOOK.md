@@ -43,6 +43,51 @@ Minimum local variables:
 
 Provider keys may be omitted in development, but health checks will report the related dependency as `DEGRADED`.
 
+## MarketFactory event indexing
+
+The Nest market catalog indexes `MarketCreated` events from every
+`MarketFactory` entry in `DEPLOYMENT_REGISTRY_JSON` whose `chainId` matches
+`BLOCKCHAIN_RPC_URL`. Set `MARKET_FACTORY_START_BLOCK` to the factory deployment
+block to avoid scanning older chain history on the first run; it defaults to
+block `0`. Existing checkpoints are retained when this value changes.
+
+The indexer waits for two confirmations, scans bounded block ranges, and stores
+per-chain/factory checkpoints in MongoDB alongside the market catalog. A failed
+event leaves its block range uncheckpointed so the next poll can retry it.
+Duplicate logs are safe to replay because discovered markets are inserted
+idempotently by market address. A single `BLOCKCHAIN_RPC_URL` can index only
+deployments on that RPC's chain; deployments for other chains are skipped and
+logged.
+
+The market list reads YES/NO prices and available liquidity from the canonical
+`MarketMaker` contract. Trading volume (`tradingVolumeWindow: ALL_TIME`) is the
+cumulative collateral amount in canonical `SharesBought`/`SharesSold` events
+since the market's indexed creation block. Buy fee basis points come from a
+configured `Trading` deployment only when it references that same MarketMaker;
+the canonical sell fee is zero.
+Values include exact `*BaseUnits` fields; unavailable sources are returned as
+`null`, not inferred from unrelated spot trades or stake totals.
+
+Markets are automatically resolved only when they include valid
+`resolutionCriteria` in inline factory metadata or signed webhook metadata:
+`{"type":"flight_departure_delay","flightIata":"AA123","scheduledDeparture":"2026-11-22T12:00:00.000Z","delayThresholdMinutes":15,"delayedOutcome":"YES"}`.
+The resolver requires exactly one AviationStack record matching the IATA code
+and scheduled departure, an active or landed flight status, and a valid actual
+departure timestamp. `YES`/`NO` is assigned according to whether the observed
+departure delay (rounded to whole minutes) exceeds the configured threshold.
+Missing, ambiguous, malformed, or unavailable evidence leaves the market active
+for a later retry; titles are never used as resolution evidence.
+
+## Off-chain CLOB matching
+
+The `trade-engine` and legacy `orders` matcher accept orders only when both the
+`venueId` and generic token `pair` appear in `CLOB_VENUES`. Configure it as a
+JSON array, for example
+`[{"id":"spot-clob","pairs":["ETH-USDT","BTC-USDT"]}]`. Leave it empty to
+disable off-chain matching. Order-book reads require the same venue and pair.
+Responses label executions as CLOB and `NOT_ON_CHAIN`; they are not prediction
+market positions and do not represent LMSR settlement.
+
 ## Health Endpoints
 
 NestJS:

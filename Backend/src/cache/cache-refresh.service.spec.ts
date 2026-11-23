@@ -6,6 +6,9 @@ import {
   planCacheRefresh,
 } from './cache-refresh.policy';
 import { MarketResolverService } from '../markets/market-resolver.service';
+import type { MarketDataService } from '../market-data/market-data.service';
+import type { MarketDocument } from '../markets/schemas/market.schema';
+import type { Model } from 'mongoose';
 
 describe('cache refresh policy', () => {
   it('evicts market lists and liquidity aggregates on resolution', () => {
@@ -122,33 +125,129 @@ describe('MarketResolverService cache refresh', () => {
 
   let refresh: jest.Mock;
   let resolver: MarketResolverService;
+  let records: Map<string, Record<string, unknown>>;
+  let marketModel: Model<MarketDocument>;
+
+  type Query<T> = {
+    lean: () => Query<T>;
+    sort: (...args: unknown[]) => Query<T>;
+    exec: () => Promise<T>;
+  };
+  const query = <T>(resolve: () => Promise<T>) => {
+    let chain: Query<T>;
+    chain = {
+      lean: () => chain,
+      sort: () => chain,
+      exec: resolve,
+    };
+    return chain;
+  };
 
   beforeEach(() => {
+    records = new Map();
     refresh = jest.fn().mockResolvedValue(undefined);
-    resolver = new MarketResolverService({
+    const model = {
+      createIndexes: jest.fn().mockResolvedValue(undefined),
+      find: jest.fn(() => query(async () => Array.from(records.values()))),
+      findOne: jest.fn(({ id }: { id: string }) =>
+        query(async () => records.get(id) ?? null),
+      ),
+      updateOne: jest.fn(
+        (
+          { id, status }: { id: string; status?: string },
+          update: {
+            $set?: Record<string, unknown>;
+            $setOnInsert?: Record<string, unknown>;
+            $unset?: Record<string, 1>;
+          },
+          options?: { upsert?: boolean },
+        ) => ({
+          exec: jest.fn(async () => {
+            const existing = records.get(id);
+            if (
+              (!existing && !options?.upsert) ||
+              (existing && status && existing.status !== status)
+            ) {
+              return { matchedCount: 0 };
+            }
+            const next = {
+              ...(existing ?? update.$setOnInsert ?? {}),
+              ...update.$set,
+            };
+            for (const key of Object.keys(update.$unset ?? {})) {
+              delete next[key];
+            }
+            records.set(id, next);
+            return {
+              matchedCount: existing ? 1 : 0,
+              upsertedCount: existing ? 0 : 1,
+            };
+          }),
+        }),
+      ),
+    };
+    marketModel = model as unknown as Model<MarketDocument>;
+    resolver = new MarketResolverService(marketModel, {
       refresh,
-    } as unknown as CacheRefreshService);
+    } as unknown as CacheRefreshService, {
+      getFlightResolutionEvidence: jest.fn(),
+    } as unknown as MarketDataService);
   });
 
-  it('refreshes on register and update', () => {
-    resolver.registerMarket(market);
-    resolver.updateMarket('m1', { totalYesStake: 5n });
+  it('refreshes on register and update', async () => {
+    await resolver.registerMarket(market);
+    await resolver.updateMarket('m1', { totalYesStake: 5n });
 
     expect(refresh).toHaveBeenCalledTimes(2);
     expect(refresh).toHaveBeenNthCalledWith(2, {
       type: 'market.updated',
       marketId: 'm1',
     });
-    expect(resolver.getMarket('m1')?.totalYesStake).toBe(5n);
+    expect((await resolver.getMarket('m1'))?.totalYesStake).toBe(5n);
   });
 
-  it('does not refresh when updating an unknown market', () => {
-    expect(resolver.updateMarket('missing', { title: 'x' })).toBeUndefined();
+  it('does not refresh when updating an unknown market', async () => {
+    expect(await resolver.updateMarket('missing', { title: 'x' })).toBeUndefined();
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it('restores persisted markets when a new service instance starts', async () => {
+    await resolver.registerMarket(market);
+
+    const restarted = new MarketResolverService(marketModel, {
+      refresh,
+    } as unknown as CacheRefreshService, {
+      getFlightResolutionEvidence: jest.fn(),
+    } as unknown as MarketDataService);
+    await restarted.onModuleInit();
+
+    await expect(restarted.getMarket('m1')).resolves.toMatchObject({
+      id: 'm1',
+      title: market.title,
+      totalYesStake: 1n,
+      totalNoStake: 1n,
+      status: 'active',
+    });
+  });
+
+  it('does not overwrite an already indexed market when an event is replayed', async () => {
+    const discovered = {
+      ...market,
+      title: 'On-chain title',
+      marketAddress: '0x0000000000000000000000000000000000000001',
+    };
+
+    await expect(resolver.registerDiscoveredMarket(discovered)).resolves.toBe(true);
+    await expect(
+      resolver.registerDiscoveredMarket({ ...discovered, title: 'Replay title' }),
+    ).resolves.toBe(false);
+    await expect(resolver.getMarket('m1')).resolves.toMatchObject({
+      title: 'On-chain title',
+    });
+  });
+
   it('refreshes after a successful resolution', async () => {
-    resolver.registerMarket(market);
+    await resolver.registerMarket(market);
     refresh.mockClear();
 
     const event = await resolver.resolveMarket('m1');

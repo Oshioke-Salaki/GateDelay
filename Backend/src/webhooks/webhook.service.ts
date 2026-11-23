@@ -48,7 +48,10 @@ import {
   WebhookAttemptDocument,
 } from './webhook.schema';
 import { MarketResolverService } from '../markets/market-resolver.service';
-import type { Market } from '../markets/market-resolver.service';
+import {
+  isMarketResolutionCriteria,
+  type Market,
+} from '../markets/market-resolver.service';
 
 // ─── Backoff helpers ──────────────────────────────────────────────────────────
 
@@ -431,6 +434,14 @@ export class WebhookService implements OnModuleInit {
       );
     }
 
+    const resolutionCriteria = payload.metadata?.resolutionCriteria;
+    if (
+      resolutionCriteria !== undefined &&
+      !isMarketResolutionCriteria(resolutionCriteria)
+    ) {
+      throw new BadRequestException('Invalid flight resolution criteria');
+    }
+
     const market: Market = {
       id: payload.marketId,
       title: payload.marketName,
@@ -438,14 +449,14 @@ export class WebhookService implements OnModuleInit {
       totalYesStake: 0n,
       totalNoStake: 0n,
       status: 'active',
+      resolutionCriteria,
     };
 
-    // registerMarket is synchronous and throws on structural errors.
-    // Any exception propagates to runAttempt which decides retry vs. dead-letter.
-    this.marketResolver.registerMarket(market, 'webhook');
+    // Any persistence exception propagates to runAttempt, which decides retry vs. dead-letter.
+    await this.marketResolver.registerMarket(market, 'webhook');
 
     // Verify the market actually landed in the registry before declaring success.
-    const stored = this.marketResolver.getMarket(payload.marketId);
+    const stored = await this.marketResolver.getMarket(payload.marketId);
     if (!stored) {
       throw new Error(
         `Market ${payload.marketId} was not found in the registry after registration`,

@@ -57,6 +57,8 @@ describe('AuthService abuse paths', () => {
           SMTP_USER: 'smtp-user',
           SMTP_PASS: 'smtp-pass',
           EMAIL_FROM: 'noreply@test.invalid',
+          GOOGLE_OAUTH_CLIENT_ID: 'test-google-client-id.apps.googleusercontent.com',
+          SOCIAL_LOGIN_PROVIDERS: 'google,twitter',
         };
         return values[key] ?? fallback;
       }),
@@ -227,6 +229,243 @@ describe('AuthService abuse paths', () => {
       email: 'test@example.com',
       role: 'market_admin',
       roles: ['market_admin', 'settlement_admin'],
+    });
+  });
+
+  describe('Google identity token verification hardening (#1443)', () => {
+    const validClientId = 'test-google-client-id.apps.googleusercontent.com';
+    let originalFetch: typeof global.fetch;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    const createValidPayload = (overrides = {}) => ({
+      iss: 'https://accounts.google.com',
+      aud: validClientId,
+      sub: 'google-user-sub-12345',
+      email: 'pilot@gatedelay.com',
+      email_verified: true,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      name: 'Pilot User',
+      ...overrides,
+    });
+
+    it('successfully verifies a valid Google identity token with boolean email_verified', async () => {
+      const payload = createValidPayload({ email_verified: true });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      const result = await service.socialLogin({
+        provider: 'google',
+        accessToken: 'valid-google-id-token',
+      });
+
+      expect(result).toBeDefined();
+      expect(result.user).toMatchObject({
+        email: 'pilot@gatedelay.com',
+        name: 'Pilot User',
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://oauth2.googleapis.com/tokeninfo?id_token=valid-google-id-token',
+      );
+    });
+
+    it('successfully verifies a valid Google identity token with string email_verified="true"', async () => {
+      const payload = createValidPayload({ email_verified: 'true' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      const result = await service.socialLogin({
+        provider: 'google',
+        accessToken: 'valid-token-string-truthy',
+      });
+
+      expect(result.user.email).toBe('pilot@gatedelay.com');
+    });
+
+    it('accepts alternative standard Google issuer accounts.google.com without protocol', async () => {
+      const payload = createValidPayload({ iss: 'accounts.google.com' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      const result = await service.socialLogin({
+        provider: 'google',
+        accessToken: 'valid-alt-issuer-token',
+      });
+
+      expect(result.user.email).toBe('pilot@gatedelay.com');
+    });
+
+    it('rejects identity token when email_verified is false', async () => {
+      const payload = createValidPayload({ email_verified: false });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'unverified-email-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Email not verified'));
+    });
+
+    it('rejects identity token when email_verified is string "false" (preventing truthiness bypass)', async () => {
+      const payload = createValidPayload({ email_verified: 'false' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'string-false-email-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Email not verified'));
+    });
+
+    it('rejects identity token when issuer is untrusted/malicious', async () => {
+      const payload = createValidPayload({ iss: 'https://attacker.com' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'bad-issuer-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Invalid token issuer'));
+    });
+
+    it('rejects identity token when audience does not match GOOGLE_OAUTH_CLIENT_ID', async () => {
+      const payload = createValidPayload({ aud: 'another-client-id.apps.googleusercontent.com' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'wrong-audience-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Invalid audience'));
+    });
+
+    it('rejects identity token when token is expired', async () => {
+      const payload = createValidPayload({
+        exp: Math.floor(Date.now() / 1000) - 30, // 30 seconds ago
+      });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'expired-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Token expired'));
+    });
+
+    it('rejects identity token when exp is missing or non-numeric', async () => {
+      const payload = createValidPayload({ exp: undefined });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'no-exp-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Token expired'));
+    });
+
+    it('rejects identity token when sub (subject) is missing or blank', async () => {
+      const payload = createValidPayload({ sub: '   ' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'blank-sub-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Invalid token subject'));
+    });
+
+    it('rejects identity token when email is missing or empty', async () => {
+      const payload = createValidPayload({ email: '' });
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => payload,
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'empty-email-token',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Invalid token email'));
+    });
+
+    it('rejects identity token when token response returns non-200 status', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+      } as Response);
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'invalid-token-from-google',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Invalid Google token'));
+    });
+
+    it('rejects when token is empty or whitespace', async () => {
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: '   ',
+        }),
+      ).rejects.toThrow(new UnauthorizedException('Google identity token is required'));
+    });
+
+    it('rejects with BadRequestException when GOOGLE_OAUTH_CLIENT_ID is not configured', async () => {
+      configService.get = jest.fn((key: string, fallback?: string) => {
+        if (key === 'GOOGLE_OAUTH_CLIENT_ID') return undefined;
+        if (key === 'SOCIAL_LOGIN_PROVIDERS') return 'google';
+        return fallback;
+      });
+
+      await expect(
+        service.socialLogin({
+          provider: 'google',
+          accessToken: 'some-token',
+        }),
+      ).rejects.toThrow(new BadRequestException('Google OAuth is not properly configured'));
     });
   });
 });

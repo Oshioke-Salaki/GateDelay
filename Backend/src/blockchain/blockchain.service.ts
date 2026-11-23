@@ -117,6 +117,18 @@ export class BlockchainService {
     return findDeployment(parseDeploymentRegistry(raw), name);
   }
 
+  getDeployedContracts(name: string): DeploymentEntry[] {
+    const raw = this.configService.get<string>('DEPLOYMENT_REGISTRY_JSON');
+    if (!raw) return [];
+    return parseDeploymentRegistry(raw).filter(
+      (deployment) => deployment.name === name,
+    );
+  }
+
+  getProvider(): ethers.JsonRpcProvider {
+    return this.provider;
+  }
+
   private validateSignedTransaction(signedTx: string) {
     try {
       ethers.Transaction.from(signedTx);

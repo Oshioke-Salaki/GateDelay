@@ -59,8 +59,13 @@ contract CoreFlowGasTest is Test {
         ERC20Token token = new ERC20Token(0);
         MarketMaker mm = new MarketMaker(address(token));
         Trading trading = new Trading(address(mm), 30, 0, address(this));
+        address resolver = address(0xBEEF);
+        mm.setApprovedResolver(resolver, true);
         token.mint(address(this), 10_000 ether);
-        uint256 marketId = mm.createMarket("Flight delayed?", 2, 100 ether);
+        uint256 subsidy = mm.requiredInitialSubsidy(2, 100 ether);
+        token.approve(address(mm), subsidy);
+        uint256 marketId =
+            mm.createMarket("Flight delayed?", 2, 100 ether, block.timestamp + 1 days, resolver, subsidy);
         uint256 shares = 10 ether;
         uint256 rawCost = mm.getCostToBuy(marketId, 0, shares);
         uint256 total = rawCost + (rawCost * 30) / 10_000;

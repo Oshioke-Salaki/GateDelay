@@ -1,22 +1,19 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import {
+  ApiParam,
   ApiOperation,
   ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { createRequire } from 'module';
 import { MarketResolverService } from './market-resolver.service';
 import { ListMarketsQueryDto } from './dto/list-markets.dto';
 import { CacheService } from '../cache/cache.service';
 import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
-
-// Use the existing CommonJS tradeAggregator for real-time stats
-const nodeRequire = createRequire(__filename);
-const tradeAggregator = nodeRequire('../../services/tradeAggregator') as {
-  getMarketStats?: (marketId: string) => Promise<Record<string, unknown>>;
-  getRealTimeStats: (marketId: string) => Promise<Record<string, unknown>>;
-};
+import { BlockchainService } from '../blockchain/blockchain.service';
+import { MarketQuoteQueryDto } from './dto/market-quote.dto';
+import { MarketMakerQuoteService } from './market-maker-quote.service';
+import { MarketMakerMetricsService } from './market-maker-metrics.service';
 
 const normalizeArchiveOutcome = (value?: string): 'yes' | 'no' | 'cancelled' => {
   if (!value) return 'cancelled';
@@ -27,26 +24,29 @@ const normalizeArchiveOutcome = (value?: string): 'yes' | 'no' | 'cancelled' => 
 };
 
 @ApiTags('markets')
-@Controller('api/markets')
+@Controller('markets')
 export class MarketsController {
   constructor(
     private readonly marketResolver: MarketResolverService,
     private readonly cache: CacheService,
+    private readonly blockchain: BlockchainService,
+    private readonly marketMakerQuote: MarketMakerQuoteService,
+    private readonly marketMakerMetrics: MarketMakerMetricsService,
   ) {}
 
   /**
    * GET /markets — paginated market list.
    *
-   * `page` / `limit` come in through `ListMarketsQueryDto`; the registry is
-   * sliced in memory, and the response carries the standard `meta` block so
-   * markets, trades, audit logs and notifications page identically (#916).
+   * `page` / `limit` come in through `ListMarketsQueryDto`; the persisted
+   * catalog is paginated with the standard `meta` block so markets, trades,
+   * audit logs and notifications page identically (#916).
    *
    * Pages are cached briefly and evicted on `market.updated` /
    * `market.resolved` (see cache-refresh.policy.ts).
    */
   @Get()
   async list(@Query() query: ListMarketsQueryDto) {
-    const { meta } = this.marketResolver.getMarketsPage(query);
+    const { meta } = await this.marketResolver.getMarketsPage(query);
     return this.cache.getOrSet(
       CacheKeys.marketsList(meta.page, meta.limit),
       () => this.buildPage(query),
@@ -83,91 +83,46 @@ export class MarketsController {
     const toMs =
       typeof query.to === 'string' && query.to ? Date.parse(query.to) : undefined;
 
-    const archived = await Promise.all(
-      this.marketResolver
-        .getAllMarkets()
-        .filter((market) => !!market)
-        .filter((market) => market.status === 'resolved' || market.status === 'cancelled')
-        .filter((market) => {
-          if (category && (market.categoryId ?? '').toLowerCase() !== category) return false;
-          if (outcome === 'cancelled') {
-            if (market.status !== 'cancelled') return false;
-          } else if (market.status !== 'resolved') {
-            return false;
-          }
-          if (outcome && outcome !== 'cancelled') {
-            const outcomeValue = market.outcome?.toString().toLowerCase();
-            if (outcomeValue !== outcome) return false;
-          }
-          const resolutionTimestamp = market.resolvedAt?.getTime() ?? market.deadline.getTime();
-          if (fromMs !== undefined && resolutionTimestamp < fromMs) return false;
-          if (toMs !== undefined && resolutionTimestamp > toMs) return false;
-          return true;
-        })
-        .map(async (market) => {
-          // Fetch metadata with actual createdAt
-          let createdAt = market.deadline; // fallback
-          try {
-            const metadata = await this.cache.get<{ createdAt?: Date }>(
-              `metadata:${market.id}`,
-            );
-            if (metadata?.createdAt) {
-              createdAt = metadata.createdAt;
-            }
-          } catch {
-            // Use deadline as fallback
-          }
+    const markets = await this.marketResolver.getAllMarkets();
+    const archived = markets
+      .filter((market) => !!market)
+      .filter((market) => market.status === 'resolved' || market.status === 'cancelled')
+      .filter((market) => {
+        if (category && (market.categoryId ?? '').toLowerCase() !== category) return false;
+        if (outcome === 'cancelled') {
+          if (market.status !== 'cancelled') return false;
+        } else if (market.status !== 'resolved') {
+          return false;
+        }
+        if (outcome && outcome !== 'cancelled') {
+          const outcomeValue = market.outcome?.toString().toLowerCase();
+          if (outcomeValue !== outcome) return false;
+        }
+        const resolutionTimestamp = market.resolvedAt?.getTime() ?? market.deadline.getTime();
+        if (fromMs !== undefined && resolutionTimestamp < fromMs) return false;
+        if (toMs !== undefined && resolutionTimestamp > toMs) return false;
+        return true;
+      })
+      .map((market) => ({
+        id: market.id,
+        title: market.title || market.id,
+        description: market.title || 'Archived market',
+        category: market.categoryId || 'general',
+        resolvedOutcome: market.status === 'cancelled' ? 'cancelled' : normalizeArchiveOutcome(market.outcome?.toString()),
+        resolutionDate: (market.resolvedAt ?? market.deadline).toISOString(),
+        volume: Number((market.totalYesStake ?? 0n) + (market.totalNoStake ?? 0n)),
+        participants: 0,
+        createdAt: new Date(market.deadline).toISOString(),
+        endDate: new Date(market.deadline).toISOString(),
+        finalPrice: 0,
+      }))
+      .sort(
+        (left, right) =>
+          new Date(left.resolutionDate).getTime() -
+          new Date(right.resolutionDate).getTime(),
+      );
 
-          // Count unique participants from trade history
-          let participants = 0;
-          try {
-            const OnChainTrade = nodeRequire('../../models/OnChainTrade');
-            const uniqueTraders = await OnChainTrade.distinct('trader', {
-              marketId: market.id,
-            });
-            participants = uniqueTraders.length;
-          } catch {
-            // If trade data unavailable, leave as 0
-          }
-
-          // Calculate final price from resolved outcome and stakes
-          let finalPrice = 0;
-          if (market.status === 'resolved' && market.outcome) {
-            const totalStake = market.totalYesStake + market.totalNoStake;
-            if (totalStake > 0n) {
-              const winningStake =
-                market.outcome === 'YES' ? market.totalYesStake : market.totalNoStake;
-              // Convert to Number with proper scaling (assuming WAD 18 decimals)
-              finalPrice = Number(winningStake) / Number(totalStake);
-            }
-          }
-
-          return {
-            id: market.id,
-            title: market.title || market.id,
-            description: market.title || 'Archived market',
-            category: market.categoryId || 'general',
-            resolvedOutcome:
-              market.status === 'cancelled'
-                ? 'cancelled'
-                : normalizeArchiveOutcome(market.outcome?.toString()),
-            resolutionDate: (market.resolvedAt ?? market.deadline).toISOString(),
-            volume: Number((market.totalYesStake ?? 0n) + (market.totalNoStake ?? 0n)),
-            participants,
-            createdAt: createdAt.toISOString(),
-            endDate: market.deadline.toISOString(),
-            finalPrice,
-          };
-        }),
-    );
-
-    const sorted = archived.sort(
-      (left, right) =>
-        new Date(left.resolutionDate).getTime() -
-        new Date(right.resolutionDate).getTime(),
-    );
-
-    const total = sorted.length;
+    const total = archived.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const pageIndex = Math.min(page, totalPages);
     const start = (pageIndex - 1) * limit;
@@ -185,30 +140,122 @@ export class MarketsController {
     };
   }
 
+  @Get(':id')
+  @ApiOperation({
+    summary: 'Get a market by ID',
+    description:
+      'Returns market metadata, MarketMaker deployment identity, YES/NO stake totals, and lifecycle state.',
+  })
+  @ApiParam({ name: 'id', description: 'Market identifier' })
+  @ApiResponse({ status: 200, description: 'Market detail' })
+  @ApiResponse({ status: 404, description: 'Market not found' })
+  async getById(@Param('id') id: string) {
+    const market = await this.marketResolver.getMarket(id);
+    if (!market) {
+      throw new NotFoundException(`Market ${id} not found`);
+    }
+
+    const deployment = market.marketAddress
+      ? undefined
+      : this.blockchain.getDeployedContract('MarketMaker');
+
+    return {
+      success: true,
+      data: {
+        id: market.id,
+        metadata: {
+          title: market.title,
+          description: market.description ?? null,
+          categoryId: market.categoryId ?? null,
+          deadline: market.deadline.toISOString(),
+          resolutionCriteria: market.resolutionCriteria ?? null,
+        },
+        deployment: {
+          marketId: market.id,
+          contractName: market.marketAddress ? 'PredictionMarket' : 'MarketMaker',
+          contractAddress: market.marketAddress ?? deployment?.address ?? null,
+          factoryAddress: market.factoryAddress ?? null,
+          creator: market.creator ?? null,
+          collateralToken: market.collateralToken ?? null,
+          chainId: market.chainId ?? deployment?.chainId ?? null,
+          abiVersion: deployment?.abiVersion ?? null,
+          factoryAbiVersion: market.factoryAbiVersion ?? null,
+        },
+        outcomes: {
+          yes: { totalStake: market.totalYesStake.toString() },
+          no: { totalStake: market.totalNoStake.toString() },
+          result: market.outcome ?? null,
+        },
+        lifecycle: {
+          status: market.status,
+          resolvedAt: market.resolvedAt?.toISOString() ?? null,
+        },
+      },
+    };
+  }
+
+  @Get(':id/quote')
+  @ApiOperation({
+    summary: 'Get a read-only MarketMaker quote',
+    description:
+      'Reads a buy cost or sell proceeds quote from MarketMaker at a pinned block. Shares and quote amounts are returned as integer base units; this endpoint does not execute trades.',
+  })
+  @ApiParam({ name: 'id', description: 'Market catalog identifier' })
+  @ApiQuery({ name: 'side', required: true, enum: ['buy', 'sell'] })
+  @ApiQuery({
+    name: 'outcome',
+    required: true,
+    type: Number,
+    description: 'Zero-based outcome index',
+  })
+  @ApiQuery({
+    name: 'shares',
+    required: true,
+    type: String,
+    description: 'Positive integer share amount in contract base units',
+  })
+  @ApiResponse({ status: 200, description: 'MarketMaker quote and identity' })
+  @ApiResponse({ status: 404, description: 'Market is not canonically linked' })
+  async getQuote(
+    @Param('id') id: string,
+    @Query() query: MarketQuoteQueryDto,
+  ) {
+    const market = await this.marketResolver.getMarket(id);
+    if (!market) {
+      throw new NotFoundException(`Market ${id} not found`);
+    }
+    return this.marketMakerQuote.quote(market, query);
+  }
+
   private async buildPage(query: ListMarketsQueryDto) {
-    const { markets, meta } = this.marketResolver.getMarketsPage(query);
+    const { markets, meta } = await this.marketResolver.getMarketsPage(query);
+    const marketMetrics = await this.marketMakerMetrics.getMetrics(markets);
 
-    const data = await Promise.all(
-      markets.map(async (m) => {
-        // try to fetch real-time stats by market title (e.g. 'ETH-USDT')
-        let stats = {} as any;
-        try {
-          stats = await tradeAggregator.getRealTimeStats(m.title || m.id);
-        } catch (e) {
-          stats = {};
-        }
-
-        return {
-          id: m.id,
-          name: m.title,
-          asset:
-            m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
-          price: parseFloat(stats.lastPrice || '0') || 0,
-          feePercent: 0, // placeholder — augment from orderbook/provider if available
-          liquidity: parseFloat(stats.volume || '0') || 0,
-        };
-      }),
-    );
+    const data = markets.map((m, index) => {
+      const metrics = marketMetrics[index];
+      return {
+        id: m.id,
+        name: m.title,
+        asset:
+          m.title && m.title.includes('-') ? m.title.split('-')[0] : m.title,
+        prices: {
+          yes: metrics.yesPrice,
+          no: metrics.noPrice,
+        },
+        yesPrice: metrics.yesPrice,
+        noPrice: metrics.noPrice,
+        tradingVolume: metrics.tradingVolume,
+        tradingVolumeWindow: metrics.tradingVolumeWindow,
+        tradingVolumeBaseUnits: metrics.tradingVolumeBaseUnits,
+        volume: metrics.tradingVolume,
+        availableLiquidity: metrics.availableLiquidity,
+        availableLiquidityBaseUnits: metrics.availableLiquidityBaseUnits,
+        liquidity: metrics.availableLiquidity,
+        fees: metrics.fees,
+        feePercent: metrics.feePercent,
+        metricSources: metrics.sources,
+      };
+    });
 
     return { success: true, data, meta };
   }

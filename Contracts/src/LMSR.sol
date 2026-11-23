@@ -30,11 +30,24 @@ library LMSR {
         uint256 i
     ) internal pure returns (uint256) {
         // p_i = exp(q_i / b) / sum_j exp(q_j / b)
+        // Use log-sum-exp trick for numerical stability:
+        // p_i = exp(q_i/b - max) / sum_j exp(q_j/b - max)
         uint256 len = q.length;
+        
+        // Find max(q_j / b) to shift and prevent overflow
+        uint256 maxQOverB = 0;
+        for (uint256 j = 0; j < len; j++) {
+            uint256 qOverB = wadDiv(q[j], b);
+            if (qOverB > maxQOverB) maxQOverB = qOverB;
+        }
+        
+        // Compute shifted exponentials and their sum
         uint256[] memory exps = new uint256[](len);
         uint256 sumExp = 0;
         for (uint256 j = 0; j < len; j++) {
-            exps[j] = expWad(wadDiv(q[j], b));
+            uint256 qOverB = wadDiv(q[j], b);
+            uint256 shifted = qOverB >= maxQOverB ? qOverB - maxQOverB : 0;
+            exps[j] = expWad(shifted);
             sumExp += exps[j];
         }
         return wadDiv(exps[i], sumExp);
@@ -42,25 +55,59 @@ library LMSR {
 
     // ── LMSR cost function ────────────────────────────────────────────────────
 
+    /// @notice Minimum initial collateral subsidy required to guarantee solvency
+    ///         for a market with `numOutcomes` outcomes and liquidity parameter `b`.
+    /// @dev Theoretical maximum LMSR market-maker loss is `b * ln(numOutcomes)`.
+    ///      Adds a 1 bps (0.01% of `b`) + 1 wei fixed-point cushion so truncation in
+    ///      `expWad`/`lnWad` across the valid `[0, 135*b]` domain cannot leave a
+    ///      market under-reserved when only one outcome is purchased.
+    function initialSubsidy(uint256 numOutcomes, uint256 b) internal pure returns (uint256) {
+        require(numOutcomes >= 2, "LMSR: need >= 2 outcomes");
+        require(b > 0, "LMSR: b must be > 0");
+        uint256 base = wadMul(b, lnWad(numOutcomes * WAD));
+        uint256 cushion = ((b + 9_999) / 10_000) + 1;
+        return base + cushion;
+    }
+
     /// @dev C(q) = b * ln( sum_i exp(q_i / b) )
+    ///      Uses log-sum-exp trick: C(q) = b * (max + ln(sum_i exp((q_i - max)/b)))
     function costFunction(uint256[] memory q, uint256 b) internal pure returns (uint256) {
         uint256 len = q.length;
+        
+        // Find max(q_i / b) for numerical stability
+        uint256 maxQOverB = 0;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 qOverB = wadDiv(q[i], b);
+            if (qOverB > maxQOverB) maxQOverB = qOverB;
+        }
+        
+        // Compute sum of exp((q_i/b - max))
         uint256 sumExp = 0;
         for (uint256 i = 0; i < len; i++) {
-            sumExp += expWad(wadDiv(q[i], b));
+            uint256 qOverB = wadDiv(q[i], b);
+            uint256 shifted = qOverB >= maxQOverB ? qOverB - maxQOverB : 0;
+            sumExp += expWad(shifted);
         }
-        return wadMul(b, lnWad(sumExp));
+        
+        // Result: b * (max + ln(sumExp))
+        return wadMul(b, maxQOverB + lnWad(sumExp));
     }
 
     // ── WAD fixed-point helpers ───────────────────────────────────────────────
 
     function wadMul(uint256 a, uint256 b_) internal pure returns (uint256) {
-        return (a * b_) / WAD;
+        // Use full-precision arithmetic to prevent intermediate overflow
+        // when a * b_ overflows but (a * b_) / WAD fits in uint256
+        uint256 prod = a * b_;
+        require(a == 0 || prod / a == b_, "LMSR: wadMul overflow");
+        return prod / WAD;
     }
 
     function wadDiv(uint256 a, uint256 b_) internal pure returns (uint256) {
         require(b_ > 0, "LMSR: div by zero");
-        return (a * WAD) / b_;
+        uint256 prod = a * WAD;
+        require(a == 0 || prod / a == WAD, "LMSR: wadDiv overflow");
+        return prod / b_;
     }
 
     /// @dev exp(x) in WAD where x is WAD-scaled. Uses the identity
@@ -68,6 +115,7 @@ library LMSR {
     function expWad(uint256 x) internal pure returns (uint256 result) {
         // Solmate-style exp approximation (integer + fractional decomposition)
         // Accurate to ~1e-9 relative error for x in [0, 135e18]
+        if (x == 0) return WAD;
         require(x <= 135 * WAD, "LMSR: exp overflow");
         unchecked {
             // Split x = k*ln2 + r  where 0 <= r < ln2
@@ -108,6 +156,7 @@ library LMSR {
 
             // Normalise m = x / 2^e  into [WAD, 2*WAD)
             uint256 m = x >> e;
+            if (m == WAD) return e * ln2;
 
             // ln(m) for m in [1,2) via Padé approximant:
             // ln(m) ≈ 2*(m-1)/(m+1) * (1 + ((m-1)/(m+1))^2 / 3 + ...)

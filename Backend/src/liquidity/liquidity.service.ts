@@ -177,7 +177,7 @@ export class LiquidityService {
   ): Promise<LiquidityPositionView> {
     this.assertPositive(amountEth, 'Liquidity amount must be positive');
 
-    const market = this.marketResolver.getMarket(marketId);
+    const market = await this.marketResolver.getMarket(marketId);
     if (!market) throw new NotFoundException('Market not found');
 
     const normalizedAddress = this.normalizeWallet(walletAddress);
@@ -514,7 +514,7 @@ export class LiquidityService {
     );
 
     for (const position of userPositions) {
-      const market = this.marketResolver.getMarket(position.marketId);
+      const market = await this.marketResolver.getMarket(position.marketId);
       const pool = this.pools.get(position.marketId);
       if (!market || !pool) continue;
 
@@ -593,7 +593,7 @@ export class LiquidityService {
   }
 
   async getMarketLiquidity(marketId: string): Promise<MarketLiquidity | null> {
-    const market = this.marketResolver.getMarket(marketId);
+    const market = await this.marketResolver.getMarket(marketId);
     if (!market) return null;
     return this.toMarketLiquidity(market);
   }
@@ -634,7 +634,7 @@ export class LiquidityService {
   // ── Private helpers ─────────────────────────────────────────────────────────
 
   private async buildAndCacheReport(): Promise<LiquidityReport> {
-    const markets = this.marketResolver.getAllMarkets();
+    const markets = await this.marketResolver.getAllMarkets();
     const active = markets.filter((m) => m.status === 'active');
 
     const marketLiquidity = markets.map((m) => this.toMarketLiquidity(m));

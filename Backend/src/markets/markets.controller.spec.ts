@@ -1,19 +1,200 @@
+import { NotFoundException } from '@nestjs/common';
 import { MarketsController } from './markets.controller';
 
-describe('MarketsController archive endpoint', () => {
+describe('MarketsController', () => {
   let controller: MarketsController;
   let resolver: any;
   let cache: any;
+  let blockchain: any;
+  let marketMakerQuote: any;
+  let marketMakerMetrics: any;
 
   beforeEach(() => {
     resolver = {
       getAllMarkets: jest.fn(),
+      getMarket: jest.fn(),
     };
     cache = {
       getOrSet: jest.fn((_key, loader) => loader()),
       get: jest.fn().mockResolvedValue(null),
     };
-    controller = new MarketsController(resolver, cache);
+    blockchain = {
+      getDeployedContract: jest.fn(),
+    };
+    marketMakerQuote = {
+      quote: jest.fn(),
+    };
+    marketMakerMetrics = {
+      getMetrics: jest.fn(),
+    };
+    controller = new MarketsController(
+      resolver,
+      cache,
+      blockchain,
+      marketMakerQuote,
+      marketMakerMetrics,
+    );
+  });
+
+  it('returns market metadata, deployment identity, outcomes, and lifecycle', async () => {
+    resolver.getMarket.mockReturnValue({
+      id: 'm-1',
+      title: 'BTC / USD',
+      categoryId: 'crypto',
+      deadline: new Date('2024-01-05T00:00:00.000Z'),
+      resolutionCriteria: {
+        type: 'flight_departure_delay',
+        flightIata: 'AA123',
+        scheduledDeparture: '2024-01-05T12:00:00.000Z',
+        delayThresholdMinutes: 15,
+        delayedOutcome: 'YES',
+      },
+      totalYesStake: 10n,
+      totalNoStake: 2n,
+      status: 'resolved',
+      outcome: 'YES',
+      resolvedAt: new Date('2024-01-10T00:00:00.000Z'),
+    });
+    blockchain.getDeployedContract.mockReturnValue({
+      address: '0x0000000000000000000000000000000000000001',
+      chainId: 5000,
+      abiVersion: '1',
+    });
+
+    await expect(controller.getById('m-1')).resolves.toEqual({
+      success: true,
+      data: {
+        id: 'm-1',
+        metadata: {
+          title: 'BTC / USD',
+          description: null,
+          categoryId: 'crypto',
+          deadline: '2024-01-05T00:00:00.000Z',
+          resolutionCriteria: {
+            type: 'flight_departure_delay',
+            flightIata: 'AA123',
+            scheduledDeparture: '2024-01-05T12:00:00.000Z',
+            delayThresholdMinutes: 15,
+            delayedOutcome: 'YES',
+          },
+        },
+        deployment: {
+          marketId: 'm-1',
+          contractName: 'MarketMaker',
+          contractAddress: '0x0000000000000000000000000000000000000001',
+          factoryAddress: null,
+          creator: null,
+          collateralToken: null,
+          chainId: 5000,
+          abiVersion: '1',
+          factoryAbiVersion: null,
+        },
+        outcomes: {
+          yes: { totalStake: '10' },
+          no: { totalStake: '2' },
+          result: 'YES',
+        },
+        lifecycle: {
+          status: 'resolved',
+          resolvedAt: '2024-01-10T00:00:00.000Z',
+        },
+      },
+    });
+  });
+
+  it('returns an explicit 404 for an unknown market', async () => {
+    resolver.getMarket.mockReturnValue(undefined);
+
+    await expect(controller.getById('missing')).rejects.toThrow(NotFoundException);
+    expect(blockchain.getDeployedContract).not.toHaveBeenCalled();
+  });
+
+  it('returns distinct canonical price, volume, liquidity, and fee metrics', async () => {
+    const market = {
+      id: 'm-1',
+      title: 'Flight delay',
+      status: 'active',
+    };
+    const metrics = {
+      yesPrice: 0.62,
+      noPrice: 0.38,
+      tradingVolume: 12.5,
+      tradingVolumeWindow: 'ALL_TIME',
+      tradingVolumeBaseUnits: '12500000000000000000',
+      availableLiquidity: 4.25,
+      availableLiquidityBaseUnits: '4250000000000000000',
+      fees: { buyBps: '30', sellBps: '0' },
+      feePercent: 0.3,
+      sources: {
+        price: 'MARKET_MAKER',
+        volume: 'MARKET_MAKER_EVENTS',
+        liquidity: 'MARKET_MAKER',
+        fees: 'TRADING_AND_MARKET_MAKER',
+      },
+    };
+    resolver.getMarketsPage = jest.fn().mockResolvedValue({
+      markets: [market],
+      meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    });
+    marketMakerMetrics.getMetrics.mockResolvedValue([metrics]);
+
+    await expect(controller.list({ page: 1, limit: 20 })).resolves.toMatchObject({
+      success: true,
+      data: [
+        {
+          id: 'm-1',
+          prices: { yes: 0.62, no: 0.38 },
+          yesPrice: 0.62,
+          noPrice: 0.38,
+          tradingVolume: 12.5,
+          tradingVolumeWindow: 'ALL_TIME',
+          volume: 12.5,
+          availableLiquidity: 4.25,
+          liquidity: 4.25,
+          fees: { buyBps: '30', sellBps: '0' },
+          feePercent: 0.3,
+          metricSources: {
+            price: 'MARKET_MAKER',
+            volume: 'MARKET_MAKER_EVENTS',
+            liquidity: 'MARKET_MAKER',
+            fees: 'TRADING_AND_MARKET_MAKER',
+          },
+        },
+      ],
+    });
+    expect(marketMakerMetrics.getMetrics).toHaveBeenCalledWith([market]);
+  });
+
+  it('delegates quotes for known markets to the read-only MarketMaker adapter', async () => {
+    const market = {
+      id: 'm-1',
+      marketAddress: '0x0000000000000000000000000000000000000001',
+    };
+    const query = { side: 'buy', outcome: 0, shares: '1000000000000000000' };
+    resolver.getMarket.mockResolvedValue(market);
+    marketMakerQuote.quote.mockResolvedValue({
+      success: true,
+      data: { quoteAmount: '1000000000000000000' },
+    });
+
+    await expect(controller.getQuote('m-1', query)).resolves.toEqual({
+      success: true,
+      data: { quoteAmount: '1000000000000000000' },
+    });
+    expect(marketMakerQuote.quote).toHaveBeenCalledWith(market, query);
+  });
+
+  it('returns 404 instead of quoting an unknown market', async () => {
+    resolver.getMarket.mockResolvedValue(undefined);
+
+    await expect(
+      controller.getQuote('missing', {
+        side: 'buy',
+        outcome: 0,
+        shares: '1',
+      }),
+    ).rejects.toThrow(NotFoundException);
+    expect(marketMakerQuote.quote).not.toHaveBeenCalled();
   });
 
   it('returns resolved and cancelled markets with archive metadata', async () => {

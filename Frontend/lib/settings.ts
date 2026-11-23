@@ -372,6 +372,90 @@ export class SettingsService {
 
 export const settingsService = new SettingsService();
 
+/**
+ * Fee policy applied to transaction execution (FE-1338). `tradingFeeBps` is the
+ * venue fee in basis points and `gasEstimateMultiplier` scales the raw gas
+ * estimate to account for volatility before confirmation.
+ */
+export interface FeePolicy {
+  tradingFeeBps: number;
+  gasEstimateMultiplier: number;
+}
+
+export const DEFAULT_FEE_POLICY: FeePolicy = {
+  tradingFeeBps: 30,
+  gasEstimateMultiplier: 1.2,
+};
+
+/**
+ * Execution venues the trading form can target. Only venues listed here may
+ * expose advanced controls (limit orders, leverage) in the UI (FE-1337).
+ */
+export type SupportedVenue = "marketmaker" | "limit" | "leverage";
+
+export interface VenueCapabilities {
+  limitOrders: boolean;
+  leverage: boolean;
+  feePolicy: FeePolicy;
+}
+
+export const VENUE_CAPABILITIES: Record<SupportedVenue, VenueCapabilities> = {
+  marketmaker: {
+    limitOrders: false,
+    leverage: false,
+    feePolicy: DEFAULT_FEE_POLICY,
+  },
+  limit: {
+    limitOrders: true,
+    leverage: false,
+    feePolicy: { tradingFeeBps: 20, gasEstimateMultiplier: 1.1 },
+  },
+  leverage: {
+    limitOrders: true,
+    leverage: true,
+    feePolicy: { tradingFeeBps: 50, gasEstimateMultiplier: 1.35 },
+  },
+};
+
+export function getFeePolicy(venue: SupportedVenue): FeePolicy {
+  return VENUE_CAPABILITIES[venue]?.feePolicy ?? DEFAULT_FEE_POLICY;
+}
+
+export function venueSupports(
+  venue: SupportedVenue,
+  feature: "limitOrders" | "leverage"
+): boolean {
+  return VENUE_CAPABILITIES[venue]?.[feature] === true;
+}
+
+export type OrderSide = "buy" | "sell";
+
+export interface SlippageBounds {
+  minProceeds: number;
+  maxCost: number;
+}
+
+/**
+ * Converts a slippage tolerance (in percent) into executable cost/proceeds
+ * limits for a quote (FE-1335). Buys cap the maximum cost; sells floor the
+ * minimum proceeds. The opposite bound is left at the quote value so callers
+ * can pass both to the execution path unconditionally.
+ */
+export function slippageBounds(
+  quotePrice: number,
+  side: OrderSide,
+  slippagePercent: number
+): SlippageBounds {
+  const safePrice = Number.isFinite(quotePrice) && quotePrice > 0 ? quotePrice : 0;
+  const safeSlippage =
+    Number.isFinite(slippagePercent) && slippagePercent > 0 ? slippagePercent : 0;
+  const factor = safeSlippage / 100;
+  if (side === "buy") {
+    return { minProceeds: safePrice, maxCost: safePrice * (1 + factor) };
+  }
+  return { minProceeds: safePrice * (1 - factor), maxCost: safePrice };
+}
+
 export const settingsValidation = {
   slippage: (value: number): true | string => {
     if (isNaN(value)) return "Slippage must be a number";

@@ -14,8 +14,13 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { format, subDays, subWeeks, subMonths } from "date-fns";
+import { format, subDays, subMonths } from "date-fns";
 import { useConnectKitBridge } from "../../app/components/ConnectKitBridgeContext";
+import {
+  fetchPortfolioData,
+  PORTFOLIO_REFRESH_EVENT,
+  type PortfolioData,
+} from "../../lib/portfolioApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +33,7 @@ export interface Position {
   avgCost: number;       // cost per share in USDC
   currentPrice: number;  // current price per share (0–1)
   status: "open" | "closed" | "resolved";
+  realizedPnl?: number;
   outcome?: "YES" | "NO";
 }
 
@@ -43,12 +49,8 @@ export interface PortfolioSnapshot {
 }
 
 export interface PortfolioWidgetProps {
-  /** Live positions — pass from API/contract; falls back to mock data */
-  positions?: Position[];
-  /** Historical snapshots for the performance chart */
-  history?: PortfolioSnapshot[];
-  /** Called on each refresh tick (use to re-fetch data) */
-  onRefresh?: () => void;
+  /** Called after authenticated portfolio data is refreshed. */
+  onRefresh?: () => void | Promise<void>;
   /** Auto-refresh interval in ms. 0 = disabled. Default: 30 000 */
   refreshInterval?: number;
 }
@@ -77,79 +79,6 @@ function xTickFormat(range: Range, ts: number): string {
   }
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const MOCK_POSITIONS: Position[] = [
-  {
-    id: "p1",
-    market: "Will AA123 arrive on time?",
-    marketId: "1",
-    side: "YES",
-    shares: 120,
-    avgCost: 0.55,
-    currentPrice: 0.62,
-    status: "open",
-  },
-  {
-    id: "p2",
-    market: "Will UA456 be delayed > 30 min?",
-    marketId: "2",
-    side: "NO",
-    shares: 80,
-    avgCost: 0.60,
-    currentPrice: 0.59,
-    status: "open",
-  },
-  {
-    id: "p3",
-    market: "Will DL789 be cancelled?",
-    marketId: "3",
-    side: "NO",
-    shares: 200,
-    avgCost: 0.88,
-    currentPrice: 0.92,
-    status: "closed",
-  },
-  {
-    id: "p4",
-    market: "Will SW101 depart on time?",
-    marketId: "4",
-    side: "YES",
-    shares: 50,
-    avgCost: 0.70,
-    currentPrice: 0.75,
-    status: "open",
-  },
-  {
-    id: "p5",
-    market: "Will BA202 arrive early?",
-    marketId: "5",
-    side: "YES",
-    shares: 150,
-    avgCost: 0.50,
-    currentPrice: 1.0,
-    status: "resolved",
-    outcome: "YES",
-  },
-];
-
-function generateMockHistory(): PortfolioSnapshot[] {
-  const points: PortfolioSnapshot[] = [];
-  const now = Date.now();
-  let value = 800;
-  // ~90 days of daily snapshots
-  for (let i = 90; i >= 0; i--) {
-    value = Math.max(200, value + (Math.random() - 0.45) * 40);
-    points.push({
-      timestamp: subDays(now, i).getTime(),
-      value: parseFloat(value.toFixed(2)),
-    });
-  }
-  return points;
-}
-
-const MOCK_HISTORY = generateMockHistory();
-
 // ─── Asset-type breakdown colours ────────────────────────────────────────────
 
 const PIE_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
@@ -168,6 +97,7 @@ function positionCost(p: Position): number {
 }
 
 function positionPnl(p: Position): number {
+  if (p.status === "closed") return p.realizedPnl ?? 0;
   return positionValue(p) - positionCost(p);
 }
 
@@ -414,34 +344,90 @@ function PieTooltip({ active, payload }: any) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PortfolioWidget({
-  positions = MOCK_POSITIONS,
-  history = MOCK_HISTORY,
   onRefresh,
   refreshInterval = 30_000,
 }: PortfolioWidgetProps) {
   const { isConnected } = useConnectKitBridge();
   const [range, setRange] = useState<Range>("1M");
   const [lastUpdated, setLastUpdated] = useState(Date.now());
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(true);
+  const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const refreshPortfolio = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isConnected) return;
+      setIsRefreshing(true);
+      setLoadError(null);
+      try {
+        const data = await fetchPortfolioData(signal);
+        if (signal?.aborted) return;
+        setPortfolio(data);
+        setLoadError(null);
+        setLastUpdated(Date.now());
+        await onRefresh?.();
+      } catch (error) {
+        if (signal?.aborted) return;
+        setLoadError(error instanceof Error ? error.message : "Could not load portfolio data.");
+      } finally {
+        if (!signal?.aborted) setIsRefreshing(false);
+      }
+    },
+    [isConnected, onRefresh],
+  );
+
+  useEffect(() => {
+    if (!isConnected) {
+      setPortfolio(null);
+      setLoadError(null);
+      setIsRefreshing(false);
+      return;
+    }
+    const controller = new AbortController();
+    void refreshPortfolio(controller.signal);
+    return () => controller.abort();
+  }, [isConnected, refreshPortfolio]);
+
+  useEffect(() => {
+    if (!refreshInterval || !isConnected) return;
+    const id = setInterval(() => void refreshPortfolio(), refreshInterval);
+    return () => clearInterval(id);
+  }, [isConnected, refreshInterval, refreshPortfolio]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+    const refresh = () => void refreshPortfolio();
+    window.addEventListener(PORTFOLIO_REFRESH_EVENT, refresh);
+    return () => window.removeEventListener(PORTFOLIO_REFRESH_EVENT, refresh);
+  }, [isConnected, refreshPortfolio]);
+
+  const positions = useMemo<Position[]>(
+    () =>
+      (portfolio?.positions ?? []).map((position) => ({
+        id: position.id,
+        market: `Market #${position.marketId}`,
+        marketId: position.marketId,
+        side: position.side,
+        shares: position.shares,
+        avgCost: position.entryPrice,
+        currentPrice: position.currentPrice,
+        status: position.status,
+        realizedPnl: position.realizedPnl,
+      })),
+    [portfolio],
+  );
+  const history = portfolio?.history ?? [];
 
   // ── Derived stats ──────────────────────────────────────────────────────────
 
-  const totalValue = useMemo(
-    () => positions.reduce((sum, p) => sum + positionValue(p), 0),
-    [positions]
-  );
-
-  const totalCost = useMemo(
-    () => positions.reduce((sum, p) => sum + positionCost(p), 0),
-    [positions]
-  );
-
-  const totalPnl = totalValue - totalCost;
-  const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const totalCost = portfolio?.summary.totalCost ?? 0;
+  const totalPnl = portfolio?.summary.totalPnl ?? 0;
+  const totalValue = totalCost + totalPnl;
+  const totalPnlPct = portfolio?.summary.totalPnlPct ?? 0;
   const isOverallPositive = totalPnl >= 0;
 
   const openPositions = positions.filter((p) => p.status === "open");
-  const resolvedPositions = positions.filter((p) => p.status === "resolved");
+  const closedPositions = positions.filter((p) => p.status === "closed");
 
   // ── Filtered history for chart ─────────────────────────────────────────────
 
@@ -476,20 +462,7 @@ export default function PortfolioWidget({
 
   // ── Auto-refresh ───────────────────────────────────────────────────────────
 
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    onRefresh?.();
-    // Simulate async refresh delay
-    await new Promise((r) => setTimeout(r, 600));
-    setLastUpdated(Date.now());
-    setIsRefreshing(false);
-  }, [onRefresh]);
-
-  useEffect(() => {
-    if (!refreshInterval) return;
-    const id = setInterval(handleRefresh, refreshInterval);
-    return () => clearInterval(id);
-  }, [handleRefresh, refreshInterval]);
+  const handleRefresh = () => void refreshPortfolio();
 
   const xFormatter = (ts: number) => xTickFormat(range, ts);
 
@@ -515,6 +488,31 @@ export default function PortfolioWidget({
     );
   }
 
+  if (!portfolio && isRefreshing) {
+    return (
+      <p className="rounded-xl p-6 text-center text-sm" role="status"
+        style={{ background: "var(--card)", border: "1px solid var(--border)", color: "var(--muted)" }}>
+        Loading your portfolio…
+      </p>
+    );
+  }
+
+  if (!portfolio && loadError) {
+    return (
+      <div className="space-y-3 rounded-xl p-6 text-center"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}>
+        <p role="alert" className="text-sm" style={{ color: "#ef4444" }}>
+          Could not load your portfolio: {loadError}
+        </p>
+        <button onClick={handleRefresh} disabled={isRefreshing}
+          className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-40"
+          style={{ background: "var(--background)", border: "1px solid var(--border)", color: "var(--foreground)" }}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-w-0 space-y-4">
       {/* ── Header ── */}
@@ -526,6 +524,11 @@ export default function PortfolioWidget({
           <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
             Last updated {format(lastUpdated, "HH:mm:ss")}
           </p>
+          {loadError && (
+            <p role="alert" className="mt-1 text-xs" style={{ color: "#ef4444" }}>
+              Refresh failed: {loadError}
+            </p>
+          )}
         </div>
         <button
           onClick={handleRefresh}
@@ -559,8 +562,8 @@ export default function PortfolioWidget({
           positive={periodChange.abs >= 0}
         />
         <StatCard
-          label="Resolved"
-          value={String(resolvedPositions.length)}
+          label="Closed"
+          value={String(closedPositions.length)}
           sub={`${positions.length} total`}
         />
       </div>
@@ -602,7 +605,11 @@ export default function PortfolioWidget({
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={220}>
+        {filteredHistory.length === 0 ? (
+          <p className="py-12 text-center text-sm" role="status" style={{ color: "var(--muted)" }}>
+            No portfolio history is available yet.
+          </p>
+        ) : <ResponsiveContainer width="100%" height={220}>
           <AreaChart
             data={filteredHistory}
             margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
@@ -643,7 +650,7 @@ export default function PortfolioWidget({
               activeDot={{ r: 4, fill: "#3b82f6" }}
             />
           </AreaChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
 
       {/* ── Asset breakdown ── */}

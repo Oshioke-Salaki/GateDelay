@@ -1,28 +1,14 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, OnModuleInit } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { createRequire } from 'module';
-import {
-  MarketResolution,
-  ResolutionDispute,
-  ResolutionConfirmation,
-  ResolutionReport,
-} from './resolution.entity';
-import {
-  RequestResolutionDto,
-  ConfirmResolutionDto,
-  DisputeResolutionDto,
-  ReviewDisputeDto,
-} from './dto/resolution.dto';
+import type { MarketResolution, ResolutionConfirmation, ResolutionDispute, ResolutionReport } from './resolution.entity';
+import { RequestResolutionDto, ConfirmResolutionDto, DisputeResolutionDto, ReviewDisputeDto } from './dto/resolution.dto';
+import { RESOLUTION_MODEL } from './resolution.schema';
+import type { StoredResolution } from './resolution.schema';
+import { ResolutionEvidenceService } from './resolution-evidence.service';
 
-// Durable audit trail for market lifecycle actions (#914) — the CommonJS
-// services/auditTrail.js writing to the `audit_logs` collection. Bridged the same
-// way market-audit.module.ts and markets.controller.ts do.
 const nodeRequire = createRequire(__filename);
 const auditTrail = nodeRequire('../../services/auditTrail') as {
   MARKET_AUDIT_ACTIONS: Record<string, string>;
@@ -44,333 +30,167 @@ const auditTrail = nodeRequire('../../services/auditTrail') as {
 };
 
 @Injectable()
-export class ResolutionService {
-  private readonly logger = new Logger(ResolutionService.name);
+export class ResolutionService implements OnModuleInit {
+  constructor(@InjectModel(RESOLUTION_MODEL) private readonly records: Model<StoredResolution>,
+    private readonly evidence: ResolutionEvidenceService) {}
 
-  private readonly resolutions = new Map<string, MarketResolution>();
-  /** marketId → resolutionId (one active resolution per market) */
-  private readonly resolutionByMarket = new Map<string, string>();
-  private readonly confirmations = new Map<string, ResolutionConfirmation>();
-  /** resolutionId → confirmation ids */
-  private readonly confirmationsByResolution = new Map<string, string[]>();
-  private readonly disputes = new Map<string, ResolutionDispute>();
-  /** resolutionId → dispute ids */
-  private readonly disputesByResolution = new Map<string, string[]>();
-
-  // ── Status ──────────────────────────────────────────────────────────────────
-
-  getStatus(marketId: string): MarketResolution | null {
-    const resolutionId = this.resolutionByMarket.get(marketId);
-    if (!resolutionId) return null;
-    return this.resolutions.get(resolutionId) ?? null;
+  async onModuleInit() {
+    // Explicitly install uniqueness constraints even when production disables autoIndex.
+    await this.records.createIndexes();
+    // Server-side invariants also protect writes made outside this service.
+    await this.records.db.db!.command({ collMod: 'resolution_workflows',
+      validator: { $and: [
+        { $jsonSchema: { bsonType: 'object', required: ['id', 'marketId', 'attempt', 'revision', 'status', 'active', 'outcome', 'confirmations', 'disputes'],
+          properties: { status: { enum: ['pending', 'requested', 'confirmed', 'disputed', 'resolved', 'cancelled'] },
+            outcome: { enum: ['YES', 'NO', 'INVALID'] }, attempt: { bsonType: ['double', 'int', 'long', 'decimal'], minimum: 1 },
+            revision: { bsonType: ['double', 'int', 'long', 'decimal'], minimum: 0 }, confirmations: { bsonType: 'array' }, disputes: { bsonType: 'array' } } } },
+        { $expr: { $and: [
+          { $eq: ['$active', { $ne: ['$status', 'cancelled'] }] },
+          { $or: [ { $not: [{ $in: ['$status', ['confirmed', 'resolved']] }] },
+            { $gt: [{ $size: { $filter: { input: '$confirmations', as: 'c', cond: { $and: [
+              { $eq: ['$$c.resolutionId', '$id'] }, { $eq: ['$$c.attempt', '$attempt'] },
+              { $eq: ['$$c.marketId', '$marketId'] }, { $eq: ['$$c.outcome', '$outcome'] },
+              { $eq: ['$$c.txHash', '$txHash'] }, { $eq: [{ $ifNull: ['$$c.invalidatedAt', null] }, null] },
+              { $eq: [{ $type: '$$c.blockHash' }, 'string'] },
+            ] } } } }, 0] } ] },
+          { $eq: [{ $eq: ['$status', 'disputed'] }, { $gt: [{ $size: { $filter: {
+            input: '$disputes', as: 'd', cond: { $in: ['$$d.status', ['open', 'under_review']] },
+          } } }, 0] }] },
+        ] } },
+      ] }, validationLevel: 'strict', validationAction: 'error' });
   }
 
-  getResolutionById(resolutionId: string): MarketResolution {
-    const resolution = this.resolutions.get(resolutionId);
-    if (!resolution) throw new NotFoundException('Resolution not found');
-    return resolution;
+  private marketKey(marketId: string) { return marketId.trim().toLowerCase(); }
+  async getStatus(marketId: string): Promise<MarketResolution | null> {
+    return this.records.findOne({ marketId: this.marketKey(marketId) }).sort({ attempt: -1 }).lean().exec();
+  }
+  async getResolutionById(id: string): Promise<StoredResolution> {
+    const record = await this.records.findOne({ id }).lean().exec();
+    if (!record) throw new NotFoundException('Resolution not found');
+    return record;
+  }
+  async listResolutions(status?: string): Promise<MarketResolution[]> {
+    return this.records.find(status ? { status } : {}).sort({ requestedAt: -1 }).lean().exec();
   }
 
-  listResolutions(status?: string): MarketResolution[] {
-    const all = [...this.resolutions.values()];
-    if (!status) return all;
-    return all.filter((r) => r.status === status);
-  }
-
-  // ── Manual resolution request ────────────────────────────────────────────────
-
-  requestResolution(
-    userId: string,
-    dto: RequestResolutionDto,
-  ): MarketResolution {
-    const existing = this.resolutionByMarket.get(dto.marketId);
-    if (existing) {
-      const res = this.resolutions.get(existing)!;
-      if (res.status !== 'cancelled') {
-        throw new ConflictException(
-          `Market ${dto.marketId} already has an active resolution (status: ${res.status})`,
-        );
-      }
+  // Every mutation compares the persisted state and revision. Racing confirmations,
+  // cancellations, disputes, and reviews cannot overwrite a completed transition.
+  private async transition(before: StoredResolution, after: StoredResolution) {
+    const { id, marketId, attempt, ...changes } = after;
+    const unset: Record<string, 1> = {};
+    for (const key of ['txHash', 'confirmedAt']) {
+      if (changes[key] === undefined) { unset[key] = 1; delete changes[key]; }
     }
-
-    const resolution: MarketResolution = {
-      id: uuidv4(),
-      marketId: dto.marketId,
-      requestedBy: userId,
-      outcome: dto.outcome,
-      status: 'requested',
-      evidence: dto.evidence,
-      requestedAt: new Date(),
-    };
-
-    this.resolutions.set(resolution.id, resolution);
-    this.resolutionByMarket.set(dto.marketId, resolution.id);
-    this.logger.log(
-      `Resolution requested for market ${dto.marketId} by user ${userId} — outcome: ${dto.outcome}`,
-    );
-    return resolution;
+    try {
+      const updated = await this.records.findOneAndUpdate(
+        { id, marketId, attempt, revision: before.revision, status: before.status },
+        { $set: { ...changes, revision: before.revision + 1 }, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+        { new: true, runValidators: true },
+      ).lean().exec();
+      if (!updated) throw new ConflictException('Resolution changed; reload before retrying');
+      return updated;
+    } catch (error) {
+      if ((error as { code?: number }).code === 11000) throw new ConflictException('Confirmation evidence was already used');
+      throw error;
+    }
   }
-
-  cancelResolution(userId: string, resolutionId: string): MarketResolution {
-    const resolution = this.getResolutionById(resolutionId);
-    if (resolution.requestedBy !== userId) {
-      throw new BadRequestException(
-        'Only the requester can cancel this resolution',
-      );
-    }
-    if (!['requested', 'pending'].includes(resolution.status)) {
-      throw new BadRequestException(
-        `Cannot cancel a resolution with status: ${resolution.status}`,
-      );
-    }
-    resolution.status = 'cancelled';
-    resolution.cancelledAt = new Date();
-    this.logger.log(`Resolution ${resolutionId} cancelled by user ${userId}`);
-    return resolution;
+  private hasEvidence(record: StoredResolution) {
+    return record.confirmations.some(c => !c.invalidatedAt && c.attempt === record.attempt &&
+      c.resolutionId === record.id && c.marketId === record.marketId && c.outcome === record.outcome &&
+      c.txHash === record.txHash && !!c.blockHash);
   }
-
-  // ── Confirmation ─────────────────────────────────────────────────────────────
-
-  confirmResolution(
-    userId: string,
-    resolutionId: string,
-    dto: ConfirmResolutionDto,
-  ): ResolutionConfirmation {
-    const resolution = this.getResolutionById(resolutionId);
-
-    if (!['requested', 'pending'].includes(resolution.status)) {
-      throw new BadRequestException(
-        `Cannot confirm a resolution with status: ${resolution.status}`,
-      );
+  async requestResolution(userId: string, dto: RequestResolutionDto): Promise<MarketResolution> {
+    const marketId = this.marketKey(dto.marketId);
+    const previous = await this.records.findOne({ marketId }).sort({ attempt: -1 }).lean().exec();
+    if (previous?.active) throw new ConflictException('Market already has an active resolution');
+    try {
+      const record = await this.records.create({ id: uuidv4(), marketId, attempt: (previous?.attempt ?? 0) + 1,
+        active: true, revision: 0, requestedBy: userId, outcome: dto.outcome, status: 'requested',
+        evidence: dto.evidence, requestedAt: new Date(), confirmations: [], disputes: [] });
+      return record.toObject();
+    } catch (error) {
+      if ((error as { code?: number }).code === 11000) throw new ConflictException('Market resolution request raced another request; reload');
+      throw error;
     }
-
-    const confirmation: ResolutionConfirmation = {
-      id: uuidv4(),
-      resolutionId,
-      marketId: resolution.marketId,
-      confirmedBy: userId,
-      txHash: dto.txHash,
-      blockNumber: dto.blockNumber,
-      confirmedAt: new Date(),
-    };
-
-    this.confirmations.set(confirmation.id, confirmation);
-
-    const existing = this.confirmationsByResolution.get(resolutionId) ?? [];
-    existing.push(confirmation.id);
-    this.confirmationsByResolution.set(resolutionId, existing);
-
-    // Mark resolution as confirmed once at least one confirmation is recorded
-    resolution.status = 'confirmed';
-    resolution.confirmedAt = new Date();
-    if (dto.txHash) resolution.txHash = dto.txHash;
-
-    this.logger.log(
-      `Resolution ${resolutionId} confirmed by user ${userId}${dto.txHash ? ` (tx: ${dto.txHash})` : ''}`,
-    );
+  }
+  async cancelResolution(userId: string, id: string): Promise<MarketResolution> {
+    const r = await this.getResolutionById(id);
+    if (r.requestedBy !== userId) throw new BadRequestException('Only the requester can cancel this resolution');
+    if (!['requested', 'pending'].includes(r.status)) throw new BadRequestException('Resolution cannot be cancelled in its current state');
+    return this.transition(r, { ...r, status: 'cancelled', active: false, cancelledAt: new Date() });
+  }
+  async confirmResolution(userId: string, id: string, dto: ConfirmResolutionDto): Promise<ResolutionConfirmation> {
+    const r = await this.getResolutionById(id);
+    if (!['requested', 'pending'].includes(r.status)) throw new BadRequestException('Resolution cannot be confirmed in its current state');
+    const verified = await this.evidence.verify(r, dto);
+    const confirmation: ResolutionConfirmation = { id: uuidv4(), resolutionId: id, marketId: r.marketId,
+      attempt: r.attempt, outcome: r.outcome, confirmedBy: userId, confirmedAt: new Date(), ...verified };
+    await this.transition(r, { ...r, status: 'confirmed', txHash: verified.txHash,
+      confirmedAt: confirmation.confirmedAt, confirmations: [...r.confirmations, confirmation] });
     return confirmation;
   }
-
-  getConfirmations(resolutionId: string): ResolutionConfirmation[] {
-    this.getResolutionById(resolutionId); // ensure it exists
-    const ids = this.confirmationsByResolution.get(resolutionId) ?? [];
-    return ids.map((id) => this.confirmations.get(id)!).filter(Boolean);
+  async getConfirmations(id: string): Promise<ResolutionConfirmation[]> {
+    return (await this.getResolutionById(id)).confirmations;
   }
-
-  // ── Finalise resolution ───────────────────────────────────────────────────────
-
-  /**
-   * Finalise a confirmed resolution, recording it in the audit trail (#914).
-   *
-   * This is the manual counterpart to `MarketResolverService.resolveMarket` and
-   * settles real stakes, so the outcome and the evidence trail behind it are
-   * captured durably rather than only in the in-memory resolution store — which
-   * is discarded on restart along with the entire dispute history.
-   *
-   * @param resolutionId - The resolution to finalise.
-   * @param actor - Optional finaliser identifier for the audit entry.
-   */
-  async finaliseResolution(
-    resolutionId: string,
-    actor?: string,
-  ): Promise<MarketResolution> {
-    const resolution = this.getResolutionById(resolutionId);
-
-    if (resolution.status !== 'confirmed') {
-      throw new BadRequestException(
-        `Resolution must be confirmed before finalising (current status: ${resolution.status})`,
-      );
-    }
-
-    const openDisputes = this.getDisputes(resolutionId).filter(
-      (d) => d.status === 'open' || d.status === 'under_review',
-    );
-    if (openDisputes.length > 0) {
-      throw new BadRequestException(
-        `Cannot finalise: ${openDisputes.length} open dispute(s) must be resolved first`,
-      );
-    }
-
-    const previousStatus = resolution.status;
-    // Bound to a local so the audit entry below gets a `Date`, not
-    // `Date | undefined` — `resolvedAt` is optional on the entity and
-    // strictNullChecks is on.
+  async finaliseResolution(id: string, actor?: string): Promise<MarketResolution> {
+    const r = await this.getResolutionById(id);
+    if (r.status !== 'confirmed' || !this.hasEvidence(r)) throw new BadRequestException('Current attempt requires verified confirmation before finalising');
+    if (r.disputes.some(d => ['open', 'under_review'].includes(d.status))) throw new BadRequestException('Open disputes must be reviewed first');
     const resolvedAt = new Date();
-    resolution.status = 'resolved';
-    resolution.resolvedAt = resolvedAt;
-    this.logger.log(
-      `Resolution ${resolutionId} finalised — market ${resolution.marketId} resolved as ${resolution.outcome}`,
-    );
-
-    await auditTrail.logMarketResolved({
-      marketId: resolution.marketId,
-      actor: actor ?? resolution.requestedBy,
-      outcome: resolution.outcome,
-      // A manual finalisation has no computed payout of its own; the oracle /
-      // resolver pipeline records that in MARKET_RESOLVED.
-      totalPayout: 0n,
-      resolvedAt,
-    });
-    void auditTrail.logMarketAction({
-      action: auditTrail.MARKET_AUDIT_ACTIONS.RESOLUTION_FINALISED,
-      marketId: resolution.marketId,
-      description: `Resolution ${resolutionId} finalised for market ${resolution.marketId} as ${resolution.outcome}`,
-      severity: 'HIGH',
-      metadata: {
-        resolutionId,
-        requestedBy: resolution.requestedBy,
-        txHash: resolution.txHash ?? null,
-        confirmations: this.getConfirmations(resolutionId).length,
-        disputes: this.getDisputes(resolutionId).length,
-      },
-      changes: {
-        before: { status: previousStatus },
-        after: { status: resolution.status, outcome: resolution.outcome },
-      },
-    });
-
-    return resolution;
+    const updated = await this.transition(r, { ...r, status: 'resolved', resolvedAt });
+    await auditTrail.logMarketResolved({ marketId: r.marketId, actor: actor ?? r.requestedBy,
+      outcome: r.outcome, totalPayout: 0n, resolvedAt });
+    await auditTrail.logMarketAction({ action: auditTrail.MARKET_AUDIT_ACTIONS.RESOLUTION_FINALISED,
+      marketId: r.marketId, description: 'Resolution ' + id + ' finalised', severity: 'HIGH',
+      metadata: { resolutionId: id, attempt: r.attempt, txHash: r.txHash,
+        confirmations: r.confirmations.length, disputes: r.disputes.length },
+      changes: { before: { status: r.status }, after: { status: updated.status, outcome: updated.outcome } } });
+    return updated;
   }
-
-  // ── Disputes ─────────────────────────────────────────────────────────────────
-
-  raiseDispute(
-    userId: string,
-    resolutionId: string,
-    dto: DisputeResolutionDto,
-  ): ResolutionDispute {
-    const resolution = this.getResolutionById(resolutionId);
-
-    if (!['requested', 'confirmed'].includes(resolution.status)) {
-      throw new BadRequestException(
-        `Cannot dispute a resolution with status: ${resolution.status}`,
-      );
-    }
-
-    const dispute: ResolutionDispute = {
-      id: uuidv4(),
-      resolutionId,
-      marketId: resolution.marketId,
-      disputedBy: userId,
-      reason: dto.reason,
-      status: 'open',
-      raisedAt: new Date(),
-    };
-
-    this.disputes.set(dispute.id, dispute);
-
-    const existing = this.disputesByResolution.get(resolutionId) ?? [];
-    existing.push(dispute.id);
-    this.disputesByResolution.set(resolutionId, existing);
-
-    // Flag the resolution as disputed
-    resolution.status = 'disputed';
-
-    this.logger.log(
-      `Dispute raised on resolution ${resolutionId} by user ${userId}`,
-    );
+  async raiseDispute(userId: string, id: string, dto: DisputeResolutionDto): Promise<ResolutionDispute> {
+    const r = await this.getResolutionById(id);
+    if (r.status !== 'requested' && r.status !== 'confirmed') throw new BadRequestException('Resolution cannot be disputed in its current state');
+    const dispute: ResolutionDispute = { id: uuidv4(), resolutionId: id, marketId: r.marketId,
+      attempt: r.attempt, priorStatus: r.status, disputedBy: userId, reason: dto.reason, status: 'open', raisedAt: new Date() };
+    await this.transition(r, { ...r, status: 'disputed', disputes: [...r.disputes, dispute] });
     return dispute;
   }
-
-  getDisputes(resolutionId: string): ResolutionDispute[] {
-    this.getResolutionById(resolutionId); // ensure it exists
-    const ids = this.disputesByResolution.get(resolutionId) ?? [];
-    return ids.map((id) => this.disputes.get(id)!).filter(Boolean);
-  }
-
-  getDisputeById(disputeId: string): ResolutionDispute {
-    const dispute = this.disputes.get(disputeId);
+  async getDisputes(id: string): Promise<ResolutionDispute[]> { return (await this.getResolutionById(id)).disputes; }
+  async getDisputeById(id: string): Promise<ResolutionDispute> {
+    const r = await this.records.findOne({ 'disputes.id': id }).lean().exec();
+    const dispute = r?.disputes.find(d => d.id === id);
     if (!dispute) throw new NotFoundException('Dispute not found');
     return dispute;
   }
-
-  reviewDispute(disputeId: string, dto: ReviewDisputeDto): ResolutionDispute {
-    const dispute = this.getDisputeById(disputeId);
-
-    if (dispute.status !== 'open' && dispute.status !== 'under_review') {
-      throw new BadRequestException(`Dispute is already ${dispute.status}`);
+  async reviewDispute(id: string, dto: ReviewDisputeDto): Promise<ResolutionDispute> {
+    if (!['upheld', 'rejected'].includes(dto.decision)) throw new BadRequestException('Invalid dispute decision');
+    const dispute = await this.getDisputeById(id);
+    const r = await this.getResolutionById(dispute.resolutionId);
+    if (r.status !== 'disputed' || dispute.attempt !== r.attempt || !['open', 'under_review'].includes(dispute.status)) {
+      throw new BadRequestException('Dispute is no longer reviewable');
     }
-
-    dispute.status = dto.decision === 'upheld' ? 'upheld' : 'rejected';
-    dispute.reviewNotes = dto.reviewNotes;
-    dispute.reviewedAt = new Date();
-    dispute.resolvedAt = new Date();
-
-    // If upheld, revert resolution to requested so it can be re-evaluated
+    const now = new Date();
+    const reviewed: ResolutionDispute = { ...dispute, status: dto.decision, reviewNotes: dto.reviewNotes, reviewedAt: now, resolvedAt: now };
+    const next = { ...r, disputes: r.disputes.map(d => d.id === id ? reviewed : d) };
     if (dto.decision === 'upheld') {
-      const resolution = this.resolutions.get(dispute.resolutionId);
-      if (resolution) {
-        resolution.status = 'requested';
-        resolution.confirmedAt = undefined;
-        this.logger.log(
-          `Dispute ${disputeId} upheld — resolution ${dispute.resolutionId} reverted to requested`,
-        );
-      }
+      // Seal the rejected attempt. A new POST creates a new ID and attempt version,
+      // with its own outcome and evidence; old evidence stays reserved for audit.
+      next.status = 'cancelled'; next.active = false; next.cancelledAt = now;
+      next.confirmedAt = undefined; next.txHash = undefined;
+      next.confirmations = r.confirmations.map(c => ({ ...c, invalidatedAt: now }));
     } else {
-      // If all disputes on this resolution are now rejected, restore confirmed status
-      const allDisputes = this.getDisputes(dispute.resolutionId);
-      const anyOpen = allDisputes.some(
-        (d) => d.status === 'open' || d.status === 'under_review',
-      );
-      if (!anyOpen) {
-        const resolution = this.resolutions.get(dispute.resolutionId);
-        if (resolution && resolution.status === 'disputed') {
-          resolution.status = 'confirmed';
-          this.logger.log(
-            `All disputes on resolution ${dispute.resolutionId} rejected — status restored to confirmed`,
-          );
-        }
-      }
+      next.status = dispute.priorStatus === 'confirmed' && this.hasEvidence(r) ? 'confirmed' : 'requested';
     }
-
-    return dispute;
+    await this.transition(r, next);
+    return reviewed;
   }
-
-  // ── Reports ──────────────────────────────────────────────────────────────────
-
-  generateReport(marketId: string): ResolutionReport {
-    const resolution = this.getStatus(marketId);
-    const resolutionId = resolution?.id;
-
-    const confirmations = resolutionId
-      ? this.getConfirmations(resolutionId)
-      : [];
-    const disputes = resolutionId ? this.getDisputes(resolutionId) : [];
-    const openDisputes = disputes.filter(
-      (d) => d.status === 'open' || d.status === 'under_review',
-    ).length;
-
-    const report: ResolutionReport = {
-      marketId,
-      resolution,
-      confirmations,
-      disputes,
-      totalDisputes: disputes.length,
-      openDisputes,
-      generatedAt: new Date(),
-    };
-
-    this.logger.log(`Resolution report generated for market ${marketId}`);
-    return report;
+  async generateReport(marketId: string): Promise<ResolutionReport> {
+    const resolution = await this.getStatus(marketId);
+    const record = resolution ? await this.getResolutionById(resolution.id) : null;
+    const confirmations = record?.confirmations ?? [];
+    const disputes = record?.disputes ?? [];
+    return { marketId: this.marketKey(marketId), resolution, confirmations, disputes,
+      totalDisputes: disputes.length, openDisputes: disputes.filter(d => ['open', 'under_review'].includes(d.status)).length,
+      generatedAt: new Date() };
   }
 }

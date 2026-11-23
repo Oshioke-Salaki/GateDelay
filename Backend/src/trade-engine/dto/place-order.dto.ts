@@ -20,6 +20,10 @@ export enum OrderSide {
 export class PlaceOrderDto {
   @IsString()
   @IsNotEmpty()
+  venueId: string;
+
+  @IsString()
+  @IsNotEmpty()
   pair: string;
 
   @IsEnum(OrderType)

@@ -136,9 +136,9 @@ contract Trading {
             rebate = 0;
         }
 
-        // Execute trade
+        // Execute trade with beneficiary set to actual trader
         collateral.approve(address(marketMaker), rawCost);
-        marketMaker.buy(marketId, outcome, shares, rawCost);
+        marketMaker.buyFor(marketId, msg.sender, outcome, shares, rawCost);
 
         emit TradeExecuted(msg.sender, marketId, outcome, true, shares, total, fee, rebate, referrer);
     }
@@ -150,7 +150,7 @@ contract Trading {
     /// @param shares Numeric shares used by this operation.
     /// @param minProceeds Minimum proceeds required.
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
-    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `rawProceeds <
+    /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `SlippageExceeded` if `actualProceeds <
     ///     minProceeds` is true.
     function executeSell(
         uint256 marketId,
@@ -160,14 +160,15 @@ contract Trading {
     ) external {
         if (shares == 0) revert ZeroAmount();
 
-        // Use the new getProcedsFromSell view for accurate sell quote.
-        uint256 rawProceeds = marketMaker.getProcedsFromSell(marketId, outcome, shares);
-        if (rawProceeds < minProceeds) revert SlippageExceeded();
+        // Get actual sell proceeds from MarketMaker
+        uint256 actualProceeds = marketMaker.getProceedsToSell(marketId, outcome, shares);
+        if (actualProceeds < minProceeds) revert SlippageExceeded();
 
-        // Execute sell with minProceeds protection. No on-chain fee/rebate taken.
-        marketMaker.sell(marketId, outcome, shares, minProceeds);
+        // Execute sell with sellFor to ensure trader's shares are consumed and proceeds delivered to trader.
+        // No on-chain fee/rebate taken.
+        marketMaker.sellFor(marketId, msg.sender, outcome, shares, minProceeds);
 
-        emit TradeExecuted(msg.sender, marketId, outcome, false, shares, rawProceeds, 0, 0, address(0));
+        emit TradeExecuted(msg.sender, marketId, outcome, false, shares, actualProceeds, 0, 0, address(0));
     }
 
     // ── Fee management ───────────────────────────────────────────────────────
