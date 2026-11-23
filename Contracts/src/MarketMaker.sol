@@ -145,6 +145,9 @@ contract MarketMaker {
     /// @notice Explicit allowlist of addresses permitted to approve resolution evidence.
     mapping(address => bool) public approvedEvidenceApprovers;
 
+    /// @notice Explicit allowlist of wrapper contracts permitted to call buyFor/sellFor on behalf of traders.
+    mapping(address => bool) public approvedWrappers;
+
     /// @dev marketId => evidenceHash => ResolutionEvidence
     mapping(uint256 => mapping(bytes32 => ResolutionEvidence)) private _approvedEvidences;
 
@@ -198,6 +201,7 @@ contract MarketMaker {
     event EvidenceApproverUpdated(address indexed approver, bool approved);
     event EvidenceStorageUpdated(address indexed evidenceStorage);
     event MarketFactoryUpdated(address indexed marketFactory);
+    event ApprovedWrapperUpdated(address indexed wrapper, bool approved);
     event MarketResolverUpdated(uint256 indexed marketId, address indexed oldResolver, address indexed newResolver);
     event MarketPauseUpdated(uint256 indexed marketId, bool paused);
 
@@ -276,6 +280,13 @@ contract MarketMaker {
         if (approver == address(0)) revert ZeroAddress();
         approvedEvidenceApprovers[approver] = approved;
         emit EvidenceApproverUpdated(approver, approved);
+    }
+
+    /// @notice Approve or revoke a wrapper contract allowed to call buyFor/sellFor/redeemFor.
+    function setApprovedWrapper(address wrapper, bool approved) external onlyOwner {
+        if (wrapper == address(0)) revert ZeroAddress();
+        approvedWrappers[wrapper] = approved;
+        emit ApprovedWrapperUpdated(wrapper, approved);
     }
 
     /// @notice Configure an external `EvidenceStorage` contract for verified resolution evidence.
@@ -415,8 +426,13 @@ contract MarketMaker {
     {
         if (marketId >= marketCount) revert InvalidMarket();
         if (trader == address(0)) revert ZeroAddress();
+        
         address linked = _marketMeta[marketId].factoryMarket;
-        if (linked == address(0) || msg.sender != linked) revert Unauthorized();
+        bool isLinkedFactory = linked != address(0) && msg.sender == linked;
+        bool isApprovedWrapper = approvedWrappers[msg.sender];
+        
+        if (!isLinkedFactory && !isApprovedWrapper) revert Unauthorized();
+        
         costAmt = _buy(marketId, msg.sender, trader, outcome, shares, maxCost);
     }
 
@@ -433,8 +449,13 @@ contract MarketMaker {
     {
         if (marketId >= marketCount) revert InvalidMarket();
         if (trader == address(0)) revert ZeroAddress();
+        
         address linked = _marketMeta[marketId].factoryMarket;
-        if (linked == address(0) || msg.sender != linked) revert Unauthorized();
+        bool isLinkedFactory = linked != address(0) && msg.sender == linked;
+        bool isApprovedWrapper = approvedWrappers[msg.sender];
+        
+        if (!isLinkedFactory && !isApprovedWrapper) revert Unauthorized();
+        
         proceeds = _sell(marketId, trader, outcome, shares, minProceeds);
     }
 
@@ -538,8 +559,13 @@ contract MarketMaker {
     function redeemFor(uint256 marketId, address trader) external nonReentrant returns (uint256 payout) {
         if (marketId >= marketCount) revert InvalidMarket();
         if (trader == address(0)) revert ZeroAddress();
+        
         address linked = _marketMeta[marketId].factoryMarket;
-        if (linked == address(0) || msg.sender != linked) revert Unauthorized();
+        bool isLinkedFactory = linked != address(0) && msg.sender == linked;
+        bool isApprovedWrapper = approvedWrappers[msg.sender];
+        
+        if (!isLinkedFactory && !isApprovedWrapper) revert Unauthorized();
+        
         payout = _redeem(marketId, trader);
     }
 

@@ -136,9 +136,9 @@ contract Trading {
             rebate = 0;
         }
 
-        // Execute trade
+        // Execute trade with beneficiary set to actual trader
         collateral.approve(address(marketMaker), rawCost);
-        marketMaker.buy(marketId, outcome, shares);
+        marketMaker.buyFor(marketId, msg.sender, outcome, shares, rawCost);
 
         emit TradeExecuted(msg.sender, marketId, outcome, true, shares, total, fee, rebate, referrer);
     }
@@ -164,8 +164,9 @@ contract Trading {
         uint256 rawProceeds = marketMaker.getCostToBuy(marketId, outcome, shares);
         if (rawProceeds < minProceeds) revert SlippageExceeded();
 
-        // Execute sell. No on-chain fee/rebate taken.
-        marketMaker.sell(marketId, outcome, shares);
+        // Execute sell with sellFor to ensure trader's shares are consumed and proceeds delivered to trader.
+        // No on-chain fee/rebate taken.
+        marketMaker.sellFor(marketId, msg.sender, outcome, shares, minProceeds);
 
         emit TradeExecuted(msg.sender, marketId, outcome, false, shares, rawProceeds, 0, 0, address(0));
     }

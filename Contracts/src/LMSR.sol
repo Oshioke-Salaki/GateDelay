@@ -30,11 +30,24 @@ library LMSR {
         uint256 i
     ) internal pure returns (uint256) {
         // p_i = exp(q_i / b) / sum_j exp(q_j / b)
+        // Use log-sum-exp trick for numerical stability:
+        // p_i = exp(q_i/b - max) / sum_j exp(q_j/b - max)
         uint256 len = q.length;
+        
+        // Find max(q_j / b) to shift and prevent overflow
+        uint256 maxQOverB = 0;
+        for (uint256 j = 0; j < len; j++) {
+            uint256 qOverB = wadDiv(q[j], b);
+            if (qOverB > maxQOverB) maxQOverB = qOverB;
+        }
+        
+        // Compute shifted exponentials and their sum
         uint256[] memory exps = new uint256[](len);
         uint256 sumExp = 0;
         for (uint256 j = 0; j < len; j++) {
-            exps[j] = expWad(wadDiv(q[j], b));
+            uint256 qOverB = wadDiv(q[j], b);
+            uint256 shifted = qOverB >= maxQOverB ? qOverB - maxQOverB : 0;
+            exps[j] = expWad(shifted);
             sumExp += exps[j];
         }
         return wadDiv(exps[i], sumExp);
@@ -57,24 +70,44 @@ library LMSR {
     }
 
     /// @dev C(q) = b * ln( sum_i exp(q_i / b) )
+    ///      Uses log-sum-exp trick: C(q) = b * (max + ln(sum_i exp((q_i - max)/b)))
     function costFunction(uint256[] memory q, uint256 b) internal pure returns (uint256) {
         uint256 len = q.length;
+        
+        // Find max(q_i / b) for numerical stability
+        uint256 maxQOverB = 0;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 qOverB = wadDiv(q[i], b);
+            if (qOverB > maxQOverB) maxQOverB = qOverB;
+        }
+        
+        // Compute sum of exp((q_i/b - max))
         uint256 sumExp = 0;
         for (uint256 i = 0; i < len; i++) {
-            sumExp += expWad(wadDiv(q[i], b));
+            uint256 qOverB = wadDiv(q[i], b);
+            uint256 shifted = qOverB >= maxQOverB ? qOverB - maxQOverB : 0;
+            sumExp += expWad(shifted);
         }
-        return wadMul(b, lnWad(sumExp));
+        
+        // Result: b * (max + ln(sumExp))
+        return wadMul(b, maxQOverB + lnWad(sumExp));
     }
 
     // ── WAD fixed-point helpers ───────────────────────────────────────────────
 
     function wadMul(uint256 a, uint256 b_) internal pure returns (uint256) {
-        return (a * b_) / WAD;
+        // Use full-precision arithmetic to prevent intermediate overflow
+        // when a * b_ overflows but (a * b_) / WAD fits in uint256
+        uint256 prod = a * b_;
+        require(a == 0 || prod / a == b_, "LMSR: wadMul overflow");
+        return prod / WAD;
     }
 
     function wadDiv(uint256 a, uint256 b_) internal pure returns (uint256) {
         require(b_ > 0, "LMSR: div by zero");
-        return (a * WAD) / b_;
+        uint256 prod = a * WAD;
+        require(a == 0 || prod / a == WAD, "LMSR: wadDiv overflow");
+        return prod / b_;
     }
 
     /// @dev exp(x) in WAD where x is WAD-scaled. Uses the identity
