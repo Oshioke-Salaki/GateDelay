@@ -94,10 +94,11 @@ contract MarketMaker {
     /// @param marketId Identifier of the relevant market.
     /// @param outcome Numeric outcome used by this operation.
     /// @param shares Numeric shares used by this operation.
+    /// @param maxCost Maximum cost caller is willing to pay; reverts if execution cost exceeds this.
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. "MM: non-positive cost" if `netCost > 0`
-    ///     is false.
-    function buy(uint256 marketId, uint256 outcome, uint256 shares) external {
+    ///     is false. "MM: cost exceeds maximum" if `costAmt > maxCost` is true.
+    function buy(uint256 marketId, uint256 outcome, uint256 shares, uint256 maxCost) external {
         if (shares == 0) revert ZeroAmount();
         Market storage m = _activeMarket(marketId, outcome);
 
@@ -107,6 +108,7 @@ contract MarketMaker {
         int256 netCost = LMSR.cost(m.quantities, qNew, m.b);
         require(netCost > 0, "MM: non-positive cost");
         uint256 costAmt = uint256(netCost);
+        require(costAmt <= maxCost, "MM: cost exceeds maximum");
 
         collateral.transferFrom(msg.sender, address(this), costAmt);
         m.quantities[outcome] += shares;
@@ -119,11 +121,12 @@ contract MarketMaker {
     /// @param marketId Identifier of the relevant market.
     /// @param outcome Numeric outcome used by this operation.
     /// @param shares Numeric shares used by this operation.
+    /// @param minProceeds Minimum proceeds caller is willing to accept; reverts if execution proceeds fall below this.
     /// @dev Access: Caller permissions are checked against the sender or assigned roles.
     /// @dev Reverts: `ZeroAmount` if `shares == 0` is true. `InsufficientShares` if
     ///     `positions[msg.sender][marketId][outcome] < shares` is true. "MM: non-negative proceeds"
-    ///     if `netCost < 0` is false.
-    function sell(uint256 marketId, uint256 outcome, uint256 shares) external {
+    ///     if `netCost < 0` is false. "MM: proceeds below minimum" if `proceeds < minProceeds` is true.
+    function sell(uint256 marketId, uint256 outcome, uint256 shares, uint256 minProceeds) external {
         if (shares == 0) revert ZeroAmount();
         if (positions[msg.sender][marketId][outcome] < shares) revert InsufficientShares();
         Market storage m = _activeMarket(marketId, outcome);
@@ -134,6 +137,7 @@ contract MarketMaker {
         int256 netCost = LMSR.cost(m.quantities, qNew, m.b);
         require(netCost < 0, "MM: non-negative proceeds");
         uint256 proceeds = uint256(-netCost);
+        require(proceeds >= minProceeds, "MM: proceeds below minimum");
 
         m.quantities[outcome] -= shares;
         positions[msg.sender][marketId][outcome] -= shares;
@@ -208,6 +212,20 @@ contract MarketMaker {
         qNew[outcome] += shares;
         int256 c = LMSR.cost(m.quantities, qNew, m.b);
         return c > 0 ? uint256(c) : 0;
+    }
+
+    /// @notice Proceeds from selling `shares` of `outcome`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Proceeds from sell returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    function getProcedsFromSell(uint256 marketId, uint256 outcome, uint256 shares) external view returns (uint256) {
+        Market storage m = markets[marketId];
+        uint256[] memory qNew = _copyQuantities(m);
+        qNew[outcome] -= shares;
+        int256 c = LMSR.cost(m.quantities, qNew, m.b);
+        return c < 0 ? uint256(-c) : 0;
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────

@@ -11,11 +11,12 @@ describe('MarketsController archive endpoint', () => {
     };
     cache = {
       getOrSet: jest.fn((_key, loader) => loader()),
+      get: jest.fn().mockResolvedValue(null),
     };
     controller = new MarketsController(resolver, cache);
   });
 
-  it('returns resolved and cancelled markets with archive metadata', () => {
+  it('returns resolved and cancelled markets with archive metadata', async () => {
     resolver.getAllMarkets.mockReturnValue([
       {
         id: 'm-1',
@@ -55,7 +56,7 @@ describe('MarketsController archive endpoint', () => {
       },
     ]);
 
-    const result = controller.getArchive({
+    const result = await controller.getArchive({
       category: 'crypto',
       outcome: 'yes',
       from: '2024-01-01T00:00:00.000Z',
@@ -76,7 +77,7 @@ describe('MarketsController archive endpoint', () => {
     expect(result.meta).toMatchObject({ total: 1, page: 1, limit: 10 });
   });
 
-  it('supports pagination and ignores malformed archive rows safely', () => {
+  it('supports pagination and ignores malformed archive rows safely', async () => {
     resolver.getAllMarkets.mockReturnValue([
       {
         id: 'm-1',
@@ -107,7 +108,7 @@ describe('MarketsController archive endpoint', () => {
       null,
     ]);
 
-    const result = controller.getArchive({ page: 2, limit: 1 });
+    const result = await controller.getArchive({ page: 2, limit: 1 });
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0].id).toBe('m-2');

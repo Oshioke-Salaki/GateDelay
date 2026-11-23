@@ -138,7 +138,7 @@ contract Trading {
 
         // Execute trade
         collateral.approve(address(marketMaker), rawCost);
-        marketMaker.buy(marketId, outcome, shares);
+        marketMaker.buy(marketId, outcome, shares, rawCost);
 
         emit TradeExecuted(msg.sender, marketId, outcome, true, shares, total, fee, rebate, referrer);
     }
@@ -160,12 +160,12 @@ contract Trading {
     ) external {
         if (shares == 0) revert ZeroAmount();
 
-        // MarketMaker does not expose a sell proceeds view, so we use getCostToBuy as a proxy.
-        uint256 rawProceeds = marketMaker.getCostToBuy(marketId, outcome, shares);
+        // Use the new getProcedsFromSell view for accurate sell quote.
+        uint256 rawProceeds = marketMaker.getProcedsFromSell(marketId, outcome, shares);
         if (rawProceeds < minProceeds) revert SlippageExceeded();
 
-        // Execute sell. No on-chain fee/rebate taken.
-        marketMaker.sell(marketId, outcome, shares);
+        // Execute sell with minProceeds protection. No on-chain fee/rebate taken.
+        marketMaker.sell(marketId, outcome, shares, minProceeds);
 
         emit TradeExecuted(msg.sender, marketId, outcome, false, shares, rawProceeds, 0, 0, address(0));
     }

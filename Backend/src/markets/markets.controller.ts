@@ -67,7 +67,7 @@ export class MarketsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Archived market list' })
-  getArchive(@Query() query: Record<string, unknown> = {}) {
+  async getArchive(@Query() query: Record<string, unknown> = {}) {
     const category =
       typeof query.category === 'string' ? query.category.trim().toLowerCase() : undefined;
     const outcome =
@@ -83,50 +83,95 @@ export class MarketsController {
     const toMs =
       typeof query.to === 'string' && query.to ? Date.parse(query.to) : undefined;
 
-    const archived = this.marketResolver
-      .getAllMarkets()
-      .filter((market) => !!market)
-      .filter((market) => market.status === 'resolved' || market.status === 'cancelled')
-      .filter((market) => {
-        if (category && (market.categoryId ?? '').toLowerCase() !== category) return false;
-        if (outcome === 'cancelled') {
-          if (market.status !== 'cancelled') return false;
-        } else if (market.status !== 'resolved') {
-          return false;
-        }
-        if (outcome && outcome !== 'cancelled') {
-          const outcomeValue = market.outcome?.toString().toLowerCase();
-          if (outcomeValue !== outcome) return false;
-        }
-        const resolutionTimestamp = market.resolvedAt?.getTime() ?? market.deadline.getTime();
-        if (fromMs !== undefined && resolutionTimestamp < fromMs) return false;
-        if (toMs !== undefined && resolutionTimestamp > toMs) return false;
-        return true;
-      })
-      .map((market) => ({
-        id: market.id,
-        title: market.title || market.id,
-        description: market.title || 'Archived market',
-        category: market.categoryId || 'general',
-        resolvedOutcome: market.status === 'cancelled' ? 'cancelled' : normalizeArchiveOutcome(market.outcome?.toString()),
-        resolutionDate: (market.resolvedAt ?? market.deadline).toISOString(),
-        volume: Number((market.totalYesStake ?? 0n) + (market.totalNoStake ?? 0n)),
-        participants: 0,
-        createdAt: new Date(market.deadline).toISOString(),
-        endDate: new Date(market.deadline).toISOString(),
-        finalPrice: 0,
-      }))
-      .sort(
-        (left, right) =>
-          new Date(left.resolutionDate).getTime() -
-          new Date(right.resolutionDate).getTime(),
-      );
+    const archived = await Promise.all(
+      this.marketResolver
+        .getAllMarkets()
+        .filter((market) => !!market)
+        .filter((market) => market.status === 'resolved' || market.status === 'cancelled')
+        .filter((market) => {
+          if (category && (market.categoryId ?? '').toLowerCase() !== category) return false;
+          if (outcome === 'cancelled') {
+            if (market.status !== 'cancelled') return false;
+          } else if (market.status !== 'resolved') {
+            return false;
+          }
+          if (outcome && outcome !== 'cancelled') {
+            const outcomeValue = market.outcome?.toString().toLowerCase();
+            if (outcomeValue !== outcome) return false;
+          }
+          const resolutionTimestamp = market.resolvedAt?.getTime() ?? market.deadline.getTime();
+          if (fromMs !== undefined && resolutionTimestamp < fromMs) return false;
+          if (toMs !== undefined && resolutionTimestamp > toMs) return false;
+          return true;
+        })
+        .map(async (market) => {
+          // Fetch metadata with actual createdAt
+          let createdAt = market.deadline; // fallback
+          try {
+            const metadata = await this.cache.get<{ createdAt?: Date }>(
+              `metadata:${market.id}`,
+            );
+            if (metadata?.createdAt) {
+              createdAt = metadata.createdAt;
+            }
+          } catch {
+            // Use deadline as fallback
+          }
 
-    const total = archived.length;
+          // Count unique participants from trade history
+          let participants = 0;
+          try {
+            const OnChainTrade = nodeRequire('../../models/OnChainTrade');
+            const uniqueTraders = await OnChainTrade.distinct('trader', {
+              marketId: market.id,
+            });
+            participants = uniqueTraders.length;
+          } catch {
+            // If trade data unavailable, leave as 0
+          }
+
+          // Calculate final price from resolved outcome and stakes
+          let finalPrice = 0;
+          if (market.status === 'resolved' && market.outcome) {
+            const totalStake = market.totalYesStake + market.totalNoStake;
+            if (totalStake > 0n) {
+              const winningStake =
+                market.outcome === 'YES' ? market.totalYesStake : market.totalNoStake;
+              // Convert to Number with proper scaling (assuming WAD 18 decimals)
+              finalPrice = Number(winningStake) / Number(totalStake);
+            }
+          }
+
+          return {
+            id: market.id,
+            title: market.title || market.id,
+            description: market.title || 'Archived market',
+            category: market.categoryId || 'general',
+            resolvedOutcome:
+              market.status === 'cancelled'
+                ? 'cancelled'
+                : normalizeArchiveOutcome(market.outcome?.toString()),
+            resolutionDate: (market.resolvedAt ?? market.deadline).toISOString(),
+            volume: Number((market.totalYesStake ?? 0n) + (market.totalNoStake ?? 0n)),
+            participants,
+            createdAt: createdAt.toISOString(),
+            endDate: market.deadline.toISOString(),
+            finalPrice,
+          };
+        }),
+    );
+
+    const sorted = archived.sort(
+      (left, right) =>
+        new Date(left.resolutionDate).getTime() -
+        new Date(right.resolutionDate).getTime(),
+    );
+
+    const total = sorted.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const pageIndex = Math.min(page, totalPages);
     const start = (pageIndex - 1) * limit;
-    const data = archived.slice(start, start + limit);
+    const data = sorted.slice(start, start + limit);
 
     return {
       success: true,
