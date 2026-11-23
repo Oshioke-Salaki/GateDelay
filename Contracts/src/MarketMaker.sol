@@ -120,6 +120,20 @@ contract MarketMaker {
     // ── State ─────────────────────────────────────────────────────────────────
 
     ERC20Token public immutable collateral;
+
+    /// @notice WAD shares per collateral base unit: `10**(18 - collateral.decimals())`.
+    /// @dev Units: outcome shares, LMSR quantities, `b` and liabilities are WAD
+    ///      (1e18 shares redeem for one whole token). Reserves, subsidies, costs,
+    ///      proceeds and payouts are collateral base units. Conversions always
+    ///      round in the market's favour:
+    ///        - buy cost and required subsidy round up   (`_toCollateralUp`)
+    ///        - sell proceeds and redemption round down  (`_toCollateralDown`)
+    ///        - solvency checks compare the reserve with the liability rounded up.
+    ///      Since the reserve is an integer, `reserve >= liabilityWad / scale`
+    ///      implies `reserve >= ceil(...)`, so the conservative check never rejects
+    ///      a trade that the WAD-level LMSR invariant allows.
+    uint256 public immutable collateralScale;
+
     address public owner;
     address public marketFactory;
     address public defaultResolver;
@@ -233,12 +247,16 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
+    error UnsupportedCollateralDecimals(uint8 decimals);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     constructor(address _collateral) {
         if (_collateral == address(0)) revert ZeroAddress();
         collateral = ERC20Token(_collateral);
+        uint8 decimals = ERC20Token(_collateral).decimals();
+        if (decimals > 18) revert UnsupportedCollateralDecimals(decimals);
+        collateralScale = 10 ** (18 - uint256(decimals));
         owner = msg.sender;
     }
 
@@ -333,9 +351,10 @@ contract MarketMaker {
 
     // ── Market lifecycle ──────────────────────────────────────────────────────
 
-    /// @notice Compute the minimum initial collateral subsidy required for LMSR solvency.
-    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) public pure returns (uint256) {
-        return LMSR.initialSubsidy(numOutcomes, b);
+    /// @notice Minimum initial subsidy, in collateral base units, for LMSR solvency
+    ///         of a market with `numOutcomes` outcomes and WAD liquidity `b`.
+    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) public view returns (uint256) {
+        return _toCollateralUp(LMSR.initialSubsidy(numOutcomes, b));
     }
 
     /// @notice Create a new funded, timed, resolver-gated LMSR market directly.
@@ -626,7 +645,7 @@ contract MarketMaker {
         uint256 expOutcomeNew = LMSR.expWad(((qOutcomeOld + shares) * LMSR.WAD) / b);
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
-        return cNew > cOld ? cNew - cOld : 0;
+        return cNew > cOld ? _toCollateralUp(cNew - cOld) : 0;
     }
 
     /// @notice Collateral proceeds returned for selling `shares` of `outcome` in market `marketId`.
@@ -658,7 +677,7 @@ contract MarketMaker {
         uint256 expOutcomeNew = qOutcomeNew == 0 ? LMSR.WAD : LMSR.expWad((qOutcomeNew * LMSR.WAD) / b);
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
-        return cOld > cNew ? cOld - cNew : 0;
+        return cOld > cNew ? _toCollateralDown(cOld - cNew) : 0;
     }
 
     /// @notice Return the current outcome quantities array for `marketId`.
@@ -709,7 +728,7 @@ contract MarketMaker {
     function isMarketSolvent(uint256 marketId) external view returns (bool) {
         if (marketId >= marketCount) revert InvalidMarket();
         MarketAccountingStorage storage acc = _accounting[marketId];
-        return acc.collateralReserve >= (acc.maxLiabilityPlusOne - 1);
+        return acc.collateralReserve >= _toCollateralUp(acc.maxLiabilityPlusOne - 1);
     }
 
     /// @notice Return approved evidence metadata for `(marketId, evidenceHash)`.
@@ -818,7 +837,7 @@ contract MarketMaker {
             uint256 newReserve = currentReserve + costAmt;
             uint256 currentLiability = uint256(acc.maxLiabilityPlusOne) - 1;
             uint256 newMaxLiability = newOutcomeQty > currentLiability ? newOutcomeQty : currentLiability;
-            if (newReserve < newMaxLiability) revert InsufficientMarketReserve();
+            if (newReserve < _toCollateralUp(newMaxLiability)) revert InsufficientMarketReserve();
             if (newReserve > type(uint128).max || newMaxLiability >= type(uint128).max) revert ReserveOverflow();
 
             _pullCollateral(payer, costAmt);
@@ -856,7 +875,7 @@ contract MarketMaker {
         if (proceeds > currentReserve) revert InsufficientMarketReserve();
 
         uint256 newReserve = currentReserve - proceeds;
-        if (newReserve < newMaxLiability) revert InsufficientMarketReserve();
+        if (newReserve < _toCollateralUp(newMaxLiability)) revert InsufficientMarketReserve();
 
         m.quantities[outcome] -= shares;
         positions[trader][marketId][outcome] -= shares;
@@ -897,7 +916,7 @@ contract MarketMaker {
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
         require(cNew > cOld, "MM: non-positive cost");
-        costAmt = cNew - cOld;
+        costAmt = _toCollateralUp(cNew - cOld);
     }
 
     function _quoteSellProceedsAndMaxQty(Market storage m, uint256 outcome, uint256 shares)
@@ -930,7 +949,7 @@ contract MarketMaker {
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
         require(cOld > cNew, "MM: non-negative proceeds");
-        proceeds = cOld - cNew;
+        proceeds = _toCollateralDown(cOld - cNew);
     }
 
     function _validateResolverAndTiming(uint256 marketId, uint256 winningOutcome) internal view {
@@ -956,7 +975,7 @@ contract MarketMaker {
         MarketAccountingStorage storage acc = _accounting[marketId];
 
         uint256 winningLiability = m.quantities[winningOutcome];
-        if (acc.collateralReserve < winningLiability) revert InsufficientMarketReserve();
+        if (acc.collateralReserve < _toCollateralUp(winningLiability)) revert InsufficientMarketReserve();
 
         m.resolved = true;
         m.winningOutcome = winningOutcome;
@@ -976,26 +995,40 @@ contract MarketMaker {
         emit MarketResolvedWithEvidence(marketId, winningOutcome, msg.sender, evidenceHash, evidenceURI);
     }
 
-    function _redeem(uint256 marketId, address trader) internal returns (uint256 shares) {
+    /// @dev Pays `floor(shares / collateralScale)` base units. Shares below one base
+    ///      unit pay 0 but are still burned, so dust can't block residual withdrawal.
+    function _redeem(uint256 marketId, address trader) internal returns (uint256 payout) {
         if (marketId >= marketCount) revert InvalidMarket();
         Market storage m = markets[marketId];
         if (!m.resolved) revert MarketNotResolved();
 
-        shares = positions[trader][marketId][m.winningOutcome];
+        uint256 shares = positions[trader][marketId][m.winningOutcome];
         if (shares == 0) revert ZeroAmount();
 
         MarketAccountingStorage storage acc = _accounting[marketId];
         uint256 remainingLiability = acc.maxLiabilityPlusOne - 1;
-        if (shares > acc.collateralReserve || shares > remainingLiability) revert InsufficientMarketReserve();
+        payout = _toCollateralDown(shares);
+        if (payout > acc.collateralReserve || shares > remainingLiability) revert InsufficientMarketReserve();
 
         positions[trader][marketId][m.winningOutcome] = 0;
-        acc.collateralReserve = uint128(uint256(acc.collateralReserve) - shares);
-        acc.totalRedeemed += shares;
+        acc.collateralReserve = uint128(uint256(acc.collateralReserve) - payout);
+        acc.totalRedeemed += payout;
         acc.maxLiabilityPlusOne = uint128((remainingLiability - shares) + 1);
-        totalReservedCollateral -= shares;
+        totalReservedCollateral -= payout;
 
-        _pushCollateral(trader, shares);
-        emit Redeemed(marketId, trader, shares);
+        if (payout != 0) _pushCollateral(trader, payout);
+        emit Redeemed(marketId, trader, payout);
+    }
+
+    /// @dev WAD shares -> collateral base units, rounded up (amounts owed to the market).
+    function _toCollateralUp(uint256 wad) internal view returns (uint256) {
+        uint256 scale = collateralScale;
+        return scale == 1 ? wad : (wad + scale - 1) / scale;
+    }
+
+    /// @dev WAD shares -> collateral base units, rounded down (amounts paid by the market).
+    function _toCollateralDown(uint256 wad) internal view returns (uint256) {
+        return wad / collateralScale;
     }
 
     function _copyQuantities(Market storage m) internal view returns (uint256[] memory q) {

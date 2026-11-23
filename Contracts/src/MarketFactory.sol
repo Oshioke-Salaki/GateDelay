@@ -25,7 +25,8 @@ interface IMarketMakerCanonical {
     }
 
     function collateral() external view returns (address);
-    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) external pure returns (uint256);
+    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) external view returns (uint256);
+    function collateralScale() external view returns (uint256);
     function createFactoryMarket(FactoryMarketParams calldata params) external returns (uint256 marketId);
     function setMarketPaused(uint256 marketId, bool paused) external;
 }
@@ -222,7 +223,9 @@ contract MarketFactory {
             _deployAndRegisterMarket(collateralToken, resolutionDeadline, minLiquidity, metadataURI);
 
         if (marketMaker != address(0)) {
-            uint256 requiredSub = IMarketMakerCanonical(marketMaker).requiredInitialSubsidy(2, scaledMinLiquidity);
+            // LMSR `b` is in WAD shares; scaledMinLiquidity is in collateral base units.
+            uint256 liquidityB = scaledMinLiquidity * IMarketMakerCanonical(marketMaker).collateralScale();
+            uint256 requiredSub = IMarketMakerCanonical(marketMaker).requiredInitialSubsidy(2, liquidityB);
             uint256 subsidy = requiredSub > scaledMinLiquidity ? requiredSub : scaledMinLiquidity;
             _linkCanonicalMarket(
                 CanonicalLinkParams({
@@ -231,7 +234,7 @@ contract MarketFactory {
                     resolutionDeadline: resolutionDeadline,
                     scaledMinLiquidity: scaledMinLiquidity,
                     numOutcomes: 2,
-                    liquidityB: scaledMinLiquidity,
+                    liquidityB: liquidityB,
                     initialSubsidy: subsidy,
                     resolver: defaultResolver
                 }),
