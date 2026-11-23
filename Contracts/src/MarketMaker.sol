@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./LMSR.sol";
-import "./ERC20Token.sol";
 
 /// @notice Minimal interface to verify approved evidence stored in `EvidenceStorage`.
 interface IEvidenceStorage {
@@ -35,6 +36,7 @@ interface IMarketFactorySync {
 ///         1:1 alignment with `MarketFactory`-deployed `PredictionMarket` instances.
 contract MarketMaker {
     using LMSR for uint256[];
+    using SafeERC20 for IERC20;
 
     // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -119,7 +121,7 @@ contract MarketMaker {
 
     // ── State ─────────────────────────────────────────────────────────────────
 
-    ERC20Token public immutable collateral;
+    IERC20 public immutable collateral;
     address public owner;
     address public marketFactory;
     address public defaultResolver;
@@ -238,7 +240,7 @@ contract MarketMaker {
 
     constructor(address _collateral) {
         if (_collateral == address(0)) revert ZeroAddress();
-        collateral = ERC20Token(_collateral);
+        collateral = IERC20(_collateral);
         owner = msg.sender;
     }
 
@@ -1007,14 +1009,12 @@ contract MarketMaker {
     }
 
     function _pullCollateral(address from, uint256 amount) internal {
-        bool ok = collateral.transferFrom(from, address(this), amount);
-        if (!ok) revert TransferFailed();
+        collateral.safeTransferFrom(from, address(this), amount);
     }
 
     function _pullCollateralExact(address from, uint256 amount) internal {
         uint256 balanceBefore = collateral.balanceOf(address(this));
-        bool ok = collateral.transferFrom(from, address(this), amount);
-        if (!ok) revert TransferFailed();
+        collateral.safeTransferFrom(from, address(this), amount);
         uint256 balanceAfter = collateral.balanceOf(address(this));
         if (balanceAfter < balanceBefore || balanceAfter - balanceBefore != amount) {
             revert TransferFailed();
@@ -1022,7 +1022,6 @@ contract MarketMaker {
     }
 
     function _pushCollateral(address to, uint256 amount) internal {
-        bool ok = collateral.transfer(to, amount);
-        if (!ok) revert TransferFailed();
+        collateral.safeTransfer(to, amount);
     }
 }

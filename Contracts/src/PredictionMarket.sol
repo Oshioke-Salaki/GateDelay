@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./PositionToken.sol";
 
 /// @notice Minimal interface to the canonical LMSR `MarketMaker` engine.
@@ -30,6 +31,8 @@ interface IMarketMakerAdapter {
 ///      pricing, position accounting, collateral reserves, resolution, and redemptions
 ///      are owned by `MarketMaker` as the single source of truth.
 contract PredictionMarket {
+    using SafeERC20 for IERC20;
+
     // -------------------------------------------------------------------------
     // Custom errors
     // -------------------------------------------------------------------------
@@ -193,12 +196,10 @@ contract PredictionMarket {
         if (state != MarketState.OPEN) revert InvalidMarketState();
         if (amount == 0) revert ZeroAmount();
 
-        bool ok = IERC20(collateralToken).transferFrom(msg.sender, address(this), amount);
-        if (!ok) revert TransferFailed();
+        IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), amount);
 
         if (canonicalBound) {
-            bool approved = IERC20(collateralToken).approve(marketMaker, amount);
-            if (!approved) revert TransferFailed();
+            IERC20(collateralToken).forceApprove(marketMaker, amount);
             IMarketMakerAdapter(marketMaker).fundMarket(canonicalMarketId, amount);
         }
 
@@ -279,11 +280,8 @@ contract PredictionMarket {
         if (quotedCost == 0) revert ZeroAmount();
         if (quotedCost > maxCost) revert SlippageExceeded();
 
-        bool pulled = IERC20(collateralToken).transferFrom(msg.sender, address(this), quotedCost);
-        if (!pulled) revert TransferFailed();
-
-        bool approved = IERC20(collateralToken).approve(marketMaker, quotedCost);
-        if (!approved) revert TransferFailed();
+        IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), quotedCost);
+        IERC20(collateralToken).forceApprove(marketMaker, quotedCost);
 
         cost = IMarketMakerAdapter(marketMaker).buyFor(canonicalMarketId, msg.sender, outcome, shares, maxCost);
         emit CanonicalTradeExecuted(msg.sender, true, outcome, shares, cost);
@@ -325,9 +323,8 @@ contract PredictionMarket {
         uint256 collateralAmount = shares;
         require(collateralAmount > 0, "Payment required");
         
-        bool ok = IERC20(collateralToken).transferFrom(msg.sender, address(this), collateralAmount);
-        if (!ok) revert TransferFailed();
-        
+        IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), collateralAmount);
+
         totalLiquidity += collateralAmount;
 
         PositionToken(positionToken).mint(msg.sender, _positionId(outcome), shares, "");
@@ -407,8 +404,7 @@ contract PredictionMarket {
         PositionToken(positionToken).burn(msg.sender, _positionId(winningOutcome), shares);
         userPositions[msg.sender][winningOutcome] = 0;
 
-        bool ok = IERC20(collateralToken).transfer(msg.sender, shares);
-        if (!ok) revert TransferFailed();
+        IERC20(collateralToken).safeTransfer(msg.sender, shares);
     }
 
     // -------------------------------------------------------------------------
