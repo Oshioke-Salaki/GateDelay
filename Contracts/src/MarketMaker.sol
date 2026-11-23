@@ -160,8 +160,16 @@ contract MarketMaker {
     /// @dev Originating MarketFactory that registered each factory-linked marketId
     mapping(uint256 => address) private _marketOriginFactory;
 
-    /// @dev Reentrancy guard state (1 = unlocked, 2 = locked)
-    uint256 private _locked = 1;
+    /// @dev Reentrancy guard state (1 = unlocked, 2 = locked). Packed with
+    ///      `tradingHalted` so the halt check on every trade reads a slot the
+    ///      reentrancy guard has already loaded.
+    uint8 private _locked = 1;
+
+    /// @notice Contract-wide emergency halt. See `haltTrading` for the policy.
+    bool public tradingHalted;
+
+    /// @notice Address allowed to halt (not resume) trading alongside the owner.
+    address public pauseGuardian;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -204,6 +212,9 @@ contract MarketMaker {
     event ApprovedWrapperUpdated(address indexed wrapper, bool approved);
     event MarketResolverUpdated(uint256 indexed marketId, address indexed oldResolver, address indexed newResolver);
     event MarketPauseUpdated(uint256 indexed marketId, bool paused);
+    event TradingHalted(address indexed by);
+    event TradingResumed(address indexed by);
+    event PauseGuardianUpdated(address indexed guardian);
 
     // ── Errors ────────────────────────────────────────────────────────────────
 
@@ -233,6 +244,7 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
+    error TradingIsHalted();
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -244,6 +256,11 @@ contract MarketMaker {
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+
+    modifier whenTradingNotHalted() {
+        if (tradingHalted) revert TradingIsHalted();
         _;
     }
 
@@ -331,6 +348,39 @@ contract MarketMaker {
         emit MarketPauseUpdated(marketId, paused);
     }
 
+    // ── Emergency trading controls ─────────────────────────────────────────────
+    //
+    // Policy while `tradingHalted` is true:
+    //   Blocked: buy, buyFor, sell, sellFor, createMarket, createFactoryMarket.
+    //   Allowed: evidence approval/revocation, resolve*, redeem/redeemFor,
+    //            withdrawResidualReserve, fundMarket and all views.
+    // So a halt freezes prices and exposure but never traps funds: markets can
+    // still be resolved on schedule and winners redeem from their isolated
+    // reserves. Recovery is owner-only `resumeTrading()`; the guardian can only
+    // halt, so a compromised guardian key can delay trading but not unfreeze it.
+    // Per-market pauses (`setMarketPaused`) are independent and still apply.
+
+    /// @notice Set (or clear with address(0)) the guardian allowed to halt trading.
+    function setPauseGuardian(address guardian) external onlyOwner {
+        pauseGuardian = guardian;
+        emit PauseGuardianUpdated(guardian);
+    }
+
+    /// @notice Halt trading and market creation on every market. Owner or guardian.
+    function haltTrading() external {
+        if (msg.sender != owner && (pauseGuardian == address(0) || msg.sender != pauseGuardian)) {
+            revert Unauthorized();
+        }
+        tradingHalted = true;
+        emit TradingHalted(msg.sender);
+    }
+
+    /// @notice Resume trading after an emergency halt. Owner only.
+    function resumeTrading() external onlyOwner {
+        tradingHalted = false;
+        emit TradingResumed(msg.sender);
+    }
+
     // ── Market lifecycle ──────────────────────────────────────────────────────
 
     /// @notice Compute the minimum initial collateral subsidy required for LMSR solvency.
@@ -346,7 +396,7 @@ contract MarketMaker {
         uint256 resolutionTime,
         address resolver,
         uint256 initialSubsidy
-    ) external nonReentrant returns (uint256 marketId) {
+    ) external nonReentrant whenTradingNotHalted returns (uint256 marketId) {
         marketId = _createMarket(
             CreateMarketParams({
                 funder: msg.sender,
@@ -367,6 +417,7 @@ contract MarketMaker {
     function createFactoryMarket(FactoryMarketParams calldata params)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 marketId)
     {
         if (marketFactory == address(0) || msg.sender != marketFactory) revert Unauthorized();
@@ -414,7 +465,7 @@ contract MarketMaker {
     // ── Trading ───────────────────────────────────────────────────────────────
 
     /// @notice Buy `shares` of `outcome` in market `marketId`.
-    function buy(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant {
+    function buy(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant whenTradingNotHalted {
         _buy(marketId, msg.sender, msg.sender, outcome, shares, type(uint256).max);
     }
 
@@ -422,6 +473,7 @@ contract MarketMaker {
     function buyFor(uint256 marketId, address trader, uint256 outcome, uint256 shares, uint256 maxCost)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 costAmt)
     {
         if (marketId >= marketCount) revert InvalidMarket();
@@ -437,7 +489,7 @@ contract MarketMaker {
     }
 
     /// @notice Sell `shares` of `outcome` in market `marketId`.
-    function sell(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant {
+    function sell(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant whenTradingNotHalted {
         _sell(marketId, msg.sender, outcome, shares, 0);
     }
 
@@ -445,6 +497,7 @@ contract MarketMaker {
     function sellFor(uint256 marketId, address trader, uint256 outcome, uint256 shares, uint256 minProceeds)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 proceeds)
     {
         if (marketId >= marketCount) revert InvalidMarket();
