@@ -2,7 +2,7 @@ import { PositionsService, decimalRatio } from './positions.service';
 import { StoredPosition } from './position.schema';
 
 describe('exact position presentation', () => {
-  const service = new PositionsService(null as any, null as any, null as any);
+  const service = new PositionsService(null as any, null as any, null as any, null as any);
   const present = (p: StoredPosition) => (service as any).present(p);
   const holding: StoredPosition = {
     id: 'p', userId: 'u', account: 'a', chainId: '1', contract: 'c', marketId: '0', side: 'YES',
