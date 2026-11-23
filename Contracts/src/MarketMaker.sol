@@ -117,6 +117,14 @@ contract MarketMaker {
         uint256 minLiquidity;
     }
 
+    // ── Constants ─────────────────────────────────────────────────────────────
+
+    /// @notice Maximum outcomes per market. Every buy/sell quote loops over all
+    ///         outcomes (one cold SLOAD + one `expWad` each, ~3.2k gas), so a
+    ///         trade on a 64-outcome market costs roughly 215k gas cold: well
+    ///         inside block limits even when routed through `PredictionMarket`.
+    uint256 public constant MAX_OUTCOMES = 64;
+
     // ── State ─────────────────────────────────────────────────────────────────
 
     ERC20Token public immutable collateral;
@@ -233,6 +241,7 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
+    error TooManyOutcomes(uint256 provided, uint256 max);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -741,6 +750,7 @@ contract MarketMaker {
         returns (uint256 marketId)
     {
         require(params.numOutcomes >= 2, "MM: need >= 2 outcomes");
+        if (params.numOutcomes > MAX_OUTCOMES) revert TooManyOutcomes(params.numOutcomes, MAX_OUTCOMES);
         require(params.b > 0, "MM: b must be > 0");
         if (params.resolutionTime <= block.timestamp || params.resolutionTime > type(uint64).max) {
             revert InvalidResolutionTime();

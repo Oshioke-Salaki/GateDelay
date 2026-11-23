@@ -244,7 +244,7 @@ contract MarketFactory {
     ///         funded, timed, resolver-gated canonical LMSR market in `MarketMaker`.
     /// @param resolutionDeadline Unix timestamp strictly greater than block.timestamp.
     /// @param minLiquidity Minimum liquidity required in whole tokens (scaled by collateral decimals).
-    /// @param numOutcomes Number of LMSR outcomes (>= 2).
+    /// @param numOutcomes Number of LMSR outcomes (2 to `MarketMaker.MAX_OUTCOMES`, currently 64).
     /// @param liquidityB LMSR liquidity parameter `b` (WAD).
     /// @param initialSubsidy Initial collateral reserve collected from `msg.sender` (>= required LMSR subsidy).
     /// @param resolver Approved resolver address (or zero to fall back to `defaultResolver`).
