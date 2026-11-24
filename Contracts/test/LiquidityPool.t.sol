@@ -267,3 +267,462 @@ contract LiquidityPoolTest is Test {
         assertEq(pool.totalLiquidity(), 50 ether);
     }
 }
+
+"use client";
+
+import { useEffect, useState } from "react";
+
+/* =========================================================
+   1. TYPES AND INTERFACES
+========================================================= */
+
+export interface TimelineEvent {
+  id: string;
+  type: string;
+  title: string;
+  description?: string;
+  timestamp: string;
+  transactionHash?: string;
+  source: "contract" | "backend";
+}
+
+export interface LiquidityRecord {
+  timestamp: string;
+  tokenAmount: number;
+  usdValue: number;
+  bidDepth?: number;
+  askDepth?: number;
+}
+
+export interface ConfirmedFill {
+  id: string;
+  timestamp: string;
+  quantity: number;
+  price: number;
+  status: "confirmed";
+}
+
+type Timeframe = "24h" | "7d" | "30d" | "90d";
+
+/* =========================================================
+   2. API CONFIGURATION
+========================================================= */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+async function fetchApi<T>(endpoint: string): Promise<T> {
+  if (!API_URL) {
+    throw new Error("API URL is not configured");
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+/* =========================================================
+   3. EVENT TIMELINE SERVICE
+========================================================= */
+
+export async function getTimelineEvents(
+  contractAddress: string
+): Promise<TimelineEvent[]> {
+  const [contractEvents, lifecycleEvents] = await Promise.all([
+    fetchApi<TimelineEvent[]>(
+      `/contracts/${encodeURIComponent(contractAddress)}/events`
+    ),
+    fetchApi<TimelineEvent[]>(
+      `/contracts/${encodeURIComponent(contractAddress)}/lifecycle`
+    ),
+  ]);
+
+  const uniqueEvents = new Map<string, TimelineEvent>();
+
+  [...contractEvents, ...lifecycleEvents].forEach((event) => {
+    if (!event.id || !Number.isFinite(Date.parse(event.timestamp))) {
+      return;
+    }
+
+    const key = `${event.source}:${event.id}`;
+
+    uniqueEvents.set(key, event);
+  });
+
+  return Array.from(uniqueEvents.values()).sort(
+    (a, b) =>
+      Date.parse(b.timestamp) - Date.parse(a.timestamp)
+  );
+}
+
+/* =========================================================
+   4. LIQUIDITY SERVICE
+========================================================= */
+
+export async function getLiquidityRecords(
+  marketId: string
+): Promise<LiquidityRecord[]> {
+  const records = await fetchApi<LiquidityRecord[]>(
+    `/markets/${encodeURIComponent(marketId)}/liquidity`
+  );
+
+  return records.filter(
+    (record) =>
+      Number.isFinite(Date.parse(record.timestamp)) &&
+      Number.isFinite(record.tokenAmount) &&
+      Number.isFinite(record.usdValue)
+  );
+}
+
+/* =========================================================
+   5. CONFIRMED FILLS SERVICE
+========================================================= */
+
+export async function getConfirmedFills(
+  marketId: string,
+  timeframe: Timeframe
+): Promise<ConfirmedFill[]> {
+  const fills = await fetchApi<ConfirmedFill[]>(
+    `/markets/${encodeURIComponent(marketId)}/fills?timeframe=${timeframe}&status=confirmed`
+  );
+
+  return fills.filter(
+    (fill) =>
+      fill.status === "confirmed" &&
+      Number.isFinite(Date.parse(fill.timestamp)) &&
+      Number.isFinite(fill.quantity) &&
+      Number.isFinite(fill.price) &&
+      fill.quantity >= 0 &&
+      fill.price >= 0
+  );
+}
+
+/* =========================================================
+   6. EVENT TIMELINE COMPONENT
+========================================================= */
+
+export function EventTimeline({
+  contractAddress,
+}: {
+  contractAddress: string;
+}) {
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadEvents() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getTimelineEvents(contractAddress);
+
+        if (active) setEvents(data);
+      } catch {
+        if (active) setError("Unable to load timeline events.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [contractAddress]);
+
+  if (loading) return <p>Loading timeline...</p>;
+  if (error) return <p>{error}</p>;
+  if (!events.length) return <p>No events recorded yet.</p>;
+
+  return (
+    <div className="space-y-4">
+      {events.map((event) => (
+        <div key={`${event.source}:${event.id}`} className="border-l-2 pl-4">
+          <h3 className="font-semibold">{event.title}</h3>
+
+          {event.description && <p>{event.description}</p>}
+
+          <p className="text-sm text-gray-500">
+            {new Date(event.timestamp).toLocaleString()}
+          </p>
+
+          {event.transactionHash && (
+            <p className="text-xs break-all">
+              Transaction: {event.transactionHash}
+            </p>
+          )}
+
+          <span className="text-xs">
+            Source: {event.source}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
+   7. LIQUIDITY CHART COMPONENT
+========================================================= */
+
+export function LiquidityChart({
+  marketId,
+}: {
+  marketId: string;
+}) {
+  const [records, setRecords] = useState<LiquidityRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadLiquidity() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getLiquidityRecords(marketId);
+
+        if (active) setRecords(data);
+      } catch {
+        if (active) setError("Liquidity data unavailable.");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadLiquidity();
+
+    return () => {
+      active = false;
+    };
+  }, [marketId]);
+
+  if (loading) return <p>Loading liquidity...</p>;
+  if (error) return <p>{error}</p>;
+  if (!records.length) return <p>No liquidity records available.</p>;
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold">Market Liquidity</h3>
+
+      <p className="text-sm text-gray-500">
+        Token quantity and USD value · Historical records
+      </p>
+
+      {records.map((record, index) => (
+        <div
+          key={`${record.timestamp}-${index}`}
+          className="border-b pb-3"
+        >
+          <p className="text-sm text-gray-500">
+            {new Date(record.timestamp).toLocaleString()}
+          </p>
+
+          <p>
+            Token amount: {record.tokenAmount.toLocaleString()}
+          </p>
+
+          <p>
+            USD value: ${record.usdValue.toLocaleString()}
+          </p>
+
+          {record.bidDepth !== undefined && (
+            <p>Bid depth: {record.bidDepth.toLocaleString()}</p>
+          )}
+
+          {record.askDepth !== undefined && (
+            <p>Ask depth: {record.askDepth.toLocaleString()}</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
+   8. LIQUIDITY DISPLAY COMPONENT
+========================================================= */
+
+export function LiquidityDisplay({
+  marketId,
+}: {
+  marketId: string;
+}) {
+  const [liquidity, setLiquidity] = useState<LiquidityRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadLiquidity() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getLiquidityRecords(marketId);
+
+        if (active) {
+          setLiquidity(
+            [...data].sort(
+              (a, b) =>
+                Date.parse(b.timestamp) - Date.parse(a.timestamp)
+            )
+          );
+        }
+      } catch {
+        if (active) {
+          setError("Unable to retrieve market liquidity.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadLiquidity();
+
+    return () => {
+      active = false;
+    };
+  }, [marketId]);
+
+  if (loading) return <p>Loading liquidity activity...</p>;
+  if (error) return <p>{error}</p>;
+
+  if (!liquidity.length) {
+    return <p>No liquidity activity recorded.</p>;
+  }
+
+  const latest = liquidity[0];
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <p className="text-sm text-gray-500">
+          Latest token amount
+        </p>
+        <strong>
+          {latest.tokenAmount.toLocaleString()}
+        </strong>
+      </div>
+
+      <div>
+        <p className="text-sm text-gray-500">
+          Latest USD value
+        </p>
+        <strong>
+          ${latest.usdValue.toLocaleString()}
+        </strong>
+      </div>
+
+      <p className="col-span-2 text-xs text-gray-500">
+        Last updated: {new Date(latest.timestamp).toLocaleString()}
+      </p>
+    </div>
+  );
+}
+
+/* =========================================================
+   9. VOLUME STATS COMPONENT
+========================================================= */
+
+export function VolumeStats({
+  marketId,
+}: {
+  marketId: string;
+}) {
+  const [timeframe, setTimeframe] = useState<Timeframe>("24h");
+  const [fills, setFills] = useState<ConfirmedFill[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadVolume() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getConfirmedFills(marketId, timeframe);
+
+        if (active) setFills(data);
+      } catch {
+        if (active) {
+          setError("Trading volume data unavailable.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    loadVolume();
+
+    return () => {
+      active = false;
+    };
+  }, [marketId, timeframe]);
+
+  const totalVolume = fills.reduce(
+    (total, fill) => total + fill.quantity * fill.price,
+    0
+  );
+
+  if (loading) return <p>Loading trading volume...</p>;
+  if (error) return <p>{error}</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {(["24h", "7d", "30d", "90d"] as Timeframe[]).map(
+          (period) => (
+            <button
+              key={period}
+              onClick={() => setTimeframe(period)}
+              className={`rounded px-3 py-2 ${
+                timeframe === period
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-black"
+              }`}
+            >
+              {period}
+            </button>
+          )
+        )}
+      </div>
+
+      {fills.length === 0 ? (
+        <p>No confirmed trading activity for this period.</p>
+      ) : (
+        <div>
+          <h2 className="text-2xl font-bold">
+            $
+            {totalVolume.toLocaleString(undefined, {
+              maximumFractionDigits: 2,
+            })}
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            Confirmed trading volume (USD)
+          </p>
+
+          <p className="text-sm">
+            {fills.length} confirmed fills
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
