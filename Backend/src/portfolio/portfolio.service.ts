@@ -1,8 +1,11 @@
 import Big from 'big.js';
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { PositionsService } from '../positions/positions.service';
 import { CacheService } from '../cache/cache.service';
 import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
+import { StoredPortfolioSnapshot } from './portfolio-snapshot.schema';
 
 export interface PortfolioSnapshot {
   timestamp: Date;
@@ -13,11 +16,11 @@ export interface PortfolioSnapshot {
 
 @Injectable()
 export class PortfolioService {
-  private readonly history = new Map<string, PortfolioSnapshot[]>();
-
   constructor(
     private readonly positionsService: PositionsService,
     private readonly cache: CacheService,
+    @InjectModel('PortfolioSnapshot')
+    private readonly snapshotModel: Model<StoredPortfolioSnapshot>,
   ) {}
 
   async getPortfolio(userId: string) {
@@ -34,15 +37,29 @@ export class PortfolioService {
     await this.cache.del(CacheKeys.portfolio(userId));
   }
 
-  getHistory(userId: string): PortfolioSnapshot[] {
-    return this.history.get(userId) ?? [];
+  async getHistory(userId: string, limit = 100): Promise<PortfolioSnapshot[]> {
+    return this.snapshotModel
+      .find({ userId })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean<StoredPortfolioSnapshot[]>()
+      .exec();
   }
 
   async recordSnapshot(userId: string): Promise<void> {
     const { totalCost, totalPnl, totalPnlPct } = await this._calculate(userId);
-    const snapshots = this.history.get(userId) ?? [];
-    snapshots.push({ timestamp: new Date(), totalCost, totalPnl, totalPnlPct });
-    this.history.set(userId, snapshots);
+    await this.snapshotModel.create({
+      userId,
+      timestamp: new Date(),
+      totalCost,
+      totalPnl,
+      totalPnlPct,
+    });
+  }
+
+  /** Returns user IDs that have at least one position — used by the scheduler. */
+  async getActiveUserIds(): Promise<string[]> {
+    return this.positionsService.getUsersWithPositions();
   }
 
   private async _calculate(userId: string) {

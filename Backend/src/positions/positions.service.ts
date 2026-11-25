@@ -121,6 +121,9 @@ export class PositionsService {
   async getUsersForMarket(marketId: string): Promise<string[]> {
     return this.positions.distinct('userId', { marketId, shareUnits: { $ne: '0' } }).exec();
   }
+  async getUsersWithPositions(): Promise<string[]> {
+    return this.positions.distinct('userId').exec();
+  }
   private present(p: StoredPosition): Position {
     const shares = BigInt(p.shareUnits), cost = BigInt(p.costUnits);
     const value = shares * BigInt(p.priceUnits) / WAD;
