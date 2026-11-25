@@ -123,6 +123,13 @@ deployed ERC-20 collateral token. `LMSR` is a library linked into
 uses a buy-cost proxy for proceeds, so do not use that wrapper for production
 sells until the contract logic is corrected and tested.
 
+`MarketMaker` keeps outcome shares, LMSR quantities and `b` in WAD (1e18 shares
+redeem for one whole collateral token) and every collateral amount (subsidies,
+`getCostToBuy` / `getProceedsToSell` quotes, reserves, payouts) in the token's
+own base units, converted via `collateralScale = 10**(18 - decimals)`. Collateral
+with more than 18 decimals is rejected. Rounding always favours the market: buy
+costs and subsidies round up, sell proceeds and redemptions round down.
+
 The `PositionToken`/`MarketFactory` pair is a separate market-registry stack;
 it does not currently create or configure markets in the LMSR
 `MarketMaker`/`Trading` stack. Deploying both does not connect their state.
