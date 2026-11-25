@@ -7,6 +7,7 @@ import { Position } from './position.entity';
 import { StoredPosition, AppliedExecution } from './position.schema';
 import { OpenPositionDto, ClosePositionDto, ExecutionPositionDto } from './dto/position.dto';
 import { ExecutionVerifier } from './execution-verifier.service';
+import { CacheRefreshService } from '../cache/cache-refresh.service';
 
 const WAD = 10n ** 18n;
 /** Round half away from zero, only at the API boundary. */
@@ -25,13 +26,18 @@ export class PositionsService {
     @InjectModel('Position') private readonly positions: Model<StoredPosition>,
     @InjectModel('AppliedExecution') private readonly executions: Model<AppliedExecution>,
     private readonly verifier: ExecutionVerifier,
+    private readonly cacheRefresh: CacheRefreshService,
   ) {}
 
-  open(userId: string, dto: OpenPositionDto): Promise<Position> {
-    return this.apply(userId, dto, 'BUY');
+  async open(userId: string, dto: OpenPositionDto): Promise<Position> {
+    const result = await this.apply(userId, dto, 'BUY');
+    await this.cacheRefresh.refresh({ type: 'portfolio.position_changed', userId });
+    return result;
   }
-  close(userId: string, id: string, dto: ClosePositionDto): Promise<Position> {
-    return this.apply(userId, dto, 'SELL', id);
+  async close(userId: string, id: string, dto: ClosePositionDto): Promise<Position> {
+    const result = await this.apply(userId, dto, 'SELL', id);
+    await this.cacheRefresh.refresh({ type: 'portfolio.position_changed', userId });
+    return result;
   }
 
   private async apply(userId: string, dto: ExecutionPositionDto, action: string, id?: string): Promise<Position> {
@@ -107,6 +113,10 @@ export class PositionsService {
     const price = BigInt(new Big(String(yesPrice)).times('1000000000000000000').toFixed(0, Big.roundHalfUp));
     await this.positions.updateMany({ marketId, chainId, side: 'YES', shareUnits: { $ne: '0' } }, { priceUnits: price.toString() }).exec();
     await this.positions.updateMany({ marketId, chainId, side: 'NO', shareUnits: { $ne: '0' } }, { priceUnits: (WAD - price).toString() }).exec();
+    const userIds = await this.getUsersForMarket(marketId);
+    if (userIds.length) {
+      await this.cacheRefresh.refresh({ type: 'portfolio.valuation_updated', userIds });
+    }
   }
   async getUsersForMarket(marketId: string): Promise<string[]> {
     return this.positions.distinct('userId', { marketId, shareUnits: { $ne: '0' } }).exec();
