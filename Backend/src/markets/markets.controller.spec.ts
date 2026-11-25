@@ -16,6 +16,7 @@ describe('MarketsController', () => {
     };
     cache = {
       getOrSet: jest.fn((_key, loader) => loader()),
+      get: jest.fn().mockResolvedValue(null),
     };
     blockchain = {
       getDeployedContract: jest.fn(),

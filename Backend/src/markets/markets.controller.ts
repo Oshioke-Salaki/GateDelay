@@ -126,7 +126,7 @@ export class MarketsController {
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const pageIndex = Math.min(page, totalPages);
     const start = (pageIndex - 1) * limit;
-    const data = archived.slice(start, start + limit);
+    const data = sorted.slice(start, start + limit);
 
     return {
       success: true,

@@ -734,6 +734,20 @@ contract MarketMaker {
         return _marketMeta[marketId].factoryMarket;
     }
 
+    /// @notice Proceeds from selling `shares` of `outcome`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Proceeds from sell returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    function getProcedsFromSell(uint256 marketId, uint256 outcome, uint256 shares) external view returns (uint256) {
+        Market storage m = markets[marketId];
+        uint256[] memory qNew = _copyQuantities(m);
+        qNew[outcome] -= shares;
+        int256 c = LMSR.cost(m.quantities, qNew, m.b);
+        return c < 0 ? uint256(-c) : 0;
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     function _createMarket(CreateMarketParams memory params, string calldata description)
