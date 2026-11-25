@@ -123,6 +123,13 @@ deployed ERC-20 collateral token. `LMSR` is a library linked into
 uses a buy-cost proxy for proceeds, so do not use that wrapper for production
 sells until the contract logic is corrected and tested.
 
+`MarketMaker` keeps outcome shares, LMSR quantities and `b` in WAD (1e18 shares
+redeem for one whole collateral token) and every collateral amount (subsidies,
+`getCostToBuy` / `getProceedsToSell` quotes, reserves, payouts) in the token's
+own base units, converted via `collateralScale = 10**(18 - decimals)`. Collateral
+with more than 18 decimals is rejected. Rounding always favours the market: buy
+costs and subsidies round up, sell proceeds and redemptions round down.
+
 The `PositionToken`/`MarketFactory` pair is a separate market-registry stack;
 it does not currently create or configure markets in the LMSR
 `MarketMaker`/`Trading` stack. Deploying both does not connect their state.
@@ -136,6 +143,23 @@ the confirmed addresses from the broadcast record only after deployment.
 Dependencies are pulled from the repository's Foundry library remappings (`@openzeppelin/contracts`, `forge-std`, and `@prb/math`). When they are missing, `forge build` will prompt to install them; no additional contract behavior changes were required.
 
 Known blocker: the repository currently has unrelated Solidity parsing issues in other contracts/tests, so a full `forge build` is not a reliable signal for the `FeeHandler` path. For this Phase 1 stabilization work, the verified build path for `FeeHandler` is the targeted command above.
+
+### MarketMaker emergency trading halt
+
+`MarketMaker` has a contract-wide emergency halt on top of the per-market
+`setMarketPaused`:
+
+| | |
+|---|---|
+| Halt | `haltTrading()`: owner, or the `pauseGuardian` set with `setPauseGuardian(address)` |
+| Resume | `resumeTrading()`: owner only. A compromised guardian can delay trading but not unfreeze it |
+| Blocked while halted | `buy`, `buyFor`, `sell`, `sellFor`, `createMarket`, `createFactoryMarket` (revert `TradingIsHalted`) |
+| Still allowed | evidence approval/revocation, `resolve*`, `redeem`/`redeemFor`, `withdrawResidualReserve`, `fundMarket`, views |
+
+A halt freezes prices and exposure but never traps funds: markets still resolve
+on schedule and winners redeem from their isolated reserves. To recover, fix the
+cause, then call `resumeTrading()`; markets that should stay closed can be kept
+paused individually with `setMarketPaused`.
 
 ### RoleManager build and deploy notes
 

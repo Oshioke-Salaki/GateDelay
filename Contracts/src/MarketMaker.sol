@@ -121,11 +121,31 @@ contract MarketMaker {
 
     // ── State ─────────────────────────────────────────────────────────────────
 
-    IERC20 public immutable collateral;
+    ERC20Token public immutable collateral;
+
+    /// @notice WAD shares per collateral base unit: `10**(18 - collateral.decimals())`.
+    /// @dev Units: outcome shares, LMSR quantities, `b` and liabilities are WAD
+    ///      (1e18 shares redeem for one whole token). Reserves, subsidies, costs,
+    ///      proceeds and payouts are collateral base units. Conversions always
+    ///      round in the market's favour:
+    ///        - buy cost and required subsidy round up   (`_toCollateralUp`)
+    ///        - sell proceeds and redemption round down  (`_toCollateralDown`)
+    ///        - solvency checks compare the reserve with the liability rounded up.
+    ///      Since the reserve is an integer, `reserve >= liabilityWad / scale`
+    ///      implies `reserve >= ceil(...)`, so the conservative check never rejects
+    ///      a trade that the WAD-level LMSR invariant allows.
+    uint256 public immutable collateralScale;
+
     address public owner;
     address public marketFactory;
     address public defaultResolver;
     IEvidenceStorage public evidenceStorage;
+
+    /// @notice Maximum outcomes per market. Every buy/sell quote loops over all
+    ///         outcomes (one cold SLOAD + one `expWad` each, ~3.2k gas), so a
+    ///         trade on a 64-outcome market costs roughly 215k gas cold: well
+    ///         inside block limits even when routed through `PredictionMarket`.
+    uint256 public constant MAX_OUTCOMES = 64;
 
     uint256 public marketCount;
 
@@ -162,8 +182,16 @@ contract MarketMaker {
     /// @dev Originating MarketFactory that registered each factory-linked marketId
     mapping(uint256 => address) private _marketOriginFactory;
 
-    /// @dev Reentrancy guard state (1 = unlocked, 2 = locked)
-    uint256 private _locked = 1;
+    /// @dev Reentrancy guard state (1 = unlocked, 2 = locked). Packed with
+    ///      `tradingHalted` so the halt check on every trade reads a slot the
+    ///      reentrancy guard has already loaded.
+    uint8 private _locked = 1;
+
+    /// @notice Contract-wide emergency halt. See `haltTrading` for the policy.
+    bool public tradingHalted;
+
+    /// @notice Address allowed to halt (not resume) trading alongside the owner.
+    address public pauseGuardian;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -206,6 +234,9 @@ contract MarketMaker {
     event ApprovedWrapperUpdated(address indexed wrapper, bool approved);
     event MarketResolverUpdated(uint256 indexed marketId, address indexed oldResolver, address indexed newResolver);
     event MarketPauseUpdated(uint256 indexed marketId, bool paused);
+    event TradingHalted(address indexed by);
+    event TradingResumed(address indexed by);
+    event PauseGuardianUpdated(address indexed guardian);
 
     // ── Errors ────────────────────────────────────────────────────────────────
 
@@ -214,12 +245,14 @@ contract MarketMaker {
     error MarketAlreadyResolved();
     error MarketNotResolved();
     error MarketPaused();
+    error TradingIsHalted();
     error InvalidOutcome();
     error InsufficientShares();
     error ZeroAmount();
     error ZeroAddress();
     error InsufficientLiquidity();
     error InsufficientSubsidy(uint256 provided, uint256 required);
+    error TooManyOutcomes(uint256 provided, uint256 max);
     error InsufficientMarketReserve();
     error InvalidResolutionTime();
     error TradingClosed();
@@ -235,17 +268,26 @@ contract MarketMaker {
     error TransferFailed();
     error Reentrancy();
     error ReserveOverflow();
+    error UnsupportedCollateralDecimals(uint8 decimals);
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
     constructor(address _collateral) {
         if (_collateral == address(0)) revert ZeroAddress();
-        collateral = IERC20(_collateral);
+        collateral = ERC20Token(_collateral);
+        uint8 decimals = ERC20Token(_collateral).decimals();
+        if (decimals > 18) revert UnsupportedCollateralDecimals(decimals);
+        collateralScale = 10 ** (18 - uint256(decimals));
         owner = msg.sender;
     }
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
+        _;
+    }
+
+    modifier whenTradingNotHalted() {
+        if (tradingHalted) revert TradingIsHalted();
         _;
     }
 
@@ -333,11 +375,45 @@ contract MarketMaker {
         emit MarketPauseUpdated(marketId, paused);
     }
 
+    // ── Emergency trading controls ─────────────────────────────────────────────
+    //
+    // Policy while `tradingHalted` is true:
+    //   Blocked: buy, buyFor, sell, sellFor, createMarket, createFactoryMarket.
+    //   Allowed: evidence approval/revocation, resolve*, redeem/redeemFor,
+    //            withdrawResidualReserve, fundMarket and all views.
+    // So a halt freezes prices and exposure but never traps funds: markets can
+    // still be resolved on schedule and winners redeem from their isolated
+    // reserves. Recovery is owner-only `resumeTrading()`; the guardian can only
+    // halt, so a compromised guardian key can delay trading but not unfreeze it.
+    // Per-market pauses (`setMarketPaused`) are independent and still apply.
+
+    /// @notice Set (or clear with address(0)) the guardian allowed to halt trading.
+    function setPauseGuardian(address guardian) external onlyOwner {
+        pauseGuardian = guardian;
+        emit PauseGuardianUpdated(guardian);
+    }
+
+    /// @notice Halt trading and market creation on every market. Owner or guardian.
+    function haltTrading() external {
+        if (msg.sender != owner && (pauseGuardian == address(0) || msg.sender != pauseGuardian)) {
+            revert Unauthorized();
+        }
+        tradingHalted = true;
+        emit TradingHalted(msg.sender);
+    }
+
+    /// @notice Resume trading after an emergency halt. Owner only.
+    function resumeTrading() external onlyOwner {
+        tradingHalted = false;
+        emit TradingResumed(msg.sender);
+    }
+
     // ── Market lifecycle ──────────────────────────────────────────────────────
 
-    /// @notice Compute the minimum initial collateral subsidy required for LMSR solvency.
-    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) public pure returns (uint256) {
-        return LMSR.initialSubsidy(numOutcomes, b);
+    /// @notice Minimum initial subsidy, in collateral base units, for LMSR solvency
+    ///         of a market with `numOutcomes` outcomes and WAD liquidity `b`.
+    function requiredInitialSubsidy(uint256 numOutcomes, uint256 b) public view returns (uint256) {
+        return _toCollateralUp(LMSR.initialSubsidy(numOutcomes, b));
     }
 
     /// @notice Create a new funded, timed, resolver-gated LMSR market directly.
@@ -348,7 +424,7 @@ contract MarketMaker {
         uint256 resolutionTime,
         address resolver,
         uint256 initialSubsidy
-    ) external nonReentrant returns (uint256 marketId) {
+    ) external nonReentrant whenTradingNotHalted returns (uint256 marketId) {
         marketId = _createMarket(
             CreateMarketParams({
                 funder: msg.sender,
@@ -369,6 +445,7 @@ contract MarketMaker {
     function createFactoryMarket(FactoryMarketParams calldata params)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 marketId)
     {
         if (marketFactory == address(0) || msg.sender != marketFactory) revert Unauthorized();
@@ -416,7 +493,7 @@ contract MarketMaker {
     // ── Trading ───────────────────────────────────────────────────────────────
 
     /// @notice Buy `shares` of `outcome` in market `marketId`.
-    function buy(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant {
+    function buy(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant whenTradingNotHalted {
         _buy(marketId, msg.sender, msg.sender, outcome, shares, type(uint256).max);
     }
 
@@ -424,6 +501,7 @@ contract MarketMaker {
     function buyFor(uint256 marketId, address trader, uint256 outcome, uint256 shares, uint256 maxCost)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 costAmt)
     {
         if (marketId >= marketCount) revert InvalidMarket();
@@ -439,7 +517,7 @@ contract MarketMaker {
     }
 
     /// @notice Sell `shares` of `outcome` in market `marketId`.
-    function sell(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant {
+    function sell(uint256 marketId, uint256 outcome, uint256 shares) external nonReentrant whenTradingNotHalted {
         _sell(marketId, msg.sender, outcome, shares, 0);
     }
 
@@ -447,6 +525,7 @@ contract MarketMaker {
     function sellFor(uint256 marketId, address trader, uint256 outcome, uint256 shares, uint256 minProceeds)
         external
         nonReentrant
+        whenTradingNotHalted
         returns (uint256 proceeds)
     {
         if (marketId >= marketCount) revert InvalidMarket();
@@ -628,7 +707,7 @@ contract MarketMaker {
         uint256 expOutcomeNew = LMSR.expWad(((qOutcomeOld + shares) * LMSR.WAD) / b);
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
-        return cNew > cOld ? cNew - cOld : 0;
+        return cNew > cOld ? _toCollateralUp(cNew - cOld) : 0;
     }
 
     /// @notice Collateral proceeds returned for selling `shares` of `outcome` in market `marketId`.
@@ -660,7 +739,7 @@ contract MarketMaker {
         uint256 expOutcomeNew = qOutcomeNew == 0 ? LMSR.WAD : LMSR.expWad((qOutcomeNew * LMSR.WAD) / b);
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
-        return cOld > cNew ? cOld - cNew : 0;
+        return cOld > cNew ? _toCollateralDown(cOld - cNew) : 0;
     }
 
     /// @notice Return the current outcome quantities array for `marketId`.
@@ -711,7 +790,7 @@ contract MarketMaker {
     function isMarketSolvent(uint256 marketId) external view returns (bool) {
         if (marketId >= marketCount) revert InvalidMarket();
         MarketAccountingStorage storage acc = _accounting[marketId];
-        return acc.collateralReserve >= (acc.maxLiabilityPlusOne - 1);
+        return acc.collateralReserve >= _toCollateralUp(acc.maxLiabilityPlusOne - 1);
     }
 
     /// @notice Return approved evidence metadata for `(marketId, evidenceHash)`.
@@ -736,6 +815,20 @@ contract MarketMaker {
         return _marketMeta[marketId].factoryMarket;
     }
 
+    /// @notice Proceeds from selling `shares` of `outcome`.
+    /// @param marketId Identifier of the relevant market.
+    /// @param outcome Numeric outcome used by this operation.
+    /// @param shares Numeric shares used by this operation.
+    /// @return Proceeds from sell returned by the operation.
+    /// @dev Access: No caller-specific access restriction is imposed.
+    function getProcedsFromSell(uint256 marketId, uint256 outcome, uint256 shares) external view returns (uint256) {
+        Market storage m = markets[marketId];
+        uint256[] memory qNew = _copyQuantities(m);
+        qNew[outcome] -= shares;
+        int256 c = LMSR.cost(m.quantities, qNew, m.b);
+        return c < 0 ? uint256(-c) : 0;
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────────
 
     function _createMarket(CreateMarketParams memory params, string calldata description)
@@ -743,6 +836,7 @@ contract MarketMaker {
         returns (uint256 marketId)
     {
         require(params.numOutcomes >= 2, "MM: need >= 2 outcomes");
+        if (params.numOutcomes > MAX_OUTCOMES) revert TooManyOutcomes(params.numOutcomes, MAX_OUTCOMES);
         require(params.b > 0, "MM: b must be > 0");
         if (params.resolutionTime <= block.timestamp || params.resolutionTime > type(uint64).max) {
             revert InvalidResolutionTime();
@@ -820,7 +914,7 @@ contract MarketMaker {
             uint256 newReserve = currentReserve + costAmt;
             uint256 currentLiability = uint256(acc.maxLiabilityPlusOne) - 1;
             uint256 newMaxLiability = newOutcomeQty > currentLiability ? newOutcomeQty : currentLiability;
-            if (newReserve < newMaxLiability) revert InsufficientMarketReserve();
+            if (newReserve < _toCollateralUp(newMaxLiability)) revert InsufficientMarketReserve();
             if (newReserve > type(uint128).max || newMaxLiability >= type(uint128).max) revert ReserveOverflow();
 
             _pullCollateral(payer, costAmt);
@@ -858,7 +952,7 @@ contract MarketMaker {
         if (proceeds > currentReserve) revert InsufficientMarketReserve();
 
         uint256 newReserve = currentReserve - proceeds;
-        if (newReserve < newMaxLiability) revert InsufficientMarketReserve();
+        if (newReserve < _toCollateralUp(newMaxLiability)) revert InsufficientMarketReserve();
 
         m.quantities[outcome] -= shares;
         positions[trader][marketId][outcome] -= shares;
@@ -899,7 +993,7 @@ contract MarketMaker {
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
         require(cNew > cOld, "MM: non-positive cost");
-        costAmt = cNew - cOld;
+        costAmt = _toCollateralUp(cNew - cOld);
     }
 
     function _quoteSellProceedsAndMaxQty(Market storage m, uint256 outcome, uint256 shares)
@@ -932,7 +1026,7 @@ contract MarketMaker {
         uint256 cOld = LMSR.wadMul(b, LMSR.lnWad(sumExpOld));
         uint256 cNew = LMSR.wadMul(b, LMSR.lnWad(sumExpOld - expOutcomeOld + expOutcomeNew));
         require(cOld > cNew, "MM: non-negative proceeds");
-        proceeds = cOld - cNew;
+        proceeds = _toCollateralDown(cOld - cNew);
     }
 
     function _validateResolverAndTiming(uint256 marketId, uint256 winningOutcome) internal view {
@@ -958,7 +1052,7 @@ contract MarketMaker {
         MarketAccountingStorage storage acc = _accounting[marketId];
 
         uint256 winningLiability = m.quantities[winningOutcome];
-        if (acc.collateralReserve < winningLiability) revert InsufficientMarketReserve();
+        if (acc.collateralReserve < _toCollateralUp(winningLiability)) revert InsufficientMarketReserve();
 
         m.resolved = true;
         m.winningOutcome = winningOutcome;
@@ -978,26 +1072,40 @@ contract MarketMaker {
         emit MarketResolvedWithEvidence(marketId, winningOutcome, msg.sender, evidenceHash, evidenceURI);
     }
 
-    function _redeem(uint256 marketId, address trader) internal returns (uint256 shares) {
+    /// @dev Pays `floor(shares / collateralScale)` base units. Shares below one base
+    ///      unit pay 0 but are still burned, so dust can't block residual withdrawal.
+    function _redeem(uint256 marketId, address trader) internal returns (uint256 payout) {
         if (marketId >= marketCount) revert InvalidMarket();
         Market storage m = markets[marketId];
         if (!m.resolved) revert MarketNotResolved();
 
-        shares = positions[trader][marketId][m.winningOutcome];
+        uint256 shares = positions[trader][marketId][m.winningOutcome];
         if (shares == 0) revert ZeroAmount();
 
         MarketAccountingStorage storage acc = _accounting[marketId];
         uint256 remainingLiability = acc.maxLiabilityPlusOne - 1;
-        if (shares > acc.collateralReserve || shares > remainingLiability) revert InsufficientMarketReserve();
+        payout = _toCollateralDown(shares);
+        if (payout > acc.collateralReserve || shares > remainingLiability) revert InsufficientMarketReserve();
 
         positions[trader][marketId][m.winningOutcome] = 0;
-        acc.collateralReserve = uint128(uint256(acc.collateralReserve) - shares);
-        acc.totalRedeemed += shares;
+        acc.collateralReserve = uint128(uint256(acc.collateralReserve) - payout);
+        acc.totalRedeemed += payout;
         acc.maxLiabilityPlusOne = uint128((remainingLiability - shares) + 1);
-        totalReservedCollateral -= shares;
+        totalReservedCollateral -= payout;
 
-        _pushCollateral(trader, shares);
-        emit Redeemed(marketId, trader, shares);
+        if (payout != 0) _pushCollateral(trader, payout);
+        emit Redeemed(marketId, trader, payout);
+    }
+
+    /// @dev WAD shares -> collateral base units, rounded up (amounts owed to the market).
+    function _toCollateralUp(uint256 wad) internal view returns (uint256) {
+        uint256 scale = collateralScale;
+        return scale == 1 ? wad : (wad + scale - 1) / scale;
+    }
+
+    /// @dev WAD shares -> collateral base units, rounded down (amounts paid by the market).
+    function _toCollateralDown(uint256 wad) internal view returns (uint256) {
+        return wad / collateralScale;
     }
 
     function _copyQuantities(Market storage m) internal view returns (uint256[] memory q) {

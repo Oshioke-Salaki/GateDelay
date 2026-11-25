@@ -12,6 +12,12 @@ import { CacheService } from '../cache/cache.service';
 import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
 import { BlockchainService } from '../blockchain/blockchain.service';
 import { MarketQuoteQueryDto } from './dto/market-quote.dto';
+import {
+  ARCHIVE_OUTCOMES,
+  ArchiveQueryDto,
+  DEFAULT_ARCHIVE_PAGE_SIZE,
+  MAX_ARCHIVE_PAGE_SIZE,
+} from './dto/archive-query.dto';
 import { MarketMakerQuoteService } from './market-maker-quote.service';
 import { MarketMakerMetricsService } from './market-maker-metrics.service';
 
@@ -61,27 +67,48 @@ export class MarketsController {
       'Returns resolved or cancelled markets in the archive format consumed by the frontend archive page.',
   })
   @ApiQuery({ name: 'category', required: false, type: String })
-  @ApiQuery({ name: 'outcome', required: false, type: String, enum: ['yes', 'no', 'cancelled'] })
-  @ApiQuery({ name: 'from', required: false, type: String })
-  @ApiQuery({ name: 'to', required: false, type: String })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({
+    name: 'outcome',
+    required: false,
+    type: String,
+    enum: [...ARCHIVE_OUTCOMES],
+  })
+  @ApiQuery({
+    name: 'from',
+    required: false,
+    type: String,
+    description: 'ISO 8601 date, inclusive',
+  })
+  @ApiQuery({
+    name: 'to',
+    required: false,
+    type: String,
+    description: 'ISO 8601 date, inclusive, not earlier than from',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: `1-${MAX_ARCHIVE_PAGE_SIZE}`,
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: '>= 1',
+  })
   @ApiResponse({ status: 200, description: 'Archived market list' })
-  async getArchive(@Query() query: Record<string, unknown> = {}) {
-    const category =
-      typeof query.category === 'string' ? query.category.trim().toLowerCase() : undefined;
-    const outcome =
-      typeof query.outcome === 'string'
-        ? normalizeArchiveOutcome(query.outcome)
-        : undefined;
-
-    const page = Math.max(1, Number(query.page ?? 1) || 1);
-    const limit = Math.min(500, Math.max(1, Number(query.limit ?? 50) || 50));
-
-    const fromMs =
-      typeof query.from === 'string' && query.from ? Date.parse(query.from) : undefined;
-    const toMs =
-      typeof query.to === 'string' && query.to ? Date.parse(query.to) : undefined;
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid pagination, outcome or date range',
+  })
+  async getArchive(@Query() query: ArchiveQueryDto = {}) {
+    // Values are validated and normalised by ArchiveQueryDto (#1357).
+    const { category, outcome } = query;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? DEFAULT_ARCHIVE_PAGE_SIZE;
+    const fromMs = query.from ? Date.parse(query.from) : undefined;
+    const toMs = query.to ? Date.parse(query.to) : undefined;
 
     const markets = await this.marketResolver.getAllMarkets();
     const archived = markets
@@ -126,7 +153,7 @@ export class MarketsController {
     const totalPages = Math.max(1, Math.ceil(total / limit));
     const pageIndex = Math.min(page, totalPages);
     const start = (pageIndex - 1) * limit;
-    const data = archived.slice(start, start + limit);
+    const data = sorted.slice(start, start + limit);
 
     return {
       success: true,

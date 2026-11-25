@@ -52,6 +52,10 @@ export const CacheKeys = {
   /** Owned by LiquidityService; both aggregate every market's stakes/status. */
   liquidityReport: 'liquidity:report',
   liquidityLpAnalytics: 'liquidity:lp-analytics',
+
+  /** Per-account portfolio summary. */
+  portfolioPrefix: 'portfolio:',
+  portfolio: (userId: string) => `portfolio:${userId}`,
 } as const;
 
 /** TTLs (ms) for the keys above. Short enough to cap staleness if an eviction is lost. */
@@ -61,6 +65,7 @@ export const CacheTtl = {
   categoryMarkets: 60_000,
   metadata: 5 * 60_000,
   metadataSearch: 60_000,
+  portfolio: 30_000,
 } as const;
 
 export type CacheRefreshEvent =
@@ -78,7 +83,11 @@ export type CacheRefreshEvent =
   /** A category was created, renamed, re-parented or deleted. */
   | { type: 'category.updated'; categoryId: string }
   /** Market metadata was created, versioned or deactivated. */
-  | { type: 'market.metadata_edited'; marketId: string };
+  | { type: 'market.metadata_edited'; marketId: string }
+  /** A confirmed trade or redemption changed a user's positions. */
+  | { type: 'portfolio.position_changed'; userId: string }
+  /** A market price update changed the mark-to-market value of positions. */
+  | { type: 'portfolio.valuation_updated'; userIds: string[] };
 
 export type CacheRefreshEventType = CacheRefreshEvent['type'];
 
@@ -142,6 +151,24 @@ export const CACHE_REFRESH_POLICY: {
         CacheKeys.metadataVersions(event.marketId),
       ],
       prefixes: [CacheKeys.metadataSearchPrefix],
+    }),
+  },
+  'portfolio.position_changed': {
+    description:
+      'A confirmed trade or redemption changed the account positions; ' +
+      'the cached portfolio summary for that user is now stale.',
+    plan: (event) => ({
+      keys: [CacheKeys.portfolio(event.userId)],
+      prefixes: [],
+    }),
+  },
+  'portfolio.valuation_updated': {
+    description:
+      'A market price update changed the mark-to-market value of one or more ' +
+      'accounts; their cached portfolio summaries are now stale.',
+    plan: (event) => ({
+      keys: event.userIds.map((uid) => CacheKeys.portfolio(uid)),
+      prefixes: [],
     }),
   },
 };

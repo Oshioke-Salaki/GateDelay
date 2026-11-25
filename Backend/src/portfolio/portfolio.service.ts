@@ -1,6 +1,11 @@
 import Big from 'big.js';
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import { PositionsService } from '../positions/positions.service';
+import { CacheService } from '../cache/cache.service';
+import { CacheKeys, CacheTtl } from '../cache/cache-refresh.policy';
+import { StoredPortfolioSnapshot } from './portfolio-snapshot.schema';
 
 export interface PortfolioSnapshot {
   timestamp: Date;
@@ -11,23 +16,50 @@ export interface PortfolioSnapshot {
 
 @Injectable()
 export class PortfolioService {
-  private readonly history = new Map<string, PortfolioSnapshot[]>();
-
-  constructor(private readonly positionsService: PositionsService) {}
+  constructor(
+    private readonly positionsService: PositionsService,
+    private readonly cache: CacheService,
+    @InjectModel('PortfolioSnapshot')
+    private readonly snapshotModel: Model<StoredPortfolioSnapshot>,
+  ) {}
 
   async getPortfolio(userId: string) {
-    return this._calculate(userId);
+    const key = CacheKeys.portfolio(userId);
+    const cached = await this.cache.get<ReturnType<typeof this._calculate>>(key);
+    if (cached !== null) return cached;
+    const result = await this._calculate(userId);
+    await this.cache.set(key, result, CacheTtl.portfolio);
+    return result;
   }
 
-  getHistory(userId: string): PortfolioSnapshot[] {
-    return this.history.get(userId) ?? [];
+  /** Evict the cached portfolio for a user after any position change. */
+  async invalidate(userId: string): Promise<void> {
+    await this.cache.del(CacheKeys.portfolio(userId));
+  }
+
+  async getHistory(userId: string, limit = 100): Promise<PortfolioSnapshot[]> {
+    return this.snapshotModel
+      .find({ userId })
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean<StoredPortfolioSnapshot[]>()
+      .exec();
   }
 
   async recordSnapshot(userId: string): Promise<void> {
     const { totalCost, totalPnl, totalPnlPct } = await this._calculate(userId);
-    const snapshots = this.history.get(userId) ?? [];
-    snapshots.push({ timestamp: new Date(), totalCost, totalPnl, totalPnlPct });
-    this.history.set(userId, snapshots);
+    await this.snapshotModel.create({
+      userId,
+      timestamp: new Date(),
+      totalCost,
+      totalPnl,
+      totalPnlPct,
+    });
+  }
+
+  /** Returns user IDs that have at least one position — used by the scheduler. */
+  async getActiveUserIds(): Promise<string[]> {
+    return this.positionsService.getUsersWithPositions();
   }
 
   private async _calculate(userId: string) {
