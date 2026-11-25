@@ -62,8 +62,8 @@ export default function GovernancePage() {
           </h1>
         </div>
         <p className="text-sm" style={{ color: "var(--muted)" }}>
-          Shape the future of GateDelay. Review active proposals, check your voting power,
-          and cast on-chain votes.
+          Review governance proposals and participate in on-chain voting when governance
+          contracts are configured.
         </p>
 
         {/* Info banner */}
@@ -77,9 +77,9 @@ export default function GovernancePage() {
         >
           <Info size={14} className="mt-0.5 shrink-0" style={{ color: "#667eea" }} />
           <span>
-            Voting power is determined by your governance token balance plus any delegated
-            tokens. Connect your wallet to participate. Votes are cast directly on the Mantle
-            network.
+            When governance contracts are configured, voting power is determined by your
+            governance token balance plus any delegated tokens. Connect your wallet to
+            participate; votes are cast directly on the Mantle network.
           </span>
         </div>
       </motion.div>

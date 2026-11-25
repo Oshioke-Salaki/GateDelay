@@ -161,17 +161,19 @@ const ERC20_BALANCE_ABI = [
 
 // ── Contract Addresses (from env) ──────────────────────────────────────────────
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 const VOTING_CONTRACT_ADDRESS =
-  (process.env.NEXT_PUBLIC_VOTING_CONTRACT_ADDRESS as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
-
+  (process.env.NEXT_PUBLIC_VOTING_CONTRACT_ADDRESS as `0x${string}`) || ZERO_ADDRESS;
 const GOVERNANCE_CONTRACT_ADDRESS =
-  (process.env.NEXT_PUBLIC_GOVERNANCE_CONTRACT_ADDRESS as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
-
+  (process.env.NEXT_PUBLIC_GOVERNANCE_CONTRACT_ADDRESS as `0x${string}`) || ZERO_ADDRESS;
 const GOVERNANCE_TOKEN_ADDRESS =
-  (process.env.NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS as `0x${string}`) ??
-  "0x0000000000000000000000000000000000000000";
+  (process.env.NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS as `0x${string}`) || ZERO_ADDRESS;
+const GOVERNANCE_CONFIGURED = [
+  VOTING_CONTRACT_ADDRESS,
+  GOVERNANCE_CONTRACT_ADDRESS,
+  GOVERNANCE_TOKEN_ADDRESS,
+].every((address) => address !== ZERO_ADDRESS);
 
 // ── Vote choices (matching Solidity enum: NONE=0, FOR=1, AGAINST=2, ABSTAIN=3) ─
 
@@ -189,70 +191,6 @@ const PROPOSAL_STATE: Record<number, string> = {
   4: "Executed",
   5: "Cancelled",
 };
-
-// ── Mock data for when contracts are not deployed ─────────────────────────────
-
-const MOCK_PROPOSALS = [
-  {
-    id: 1n,
-    votingProposalId: 1n,
-    description: "Increase quorum threshold from 100 to 150 tokens",
-    state: 1,
-    createdAt: BigInt(Math.floor(Date.now() / 1000) - 86400),
-    executedAt: 0n,
-    forVotes: 1250n,
-    againstVotes: 340n,
-    abstainVotes: 80n,
-    endTime: BigInt(Math.floor(Date.now() / 1000) + 86400 * 3),
-    active: true,
-    proposer: "0xabcd1234abcd1234abcd1234abcd1234abcd1234" as `0x${string}`,
-  },
-  {
-    id: 2n,
-    votingProposalId: 2n,
-    description: "Add support for new prediction market category: Weather Events",
-    state: 1,
-    createdAt: BigInt(Math.floor(Date.now() / 1000) - 43200),
-    executedAt: 0n,
-    forVotes: 890n,
-    againstVotes: 1100n,
-    abstainVotes: 200n,
-    endTime: BigInt(Math.floor(Date.now() / 1000) + 86400 * 5),
-    active: true,
-    proposer: "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" as `0x${string}`,
-  },
-  {
-    id: 3n,
-    votingProposalId: 3n,
-    description: "Reduce protocol fee from 2% to 1.5% for market makers",
-    state: 4,
-    createdAt: BigInt(Math.floor(Date.now() / 1000) - 86400 * 10),
-    executedAt: BigInt(Math.floor(Date.now() / 1000) - 86400 * 2),
-    forVotes: 2000n,
-    againstVotes: 300n,
-    abstainVotes: 100n,
-    endTime: BigInt(Math.floor(Date.now() / 1000) - 86400 * 3),
-    active: false,
-    proposer: "0x1234abcd1234abcd1234abcd1234abcd1234abcd" as `0x${string}`,
-  },
-  {
-    id: 4n,
-    votingProposalId: 4n,
-    description: "Integrate Chainlink VRF for random dispute resolver selection",
-    state: 2,
-    createdAt: BigInt(Math.floor(Date.now() / 1000) - 86400 * 8),
-    executedAt: 0n,
-    forVotes: 400n,
-    againstVotes: 1800n,
-    abstainVotes: 50n,
-    endTime: BigInt(Math.floor(Date.now() / 1000) - 86400 * 1),
-    active: false,
-    proposer: "0xfeedcafe1234feedcafe1234feedcafe1234feed" as `0x${string}`,
-  },
-];
-
-const MOCK_QUORUM = 1000n;
-const MOCK_VOTING_POWER = 1250n;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -789,6 +727,7 @@ export default function GovernanceUI() {
     address: GOVERNANCE_CONTRACT_ADDRESS,
     abi: GOVERNANCE_ABI,
     functionName: "quorum",
+    query: { enabled: GOVERNANCE_CONFIGURED },
   });
 
   // Governance proposal count
@@ -796,6 +735,7 @@ export default function GovernanceUI() {
     address: GOVERNANCE_CONTRACT_ADDRESS,
     abi: GOVERNANCE_ABI,
     functionName: "proposalCount",
+    query: { enabled: GOVERNANCE_CONFIGURED },
   });
 
   // Voting power for current user
@@ -804,7 +744,7 @@ export default function GovernanceUI() {
     abi: VOTING_ABI,
     functionName: "getVotingPower",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: GOVERNANCE_CONFIGURED && !!address },
   });
 
   // Token balance for current user
@@ -813,7 +753,7 @@ export default function GovernanceUI() {
     abi: ERC20_BALANCE_ABI,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: GOVERNANCE_CONFIGURED && !!address },
   });
 
   // ── Write contract (cast vote) ──────────────────────────────────────────────
@@ -840,23 +780,10 @@ export default function GovernanceUI() {
 
   // ── Derived state ───────────────────────────────────────────────────────────
 
-  // Use mock data when contracts are at zero address (not deployed)
-  const useMock =
-    VOTING_CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000" ||
-    GOVERNANCE_CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000";
-
-  const quorum = useMock ? MOCK_QUORUM : (quorumData ?? 0n);
-  const votingPower = useMock
-    ? MOCK_VOTING_POWER
-    : (votingPowerData ?? 0n);
-  const tokenBalance = useMock
-    ? MOCK_VOTING_POWER
-    : (tokenBalanceData ?? 0n);
-
-  // For mock mode, build proposals list directly
-  const proposals: ProposalData[] = useMock
-    ? MOCK_PROPOSALS
-    : [];
+  const quorum = quorumData ?? 0n;
+  const votingPower = votingPowerData ?? 0n;
+  const tokenBalance = tokenBalanceData ?? 0n;
+  const proposals: ProposalData[] = [];
 
   const filteredProposals = useMemo(() => {
     if (filter === "active") return proposals.filter((p) => p.state === 1);
@@ -879,20 +806,6 @@ export default function GovernanceUI() {
         return;
       }
 
-      if (useMock) {
-        success(
-          "Vote recorded (demo)",
-          `Your ${
-            choice === VOTE_CHOICE.FOR
-              ? "For"
-              : choice === VOTE_CHOICE.AGAINST
-              ? "Against"
-              : "Abstain"
-          } vote has been registered in demo mode.`,
-        );
-        return;
-      }
-
       try {
         setVotingProposalId(selectedProposal.votingProposalId);
         writeContract({
@@ -910,7 +823,6 @@ export default function GovernanceUI() {
       selectedProposal,
       isConnected,
       votingPower,
-      useMock,
       writeContract,
       success,
       toastError,
@@ -924,38 +836,39 @@ export default function GovernanceUI() {
   const passedCount = proposals.filter((p) => p.state === 3 || p.state === 4).length;
   const defeatedCount = proposals.filter((p) => p.state === 2).length;
 
+  if (!GOVERNANCE_CONFIGURED) {
+    return (
+      <div
+        role="status"
+        className="rounded-2xl p-6 text-center"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+      >
+        <AlertCircle size={28} className="mx-auto mb-3" style={{ color: "var(--muted)" }} />
+        <p className="font-semibold" style={{ color: "var(--foreground)" }}>
+          Governance unavailable
+        </p>
+        <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+          Governance contracts are not configured. Live proposals and voting power cannot be
+          displayed until all three contract addresses are set:
+          {" "}
+          <code>NEXT_PUBLIC_VOTING_CONTRACT_ADDRESS</code>,{" "}
+          <code>NEXT_PUBLIC_GOVERNANCE_CONTRACT_ADDRESS</code>, and{" "}
+          <code>NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS</code>.
+        </p>
+      </div>
+    );
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
-      {/* Demo banner */}
-      {useMock && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
-          style={{
-            background: "rgba(102,126,234,0.08)",
-            border: "1px solid rgba(102,126,234,0.25)",
-            color: "#667eea",
-          }}
-        >
-          <AlertCircle size={14} />
-          <span>
-            <strong>Demo mode:</strong> Contract addresses not configured. Showing sample data.
-            Set <code>NEXT_PUBLIC_VOTING_CONTRACT_ADDRESS</code>,{" "}
-            <code>NEXT_PUBLIC_GOVERNANCE_CONTRACT_ADDRESS</code>, and{" "}
-            <code>NEXT_PUBLIC_GOVERNANCE_TOKEN_ADDRESS</code> to use live data.
-          </span>
-        </motion.div>
-      )}
-
       {/* Voting power card */}
       <VotingPowerCard
         address={address}
         votingPower={votingPower}
         tokenBalance={tokenBalance}
-        isConnected={isConnected || useMock}
+        isConnected={isConnected}
       />
 
       {/* Stats row */}
@@ -984,40 +897,38 @@ export default function GovernanceUI() {
       </div>
 
       {/* Voting eligibility notice */}
-      {!useMock && (
-        <div
-          className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
-          style={
-            !isConnected
-              ? { background: "rgba(107,114,128,0.08)", border: "1px solid rgba(107,114,128,0.2)", color: "var(--muted)" }
-              : votingPower === 0n
-              ? { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }
-              : { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }
-          }
-        >
-          {!isConnected ? (
-            <>
-              <Wallet size={14} />
-              <span>Connect your wallet to participate in governance voting.</span>
-            </>
-          ) : votingPower === 0n ? (
-            <>
-              <AlertCircle size={14} />
-              <span>
-                You have no voting power. Acquire governance tokens to vote on proposals.
-              </span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={14} />
-              <span>
-                You have <strong>{formatBigIntSimple(votingPower)}</strong> voting power.
-                Click any active proposal to cast your vote.
-              </span>
-            </>
-          )}
-        </div>
-      )}
+      <div
+        className="rounded-xl px-4 py-3 text-sm flex items-center gap-2"
+        style={
+          !isConnected
+            ? { background: "rgba(107,114,128,0.08)", border: "1px solid rgba(107,114,128,0.2)", color: "var(--muted)" }
+            : votingPower === 0n
+            ? { background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)", color: "#f59e0b" }
+            : { background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }
+        }
+      >
+        {!isConnected ? (
+          <>
+            <Wallet size={14} />
+            <span>Connect your wallet to participate in governance voting.</span>
+          </>
+        ) : votingPower === 0n ? (
+          <>
+            <AlertCircle size={14} />
+            <span>
+              You have no voting power. Acquire governance tokens to vote on proposals.
+            </span>
+          </>
+        ) : (
+          <>
+            <CheckCircle2 size={14} />
+            <span>
+              You have <strong>{formatBigIntSimple(votingPower)}</strong> voting power.
+              Click any active proposal to cast your vote.
+            </span>
+          </>
+        )}
+      </div>
 
       {/* Filter tabs */}
       <div
