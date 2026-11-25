@@ -73,6 +73,27 @@ contract MarketMakerTest is Test {
         mm.createMarket("bad", 1, B, resolutionTime, resolver, initialSubsidy);
     }
 
+    function testCreateMarketAllowsMaxOutcomesAndTrades() public {
+        uint256 n = mm.MAX_OUTCOMES();
+        uint256 sub = mm.requiredInitialSubsidy(n, B);
+        token.mint(address(this), sub);
+        token.approve(address(mm), sub);
+        uint256 mid = mm.createMarket("max outcomes", n, B, resolutionTime, resolver, sub);
+        assertEq(mm.getQuantities(mid).length, n);
+
+        vm.startPrank(alice);
+        token.approve(address(mm), type(uint256).max);
+        mm.buy(mid, n - 1, WAD);
+        mm.sell(mid, n - 1, WAD);
+        vm.stopPrank();
+    }
+
+    function testCreateMarketRejectsTooManyOutcomes() public {
+        uint256 n = mm.MAX_OUTCOMES() + 1;
+        vm.expectRevert(abi.encodeWithSelector(MarketMaker.TooManyOutcomes.selector, n, n - 1));
+        mm.createMarket("too many", n, B, resolutionTime, resolver, type(uint128).max);
+    }
+
     function testCreateMarketRequiresSufficientSubsidy() public {
         uint256 required = mm.requiredInitialSubsidy(2, B);
         token.approve(address(mm), required - 1);
