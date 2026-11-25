@@ -137,6 +137,23 @@ Dependencies are pulled from the repository's Foundry library remappings (`@open
 
 Known blocker: the repository currently has unrelated Solidity parsing issues in other contracts/tests, so a full `forge build` is not a reliable signal for the `FeeHandler` path. For this Phase 1 stabilization work, the verified build path for `FeeHandler` is the targeted command above.
 
+### MarketMaker emergency trading halt
+
+`MarketMaker` has a contract-wide emergency halt on top of the per-market
+`setMarketPaused`:
+
+| | |
+|---|---|
+| Halt | `haltTrading()`: owner, or the `pauseGuardian` set with `setPauseGuardian(address)` |
+| Resume | `resumeTrading()`: owner only. A compromised guardian can delay trading but not unfreeze it |
+| Blocked while halted | `buy`, `buyFor`, `sell`, `sellFor`, `createMarket`, `createFactoryMarket` (revert `TradingIsHalted`) |
+| Still allowed | evidence approval/revocation, `resolve*`, `redeem`/`redeemFor`, `withdrawResidualReserve`, `fundMarket`, views |
+
+A halt freezes prices and exposure but never traps funds: markets still resolve
+on schedule and winners redeem from their isolated reserves. To recover, fix the
+cause, then call `resumeTrading()`; markets that should stay closed can be kept
+paused individually with `setMarketPaused`.
+
 ### RoleManager build and deploy notes
 
 `src/RoleManager.sol` is registry-backed access control on top of OpenZeppelin
