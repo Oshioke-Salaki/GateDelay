@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./MarketMaker.sol";
-import "./ERC20Token.sol";
 
 /// @title Trading – high-level trade execution with fees + taker referrer rebates
 /// @notice Wraps MarketMaker with fee collection and a taker-based rebate on BUY only.
 ///         Sell-side fee/rebate is intentionally skipped to match current MarketMaker.sell() flow.
 contract Trading {
+    using SafeERC20 for IERC20;
+
     // ── State ─────────────────────────────────────────────────────────────────
     MarketMaker public immutable marketMaker;
-    ERC20Token  public immutable collateral;
+    IERC20      public immutable collateral;
     address     public owner;
 
     /// @notice Total fee in basis points (e.g. 30 = 0.3%)
@@ -120,7 +123,7 @@ contract Trading {
         if (total > maxCost) revert SlippageExceeded();
 
         // Pull total from trader.
-        collateral.transferFrom(msg.sender, address(this), total);
+        collateral.safeTransferFrom(msg.sender, address(this), total);
 
         uint256 rebate = _calcRebate(fee);
         address referrer = marketReferrer[msg.sender];
@@ -129,7 +132,7 @@ contract Trading {
         accumulatedCommission += commission;
 
         if (rebate > 0 && referrer != address(0)) {
-            collateral.transfer(referrer, rebate);
+            collateral.safeTransfer(referrer, rebate);
         } else {
             // No referrer set => rebate portion becomes commission.
             accumulatedCommission += rebate;
@@ -137,7 +140,7 @@ contract Trading {
         }
 
         // Execute trade with beneficiary set to actual trader
-        collateral.approve(address(marketMaker), rawCost);
+        collateral.forceApprove(address(marketMaker), rawCost);
         marketMaker.buyFor(marketId, msg.sender, outcome, shares, rawCost);
 
         emit TradeExecuted(msg.sender, marketId, outcome, true, shares, total, fee, rebate, referrer);
@@ -206,7 +209,7 @@ contract Trading {
         if (to == address(0)) revert InvalidRecipient();
         uint256 amount = accumulatedCommission;
         accumulatedCommission = 0;
-        collateral.transfer(to, amount);
+        collateral.safeTransfer(to, amount);
         emit FeesWithdrawn(to, amount);
     }
 
